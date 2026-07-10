@@ -1,0 +1,79 @@
+{
+  "meta": { "name": "ScadMill Dark", "kind": "dark", "version": 1 },
+  "chrome": {
+    "background": "#111318",
+    "surface": "#181b22",
+    "surfaceRaised": "#222630",
+    "border": "#687384",
+    "text": "#f5f7fa",
+    "textMuted": "#c0c7d1",
+    "textDisabled": "#8993a2",
+    "accent": "#2f72d6",
+    "accentText": "#ffffff",
+    "focusRing": "#74b7ff",
+    "hover": "#282d38",
+    "active": "#343b49",
+    "selection": "#284b73",
+    "statusBarBackground": "#090b0f",
+    "statusBarText": "#ffffff",
+    "badgeInfo": "#63b3ff",
+    "badgeWarning": "#ffd166",
+    "badgeError": "#ff6b76"
+  },
+  "editor": {
+    "background": "#0d0f14",
+    "text": "#f4f5f7",
+    "lineNumber": "#a6adba",
+    "activeLine": "#191d25",
+    "cursor": "#ffffff",
+    "selection": "#2b4d73",
+    "matchingBracket": "#79c1ff",
+    "squiggleError": "#ff6b76",
+    "squiggleWarning": "#ffd166",
+    "syntax": {
+      "keyword": "#83c3ff",
+      "builtin": "#70e0bd",
+      "userModule": "#d8a8ff",
+      "number": "#ffc078",
+      "string": "#a6dd7a",
+      "boolean": "#ff9db4",
+      "specialVariable": "#83d5ff",
+      "comment": "#9ba7b7",
+      "operator": "#f4f5f7",
+      "modifierChar": "#ff987f",
+      "punctuation": "#cbd0d7"
+    }
+  },
+  "viewer": {
+    "background": "#0a0e14",
+    "mesh": "#f2b84b",
+    "meshHighlight": "#ffdb8a",
+    "edges": "#f0f2f5",
+    "grid": "#7d8999",
+    "gridMajor": "#aab4c0",
+    "axisX": "#ff7480",
+    "axisY": "#62dc8c",
+    "axisZ": "#74a8ff",
+    "measurement": "#ffe06b",
+    "annotation": "#84dcff",
+    "clippingCap": "#ed8cff"
+  },
+  "console": {
+    "background": "#090b0f",
+    "text": "#f1f3f5",
+    "error": "#ff6b76",
+    "warning": "#ffd166",
+    "echo": "#70e0bd",
+    "trace": "#aeb6c2",
+    "info": "#74b7ff",
+    "runSeparator": "#7c8795",
+    "timestamp": "#a6adba"
+  },
+  "diff": {
+    "addedBackground": "#123521",
+    "addedText": "#d4f8dd",
+    "removedBackground": "#3f1820",
+    "removedText": "#ffd5da",
+    "hunkHeader": "#8ac6ff"
+  }
+}

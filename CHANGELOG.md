@@ -14,6 +14,12 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Tauri walking skeleton with a CodeMirror editor, real STL model viewer, and measured cube bounds.
 - Single command bus and typed document, render, and history stores prepared for all M0–M6 consumers.
 - Editor-only fallback when the native engine is absent or its version probe fails.
+- Complete Light, Dark, and High Contrast Appendix C token sets, checked by exact-schema and conservative WCAG AA contrast tests.
+- A strict custom-theme JSON parser with structured schema and color-validation diagnostics, forming the foundation for the settings import flow.
+
+### Changed
+
+- Strengthened the component color-literal CI gate across product source to catch CSS functions and fallbacks, gradients, numeric and named colors, SVG/canvas attributes, and Three.js color forms while ignoring comments, fragments, and token references.
 
 ### Known policy block
 

@@ -22,3 +22,24 @@ Numbered questions are appended here under §2.7. Only the affected work item is
 - **Question:** Is the configurable preview facet cap intended as a fixed global `-D $fn=<value>` override, or as a true maximum that preserves lower source values and also constrains `$fa`/`$fs`-driven tessellation?
 - **Evidence:** The M0 walking skeleton currently uses a disclosed preview-only `$fn=48` override. That can increase tessellation when a model intentionally sets a lower `$fn`, so it is not truthfully a cap in every model.
 - **Blocked:** Finalizing the M1 preview facet-cap algorithm. The quality-policy seam, preview/full separation, and all unrelated native-engine work continue.
+
+## Q-0004 — Open — 2026-07-09
+
+- **Section:** M1 C12 theming core; FR-12.4; M2 C9 settings
+- **Question:** Does M1 include the user-facing control for importing a custom theme JSON file, or only the schema validator and runtime registration service, with the visible import control arriving in the M2 settings surface?
+- **Evidence:** The milestone table puts theming core in M1 and the settings capability in M2; FR-12.4 requires themes to be loadable from settings without pinning which side owns the initial control.
+- **Blocked:** Only the visible custom-theme import control. M1 theme schema validation, registration, shipped themes, OS/manual selection, and runtime switching continue.
+
+## Q-0005 — Open — 2026-07-09
+
+- **Section:** FR-12.5; AC-12.c; Appendix C
+- **Question:** Which exact foreground/background token pairs and large-text classifications are normative for the automated WCAG AA contrast oracle?
+- **Evidence:** Appendix C defines the tokens, while FR-12.5 requires automated contrast checks but does not define a pairing matrix. The implementation will use a conservative, ledgered matrix of normal text at 4.5:1 and UI/focus boundaries at 3:1 unless amended.
+- **Blocked:** Only declaring the owner-selected contrast pair matrix final. The explicit conservative matrix, contrast utility, and shipped-theme checks continue.
+
+## Q-0006 — Open — 2026-07-10
+
+- **Section:** Appendix C color values; FR-12.4; FR-12.5
+- **Question:** Must user-defined themes accept the entire browser CSS color grammar, including alpha and wide-gamut forms, with normalization and background compositing before contrast checks; or may custom theme tokens be restricted to opaque six-digit sRGB hex values?
+- **Evidence:** Appendix C currently says only "CSS colors." The shipped-theme contrast oracle uses exact sRGB luminance on opaque hex, while contrast for alpha, `color()`, and wide-gamut values depends on normalization, gamut mapping, and the composited background. Accepting those values structurally without defining that pipeline would make FR-12.5 nondeterministic across hosts.
+- **Blocked:** Final custom-theme color acceptance and contrast validation only. Exact schema parsing, shipped opaque themes, the conservative shipped-theme contrast gate, OS/manual selection, and runtime theme switching continue.

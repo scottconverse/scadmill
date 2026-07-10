@@ -1,0 +1,79 @@
+{
+  "meta": { "name": "ScadMill High Contrast", "kind": "high-contrast", "version": 1 },
+  "chrome": {
+    "background": "#000000",
+    "surface": "#000000",
+    "surfaceRaised": "#151515",
+    "border": "#ffffff",
+    "text": "#ffffff",
+    "textMuted": "#f2f2f2",
+    "textDisabled": "#d1d1d1",
+    "accent": "#ffff00",
+    "accentText": "#000000",
+    "focusRing": "#00ffff",
+    "hover": "#202020",
+    "active": "#303030",
+    "selection": "#003b66",
+    "statusBarBackground": "#000000",
+    "statusBarText": "#ffffff",
+    "badgeInfo": "#00ffff",
+    "badgeWarning": "#ffff00",
+    "badgeError": "#ff4770"
+  },
+  "editor": {
+    "background": "#000000",
+    "text": "#ffffff",
+    "lineNumber": "#d8d8d8",
+    "activeLine": "#1a1a1a",
+    "cursor": "#ffff00",
+    "selection": "#004b80",
+    "matchingBracket": "#00ffff",
+    "squiggleError": "#ff4770",
+    "squiggleWarning": "#ffff00",
+    "syntax": {
+      "keyword": "#53c8ff",
+      "builtin": "#5cffb0",
+      "userModule": "#e4a1ff",
+      "number": "#ffbf69",
+      "string": "#b9f26b",
+      "boolean": "#ff8fb3",
+      "specialVariable": "#67e8ff",
+      "comment": "#cccccc",
+      "operator": "#ffffff",
+      "modifierChar": "#ff9b7a",
+      "punctuation": "#f2f2f2"
+    }
+  },
+  "viewer": {
+    "background": "#000000",
+    "mesh": "#ffff00",
+    "meshHighlight": "#ffffff",
+    "edges": "#ffffff",
+    "grid": "#bfbfbf",
+    "gridMajor": "#ffffff",
+    "axisX": "#ff4770",
+    "axisY": "#5cff8a",
+    "axisZ": "#53c8ff",
+    "measurement": "#ffff00",
+    "annotation": "#00ffff",
+    "clippingCap": "#ff8cff"
+  },
+  "console": {
+    "background": "#000000",
+    "text": "#ffffff",
+    "error": "#ff4770",
+    "warning": "#ffff00",
+    "echo": "#5cffb0",
+    "trace": "#d8d8d8",
+    "info": "#53c8ff",
+    "runSeparator": "#ffffff",
+    "timestamp": "#d8d8d8"
+  },
+  "diff": {
+    "addedBackground": "#003d1d",
+    "addedText": "#ffffff",
+    "removedBackground": "#510015",
+    "removedText": "#ffffff",
+    "hunkHeader": "#00ffff"
+  }
+}

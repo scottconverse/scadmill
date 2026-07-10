@@ -1,0 +1,79 @@
+{
+  "meta": { "name": "ScadMill Light", "kind": "light", "version": 1 },
+  "chrome": {
+    "background": "#f4f6f8",
+    "surface": "#ffffff",
+    "surfaceRaised": "#e8edf2",
+    "border": "#687386",
+    "text": "#161a20",
+    "textMuted": "#465163",
+    "textDisabled": "#5f6878",
+    "accent": "#175cb5",
+    "accentText": "#ffffff",
+    "focusRing": "#005fcc",
+    "hover": "#e5ebf1",
+    "active": "#d8e1ea",
+    "selection": "#c7def8",
+    "statusBarBackground": "#17324d",
+    "statusBarText": "#ffffff",
+    "badgeInfo": "#075ea8",
+    "badgeWarning": "#8a5200",
+    "badgeError": "#b42332"
+  },
+  "editor": {
+    "background": "#ffffff",
+    "text": "#161a20",
+    "lineNumber": "#5f6b7a",
+    "activeLine": "#eef3f8",
+    "cursor": "#000000",
+    "selection": "#c7def8",
+    "matchingBracket": "#005fc4",
+    "squiggleError": "#b42332",
+    "squiggleWarning": "#8a5200",
+    "syntax": {
+      "keyword": "#005cc5",
+      "builtin": "#006b54",
+      "userModule": "#7135a8",
+      "number": "#9a4d00",
+      "string": "#3d6f00",
+      "boolean": "#aa234f",
+      "specialVariable": "#006b84",
+      "comment": "#586575",
+      "operator": "#1d232b",
+      "modifierChar": "#b33a14",
+      "punctuation": "#44505f"
+    }
+  },
+  "viewer": {
+    "background": "#f7f9fc",
+    "mesh": "#8a4500",
+    "meshHighlight": "#673100",
+    "edges": "#18212c",
+    "grid": "#667386",
+    "gridMajor": "#3d4857",
+    "axisX": "#b42332",
+    "axisY": "#0b6b3a",
+    "axisZ": "#175cb5",
+    "measurement": "#6f5500",
+    "annotation": "#005f78",
+    "clippingCap": "#7a3698"
+  },
+  "console": {
+    "background": "#f8fafc",
+    "text": "#15191f",
+    "error": "#a61b2b",
+    "warning": "#795000",
+    "echo": "#08633e",
+    "trace": "#536172",
+    "info": "#075ea8",
+    "runSeparator": "#657184",
+    "timestamp": "#536172"
+  },
+  "diff": {
+    "addedBackground": "#d9f2df",
+    "addedText": "#14532d",
+    "removedBackground": "#f9dde1",
+    "removedText": "#7a1f2b",
+    "hunkHeader": "#174f86"
+  }
+}

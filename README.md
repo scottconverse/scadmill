@@ -31,6 +31,10 @@ For the M0 desktop shell, engine discovery checks `SCADMILL_OPENSCAD` and then `
 
 Every coherent change carries a machine-readable entry under `provenance/entries/`. See [`PROVENANCE.md`](PROVENANCE.md) and [`PRIVACY.md`](PRIVACY.md).
 
+## Contributing
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the clean-room rules, setup, and verification expectations.
+
 ## License
 
 No public reuse license has been selected yet. Until the owner makes the M3 licensing decision, all rights are reserved; see [`LICENSE`](LICENSE).
