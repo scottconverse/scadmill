@@ -3,6 +3,7 @@ import { styleTags, tags } from "@lezer/highlight";
 
 import { parser } from "./generated/openscad-parser";
 import { scadHighlightTags } from "./openscad-highlight-tags";
+import { openScadCompletionSource } from "./openscad-completion";
 
 const openScadParser = parser.configure({
   props: [
@@ -12,6 +13,7 @@ const openScadParser = parser.configure({
       "Builtin AssertKeyword EchoKeyword": tags.standard(tags.variableName),
       "ModuleDeclaration/Identifier FunctionDeclaration/Identifier ModuleCallStatement/Identifier FunctionCall/Identifier":
         scadHighlightTags.userModule,
+      "AssignmentStatement/Builtin Binding/Builtin": scadHighlightTags.userModule,
       Number: tags.number,
       "String Path": tags.string,
       Boolean: tags.bool,
@@ -29,6 +31,7 @@ const openScadParser = parser.configure({
 export const openScadLanguage = LRLanguage.define({
   parser: openScadParser,
   languageData: {
+    autocomplete: openScadCompletionSource,
     commentTokens: { line: "//", block: { open: "/*", close: "*/" } },
     closeBrackets: { brackets: ["(", "[", "{", '"'] },
   },

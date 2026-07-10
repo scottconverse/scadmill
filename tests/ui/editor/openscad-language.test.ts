@@ -116,6 +116,7 @@ different = 1 != 2;`;
 function sin(value) = value;
 module echo() {}
 function assert(value) = value;
+sin = 1;
 module cubeish() {}`;
     const tree = parseOpenScad(source);
     const tokens = classify(source);
@@ -125,6 +126,7 @@ module cubeish() {}`;
     expect(tokenAt(source, tokens, "sin").classes).toContain("user-module");
     expect(tokenAt(source, tokens, "echo").classes).toContain("user-module");
     expect(tokenAt(source, tokens, "assert").classes).toContain("user-module");
+    expect(tokenAt(source, tokens, "sin", 1).classes).toContain("user-module");
     expect(tokenAt(source, tokens, "cubeish").classes).toContain("user-module");
   });
 

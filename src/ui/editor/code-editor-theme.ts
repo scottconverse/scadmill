@@ -48,6 +48,23 @@ const editorTheme = EditorView.theme({
   ".cm-diagnostic-warning, .cm-lintRange-warning": {
     textDecorationColor: "var(--editor-squiggle-warning)",
   },
+  ".cm-tooltip": {
+    borderColor: "var(--chrome-border)",
+    backgroundColor: "var(--chrome-surface-raised)",
+    color: "var(--chrome-text)",
+  },
+  ".cm-tooltip-autocomplete > ul > li[aria-selected]": {
+    backgroundColor: "var(--chrome-active)",
+    color: "var(--chrome-text)",
+  },
+  ".cm-completionDetail": {
+    color: "var(--chrome-text-muted)",
+  },
+  ".cm-completionInfo": {
+    borderColor: "var(--chrome-border)",
+    backgroundColor: "var(--chrome-surface-raised)",
+    color: "var(--chrome-text)",
+  },
 });
 
 const highlightStyle = HighlightStyle.define([

@@ -26,6 +26,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Global C0 layout shortcuts and keyboard-operable separators routed through the shared command bus.
 - A pinned Playwright browser-acceptance lane in local scripts and CI for the normative 800 px responsive flow.
 - A fresh Lezer OpenSCAD grammar with context-sensitive modifier/operator highlighting, the version-labeled 2021.01 built-in corpus, and a generated-parser freshness gate.
+- Context-aware OpenSCAD completion for the version-labeled built-in corpus and lexically visible current-file declarations, including signature metadata, paraphrased help, special variables, user-over-built-in shadowing, and a provisional `cube` call skeleton.
 
 ### Changed
 

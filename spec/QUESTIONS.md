@@ -113,3 +113,10 @@ Numbered questions are appended here under §2.7. Only the affected work item is
 - **Question:** After an edit invalidates the last render, should inline diagnostics disappear immediately or remain visibly marked as stale until the next render completes?
 - **Evidence:** Keeping old locations unmarked can point at the wrong text, while clearing immediately removes potentially useful feedback. The specification requires inline diagnostics and staleness-aware renders but does not define this intermediate editor state.
 - **Blocked:** Only the post-edit diagnostic presentation policy. Diagnostic parsing, per-run identity, location mapping, and unrelated editor work continue.
+
+## Q-0017 — Open — 2026-07-10
+
+- **Section:** FR-1.3; AC-1.b
+- **Question:** Are parameter names and defaults in each completion entry the complete required "signature hint," or must ScadMill also show persistent call-site help that tracks the active argument after a call is inserted?
+- **Evidence:** FR-1.3 requires signature hints and AC-1.b requires the `cube` offer to carry its signature, both of which the completion list can satisfy. Neither requirement defines an active-parameter popup, overload selection, or behavior for named and out-of-order arguments after the list closes.
+- **Blocked:** Only the final persistent call-site-help behavior and its acceptance claim. Version-labeled completion metadata, completion-list signatures, provisional deterministic insertion, current-file symbol analysis, and unrelated editor work continue.

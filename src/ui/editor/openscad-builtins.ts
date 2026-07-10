@@ -74,7 +74,21 @@ export const OPENSCAD_BUILTIN_FUNCTIONS = [
   "version_num",
 ] as const;
 
-export const OPENSCAD_CONTEXTUAL_BUILTINS = ["assert", "assign"] as const;
+export const OPENSCAD_CONTEXTUAL_BUILTINS = ["assert", "assign", "let"] as const;
+
+export const OPENSCAD_SPECIAL_VARIABLES = [
+  "$children",
+  "$fa",
+  "$fn",
+  "$fs",
+  "$parent_modules",
+  "$preview",
+  "$t",
+  "$vpd",
+  "$vpf",
+  "$vpr",
+  "$vpt",
+] as const;
 
 export const OPENSCAD_BUILTIN_NAMES: ReadonlySet<string> = new Set([
   ...OPENSCAD_BUILTIN_MODULES,
