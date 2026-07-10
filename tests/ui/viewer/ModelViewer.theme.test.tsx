@@ -141,6 +141,12 @@ describe("ModelViewer theme", () => {
     vi.unstubAllGlobals();
   });
 
+  it("makes the viewport keyboard-focusable for scoped viewer commands", () => {
+    const view = render(<ModelViewer colors={darkColors} />);
+
+    expect(view.container.querySelector("canvas")).toHaveAttribute("tabindex", "0");
+  });
+
   it("hot-applies viewer colors without reconstructing Three resources", () => {
     const result = oneTriangleResult();
     const view = render(<ModelViewer result={result} colors={darkColors} />);

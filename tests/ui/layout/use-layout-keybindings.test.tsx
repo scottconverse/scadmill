@@ -3,6 +3,7 @@ import { renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { WorkspaceLayoutAction } from "../../../src/application/layout/workspace-layout";
+import { createKeybindingSettings } from "../../../src/application/commands/default-keybindings";
 import {
   mapLayoutKeybinding,
   useLayoutKeybindings,
@@ -137,6 +138,22 @@ describe("mapLayoutKeybinding", () => {
       ),
     ).toEqual({ kind: "toggle-panel", panel: "console" });
     expect(mapLayoutKeybinding(keyEvent({ key: "j" }), metaContext)).toBeNull();
+  });
+
+  it("maps an injected layout binding in the same focus scope", () => {
+    const keybindings = createKeybindingSettings({ toggleConsole: "Alt+Q" });
+    expect(mapLayoutKeybinding(keyEvent({
+      key: "q",
+      ctrlKey: false,
+      altKey: true,
+    }), { ...CONTROL_CONTEXT, keybindings })).toEqual({
+      kind: "toggle-panel",
+      panel: "console",
+    });
+    expect(mapLayoutKeybinding(keyEvent({ key: "j" }), {
+      ...CONTROL_CONTEXT,
+      keybindings,
+    })).toBeNull();
   });
 });
 

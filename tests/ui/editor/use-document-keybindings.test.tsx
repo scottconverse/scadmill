@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createDocumentWorkspace } from "../../../src/application/documents/document-workspace";
 import { useDocumentKeybindings } from "../../../src/ui/editor/use-document-keybindings";
+import { createKeybindingSettings } from "../../../src/application/commands/default-keybindings";
 
 const workspace = createDocumentWorkspace([
   { id: "document-main", path: "main.scad", source: "cube(10);" },
@@ -62,5 +63,21 @@ describe("useDocumentKeybindings", () => {
     expect(onActivate).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
     expect(onReopen).not.toHaveBeenCalled();
+  });
+
+  it("uses an injected close-tab binding", () => {
+    const onClose = vi.fn();
+    renderHook(() => useDocumentKeybindings({
+      workspace,
+      keybindings: createKeybindingSettings({ closeTab: "Alt+Q" }),
+      onActivate: vi.fn(),
+      onClose,
+      onReopen: vi.fn(),
+    }));
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "w", ctrlKey: true }));
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "q", altKey: true }));
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(onClose).toHaveBeenCalledWith("document-main");
   });
 });

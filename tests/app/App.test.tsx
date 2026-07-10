@@ -31,7 +31,28 @@ class FakeDarkModeQuery {
   }
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => { resolve = done; });
+  return { promise, resolve };
+}
+
 describe("App", () => {
+  it("shows only the checking state while the initial engine probe is pending", () => {
+    const probe = deferred<Awaited<ReturnType<EngineService["version"]>>>();
+    const engine: EngineService = {
+      render: vi.fn(),
+      export: vi.fn(),
+      version: vi.fn().mockReturnValue(probe.promise),
+      cancel: vi.fn(),
+    };
+
+    render(<App engine={engine} />);
+
+    expect(screen.getByText("Checking OpenSCAD…")).toBeVisible();
+    expect(screen.queryByText(messages.engineUnavailable)).not.toBeInTheDocument();
+  });
+
   it("probes and starts the native engine exactly once under StrictMode", async () => {
     const result: RenderFailure = {
       kind: "failure",
@@ -81,6 +102,169 @@ describe("App", () => {
     ).toBeDisabled();
     expect(engine.version).toHaveBeenCalledTimes(1);
     expect(engine.render).not.toHaveBeenCalled();
+  });
+
+  it("keeps CodeMirror editable and rendering disabled when the engine probe returns null", async () => {
+    const engine: EngineService = {
+      render: vi.fn(),
+      export: vi.fn(),
+      version: vi.fn().mockResolvedValue(null),
+      cancel: vi.fn(),
+    };
+    const view = render(<App engine={engine} />);
+    const app = within(view.container);
+
+    await waitFor(() => expect(app.queryByText("Checking OpenSCADâ€¦")).not.toBeInTheDocument());
+    expect(app.getAllByText(messages.engineUnavailable)).toHaveLength(2);
+    expect(app.getAllByText(
+      "OpenSCAD is unavailable. This temporary buffer remains editable, but it cannot be saved yet.",
+    )).toHaveLength(2);
+    expect(app.getByRole("button", { name: messages.renderPreview })).toBeDisabled();
+    expect(app.getByRole("button", { name: messages.renderFull })).toBeDisabled();
+
+    const content = await waitFor(() => {
+      const node = view.container.querySelector<HTMLElement>(".cm-content");
+      if (!node) throw new Error("CodeMirror did not mount.");
+      return node;
+    });
+    const editor = EditorView.findFromDOM(content);
+    if (!editor) throw new Error("CodeMirror view could not be recovered.");
+    act(() => {
+      editor.dispatch({
+        changes: { from: 0, to: editor.state.doc.length, insert: "sphere(8);" },
+      });
+    });
+
+    expect(editor.state.doc.toString()).toBe("sphere(8);");
+    expect(
+      await app.findByRole("tab", { name: messages.documentTabUnsaved("main.scad") }),
+    ).toBeVisible();
+    await act(async () => {
+      await new Promise((resolve) => globalThis.setTimeout(resolve, 900));
+    });
+    expect(engine.version).toHaveBeenCalledTimes(1);
+    expect(engine.render).not.toHaveBeenCalled();
+  });
+
+  it("saves a configured engine path from the missing-engine fix-it and retries discovery", async () => {
+    const engine: EngineService = {
+      render: vi.fn().mockReturnValue({
+        jobId: "configured-render",
+        done: Promise.resolve<RenderFailure>({
+          kind: "failure",
+          reason: "engine-error",
+          diagnostics: [],
+          rawLog: "test",
+        }),
+      }),
+      export: vi.fn(),
+      version: vi.fn()
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ version: "2021.01", path: "native", features: [] }),
+      cancel: vi.fn(),
+    };
+    let configuredPath = "";
+    const configuration = {
+      load: vi.fn(() => configuredPath),
+      save: vi.fn((path: string) => { configuredPath = path; }),
+    };
+    const view = render(<App engine={engine} enginePathConfiguration={configuration} />);
+    const app = within(view.container);
+    const fix = await app.findByRole("button", { name: messages.fixEngine });
+
+    fireEvent.click(fix);
+    fireEvent.change(app.getByRole("textbox", { name: messages.engineExecutablePath }), {
+      target: { value: "C:\\OpenSCAD\\openscad.exe" },
+    });
+    fireEvent.click(app.getByRole("button", { name: messages.saveEnginePath }));
+
+    await waitFor(() => expect(engine.version).toHaveBeenCalledTimes(2));
+    expect(configuration.save).toHaveBeenCalledWith("C:\\OpenSCAD\\openscad.exe");
+    await waitFor(() => expect(engine.render).toHaveBeenCalledTimes(1));
+  });
+
+  it("distinguishes a rejected configured path and keeps it available for correction", async () => {
+    const configuredPath = "C:\\Missing\\openscad.exe";
+    const engine: EngineService = {
+      render: vi.fn(),
+      export: vi.fn(),
+      version: vi.fn().mockResolvedValue(null),
+      cancel: vi.fn(),
+    };
+    const configuration = {
+      load: vi.fn(() => configuredPath),
+      save: vi.fn(),
+    };
+
+    const view = render(<App engine={engine} enginePathConfiguration={configuration} />);
+    const app = within(view.container);
+
+    expect(await app.findByText(
+      "That OpenSCAD executable could not be used. Check the path and try again.",
+    )).toBeVisible();
+    expect(app.getByText(`Rejected path: ${configuredPath}`)).toBeVisible();
+    expect(app.getByRole("textbox", { name: messages.engineExecutablePath })).toHaveValue(
+      configuredPath,
+    );
+    expect(app.queryByText(messages.engineUnavailable)).not.toBeInTheDocument();
+  });
+
+  it("preserves a corrected engine-path draft across an unrelated App rerender", async () => {
+    const configuredPath = "C:\\Missing\\openscad.exe";
+    const correctedPath = "C:\\OpenSCAD\\openscad.exe";
+    const engine: EngineService = {
+      render: vi.fn(),
+      export: vi.fn(),
+      version: vi.fn().mockResolvedValue(null),
+      cancel: vi.fn(),
+    };
+    const configuration = {
+      load: vi.fn(() => configuredPath),
+      save: vi.fn(),
+    };
+    const props = { engine, enginePathConfiguration: configuration };
+    const view = render(<App {...props} />);
+    const app = within(view.container);
+    const input = await app.findByRole("textbox", { name: messages.engineExecutablePath });
+
+    fireEvent.change(input, { target: { value: correctedPath } });
+    expect(input).toHaveValue(correctedPath);
+
+    view.rerender(<App {...props} />);
+
+    expect(input).toHaveValue(correctedPath);
+  });
+
+  it("shows retry progress and deduplicates configured-path submission", async () => {
+    const retry = deferred<Awaited<ReturnType<EngineService["version"]>>>();
+    const engine: EngineService = {
+      render: vi.fn(),
+      export: vi.fn(),
+      version: vi.fn().mockResolvedValueOnce(null).mockReturnValueOnce(retry.promise),
+      cancel: vi.fn(),
+    };
+    let configuredPath = "";
+    const configuration = {
+      load: vi.fn(() => configuredPath),
+      save: vi.fn((path: string) => { configuredPath = path; }),
+    };
+    const view = render(<App engine={engine} enginePathConfiguration={configuration} />);
+    const app = within(view.container);
+    fireEvent.click(await app.findByRole("button", { name: messages.fixEngine }));
+    fireEvent.change(app.getByRole("textbox", { name: messages.engineExecutablePath }), {
+      target: { value: "C:\\OpenSCAD\\openscad.exe" },
+    });
+
+    fireEvent.click(app.getByRole("button", { name: messages.saveEnginePath }));
+
+    expect(await app.findByRole("button", { name: "Checking…" })).toBeDisabled();
+    expect(app.queryByText(messages.engineUnavailable)).not.toBeInTheDocument();
+    expect(configuration.save).toHaveBeenCalledTimes(1);
+    expect(engine.version).toHaveBeenCalledTimes(2);
+    retry.resolve(null);
+    await waitFor(() => {
+      expect(app.queryByRole("button", { name: "Checking…" })).not.toBeInTheDocument();
+    });
   });
 
   it("follows OS theme changes until a manual override is selected, without remounting", async () => {

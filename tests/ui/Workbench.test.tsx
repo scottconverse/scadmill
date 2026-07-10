@@ -21,6 +21,66 @@ function oneTriangleStl(): Uint8Array {
 }
 
 describe("Workbench", () => {
+  it("exposes the default-on automatic render toggle", async () => {
+    const engine: EngineService = {
+      render: vi.fn(),
+      export: vi.fn(),
+      version: vi.fn(),
+      cancel: vi.fn(),
+    };
+    const runtime = createWorkbenchRuntime(engine, { makeId: () => "auto-toggle" });
+    const view = render(
+      <Workbench
+        runtime={runtime}
+        engineLabel="OpenSCAD 2021.01"
+        activeTheme={SHIPPED_THEMES[0]}
+        themePreference="system"
+        onThemePreferenceChange={vi.fn()}
+      />,
+    );
+    const toggle = within(view.container).getByRole("checkbox", { name: messages.autoRender });
+    expect(toggle).toBeChecked();
+
+    fireEvent.click(toggle);
+
+    await waitFor(() => expect(runtime.settings.getState().autoRender).toBe(false));
+    expect(toggle).not.toBeChecked();
+  });
+
+  it("routes editor shortcuts through the shared command bus", async () => {
+    const engine: EngineService = {
+      render: vi.fn(),
+      export: vi.fn(),
+      version: vi.fn(),
+      cancel: vi.fn(),
+    };
+    const runtime = createWorkbenchRuntime(engine, { makeId: () => "editor-shortcut" });
+    const view = render(
+      <Workbench
+        runtime={runtime}
+        engineLabel="OpenSCAD 2021.01"
+        activeTheme={SHIPPED_THEMES[0]}
+        themePreference="system"
+        onThemePreferenceChange={vi.fn()}
+      />,
+    );
+    const content = await waitFor(() => {
+      const node = view.container.querySelector<HTMLElement>(".cm-content");
+      if (!node) throw new Error("CodeMirror did not mount.");
+      return node;
+    });
+
+    fireEvent.keyDown(content, { key: "/", ctrlKey: true });
+
+    await waitFor(() => expect(runtime.history.getState()).toContainEqual(
+      expect.objectContaining({
+        commandId: "editor-shortcut",
+        kind: "editor-command",
+        summary: "Editor command: toggle-comment",
+      }),
+    ));
+  });
+
   it("switches document tabs without dirtying them and targets the first real editor change", async () => {
     const engine: EngineService = {
       render: vi.fn(),
@@ -304,7 +364,9 @@ describe("Workbench", () => {
     expect(await workbench.findByText("Rendered main.scad (3d)")).toBeVisible();
     expect(workbench.queryByText(messages.previewQuality)).not.toBeInTheDocument();
     expect(workbench.queryByText("10 × 10 × 10 mm")).not.toBeInTheDocument();
-    expect(workbench.getByText(messages.noCurrentDiagnostics("parts/wheel.scad"))).toBeVisible();
+    expect(within(view.container.querySelector("footer") as HTMLElement).getByText(
+      messages.noCurrentDiagnosticsStatus("parts/wheel.scad"),
+    )).toBeVisible();
 
     fireEvent.click(workbench.getByRole("tab", { name: "main.scad" }));
     expect(await workbench.findByText(messages.previewQuality)).toBeVisible();
@@ -370,7 +432,9 @@ describe("Workbench", () => {
     expect(await workbench.findByText("Rendered main.scad (3d, stale)")).toBeVisible();
     expect(workbench.queryByText(messages.previewQuality)).not.toBeInTheDocument();
     expect(workbench.queryByText("10 × 10 × 10 mm")).not.toBeInTheDocument();
-    expect(workbench.getByText(messages.noCurrentDiagnostics("main.scad"))).toBeVisible();
+    expect(within(view.container.querySelector("footer") as HTMLElement).getByText(
+      messages.noCurrentDiagnosticsStatus("main.scad"),
+    )).toBeVisible();
     expect(view.container.querySelector(".cm-lintRange-error")).not.toBeInTheDocument();
   });
 
@@ -441,7 +505,7 @@ describe("Workbench", () => {
     const statusConsole = within(
       view.container.querySelector("footer") as HTMLElement,
     ).getByRole("button", {
-      name: messages.toggleConsoleStatus(messages.noCurrentDiagnosticsStatus("main.scad")),
+      name: messages.focusConsoleStatus(messages.noCurrentDiagnosticsStatus("main.scad")),
     });
     const collapseEditor = workbench.getByRole("button", { name: "Collapse editor" });
     collapseEditor.focus();
@@ -458,7 +522,10 @@ describe("Workbench", () => {
     fireEvent.click(
       statusConsole,
     );
-    await waitFor(() => expect(runtime.layout.getState().consoleOpen).toBe(false));
+    await waitFor(() => expect(runtime.layout.getState().consoleOpen).toBe(true));
+    await waitFor(() => expect(
+      workbench.getByRole("region", { name: messages.consoleRegion }),
+    ).toHaveFocus());
   });
 
   it("keeps honest diagnostics, cursor, and theme controls in the status bar", async () => {
@@ -538,13 +605,17 @@ describe("Workbench", () => {
     const status = within(view.container.querySelector("footer") as HTMLElement);
     expect(
       await status.findByRole("button", {
-        name: "Toggle console: 1 error, 1 warning",
+        name: "Focus console: 1 error, 1 warning",
       }),
     ).toBeVisible();
     const consoleRegion = within(view.container).getByRole("region", { name: "Console" });
     expect(consoleRegion).toBeVisible();
-    expect(within(consoleRegion).getByText("Parser error")).toBeVisible();
-    expect(within(consoleRegion).getByText("Deprecated form")).toBeVisible();
+    expect(within(consoleRegion).getByText("Parser error", {
+      selector: '[data-severity="error"]',
+    })).toBeVisible();
+    expect(within(consoleRegion).getByText("Deprecated form", {
+      selector: '[data-severity="warning"]',
+    })).toBeVisible();
     expect(within(consoleRegion).getByText(/raw compiler footer/u)).toBeVisible();
     expect(within(consoleRegion).queryByText("No diagnostics from this session.")).not.toBeInTheDocument();
   });

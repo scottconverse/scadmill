@@ -68,6 +68,7 @@ describe("createWorkbenchRuntime", () => {
       entryFile: "main.scad",
       files: new Map([["main.scad", "cube([10, 20, 30]);"]]),
       parameters: {},
+      previewFacetLimit: 48,
       quality: "preview",
       timeoutMs: 30_000,
     });
@@ -259,8 +260,16 @@ describe("createWorkbenchRuntime", () => {
     });
     const engine = successfulEngine();
     vi.mocked(engine.render)
-      .mockReturnValueOnce({ jobId: "render-main", done: completed })
-      .mockReturnValueOnce({ jobId: "render-wheel", done: second });
+      .mockReturnValueOnce({
+        jobId: "render-main",
+        subscribeOutput: () => () => undefined,
+        done: completed,
+      })
+      .mockReturnValueOnce({
+        jobId: "render-wheel",
+        subscribeOutput: () => () => undefined,
+        done: second,
+      });
     const runtime = createWorkbenchRuntime(engine, { makeId: () => "render-command" });
 
     await runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
@@ -359,16 +368,19 @@ describe("createWorkbenchRuntime", () => {
     vi.mocked(engine.render)
       .mockReturnValueOnce({
         jobId: "render-first",
+        subscribeOutput: () => () => undefined,
         done: new Promise<RenderSuccess3D>((resolve) => { resolveFirst = resolve; }),
       })
       .mockReturnValueOnce({
         jobId: "render-second",
+        subscribeOutput: () => () => undefined,
         done: new Promise<RenderSuccess3D>((resolve) => { resolveSecond = resolve; }),
       });
     const runtime = createWorkbenchRuntime(engine, { makeId: () => "render-command" });
 
     const first = runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
     const second = runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
+    expect(engine.cancel).toHaveBeenCalledWith("render-first");
     resolveFirst({ ...base, stats: { ...base.stats, triangles: 1 } });
     await first;
     expect(runtime.render.getState()).toMatchObject({ status: "rendering", jobId: "render-second" });
@@ -381,6 +393,210 @@ describe("createWorkbenchRuntime", () => {
       jobId: "render-second",
       result: { stats: { triangles: 2 } },
     });
+  });
+
+  it("routes an explicit cancel command to only the active native job", async () => {
+    let resolveRender!: (result: RenderFailure) => void;
+    const engine = successfulEngine();
+    vi.mocked(engine.render).mockReturnValue({
+      jobId: "render-cancelled",
+      subscribeOutput: () => () => undefined,
+      done: new Promise<RenderFailure>((resolve) => { resolveRender = resolve; }),
+    });
+    const runtime = createWorkbenchRuntime(engine, { makeId: () => "cancel-command" });
+    const pending = runtime.dispatch({
+      kind: "render-active",
+      origin: "user",
+      quality: "preview",
+    });
+
+    await runtime.dispatch({ kind: "cancel-render", origin: "user" });
+    expect(engine.cancel).toHaveBeenCalledTimes(1);
+    expect(engine.cancel).toHaveBeenCalledWith("render-cancelled");
+
+    resolveRender({
+      kind: "failure",
+      reason: "cancelled",
+      diagnostics: [],
+      rawLog: "cancelled",
+    });
+    await pending;
+    await runtime.dispatch({ kind: "cancel-render", origin: "user" });
+    expect(engine.cancel).toHaveBeenCalledTimes(1);
+  });
+
+  it("records editor command invocations on the shared command bus", async () => {
+    const runtime = createWorkbenchRuntime(successfulEngine(), {
+      makeId: () => "editor-command-id",
+    });
+
+    await runtime.dispatch({
+      kind: "editor-command",
+      origin: "user",
+      outcome: { command: "toggle-comment", status: "handled" },
+    });
+
+    expect(runtime.history.getState()).toContainEqual({
+      commandId: "editor-command-id",
+      timestamp: expect.any(String),
+      origin: "user",
+      kind: "editor-command",
+      summary: "Editor command: toggle-comment",
+      undoable: false,
+    });
+  });
+
+  it("debounces rapid edits into exactly one completed automatic preview", async () => {
+    vi.useFakeTimers();
+    try {
+      const engine = successfulEngine();
+      let completed = 0;
+      vi.mocked(engine.render).mockImplementation(() => ({
+        jobId: "auto-render",
+        subscribeOutput: () => () => undefined,
+        done: Promise.resolve<RenderFailure>({
+          kind: "failure",
+          reason: "engine-error",
+          diagnostics: [],
+          rawLog: "test",
+        }).then((result) => {
+          completed += 1;
+          return result;
+        }),
+      }));
+      const runtime = createWorkbenchRuntime(engine, { makeId: () => "auto-command" });
+      await runtime.dispatch({
+        kind: "engine-availability-changed",
+        origin: "system",
+        available: true,
+      });
+
+      await runtime.dispatch({
+        kind: "edit-document",
+        origin: "user",
+        documentId: "document-main",
+        source: "cube(11);",
+      });
+      await vi.advanceTimersByTimeAsync(400);
+      await runtime.dispatch({
+        kind: "edit-document",
+        origin: "user",
+        documentId: "document-main",
+        source: "cube(12);",
+      });
+      await vi.advanceTimersByTimeAsync(799);
+      expect(engine.render).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(1);
+      expect(engine.render).toHaveBeenCalledTimes(1);
+      expect(engine.render).toHaveBeenCalledWith(expect.objectContaining({
+        entryFile: "main.scad",
+        quality: "preview",
+        timeoutMs: 30_000,
+      }));
+      expect(completed).toBe(1);
+      runtime.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("can turn automatic rendering off and disposes a pending timer", async () => {
+    vi.useFakeTimers();
+    try {
+      const engine = successfulEngine();
+      const runtime = createWorkbenchRuntime(engine, { makeId: () => "auto-off-command" });
+      await runtime.dispatch({
+        kind: "engine-availability-changed",
+        origin: "system",
+        available: true,
+      });
+      await runtime.dispatch({ kind: "set-auto-render", origin: "user", enabled: false });
+      await runtime.dispatch({
+        kind: "edit-document",
+        origin: "user",
+        documentId: "document-main",
+        source: "cube(20);",
+      });
+      await vi.advanceTimersByTimeAsync(800);
+      expect(engine.render).not.toHaveBeenCalled();
+
+      await runtime.dispatch({ kind: "set-auto-render", origin: "user", enabled: true });
+      await runtime.dispatch({
+        kind: "edit-document",
+        origin: "user",
+        documentId: "document-main",
+        source: "cube(21);",
+      });
+      runtime.dispose();
+      await vi.advanceTimersByTimeAsync(800);
+      expect(engine.render).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("streams and finishes each engine run in a separate console record", async () => {
+    let emit!: (event: {
+      sequence: number;
+      elapsedMs: number;
+      stream: "stdout" | "stderr";
+      raw: string;
+    }) => void;
+    let resolve!: (result: RenderFailure) => void;
+    const engine: EngineService = {
+      render: vi.fn().mockReturnValue({
+        jobId: "streamed-run",
+        subscribeOutput(listener: typeof emit) {
+          emit = listener;
+          return vi.fn();
+        },
+        done: new Promise<RenderFailure>((done) => { resolve = done; }),
+      }),
+      export: vi.fn(),
+      version: vi.fn(),
+      cancel: vi.fn(),
+    };
+    const times = [100, 112];
+    const runtime = createWorkbenchRuntime(engine, {
+      makeId: () => "stream-command",
+      nowMs: () => times.shift() ?? 112,
+    });
+
+    const pending = runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
+    emit({ sequence: 0, elapsedMs: 3, stream: "stdout", raw: "ECHO: one\n" });
+    expect(runtime.console.getState()).toMatchObject({
+      retainedLineCount: 1,
+      runs: [{ jobId: "streamed-run", status: "running", lines: [{ raw: "ECHO: one\n" }] }],
+    });
+    resolve({
+      kind: "failure",
+      reason: "engine-error",
+      exitCode: 1,
+      diagnostics: [{ severity: "echo", message: "one" }],
+      rawLog: "ECHO: one\n",
+    });
+    await pending;
+
+    expect(runtime.console.getState().runs[0]).toMatchObject({
+      status: "engine-error",
+      durationMs: 12,
+      exitCode: 1,
+      diagnostics: [{ severity: "echo", message: "one" }],
+      lines: [{ raw: "ECHO: one\n" }],
+    });
+  });
+
+  it("clears console history without erasing the current render result", async () => {
+    const runtime = createWorkbenchRuntime(successfulEngine(), { makeId: () => "clear-command" });
+    await runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
+    expect(runtime.console.getState().runs).toHaveLength(1);
+    expect(runtime.render.getState().result).toBeDefined();
+
+    await runtime.dispatch({ kind: "clear-console", origin: "user" });
+
+    expect(runtime.console.getState().runs).toEqual([]);
+    expect(runtime.render.getState().result).toBeDefined();
   });
 
   it("does not auto-open an empty console for a current background-tab failure", async () => {
@@ -487,12 +703,22 @@ describe("createWorkbenchRuntime", () => {
       now: () => new Date("2026-07-10T06:30:00.000Z"),
     });
 
-    expect(runtime.settings.getState()).toEqual({ theme: "system" });
+    expect(runtime.settings.getState()).toMatchObject({
+      theme: "system",
+      autoRender: true,
+      engineAvailable: false,
+      renderDebounceMs: 800,
+      previewTimeoutMs: 30_000,
+      fullTimeoutMs: 600_000,
+      previewFacetLimit: 48,
+    });
+    expect(runtime.settings.getState().editor).toMatchObject({ fontSize: 14, tabWidth: 4 });
+    expect(runtime.settings.getState().keybindings.renderPreview).toBe("F5");
 
     await runtime.dispatch({ kind: "set-theme", origin: "user", theme: "high-contrast" });
     await runtime.dispatch({ kind: "set-theme", origin: "user", theme: "high-contrast" });
 
-    expect(runtime.settings.getState()).toEqual({ theme: "high-contrast" });
+    expect(runtime.settings.getState()).toMatchObject({ theme: "high-contrast" });
     expect(runtime.history.getState()).toEqual([
       {
         commandId: "theme-command",

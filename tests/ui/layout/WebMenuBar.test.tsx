@@ -12,24 +12,27 @@ describe("WebMenuBar", () => {
     const onRenderPreview = vi.fn();
     const onCloseDocument = vi.fn();
     const onReopenDocument = vi.fn();
+    const onEditorCommand = vi.fn();
     const view = render(
       <WebMenuBar
         layout={DEFAULT_WORKSPACE_LAYOUT}
         narrow={false}
         renderDisabled={false}
         onLayoutAction={onLayoutAction}
+        onRenderFull={vi.fn()}
         onRenderPreview={onRenderPreview}
         closeDocumentDisabled={false}
         reopenDocumentDisabled={false}
         onCloseDocument={onCloseDocument}
         onReopenDocument={onReopenDocument}
+        onEditorCommand={onEditorCommand}
       />,
     );
     const menu = within(view.container);
 
     expect(menu.getByRole("navigation", { name: "Application menu" })).toBeVisible();
     expect(menu.getByRole("button", { name: "File" })).toBeEnabled();
-    expect(menu.getByRole("button", { name: "Edit" })).toBeDisabled();
+    expect(menu.getByRole("button", { name: "Edit" })).toBeEnabled();
     expect(menu.getByRole("button", { name: "Help" })).toBeDisabled();
 
     const openFile = () => fireEvent.click(menu.getByText("File"));
@@ -45,6 +48,19 @@ describe("WebMenuBar", () => {
     openFile();
     fireEvent.click(menu.getByRole("button", { name: "Reopen closed tab" }));
     expect(onReopenDocument).toHaveBeenCalledTimes(1);
+
+    for (const [label, command] of [
+      ["Find", "find"],
+      ["Replace", "replace"],
+      ["Go to line", "go-to-line"],
+      ["Toggle comment", "toggle-comment"],
+      ["Undo", "undo"],
+      ["Redo", "redo"],
+    ] as const) {
+      fireEvent.click(menu.getByRole("button", { name: "Edit" }));
+      fireEvent.click(menu.getByRole("button", { name: label }));
+      expect(onEditorCommand).toHaveBeenLastCalledWith(command);
+    }
 
     const openView = () => fireEvent.click(menu.getByText("View"));
     openView();
@@ -68,6 +84,35 @@ describe("WebMenuBar", () => {
     expect(onRenderPreview).toHaveBeenCalledTimes(1);
   });
 
+  it("shows active editor bindings and supports arrow-key command traversal", async () => {
+    const onEditorCommand = vi.fn();
+    const view = render(
+      <WebMenuBar
+        keybindings={{ ...DEFAULT_KEYBINDINGS, find: "Alt+F", replace: "Alt+H" }}
+        layout={DEFAULT_WORKSPACE_LAYOUT}
+        narrow={false}
+        renderDisabled={false}
+        onEditorCommand={onEditorCommand}
+        onLayoutAction={vi.fn()}
+        onRenderFull={vi.fn()}
+        onRenderPreview={vi.fn()}
+      />,
+    );
+    const menu = within(view.container);
+    const edit = menu.getByRole("button", { name: "Edit" });
+
+    fireEvent.keyDown(edit, { key: "ArrowDown" });
+
+    const find = menu.getByRole("button", { name: "Find" });
+    const replace = menu.getByRole("button", { name: "Replace" });
+    await waitFor(() => expect(find).toHaveFocus());
+    expect(within(find).getByText("Alt+F")).toBeVisible();
+    fireEvent.keyDown(find, { key: "ArrowDown" });
+    await waitFor(() => expect(replace).toHaveFocus());
+    fireEvent.click(replace);
+    expect(onEditorCommand).toHaveBeenCalledWith("replace");
+  });
+
   it("routes narrow menu commands to visible overlays, sheets, and primary views", () => {
     const onLayoutAction = vi.fn();
     const view = render(
@@ -76,6 +121,7 @@ describe("WebMenuBar", () => {
         narrow={true}
         renderDisabled={true}
         onLayoutAction={onLayoutAction}
+        onRenderFull={vi.fn()}
         onRenderPreview={vi.fn()}
       />,
     );
@@ -108,6 +154,7 @@ describe("WebMenuBar", () => {
         narrow={false}
         renderDisabled={false}
         onLayoutAction={vi.fn()}
+        onRenderFull={vi.fn()}
         onRenderPreview={vi.fn()}
       />,
     );
@@ -149,6 +196,7 @@ describe("WebMenuBar", () => {
         narrow={false}
         renderDisabled={false}
         onLayoutAction={vi.fn()}
+        onRenderFull={vi.fn()}
         onRenderPreview={vi.fn()}
       />,
     );

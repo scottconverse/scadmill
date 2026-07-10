@@ -36,7 +36,7 @@ describe("NativeEngineService", () => {
 
     expect(job.jobId).toBe("job-1");
     await expect(job.done).resolves.toBe(success);
-    expect(nativeBridge.render).toHaveBeenCalledWith("job-1", request);
+    expect(nativeBridge.render).toHaveBeenCalledWith("job-1", request, expect.any(Function));
   });
 
   it("converts a rejected bridge call into the single render-failure path", async () => {
@@ -50,6 +50,31 @@ describe("NativeEngineService", () => {
       reason: "engine-error",
       diagnostics: [{ severity: "error", message: "subprocess unavailable" }],
       rawLog: "subprocess unavailable",
+    });
+  });
+
+  it("replays output emitted before a caller subscribes", async () => {
+    const nativeBridge = bridge(vi.fn().mockImplementation((_jobId, _request, onOutput) => {
+      onOutput({ sequence: 0, elapsedMs: 3, stream: "stderr", raw: "WARNING: early\n" });
+      return Promise.resolve({
+        kind: "failure",
+        reason: "engine-error",
+        diagnostics: [],
+        rawLog: "WARNING: early\n",
+      });
+    }));
+    const job = new NativeEngineService(nativeBridge, () => "job-stream").render(request);
+    const output = vi.fn();
+
+    const unsubscribe = job.subscribeOutput?.(output);
+    await job.done;
+    unsubscribe?.();
+
+    expect(output).toHaveBeenCalledWith({
+      sequence: 0,
+      elapsedMs: 3,
+      stream: "stderr",
+      raw: "WARNING: early\n",
     });
   });
 });

@@ -15,11 +15,19 @@ import { WorkspaceFrame } from "./layout/WorkspaceFrame";
 import { useLayoutKeybindings } from "./layout/use-layout-keybindings";
 import { useNarrowLayout } from "./layout/use-narrow-layout";
 import { useReadonlyStore } from "./use-readonly-store";
+import { diagnosticStatusLabel, renderStatusLabel } from "./workbench-status";
 import type { CodeEditorSession, CursorPosition } from "./editor/CodeEditor";
+import { useEditorCommandCoordinator } from "./editor/use-editor-command-coordinator";
 import { DocumentTabBar, documentTabId } from "./editor/DocumentTabBar";
 import { useDocumentKeybindings } from "./editor/use-document-keybindings";
 import { DiagnosticConsole } from "./diagnostics/DiagnosticConsole";
 import { useDiagnosticNavigation } from "./diagnostics/use-diagnostic-navigation";
+import {
+  EngineUnavailableBanner,
+  type EngineRecoveryState,
+} from "./engine/EngineUnavailableBanner";
+import { RenderControls } from "./render/RenderControls";
+import { useWorkbenchRenderCommands } from "./render/use-workbench-render-commands";
 import "./workbench.css";
 
 const CodeEditor = lazy(() => import("./editor/CodeEditor").then((module) => ({ default: module.CodeEditor })));
@@ -29,11 +37,14 @@ export interface WorkbenchProps {
   runtime: WorkbenchRuntime;
   engineLabel: string;
   engineAvailable?: boolean;
+  engineChecking?: boolean; engineRecovery?: EngineRecoveryState;
   activeTheme: ThemeTokens;
   themePreference: ThemePreference;
   showWebMenu?: boolean;
   forceNarrowLayout?: boolean;
   onThemePreferenceChange(preference: ThemePreference): void;
+  configuredEnginePath?: string;
+  onConfigureEnginePath?(path: string): void;
 }
 
 function boundsLabel(result?: RenderSuccess3D): string | null {
@@ -47,15 +58,23 @@ export function Workbench({
   runtime,
   engineLabel,
   engineAvailable = true,
+  engineChecking = false,
+  engineRecovery,
   activeTheme,
   themePreference,
   showWebMenu = true,
   forceNarrowLayout = false,
   onThemePreferenceChange,
+  configuredEnginePath = "",
+  onConfigureEnginePath,
 }: WorkbenchProps) {
   const documents = useReadonlyStore(runtime.documents, (state) => state);
   const document = activeDocument(documents);
   const render = useReadonlyStore(runtime.render, (state) => state);
+  const consoleState = useReadonlyStore(runtime.console, (state) => state);
+  const autoRender = useReadonlyStore(runtime.settings, (state) => state.autoRender);
+  const editorSettings = useReadonlyStore(runtime.settings, (state) => state.editor);
+  const keybindings = useReadonlyStore(runtime.settings, (state) => state.keybindings);
   const layout = useReadonlyStore(runtime.layout, (state) => state);
   const narrow = useNarrowLayout(undefined, forceNarrowLayout);
   const renderedDocument = documents.documents.find(({ id }) => id === render.documentId);
@@ -81,52 +100,27 @@ export function Workbench({
   });
   const result = activeRenderResult?.kind === "3d" ? activeRenderResult : undefined;
   const measuredBounds = boundsLabel(result);
+  const effectiveEngineRecovery: EngineRecoveryState | undefined = engineRecovery
+    ?? (!engineChecking ? { kind: "unavailable" } : undefined);
   const workbenchRoot = useRef<HTMLElement>(null);
   const editorSessions = useRef(new Map<string, CodeEditorSession>());
   const statusConsoleButton = useRef<HTMLButtonElement>(null);
   const [cursor, setCursor] = useState<CursorPosition>({ line: 1, column: 1 });
-  const diagnostics = activeRenderResult?.diagnostics;
-  const errorCount = diagnostics?.filter(({ severity }) => severity === "error").length ?? 0;
-  const warningCount = diagnostics?.filter(({ severity }) => severity === "warning").length ?? 0;
-  const diagnosticStatus = !activeRenderResult
-    ? messages.noCurrentDiagnosticsStatus(document.path)
-    : activeRenderResult.kind === "failure" && activeRenderResult.reason === "cancelled"
-      ? messages.renderCancelledStatus
-      : activeRenderResult.kind === "failure" && diagnostics?.length === 0
-        ? messages.renderFailedDiagnosticsUnavailable
-        : messages.diagnosticSummary(errorCount, warningCount);
-  const renderStatus = render.status === "idle"
-    ? messages.renderIdle
-    : render.status === "rendering"
-      ? messages.renderingDocument(render.entryFile ?? document.path)
-      : render.status === "success"
-        ? renderStale
-          ? messages.renderedDocumentStale(
-              render.entryFile ?? document.path,
-              render.result?.kind ?? "geometry",
-            )
-          : messages.renderedDocument(
-              render.entryFile ?? document.path,
-              render.result?.kind ?? "geometry",
-            )
-        : renderStale
-          ? messages.staleRenderFailedDocument(render.entryFile ?? document.path)
-          : messages.renderFailedDocument(render.entryFile ?? document.path);
+  const diagnosticStatus = diagnosticStatusLabel(activeRenderResult, document.path);
+  const renderStatus = renderStatusLabel(render, renderStale, document.path);
   const consoleVisible = narrow
     ? layout.narrowSheet === "console"
     : layout.consoleOpen && layout.maximized === null;
-  const consoleContent = !activeRenderResult
-    ? <p>{messages.noCurrentDiagnostics(document.path)}</p>
-    : (
-        <DiagnosticConsole
-          canNavigate={diagnosticNavigation.canNavigate}
-          diagnostics={diagnostics}
-          entryFile={render.entryFile}
-          emptyMessage={diagnosticStatus}
-          onNavigate={diagnosticNavigation.navigate}
-          rawLog={activeRenderResult.rawLog}
-        />
-      );
+  const consoleContent = (
+    <DiagnosticConsole
+      canNavigate={diagnosticNavigation.canNavigate}
+      emptyMessage={messages.noCurrentDiagnostics(document.path)}
+      navigableJobId={currentRenderResult ? render.jobId : undefined}
+      onClear={() => void runtime.dispatch({ kind: "clear-console", origin: "user" })}
+      onNavigate={diagnosticNavigation.navigate}
+      state={consoleState}
+    />
+  );
   const dispatchLayout = useCallback(
     (action: WorkspaceLayoutAction) => {
       const focusedElement = globalThis.document?.activeElement;
@@ -142,9 +136,23 @@ export function Workbench({
     },
     [runtime],
   );
-  const renderPreview = useCallback(() => {
-    void runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
-  }, [runtime]);
+  const editorCommands = useEditorCommandCoordinator(runtime, layout, narrow, dispatchLayout);
+  const { renderPreview, renderFull } = useWorkbenchRenderCommands(
+    runtime,
+    engineAvailable,
+    render.status,
+    keybindings,
+  );
+  const focusConsole = useCallback(() => {
+    if (!consoleVisible) {
+      dispatchLayout(narrow
+        ? { kind: "set-narrow-sheet", sheet: "console" }
+        : { kind: "toggle-panel", panel: "console" });
+    }
+    globalThis.setTimeout(() => {
+      workbenchRoot.current?.querySelector<HTMLElement>(".workspace-console")?.focus();
+    }, 0);
+  }, [consoleVisible, dispatchLayout, narrow]);
   const activateDocument = useCallback((documentId: string) => {
     const restoreTabFocus = Boolean(
       globalThis.document?.activeElement?.closest(".code-editor"),
@@ -177,9 +185,11 @@ export function Workbench({
     narrowDockOpen: layout.narrowDockOpen,
     narrowSheet: layout.narrowSheet,
     narrowView: layout.narrowView,
+    keybindings,
   });
   useDocumentKeybindings({
     workspace: documents,
+    keybindings,
     onActivate: activateDocument,
     onClose: closeDocument,
     onReopen: reopenDocument,
@@ -225,12 +235,16 @@ export function Workbench({
       >
         <Suspense fallback={<div className="surface-loading" role="status">{messages.loadingEditor}</div>}>
           <CodeEditor
+            commandRequest={editorCommands.request}
             diagnostics={diagnosticNavigation.editorDiagnostics}
+            editorSettings={editorSettings}
+            keybindings={keybindings}
             initialSession={initialEditorSession}
             key={document.id}
             value={document.source}
             label={messages.editorRegion}
             navigation={diagnosticNavigation.navigation}
+            onCommand={editorCommands.handleOutcome}
             onCursorChange={setCursor}
             onNavigationHandled={diagnosticNavigation.completeNavigation}
             onSessionChange={(session) => editorSessions.current.set(document.id, session)}
@@ -244,6 +258,15 @@ export function Workbench({
             }
           />
         </Suspense>
+        {editorCommands.notice && (
+          <p
+            className="editor-command-notice"
+            key={editorCommands.notice.sequence}
+            role="status"
+          >
+            {editorCommands.notice.message}
+          </p>
+        )}
       </div>
     </section>
   );
@@ -293,12 +316,15 @@ export function Workbench({
         <WebMenuBar
           closeDocumentDisabled={!canCloseDocument(documents, document.id)}
           layout={layout}
+          keybindings={keybindings}
           narrow={narrow}
           reopenDocumentDisabled={!canReopenDocument(documents)}
           renderDisabled={!engineAvailable || render.status === "rendering"}
           onCloseDocument={() => closeDocument(document.id)}
+          onEditorCommand={editorCommands.requestCommand}
           onLayoutAction={dispatchLayout}
           onReopenDocument={reopenDocument}
+          onRenderFull={renderFull}
           onRenderPreview={renderPreview}
         />
       )}
@@ -307,19 +333,27 @@ export function Workbench({
           <span className="brand-mark" aria-hidden="true">S</span>
           <h1>{messages.appName}</h1>
         </div>
-        <div className="titlebar-actions">
-          <button
-            className="render-button"
-            disabled={!engineAvailable || render.status === "rendering"}
-            onClick={renderPreview}
-            type="button"
-          >
-            {render.status === "rendering" ? messages.rendering : messages.renderPreview}
-          </button>
-        </div>
+        <RenderControls
+          autoRender={autoRender}
+          renderDisabled={!engineAvailable || render.status === "rendering"}
+          rendering={render.status === "rendering"}
+          onAutoRenderChange={(enabled) =>
+            void runtime.dispatch({ kind: "set-auto-render", origin: "user", enabled })}
+          onRenderFull={renderFull}
+          onRenderPreview={renderPreview}
+        />
       </header>
 
-      {!engineAvailable && <div className="engine-banner" role="status">{messages.engineUnavailable}</div>}
+      {!engineAvailable && onConfigureEnginePath && effectiveEngineRecovery && (
+        <EngineUnavailableBanner
+          configuredPath={configuredEnginePath}
+          state={effectiveEngineRecovery}
+          onSave={onConfigureEnginePath}
+        />
+      )}
+      {!engineAvailable && !engineChecking && !onConfigureEnginePath && (
+        <div className="engine-banner" role="status">{messages.engineUnavailable}</div>
+      )}
 
       <WorkspaceFrame
         layout={layout}
@@ -334,19 +368,10 @@ export function Workbench({
         <span className="status-engine">{engineLabel}</span>
         <span className="status-render">{renderStatus}</span>
         <button
-          aria-label={messages.toggleConsoleStatus(diagnosticStatus)}
+          aria-label={messages.focusConsoleStatus(diagnosticStatus)}
           aria-pressed={consoleVisible}
           className="status-chip status-diagnostics"
-          onClick={() =>
-            dispatchLayout(
-              narrow
-                ? {
-                    kind: "set-narrow-sheet",
-                    sheet: layout.narrowSheet === "console" ? null : "console",
-                  }
-                : { kind: "toggle-panel", panel: "console" },
-            )
-          }
+          onClick={focusConsole}
           ref={statusConsoleButton}
           type="button"
         >

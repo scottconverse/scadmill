@@ -1,14 +1,18 @@
 import { createStore, type StoreApi } from "zustand/vanilla";
 
 import {
+  createConsoleState,
+  reduceConsoleState,
+  type ConsoleState,
+} from "../diagnostics/console-state";
+import {
   activeDocument,
   createDocumentWorkspace,
   reduceDocumentWorkspace,
-  type DocumentSeed,
   type DocumentWorkspaceAction,
   type DocumentWorkspaceState,
 } from "../documents/document-workspace";
-import type { EngineService, Quality, RenderResult } from "../engine/contracts";
+import type { EngineService } from "../engine/contracts";
 import {
   parseWorkspaceLayout,
   reduceWorkspaceLayout,
@@ -16,69 +20,34 @@ import {
   type WorkspaceLayoutAction,
   type WorkspaceLayoutState,
 } from "../layout/workspace-layout";
-import type { ThemePreference } from "../theme/theme-runtime";
+import { createDeferredAction } from "./deferred-action";
+import { sameLayout } from "./same-layout";
+import {
+  createSettingsState,
+  type SettingsState,
+} from "./render-settings";
 import {
   EPHEMERAL_WORKSPACE_LAYOUT_PERSISTENCE,
-  type WorkspaceLayoutPersistence,
 } from "./layout-persistence";
+import type {
+  HistoryEntry,
+  ReadonlyStore,
+  RenderState,
+  RuntimeOptions,
+  WorkbenchCommand,
+  WorkbenchRuntime,
+} from "./workbench-runtime-contracts";
 
-export type CommandOrigin = "user" | "ai-panel" | "external-agent";
-
-export interface RenderState {
-  status: "idle" | "rendering" | "success" | "failure";
-  jobId?: string;
-  quality?: Quality;
-  documentId?: string;
-  entryFile?: string;
-  sourceRevision?: number;
-  sourceFiles?: ReadonlyMap<string, string>;
-  result?: RenderResult;
-}
-
-export interface SettingsState {
-  theme: ThemePreference;
-}
-
-export interface HistoryEntry {
-  commandId: string;
-  timestamp: string;
-  origin: CommandOrigin;
-  kind: WorkbenchCommand["kind"];
-  summary: string;
-  undoable: boolean;
-}
-
-export type WorkbenchCommand =
-  | { kind: "open-document"; origin: CommandOrigin; document: DocumentSeed }
-  | { kind: "activate-document"; origin: CommandOrigin; documentId: string }
-  | { kind: "edit-document"; origin: CommandOrigin; documentId: string; source: string }
-  | { kind: "move-document"; origin: CommandOrigin; documentId: string; toIndex: number }
-  | { kind: "close-document"; origin: CommandOrigin; documentId: string }
-  | { kind: "reopen-document"; origin: CommandOrigin }
-  | { kind: "set-theme"; origin: CommandOrigin; theme: ThemePreference }
-  | { kind: "update-layout"; origin: CommandOrigin; action: WorkspaceLayoutAction }
-  | { kind: "render-active"; origin: CommandOrigin; quality: Quality };
-
-export interface ReadonlyStore<T> {
-  getState(): T;
-  getInitialState(): T;
-  subscribe(listener: (state: T, previousState: T) => void): () => void;
-}
-
-export interface WorkbenchRuntime {
-  documents: ReadonlyStore<DocumentWorkspaceState>;
-  render: ReadonlyStore<RenderState>;
-  settings: ReadonlyStore<SettingsState>;
-  layout: ReadonlyStore<WorkspaceLayoutState>;
-  history: ReadonlyStore<readonly HistoryEntry[]>;
-  dispatch(command: WorkbenchCommand): Promise<void>;
-}
-
-export interface RuntimeOptions {
-  makeId?: () => string;
-  now?: () => Date;
-  layoutPersistence?: WorkspaceLayoutPersistence;
-}
+export type { SettingsState } from "./render-settings";
+export type {
+  CommandOrigin,
+  HistoryEntry,
+  ReadonlyStore,
+  RenderState,
+  RuntimeOptions,
+  WorkbenchCommand,
+  WorkbenchRuntime,
+} from "./workbench-runtime-contracts";
 
 function readonlyStore<T>(store: StoreApi<T>): ReadonlyStore<T> {
   return {
@@ -86,24 +55,6 @@ function readonlyStore<T>(store: StoreApi<T>): ReadonlyStore<T> {
     getInitialState: store.getInitialState,
     subscribe: store.subscribe,
   };
-}
-
-function sameLayout(left: WorkspaceLayoutState, right: WorkspaceLayoutState): boolean {
-  return left.activeRail === right.activeRail
-    && left.dockOpen === right.dockOpen
-    && left.editorOpen === right.editorOpen
-    && left.viewerOpen === right.viewerOpen
-    && left.parameterOpen === right.parameterOpen
-    && left.consoleOpen === right.consoleOpen
-    && left.dockWidth === right.dockWidth
-    && left.viewerWidth === right.viewerWidth
-    && left.parameterHeight === right.parameterHeight
-    && left.consoleHeight === right.consoleHeight
-    && left.maximized === right.maximized
-    && left.narrowView === right.narrowView
-    && left.narrowDockOpen === right.narrowDockOpen
-    && left.narrowSheet === right.narrowSheet
-    && left.consoleAutoOpenedForJobId === right.consoleAutoOpenedForJobId;
 }
 
 function summarizeLayoutAction(action: WorkspaceLayoutAction): string {
@@ -135,11 +86,35 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
   const layoutPersistence = options.layoutPersistence ?? EPHEMERAL_WORKSPACE_LAYOUT_PERSISTENCE;
   const documents = createStore<DocumentWorkspaceState>(() => createDocumentWorkspace());
   const render = createStore<RenderState>(() => ({ status: "idle" }));
-  const settings = createStore<SettingsState>(() => ({ theme: "system" }));
+  const settings = createStore<SettingsState>(() =>
+    createSettingsState(options.rendering, options.keybindings)
+  );
+  const runConsole = createStore<ConsoleState>(() => createConsoleState());
   const layout = createStore<WorkspaceLayoutState>(() => parseWorkspaceLayout(layoutPersistence.load()));
   const history = createStore<readonly HistoryEntry[]>(() => []);
   const makeId = options.makeId ?? (() => globalThis.crypto.randomUUID());
   const now = options.now ?? (() => new Date());
+  const nowMs = options.nowMs ?? (() => Date.now());
+  let disposed = false;
+  const autoRenderTimer = createDeferredAction(() => {
+    if (!disposed) {
+      void dispatch({ kind: "render-active", origin: "system", quality: "preview" });
+    }
+  });
+
+  function cancelActiveRender(): void {
+    const active = render.getState();
+    if (active.status === "rendering" && active.jobId) engine.cancel(active.jobId);
+  }
+
+  function scheduleAutoRender(): void {
+    const current = settings.getState();
+    if (disposed || !current.engineAvailable || !current.autoRender) {
+      autoRenderTimer.clear();
+      return;
+    }
+    autoRenderTimer.schedule(current.renderDebounceMs);
+  }
 
   function record(command: WorkbenchCommand, commandId: string, summary: string, undoable: boolean): void {
     history.setState(
@@ -229,6 +204,10 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
         summarizeDocumentCommand(command, before),
         command.kind === "edit-document",
       );
+      if (command.kind === "edit-document") {
+        cancelActiveRender();
+        scheduleAutoRender();
+      }
       return;
     }
 
@@ -245,6 +224,50 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       return;
     }
 
+    if (command.kind === "engine-availability-changed") {
+      settings.setState({ engineAvailable: command.available });
+      if (!command.available) {
+        autoRenderTimer.clear();
+        cancelActiveRender();
+      }
+      return;
+    }
+
+    if (command.kind === "set-auto-render") {
+      if (settings.getState().autoRender === command.enabled) return;
+      settings.setState({ autoRender: command.enabled });
+      if (!command.enabled) autoRenderTimer.clear();
+      record(
+        command,
+        makeId(),
+        command.enabled ? "Enable auto-render" : "Disable auto-render",
+        false,
+      );
+      return;
+    }
+
+    if (command.kind === "cancel-render") {
+      const active = render.getState();
+      if (active.status !== "rendering" || !active.jobId) return;
+      engine.cancel(active.jobId);
+      record(command, makeId(), `Cancel render ${active.entryFile ?? active.jobId}`, false);
+      return;
+    }
+
+    if (command.kind === "editor-command") {
+      const summary = command.outcome.status === "unavailable"
+        ? `Editor command unavailable: ${command.outcome.command}`
+        : `Editor command: ${command.outcome.command}`;
+      record(command, makeId(), summary, false);
+      return;
+    }
+
+    if (command.kind === "clear-console") {
+      runConsole.setState(reduceConsoleState(runConsole.getState(), { kind: "clear" }), true);
+      record(command, makeId(), "Clear console", false);
+      return;
+    }
+
     if (command.kind === "update-layout") {
       if (!updateLayout(command.action)) {
         return;
@@ -257,17 +280,42 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       throw new Error(`Unhandled workbench command: ${command.kind}`);
     }
 
+    autoRenderTimer.clear();
+    cancelActiveRender();
     const commandId = makeId();
     const workspace = documents.getState();
     const document = activeDocument(workspace);
     const sourceFiles = new Map(workspace.documents.map(({ path, source }) => [path, source]));
+    const rendering = settings.getState();
+    const startedMs = nowMs();
     const job = engine.render({
       entryFile: document.path,
       files: sourceFiles,
       parameters: {},
       quality: command.quality,
-      timeoutMs: command.quality === "preview" ? 30_000 : 600_000,
+      timeoutMs: command.quality === "preview"
+        ? rendering.previewTimeoutMs
+        : rendering.fullTimeoutMs,
+      ...(command.quality === "preview"
+        ? { previewFacetLimit: rendering.previewFacetLimit }
+        : {}),
     });
+    runConsole.setState(reduceConsoleState(runConsole.getState(), {
+      kind: "start-run",
+      jobId: job.jobId,
+      entryFile: document.path,
+      quality: command.quality,
+      startedAt: now().toISOString(),
+    }), true);
+    const unsubscribeOutput = typeof job.subscribeOutput === "function"
+      ? job.subscribeOutput((event) => {
+          runConsole.setState(reduceConsoleState(runConsole.getState(), {
+            kind: "append-output",
+            jobId: job.jobId,
+            event,
+          }), true);
+        })
+      : () => undefined;
     render.setState({
       status: "rendering",
       jobId: job.jobId,
@@ -285,6 +333,13 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     );
 
     const result = await job.done;
+    unsubscribeOutput();
+    runConsole.setState(reduceConsoleState(runConsole.getState(), {
+      kind: "finish-run",
+      jobId: job.jobId,
+      durationMs: Math.max(0, nowMs() - startedMs),
+      result,
+    }), true);
     if (render.getState().jobId !== job.jobId) {
       return;
     }
@@ -320,9 +375,16 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
   return {
     documents: readonlyStore(documents),
     render: readonlyStore(render),
+    console: readonlyStore(runConsole),
     settings: readonlyStore(settings),
     layout: readonlyStore(layout),
     history: readonlyStore(history),
     dispatch,
+    dispose() {
+      if (disposed) return;
+      disposed = true;
+      autoRenderTimer.clear();
+      cancelActiveRender();
+    },
   };
 }

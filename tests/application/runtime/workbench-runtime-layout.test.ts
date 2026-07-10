@@ -157,9 +157,21 @@ describe("workbench runtime layout", () => {
     };
     const engine = idleEngine();
     vi.mocked(engine.render)
-      .mockReturnValueOnce({ jobId: "render-1", done: Promise.resolve(failure) })
-      .mockReturnValueOnce({ jobId: "render-1", done: Promise.resolve(failure) })
-      .mockReturnValueOnce({ jobId: "render-2", done: Promise.resolve(success) });
+      .mockReturnValueOnce({
+        jobId: "render-1",
+        subscribeOutput: () => () => undefined,
+        done: Promise.resolve(failure),
+      })
+      .mockReturnValueOnce({
+        jobId: "render-1",
+        subscribeOutput: () => () => undefined,
+        done: Promise.resolve(failure),
+      })
+      .mockReturnValueOnce({
+        jobId: "render-2",
+        subscribeOutput: () => () => undefined,
+        done: Promise.resolve(success),
+      });
     const persistence = { load: vi.fn(() => null), save: vi.fn() };
     const runtime = createWorkbenchRuntime(engine, {
       layoutPersistence: persistence,
@@ -215,6 +227,7 @@ describe("workbench runtime layout", () => {
     const engine = idleEngine();
     vi.mocked(engine.render).mockReturnValue({
       jobId: "render-cancelled",
+      subscribeOutput: () => () => undefined,
       done: Promise.resolve(cancelled),
     });
     const runtime = createWorkbenchRuntime(engine);

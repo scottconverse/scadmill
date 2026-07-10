@@ -89,3 +89,33 @@ test.describe("FR-0.6 mobile-web default", () => {
       .toBe(true);
   });
 });
+
+test.describe("Appendix D editor pointer bindings", () => {
+  test.use({ viewport: { width: 1280, height: 800 } });
+
+  test("adds an Alt+Click cursor without replacing native multi-selection", async ({ page }) => {
+    await page.goto("/");
+    const content = page.locator(".cm-content");
+    await content.click();
+    await page.keyboard.press("Control+A");
+    await page.keyboard.insertText("cube(10);\nsphere(4);\ncylinder(3);");
+    const lines = content.locator(".cm-line");
+    await expect(lines).toHaveCount(3);
+    const first = await lines.nth(0).boundingBox();
+    const second = await lines.nth(1).boundingBox();
+    const third = await lines.nth(2).boundingBox();
+    if (!first || !second || !third) throw new Error("Editor line geometry is unavailable.");
+
+    await page.mouse.click(first.x + 12, first.y + first.height / 2);
+    await expect(page.locator(".cm-cursor")).toHaveCount(1);
+    await page.keyboard.down("Alt");
+    await page.mouse.click(second.x + 20, second.y + second.height / 2);
+    await page.keyboard.up("Alt");
+
+    await expect(page.locator(".cm-cursor")).toHaveCount(2);
+    await page.keyboard.down("Control");
+    await page.mouse.click(third.x + 24, third.y + third.height / 2);
+    await page.keyboard.up("Control");
+    await expect(page.locator(".cm-cursor")).toHaveCount(3);
+  });
+});

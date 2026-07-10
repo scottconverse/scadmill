@@ -3,17 +3,96 @@ import {
   setDiagnostics,
   type Diagnostic as CodeMirrorDiagnostic,
 } from "@codemirror/lint";
-import { Annotation, EditorState, StateEffect, Transaction } from "@codemirror/state";
-import { EditorView } from "@codemirror/view";
+import {
+  Annotation,
+  Compartment,
+  EditorState,
+  type Extension,
+  StateEffect,
+  Transaction,
+} from "@codemirror/state";
+import { EditorView, ViewPlugin, type ViewUpdate } from "@codemirror/view";
 import { basicSetup } from "codemirror";
 import { useEffect, useRef } from "react";
 
 import type { Diagnostic } from "../../application/engine/contracts";
+import type { EditorCommandOutcome } from "../../application/commands/editor-commands";
+import {
+  DEFAULT_KEYBINDINGS,
+  type KeybindingSettings,
+  matchesPointerBinding,
+  primaryModifierForPlatform,
+} from "../../application/commands/default-keybindings";
+import {
+  DEFAULT_EDITOR_SETTINGS,
+  type EditorSettings,
+} from "../../application/runtime/render-settings";
 import { codeEditorTheme } from "./code-editor-theme";
+import {
+  editorCommandExtension,
+  executeEditorCommand,
+  type EditorCommandRequest,
+} from "./editor-command-execution";
 import { openScad } from "./openscad-language";
 
 const controlledDocumentUpdate = Annotation.define<boolean>();
 const EMPTY_DIAGNOSTICS: readonly Diagnostic[] = [];
+const MAX_MINIMAP_ROWS = 240;
+
+function renderMinimap(editor: EditorView, minimap: HTMLElement): void {
+  const fragment = document.createDocumentFragment();
+  const lineCount = editor.state.doc.lines;
+  const step = Math.max(1, Math.ceil(lineCount / MAX_MINIMAP_ROWS));
+  for (let lineNumber = 1; lineNumber <= lineCount; lineNumber += step) {
+    const line = editor.state.doc.line(lineNumber);
+    const row = document.createElement("span");
+    row.className = "cm-minimap-line";
+    row.style.inlineSize = `${Math.min(100, Math.max(8, line.length * 2))}%`;
+    fragment.append(row);
+  }
+  minimap.replaceChildren(fragment);
+}
+
+const minimapExtension = ViewPlugin.fromClass(class {
+  readonly dom: HTMLDivElement;
+
+  constructor(editor: EditorView) {
+    this.dom = document.createElement("div");
+    this.dom.className = "cm-minimap";
+    this.dom.setAttribute("aria-hidden", "true");
+    editor.dom.append(this.dom);
+    renderMinimap(editor, this.dom);
+  }
+
+  update(update: ViewUpdate): void {
+    if (update.docChanged) renderMinimap(update.view, this.dom);
+  }
+
+  destroy(): void {
+    this.dom.remove();
+  }
+});
+
+function editorSettingExtensions(settings: Readonly<EditorSettings>): Extension[] {
+  return [
+    EditorState.tabSize.of(settings.tabWidth),
+    EditorView.editorAttributes.of({
+      "data-editor-font-family": settings.fontFamily,
+      "data-editor-font-size": String(settings.fontSize),
+      "data-editor-line-numbers": settings.lineNumbers ? "on" : "off",
+      "data-editor-minimap": settings.minimap ? "on" : "off",
+      "data-editor-word-wrap": settings.wordWrap ? "on" : "off",
+    }),
+    settings.wordWrap ? EditorView.lineWrapping : [],
+    settings.minimap ? minimapExtension : [],
+    EditorView.theme({
+      ".cm-scroller": {
+        fontFamily: settings.fontFamily,
+        fontSize: `${settings.fontSize}px`,
+      },
+    }),
+  ];
+}
 
 export interface EditorNavigationRequest {
   requestId: number;
@@ -29,6 +108,10 @@ export interface CodeEditorProps {
   onCursorChange?(position: CursorPosition): void;
   initialSession?: CodeEditorSession;
   onSessionChange?(session: CodeEditorSession): void;
+  onCommand?(outcome: EditorCommandOutcome): void;
+  commandRequest?: EditorCommandRequest;
+  keybindings?: KeybindingSettings;
+  editorSettings?: Readonly<EditorSettings>;
   label: string;
 }
 
@@ -89,31 +172,52 @@ export function CodeEditor({
   onCursorChange,
   initialSession,
   onSessionChange,
+  onCommand,
+  commandRequest,
+  keybindings = DEFAULT_KEYBINDINGS,
+  editorSettings = DEFAULT_EDITOR_SETTINGS,
   label,
 }: CodeEditorProps) {
+  const primaryModifier = primaryModifierForPlatform();
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const initialValue = useRef(value);
   const initialSessionRef = useRef(initialSession);
+  const initialEditorSettingsRef = useRef(editorSettings);
+  const initialKeybindingsRef = useRef(keybindings);
+  const editorSettingsCompartment = useRef<Compartment | null>(null);
+  const editorCommandsCompartment = useRef<Compartment | null>(null);
   const onChangeRef = useRef(onChange);
   const onCursorChangeRef = useRef(onCursorChange);
   const onNavigationHandledRef = useRef(onNavigationHandled);
   const onSessionChangeRef = useRef(onSessionChange);
+  const onCommandRef = useRef(onCommand);
+  const handledCommandRequest = useRef<number | null>(null);
   const handledNavigationRequest = useRef<number | null>(null);
   onChangeRef.current = onChange;
   onCursorChangeRef.current = onCursorChange;
   onNavigationHandledRef.current = onNavigationHandled;
   onSessionChangeRef.current = onSessionChange;
+  onCommandRef.current = onCommand;
 
   useEffect(() => {
     if (!host.current) {
       return;
     }
+    const settingsCompartment = new Compartment();
+    const commandsCompartment = new Compartment();
+    editorSettingsCompartment.current = settingsCompartment;
+    editorCommandsCompartment.current = commandsCompartment;
     const extensions = [
       basicSetup,
       openScad(),
       lintGutter(),
       codeEditorTheme,
+      commandsCompartment.of(editorCommandExtension(
+        (command) => onCommandRef.current?.(command),
+        initialKeybindingsRef.current,
+      )),
+      settingsCompartment.of(editorSettingExtensions(initialEditorSettingsRef.current)),
       EditorView.contentAttributes.of({ "aria-label": label }),
       EditorView.updateListener.of((update) => {
         const controlled = update.transactions.some((transaction) =>
@@ -151,9 +255,46 @@ export function CodeEditor({
     return () => {
       onSessionChangeRef.current?.(sessionSnapshot(editor));
       view.current = null;
+      editorSettingsCompartment.current = null;
+      editorCommandsCompartment.current = null;
       editor.destroy();
     };
   }, [label]);
+
+  useEffect(() => {
+    const editor = view.current;
+    const settingsCompartment = editorSettingsCompartment.current;
+    if (editor && settingsCompartment) {
+      editor.dispatch({
+        effects: settingsCompartment.reconfigure(editorSettingExtensions(editorSettings)),
+      });
+    }
+  }, [editorSettings]);
+
+  useEffect(() => {
+    const editor = view.current;
+    const commandsCompartment = editorCommandsCompartment.current;
+    if (editor && commandsCompartment) {
+      editor.dispatch({
+        effects: commandsCompartment.reconfigure(editorCommandExtension(
+          (command) => onCommandRef.current?.(command),
+          keybindings,
+        )),
+      });
+    }
+  }, [keybindings]);
+
+  useEffect(() => {
+    const editor = view.current;
+    if (
+      !editor
+      || !commandRequest
+      || handledCommandRequest.current === commandRequest.requestId
+    ) return;
+    handledCommandRequest.current = commandRequest.requestId;
+    onCommandRef.current?.(executeEditorCommand(editor, commandRequest.command));
+    if (!["find", "replace", "go-to-line"].includes(commandRequest.command)) editor.focus();
+  }, [commandRequest]);
 
   useEffect(() => {
     const editor = view.current;
@@ -199,5 +340,15 @@ export function CodeEditor({
     onNavigationHandledRef.current?.(navigation.requestId);
   }, [navigation]);
 
-  return <div className="code-editor" ref={host} />;
+  return (
+    <div
+      className="code-editor"
+      onMouseDownCapture={(event) => {
+        if (matchesPointerBinding(event, keybindings.multiCursorAdd, primaryModifier)) {
+          onCommandRef.current?.({ command: "multi-cursor-add", status: "handled" });
+        }
+      }}
+      ref={host}
+    />
+  );
 }

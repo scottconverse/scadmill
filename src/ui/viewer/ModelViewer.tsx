@@ -138,7 +138,7 @@ export function ModelViewer({ result, colors }: ModelViewerProps) {
 
   return (
     <div className="model-viewer">
-      <canvas ref={canvas} aria-label={messages.viewerRegion} />
+      <canvas ref={canvas} aria-label={messages.viewerRegion} tabIndex={0} />
       {!result && <p className="viewer-empty">{messages.modelAwaitingRender}</p>}
     </div>
   );

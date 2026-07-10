@@ -2,7 +2,7 @@
 import { syntaxTree } from "@codemirror/language";
 import { diagnosticCount } from "@codemirror/lint";
 import { EditorView } from "@codemirror/view";
-import { render, waitFor } from "@testing-library/react";
+import { fireEvent, render, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { Diagnostic } from "../../../src/application/engine/contracts";
@@ -115,5 +115,52 @@ describe("CodeEditor OpenSCAD language support", () => {
     );
 
     await waitFor(() => expect(diagnosticCount(editor.state)).toBe(0));
+  });
+
+  it("fires the C1-owned Appendix D commands from their normative bindings", () => {
+    const onCommand = vi.fn();
+    const rendered = render(
+      <CodeEditor
+        label="Editor"
+        onChange={vi.fn()}
+        onCommand={onCommand}
+        value={"cube(10);\nsphere(4);"}
+      />,
+    );
+    const content = rendered.container.querySelector<HTMLElement>(".cm-content");
+    if (!content) throw new Error("CodeMirror content did not mount.");
+    content.focus();
+
+    for (const init of [
+      { key: "f", ctrlKey: true },
+      { key: "h", ctrlKey: true },
+      { key: "g", ctrlKey: true },
+      { key: "F12" },
+      { key: "/", ctrlKey: true },
+      { key: "z", ctrlKey: true },
+      { key: "y", ctrlKey: true },
+      { key: "Z", ctrlKey: true, shiftKey: true },
+    ]) {
+      fireEvent.keyDown(content, init);
+    }
+    const host = rendered.container.querySelector<HTMLElement>(".code-editor");
+    if (!host) throw new Error("CodeEditor host did not mount.");
+    fireEvent.mouseDown(host, { altKey: true });
+
+    expect(onCommand.mock.calls.map(([outcome]) => outcome)).toEqual([
+      { command: "find", status: "handled" },
+      { command: "replace", status: "handled" },
+      { command: "go-to-line", status: "handled" },
+      {
+        command: "go-to-definition",
+        status: "unavailable",
+        reason: "project-symbol-navigation-unavailable",
+      },
+      { command: "toggle-comment", status: "handled" },
+      { command: "undo", status: "handled" },
+      { command: "redo", status: "handled" },
+      { command: "redo", status: "handled" },
+      { command: "multi-cursor-add", status: "handled" },
+    ]);
   });
 });

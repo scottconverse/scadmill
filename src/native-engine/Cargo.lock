@@ -100,6 +100,7 @@ dependencies = [
 name = "scadmill-native-engine"
 version = "0.0.0"
 dependencies = [
+ "libc",
  "serde",
  "tempfile",
  "thiserror",

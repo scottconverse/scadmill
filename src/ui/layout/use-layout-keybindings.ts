@@ -4,9 +4,16 @@ import type {
   NarrowView,
   WorkspaceLayoutAction,
 } from "../../application/layout/workspace-layout";
+import {
+  DEFAULT_KEYBINDINGS,
+  type KeybindingSettings,
+  type PrimaryModifier,
+  matchesKeybinding,
+  primaryModifierForPlatform,
+} from "../../application/commands/default-keybindings";
 import { useEffect } from "react";
 
-export type LayoutPrimaryModifier = "control" | "meta";
+export type LayoutPrimaryModifier = PrimaryModifier;
 
 export interface LayoutKeyEvent {
   readonly key: string;
@@ -24,6 +31,7 @@ export interface LayoutKeybindingContext {
   readonly narrowSheet: NarrowSheet;
   readonly narrowView: NarrowView;
   readonly modifier: LayoutPrimaryModifier;
+  readonly keybindings?: KeybindingSettings;
 }
 
 export interface LayoutKeybindingOptions {
@@ -33,68 +41,55 @@ export interface LayoutKeybindingOptions {
   readonly narrowSheet: NarrowSheet;
   readonly narrowView: NarrowView;
   readonly modifier?: LayoutPrimaryModifier;
+  readonly keybindings?: KeybindingSettings;
   readonly dispatch: (action: WorkspaceLayoutAction) => void;
-}
-
-function defaultPrimaryModifier(): LayoutPrimaryModifier {
-  return /Mac|iPhone|iPad|iPod/i.test(globalThis.navigator?.platform ?? "")
-    ? "meta"
-    : "control";
 }
 
 export function mapLayoutKeybinding(
   event: LayoutKeyEvent,
   context: LayoutKeybindingContext,
 ): WorkspaceLayoutAction | null {
-  if (event.repeat || event.altKey) return null;
-
-  const primaryPressed =
-    context.modifier === "meta"
-      ? event.metaKey && !event.ctrlKey
-      : event.ctrlKey && !event.metaKey;
-  if (!primaryPressed) return null;
-
-  switch (event.key.toLowerCase()) {
-    case "j":
-      if (event.shiftKey) return null;
-      return context.narrow
-        ? {
-            kind: "set-narrow-sheet",
-            sheet: context.narrowSheet === "console" ? null : "console",
-          }
-        : { kind: "toggle-panel", panel: "console" };
-    case "b":
-      if (context.narrow) {
-        return event.shiftKey
-          ? {
-              kind: "set-narrow-sheet",
-              sheet: context.narrowSheet === "parameter" ? null : "parameter",
-            }
-          : { kind: "activate-rail", panel: context.activeRail, narrow: true };
-      }
-      return { kind: "toggle-panel", panel: event.shiftKey ? "parameter" : "dock" };
-    case "e":
-      return event.shiftKey
-        ? context.narrow
-          ? { kind: "set-narrow-view", view: "code" }
-          : { kind: "toggle-maximize", region: "editor" }
-        : null;
-    case "v":
-      return event.shiftKey
-        ? context.narrow
-          ? { kind: "set-narrow-view", view: "model" }
-          : { kind: "toggle-maximize", region: "viewer" }
-        : null;
-    case "m":
-      return !event.shiftKey && context.narrow
-        ? {
-            kind: "set-narrow-view",
-            view: context.narrowView === "code" ? "model" : "code",
-          }
-        : null;
-    default:
-      return null;
+  if (event.repeat) return null;
+  const keybindings = context.keybindings ?? DEFAULT_KEYBINDINGS;
+  const matches = (binding: string) => matchesKeybinding(event, binding, context.modifier);
+  if (matches(keybindings.toggleConsole)) {
+    return context.narrow
+      ? {
+          kind: "set-narrow-sheet",
+          sheet: context.narrowSheet === "console" ? null : "console",
+        }
+      : { kind: "toggle-panel", panel: "console" };
   }
+  if (matches(keybindings.toggleParameters)) {
+    return context.narrow
+      ? {
+          kind: "set-narrow-sheet",
+          sheet: context.narrowSheet === "parameter" ? null : "parameter",
+        }
+      : { kind: "toggle-panel", panel: "parameter" };
+  }
+  if (matches(keybindings.toggleDock)) {
+    return context.narrow
+      ? { kind: "activate-rail", panel: context.activeRail, narrow: true }
+      : { kind: "toggle-panel", panel: "dock" };
+  }
+  if (matches(keybindings.maximizeEditor)) {
+    return context.narrow
+      ? { kind: "set-narrow-view", view: "code" }
+      : { kind: "toggle-maximize", region: "editor" };
+  }
+  if (matches(keybindings.maximizeViewer)) {
+    return context.narrow
+      ? { kind: "set-narrow-view", view: "model" }
+      : { kind: "toggle-maximize", region: "viewer" };
+  }
+  if (context.narrow && matches(keybindings.switchCodeModel)) {
+    return {
+      kind: "set-narrow-view",
+      view: context.narrowView === "code" ? "model" : "code",
+    };
+  }
+  return null;
 }
 
 export function useLayoutKeybindings(options: LayoutKeybindingOptions): void {
@@ -106,12 +101,14 @@ export function useLayoutKeybindings(options: LayoutKeybindingOptions): void {
     narrowSheet,
     narrowView,
   } = options;
-  const modifier = options.modifier ?? defaultPrimaryModifier();
+  const modifier = options.modifier ?? primaryModifierForPlatform();
+  const keybindings = options.keybindings ?? DEFAULT_KEYBINDINGS;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
       const action = mapLayoutKeybinding(event, {
         activeRail,
         narrow,
@@ -119,6 +116,7 @@ export function useLayoutKeybindings(options: LayoutKeybindingOptions): void {
         narrowSheet,
         narrowView,
         modifier,
+        keybindings,
       });
       if (action === null) return;
       event.preventDefault();
@@ -127,5 +125,5 @@ export function useLayoutKeybindings(options: LayoutKeybindingOptions): void {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [activeRail, dispatch, modifier, narrow, narrowDockOpen, narrowSheet, narrowView]);
+  }, [activeRail, dispatch, keybindings, modifier, narrow, narrowDockOpen, narrowSheet, narrowView]);
 }

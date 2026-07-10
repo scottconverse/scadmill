@@ -11,6 +11,7 @@ export interface RenderRequest {
   parameters: Readonly<Record<string, ParamValue>>;
   quality: Quality;
   timeoutMs: number;
+  previewFacetLimit?: number;
 }
 
 export interface Diagnostic {
@@ -79,9 +80,17 @@ export interface EngineInfo {
   features: string[];
 }
 
+export interface EngineOutputEvent {
+  sequence: number;
+  elapsedMs: number;
+  stream: "stdout" | "stderr";
+  raw: string;
+}
+
 export interface RenderJob<T> {
   jobId: string;
   done: Promise<T>;
+  subscribeOutput(listener: (event: EngineOutputEvent) => void): () => void;
 }
 
 export interface EngineService {

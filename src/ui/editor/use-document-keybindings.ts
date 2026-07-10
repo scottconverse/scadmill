@@ -1,9 +1,16 @@
 import { useEffect } from "react";
 
 import type { DocumentWorkspaceState } from "../../application/documents/document-workspace";
+import {
+  DEFAULT_KEYBINDINGS,
+  type KeybindingSettings,
+  matchesKeybinding,
+  primaryModifierForPlatform,
+} from "../../application/commands/default-keybindings";
 
 export interface DocumentKeybindingOptions {
   workspace: DocumentWorkspaceState;
+  keybindings?: KeybindingSettings;
   onActivate(documentId: string): void;
   onClose(documentId: string): void;
   onReopen(): void;
@@ -11,37 +18,38 @@ export interface DocumentKeybindingOptions {
 
 export function useDocumentKeybindings({
   workspace,
+  keybindings = DEFAULT_KEYBINDINGS,
   onActivate,
   onClose,
   onReopen,
 }: DocumentKeybindingOptions): void {
+  const primaryModifier = primaryModifierForPlatform();
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented) return;
-      if (event.ctrlKey && !event.altKey && !event.metaKey && event.key === "Tab") {
+      if (event.defaultPrevented || event.repeat) return;
+      const next = matchesKeybinding(event, keybindings.nextTab, primaryModifier);
+      const previous = matchesKeybinding(event, keybindings.previousTab, primaryModifier);
+      if (next || previous) {
         event.preventDefault();
         const activeIndex = workspace.documents.findIndex(
           ({ id }) => id === workspace.activeDocumentId,
         );
-        const offset = event.shiftKey ? -1 : 1;
+        const offset = previous ? -1 : 1;
         const nextIndex = (
           activeIndex + offset + workspace.documents.length
         ) % workspace.documents.length;
         onActivate(workspace.documents[nextIndex].id);
         return;
       }
-      const mod = event.ctrlKey || event.metaKey;
-      if (!mod || event.altKey) return;
-      const key = event.key.toLowerCase();
-      if (!event.shiftKey && key === "w") {
+      if (matchesKeybinding(event, keybindings.closeTab, primaryModifier)) {
         event.preventDefault();
         onClose(workspace.activeDocumentId);
-      } else if (event.shiftKey && key === "t") {
+      } else if (matchesKeybinding(event, keybindings.reopenClosedTab, primaryModifier)) {
         event.preventDefault();
         onReopen();
       }
     };
     globalThis.addEventListener("keydown", onKeyDown);
     return () => globalThis.removeEventListener("keydown", onKeyDown);
-  }, [onActivate, onClose, onReopen, workspace]);
+  }, [keybindings, onActivate, onClose, onReopen, primaryModifier, workspace]);
 }

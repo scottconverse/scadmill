@@ -2,7 +2,7 @@
 
 ScadMill is a source-first OpenSCAD workbench for desktop and web. It combines an OpenSCAD code editor with a live, interactive model viewer while keeping the unmodified OpenSCAD engine out of process.
 
-The project is being delivered milestone by milestone from the clean-room functional specification in [`spec/scadmill-spec-v0.4.md`](spec/scadmill-spec-v0.4.md). The M0 walking skeleton is implemented and M1 capability slices are in progress; formal milestone advancement remains subject to the open owner decisions in [`spec/QUESTIONS.md`](spec/QUESTIONS.md).
+The project is being delivered milestone by milestone from the clean-room functional specification in [`spec/scadmill-spec-v0.4.md`](spec/scadmill-spec-v0.4.md). The M0 walking skeleton is implemented and the M1 candidate has reached its formal boundary gate; M1 has **not** advanced while the owner decisions and acceptance gaps in [`spec/QUESTIONS.md`](spec/QUESTIONS.md) remain open.
 
 ## Current capabilities
 
@@ -10,19 +10,32 @@ The project is being delivered milestone by milestone from the clean-room functi
 - Highlight OpenSCAD keywords, built-ins, literals, special variables, comments, operators, and statement modifiers through a fresh version-labeled Lezer grammar.
 - Offer context-aware completion for the version-labeled provisional built-in corpus and lexically visible current-file symbols, with signatures, paraphrased descriptions, and a provisional deterministic `cube` call skeleton while Q-0013 remains open.
 - Work across reorderable, keyboard-accessible document tabs with isolated edit/undo sessions, dirty-state announcements, clean close/reopen commands, and render results bound to the exact source snapshot; save and unsafe/final close behavior remain explicitly parked in `spec/QUESTIONS.md`.
-- Apply typed native-engine parameter overrides without rewriting source, including validated numbers, booleans, strings, and numeric vectors.
-- Capture native engine output, parse pinned OpenSCAD error/warning/echo/trace shapes into structured diagnostics, and show structured items alongside the raw run log. Errors and warnings with paths already resolved to current or open files are clickable and appear as themed editor squiggles and gutter markers; native multi-file staging, unopened-file loading, and the remaining streaming-console controls are tracked separately.
+- Apply typed native-engine parameter overrides without rewriting source, including validated numbers, booleans, strings, and numeric vectors. Preview and full renders use separate timeouts and quality policies; F5 requests preview and F6 requests full geometry.
+- Stage complete multi-file projects with byte-preserving binary assets, resolve `include`/`use` from the project root, select 3D STL or 2D SVG from engine output, and export every Appendix A native format at full quality. PNG currently uses the engine's default camera; explicit `CameraPose` requests are rejected rather than losing `up` while Q-0021 is open.
+- Stream interleaved, timestamped native stdout/stderr into per-run console history with quality, duration, exit state, geometry statistics, severity filtering, search, copy-all, clear, and a global 10,000-line cap. Parsed diagnostics remain clickable for current or already-open files and appear as themed editor squiggles and gutter markers; loading a diagnostic path that is not yet open remains parked under Q-0020 until C6 supplies the project-file loader.
+- Debounce automatic preview renders, cancel superseded or timed-out process trees, retain cancelled runs in console history, and keep the UI responsive while native work runs off the UI thread.
 - Inspect real STL geometry in an orbitable Three.js viewer, with an editor-only fallback when the engine is unavailable.
 - Arrange the editor, viewer, parameters, diagnostics, and activity destinations in a resizable, collapsible workspace with keyboard commands, web-profile persistence, and a single-column layout below 900 px or by default on mobile web.
 - Follow the OS Light/Dark preference or switch among Light, Dark, and High Contrast themes without reloading the editor or viewer.
 - Validate complete Appendix C custom-theme JSON files and register them for the later settings import flow.
+
+## M1 boundary status
+
+| Slice | Verified boundary | Parked or blocking |
+|---|---|---|
+| C0 layout | Default/narrow layouts, splitters, keyboard access, web-profile persistence, and console auto-open have automated coverage. | Final desktop per-project storage ownership is Q-0008. |
+| C1 editor | Tabs, dirty tracking, language support, completion infrastructure, diagnostics, editor settings, and C1-owned commands are implemented. | Save/retention blocks AC-1.d and AC-4.d under Q-0012; final command, corpus, and cross-file completion claims remain Q-0010/Q-0013/Q-0014. |
+| C4 native engine | Real 2D/3D geometry, typed parameters, multi-file staging, exports, streaming, timeout/cancel cleanup, debounce, and supersession are covered. | A true preview facet cap is Q-0003; explicit-camera PNG is Q-0021; native/WASM parity is the M3 gate. |
+| C8 diagnostics | Ordered run history, raw output, structured diagnostics, filters, retention, inline markers, and navigation to current/open files are covered. | Loading a reported file not already open is Q-0020. |
+| C12 theming | Complete shipped token sets, contrast checks, no component color literals, and live editor/viewer/console switching are covered. | Import-control ownership and final custom-color/contrast policy are Q-0004/Q-0005/Q-0006. |
+| Quality gates | TypeScript, browser, native, desktop-shell, npm-license, build, and provenance checks are green locally. | The Rust license-policy check remains deliberately red pending Q-0001; the owner similarity gate is CI-only and is never run locally. |
 
 ## Requirements
 
 - Node.js 24 or newer
 - pnpm 11.7.0
 - Rust 1.96.0 (pinned by `rust-toolchain.toml`) for the desktop shell
-- OpenSCAD 2021.01 for the current M0 engine pin
+- OpenSCAD 2021.01 for the current official-stable engine pin
 
 ## Quick start
 
@@ -36,11 +49,11 @@ The browser-hosted shell intentionally enters editor-only mode because the nativ
 
 ## Basic use
 
-Open the desktop shell, enter a model such as `cube([10, 20, 30]);` in the active `.scad` document, and choose **Render preview**. ScadMill renders real geometry through the pinned native OpenSCAD engine, shows the measured model in the orbitable viewer, and places structured diagnostics alongside the captured engine log.
+Open the desktop shell, enter a model such as `cube([10, 20, 30]);` in the active `.scad` document, and choose **Render preview** or press F5. Press F6 for a full render. ScadMill renders real geometry through the pinned native OpenSCAD engine, shows the measured model in the orbitable viewer, and streams structured diagnostics alongside the captured engine log.
 
 ## Engine configuration
 
-For the M0 desktop shell, engine discovery checks `SCADMILL_OPENSCAD` and then `PATH`. If a normal Windows OpenSCAD installation is not on `PATH`, set `SCADMILL_OPENSCAD` to the full path of the direct `openscad.exe` executable. Do not point it at a `.com` or shell wrapper; direct process control is required for reliable cancellation in the complete native path.
+The desktop path checks a bundled engine candidate first, then the user-configured executable path, `SCADMILL_OPENSCAD`, and finally `PATH`. If discovery fails, use the in-app **Configure engine** fix-it to save the full executable path and retry. Direct process control is retained for reliable cancellation and timeout cleanup.
 
 ## Verification
 
