@@ -1,0 +1,48 @@
+{
+  "name": "scadmill",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.7.0",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "biome lint src tests scripts vite.config.ts && node scripts/check-source-policy.mjs",
+    "check:provenance": "node scripts/check-provenance.mjs",
+    "check:licenses": "node scripts/check-licenses.mjs",
+    "desktop": "cd src/desktop-shell && pnpm exec tauri"
+  },
+  "dependencies": {
+    "@codemirror/state": "6.7.1",
+    "@codemirror/view": "6.43.6",
+    "@tauri-apps/api": "2.11.1",
+    "codemirror": "6.0.2",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "three": "0.185.1",
+    "zustand": "5.0.14"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.3",
+    "@tauri-apps/cli": "2.11.4",
+    "@testing-library/dom": "10.4.1",
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "16.3.2",
+    "@testing-library/user-event": "14.6.1",
+    "@types/node": "26.1.1",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "@types/three": "0.185.1",
+    "@vitejs/plugin-react": "6.0.3",
+    "happy-dom": "20.10.6",
+    "typescript": "6.0.3",
+    "vite": "8.1.4",
+    "vitest": "4.1.10"
+  }
+}

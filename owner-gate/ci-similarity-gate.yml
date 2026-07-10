@@ -1,0 +1,31 @@
+# ScadMill independence gate — OWNER-SUPPLIED CI job (spec §2.5).
+# Implementers: copy this job into .github/workflows/ verbatim at M0. Do NOT run it locally,
+# modify it, or clone the comparison repositories yourselves — the checkout below exists only
+# inside this isolated runner and is discarded with it. You see scores and file names only.
+name: independence-gate
+on:
+  schedule:
+    - cron: "0 6 * * *"   # nightly
+  workflow_dispatch: {}    # and on demand for release gates
+jobs:
+  similarity:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout candidate (this repo)
+        uses: actions/checkout@v4
+        with: { path: candidate }
+      - name: Checkout comparison repos (isolated to this job)
+        run: |
+          git clone --depth 1 https://github.com/zacharyfmarion/openscad-studio comp-upstream
+          git clone --depth 1 https://github.com/scottconverse/TinkerQuarry comp-tq
+      - name: Run gate (scores-only output)
+        run: |
+          python candidate/owner-gate/similarity_gate.py \
+            --candidate candidate/src \
+            --against upstream=comp-upstream/apps/ui/src \
+            --against tinkerquarry=comp-tq/apps/ui/src \
+            --json gate-report.json
+      - name: Upload scores-only report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with: { name: independence-gate-report, path: gate-report.json }

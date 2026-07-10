@@ -1,0 +1,15 @@
+export const messages = {
+  appName: "ScadMill",
+  editorRegion: "OpenSCAD code editor",
+  viewerRegion: "Model viewer",
+  renderPreview: "Render preview",
+  rendering: "Rendering…",
+  previewQuality: "Preview quality",
+  modelAwaitingRender: "Render the source to inspect the model.",
+  loadingEditor: "Loading editor…",
+  loadingViewer: "Loading model viewer…",
+  engineUnavailable: "OpenSCAD is unavailable. Editing remains fully available.",
+  fixEngine: "Configure engine",
+  mainDocument: "main.scad",
+  untitledStatus: "UTF-8",
+} as const;

@@ -1,0 +1,15 @@
+product: OpenSCAD
+version: 2021.01
+channel: official-stable
+source: https://openscad.org/downloads.html
+
+artifact.windows-x86_64.name: openscad.exe
+artifact.windows-x86_64.sha256: C6B741FC0907E4D571B8A91097A1A5E1E426F5C422385C77B788EBCA76E369D0
+artifact.windows-x86_64.provenance: installed official 2021.01 x86-64 release
+
+artifact.linux-x86_64.name: OpenSCAD-2021.01-x86_64.AppImage
+artifact.linux-x86_64.url: https://files.openscad.org/OpenSCAD-2021.01-x86_64.AppImage
+artifact.linux-x86_64.sha256: F758528F2CD213F773C7A105FB63BF3B45BF754B0F586FBB7C9CD653FFCD0882
+artifact.linux-x86_64.provenance: official files.openscad.org 2021.01 release artifact used by CI
+
+rationale: M0 uses checksummed artifacts from the official stable release, as required by §2.7/A-5. Native/WASM parity will be validated at M3 before the pin is retained or amended.

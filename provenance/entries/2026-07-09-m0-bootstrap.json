@@ -1,0 +1,1026 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-09-m0-bootstrap",
+  "createdAt": "2026-07-09T22:54:10.7066554-06:00",
+  "summary": "Initialize ScadMill M0 with the clean-room provenance rig, platform and engine decisions, native cube-render walking skeleton, and truthful CI policy checks.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "§2.2 permitted inputs",
+    "§2.4 provenance ledger",
+    "§2.5/A-4 independence gate",
+    "§2.7/A-5 autonomous protocol and engine pin",
+    "§3/A-1–A-3 architecture",
+    "§6 dependency policy",
+    "§7 V-1 and V-2 verification",
+    "§8 M0 and A-6 complete-product scope",
+    "Appendix A engine contract",
+    "AC-2.a cube geometry"
+  ],
+  "filesTouched": [
+    {
+      "path": ".editorconfig",
+      "status": "added"
+    },
+    {
+      "path": ".gitattributes",
+      "status": "added"
+    },
+    {
+      "path": ".github/workflows/ci-similarity-gate.yml",
+      "status": "added"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "status": "added"
+    },
+    {
+      "path": ".gitignore",
+      "status": "added"
+    },
+    {
+      "path": ".npmrc",
+      "status": "added"
+    },
+    {
+      "path": "biome.json",
+      "status": "added"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "status": "added"
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "status": "added"
+    },
+    {
+      "path": "ENGINE_VERSION",
+      "status": "added"
+    },
+    {
+      "path": "index.html",
+      "status": "added"
+    },
+    {
+      "path": "LICENSE",
+      "status": "added"
+    },
+    {
+      "path": "owner-gate/ci-similarity-gate.yml",
+      "status": "added"
+    },
+    {
+      "path": "owner-gate/similarity_gate.py",
+      "status": "added"
+    },
+    {
+      "path": "package.json",
+      "status": "added"
+    },
+    {
+      "path": "pnpm-lock.yaml",
+      "status": "added"
+    },
+    {
+      "path": "pnpm-workspace.yaml",
+      "status": "added"
+    },
+    {
+      "path": "PRIVACY.md",
+      "status": "added"
+    },
+    {
+      "path": "PROVENANCE.md",
+      "status": "added"
+    },
+    {
+      "path": "provenance/entries/2026-07-09-m0-bootstrap.json",
+      "status": "added"
+    },
+    {
+      "path": "provenance/schema.json",
+      "status": "added"
+    },
+    {
+      "path": "rust-toolchain.toml",
+      "status": "added"
+    },
+    {
+      "path": "README.md",
+      "status": "added"
+    },
+    {
+      "path": "scripts/check-licenses.mjs",
+      "status": "added"
+    },
+    {
+      "path": "scripts/check-provenance.mjs",
+      "status": "added"
+    },
+    {
+      "path": "scripts/check-source-policy.mjs",
+      "status": "added"
+    },
+    {
+      "path": "scripts/lib/licenses.d.mts",
+      "status": "added"
+    },
+    {
+      "path": "scripts/lib/licenses.mjs",
+      "status": "added"
+    },
+    {
+      "path": "scripts/lib/provenance.d.mts",
+      "status": "added"
+    },
+    {
+      "path": "scripts/lib/provenance.mjs",
+      "status": "added"
+    },
+    {
+      "path": "scripts/lib/source-policy.d.mts",
+      "status": "added"
+    },
+    {
+      "path": "scripts/lib/source-policy.mjs",
+      "status": "added"
+    },
+    {
+      "path": "spec/QUESTIONS.md",
+      "status": "added"
+    },
+    {
+      "path": "spec/scadmill-spec-v0.4.md",
+      "status": "added"
+    },
+    {
+      "path": "src/app/App.tsx",
+      "status": "added"
+    },
+    {
+      "path": "src/application/engine/contracts.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/application/engine/native-engine-service.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/application/engine/unavailable-engine-service.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/application/geometry/stl.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/application/runtime/workbench-runtime.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/assets/scadmill-icon.svg",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/build.rs",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/capabilities/default.json",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/Cargo.lock",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/Cargo.toml",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/128x128.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/128x128@2x.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/32x32.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/64x64.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/android/mipmap-anydpi-v26/ic_launcher.xml",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/android/mipmap-hdpi/ic_launcher_foreground.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/android/mipmap-hdpi/ic_launcher_round.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/android/mipmap-hdpi/ic_launcher.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/android/mipmap-mdpi/ic_launcher_foreground.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/android/mipmap-mdpi/ic_launcher_round.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/android/mipmap-mdpi/ic_launcher.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/android/mipmap-xhdpi/ic_launcher_foreground.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/android/mipmap-xhdpi/ic_launcher_round.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/android/mipmap-xhdpi/ic_launcher.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/android/mipmap-xxhdpi/ic_launcher_foreground.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/android/mipmap-xxhdpi/ic_launcher_round.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/android/mipmap-xxhdpi/ic_launcher.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/android/mipmap-xxxhdpi/ic_launcher_foreground.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/android/mipmap-xxxhdpi/ic_launcher_round.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/android/mipmap-xxxhdpi/ic_launcher.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/android/values/ic_launcher_background.xml",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/icon.icns",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/icon.ico",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/icon.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/ios/AppIcon-20x20@1x.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/ios/AppIcon-20x20@2x-1.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/ios/AppIcon-20x20@2x.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/ios/AppIcon-20x20@3x.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/ios/AppIcon-29x29@1x.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/ios/AppIcon-29x29@2x-1.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/ios/AppIcon-29x29@2x.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/ios/AppIcon-29x29@3x.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/ios/AppIcon-40x40@1x.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/ios/AppIcon-40x40@2x-1.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/ios/AppIcon-40x40@2x.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/ios/AppIcon-40x40@3x.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/ios/AppIcon-512@2x.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/ios/AppIcon-60x60@2x.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/ios/AppIcon-60x60@3x.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/ios/AppIcon-76x76@1x.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/ios/AppIcon-76x76@2x.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/ios/AppIcon-83.5x83.5@2x.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/Square107x107Logo.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/Square142x142Logo.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/Square150x150Logo.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/Square284x284Logo.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/Square30x30Logo.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/Square310x310Logo.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/Square44x44Logo.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/Square71x71Logo.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/Square89x89Logo.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/icons/StoreLogo.png",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/src/lib.rs",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/src/main.rs",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/tauri.conf.json",
+      "status": "added"
+    },
+    {
+      "path": "src/main.tsx",
+      "status": "added"
+    },
+    {
+      "path": "src/messages/en.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/native-engine/Cargo.lock",
+      "status": "added"
+    },
+    {
+      "path": "src/native-engine/Cargo.toml",
+      "status": "added"
+    },
+    {
+      "path": "src/native-engine/src/lib.rs",
+      "status": "added"
+    },
+    {
+      "path": "src/platform-desktop/tauri-bridge.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/theme/tokens.css",
+      "status": "added"
+    },
+    {
+      "path": "src/ui/editor/CodeEditor.tsx",
+      "status": "added"
+    },
+    {
+      "path": "src/ui/use-readonly-store.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/ui/viewer/ModelViewer.tsx",
+      "status": "added"
+    },
+    {
+      "path": "src/ui/workbench.css",
+      "status": "added"
+    },
+    {
+      "path": "src/ui/Workbench.tsx",
+      "status": "added"
+    },
+    {
+      "path": "src/vite-env.d.ts",
+      "status": "added"
+    },
+    {
+      "path": "tests/app/App.test.tsx",
+      "status": "added"
+    },
+    {
+      "path": "tests/application/engine/native-engine-service.test.ts",
+      "status": "added"
+    },
+    {
+      "path": "tests/application/geometry/stl.test.ts",
+      "status": "added"
+    },
+    {
+      "path": "tests/application/runtime/workbench-runtime.test.ts",
+      "status": "added"
+    },
+    {
+      "path": "tests/platform-desktop/tauri-bridge.test.ts",
+      "status": "added"
+    },
+    {
+      "path": "tests/scripts/licenses.test.ts",
+      "status": "added"
+    },
+    {
+      "path": "tests/scripts/provenance.test.ts",
+      "status": "added"
+    },
+    {
+      "path": "tests/scripts/source-policy.test.ts",
+      "status": "added"
+    },
+    {
+      "path": "tests/setup.ts",
+      "status": "added"
+    },
+    {
+      "path": "tests/ui/Workbench.test.tsx",
+      "status": "added"
+    },
+    {
+      "path": "tsconfig.json",
+      "status": "added"
+    },
+    {
+      "path": "vite.config.ts",
+      "status": "added"
+    }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://openscad.org/documentation.html",
+      "accessedOn": "2026-07-09",
+      "purpose": "Official OpenSCAD language and command-line documentation index."
+    },
+    {
+      "url": "https://openscad.org/downloads.html",
+      "accessedOn": "2026-07-09",
+      "purpose": "Official stable OpenSCAD release selection for ENGINE_VERSION."
+    },
+    {
+      "url": "https://github.com/openscad/openscad",
+      "accessedOn": "2026-07-09",
+      "purpose": "Official engine repository metadata allowed by §2.2 and A-5."
+    },
+    {
+      "url": "https://github.com/openscad/openscad-wasm",
+      "accessedOn": "2026-07-09",
+      "purpose": "Official engine WASM project metadata for the future M3 engine path."
+    },
+    {
+      "url": "https://en.wikibooks.org/wiki/OpenSCAD_User_Manual/Using_OpenSCAD_in_a_command_line_environment",
+      "accessedOn": "2026-07-09",
+      "purpose": "Public OpenSCAD CLI flag behavior."
+    },
+    {
+      "url": "https://registry.npmjs.org/",
+      "accessedOn": "2026-07-09",
+      "purpose": "Approved JavaScript dependency versions and license metadata."
+    },
+    {
+      "url": "https://crates.io/",
+      "accessedOn": "2026-07-09",
+      "purpose": "Approved Rust dependency versions and license metadata."
+    },
+    {
+      "url": "https://www.gnu.org/licenses/gpl-faq.en.html",
+      "accessedOn": "2026-07-09",
+      "purpose": "Pre-implementation feasibility context only; it supplied no product behavior, design, architecture, or code. Its §2.2 treatment is open as Q-0002."
+    },
+    {
+      "url": "https://www.copyright.gov/newsnet/2025/1060.html",
+      "accessedOn": "2026-07-09",
+      "purpose": "Pre-implementation feasibility context only; it supplied no product behavior, design, architecture, or code. Its §2.2 treatment is open as Q-0002."
+    },
+    {
+      "url": "https://files.openscad.org/OpenSCAD-2021.01-x86_64.AppImage.sha256",
+      "accessedOn": "2026-07-09",
+      "purpose": "Official checksum for the pinned Linux OpenSCAD 2021.01 CI artifact."
+    },
+    {
+      "url": "https://github.com/actions/checkout",
+      "accessedOn": "2026-07-09",
+      "purpose": "Official GitHub Action tag metadata used to pin the CI checkout action to a commit."
+    },
+    {
+      "url": "https://github.com/actions/setup-node",
+      "accessedOn": "2026-07-09",
+      "purpose": "Official GitHub Action tag metadata used to pin the CI Node setup action to a commit."
+    },
+    {
+      "url": "https://github.com/pnpm/action-setup",
+      "accessedOn": "2026-07-09",
+      "purpose": "Official pnpm Action tag metadata used to pin the CI package-manager setup action to a commit."
+    }
+  ],
+  "providedInputs": [
+    {
+      "label": "Owner specification v0.4",
+      "destination": "spec/scadmill-spec-v0.4.md",
+      "sha256": "43D1DD3C3BC1CF3761D6CBDE20FCD4AEA3091B978800999DB83914758DBFE8CF"
+    },
+    {
+      "label": "Owner similarity-gate harness",
+      "destination": "owner-gate/similarity_gate.py",
+      "sha256": "80F6C898F84A0FBD39B4521D44B820688D9A8EF2FBE40C0E74A5DC2B3659E09D"
+    },
+    {
+      "label": "Owner similarity-gate workflow (wired copy)",
+      "destination": ".github/workflows/ci-similarity-gate.yml",
+      "sha256": "E71296946BCD2008559C22A8803763E0B9203C678323FDAE6C2B75262329C803"
+    },
+    {
+      "label": "Owner similarity-gate workflow (retained handoff copy)",
+      "destination": "owner-gate/ci-similarity-gate.yml",
+      "sha256": "E71296946BCD2008559C22A8803763E0B9203C678323FDAE6C2B75262329C803"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D-0001",
+      "topic": "Application platform",
+      "decision": "Use pinned React, TypeScript, Vite, CodeMirror 6, three.js, Zustand, and Tauri 2 dependencies.",
+      "rationale": "This approved stack provides one typed UI core, a native desktop shell, an explicit state boundary, and an orbitable real-geometry viewer while remaining viable for the M3 web target.",
+      "specBasis": [
+        "§2.7 discretion",
+        "§3/A-1",
+        "§6",
+        "§8/A-6"
+      ]
+    },
+    {
+      "id": "D-0002",
+      "topic": "Module and process boundaries",
+      "decision": "Keep shared application/UI code platform-neutral, isolate Tauri imports in src/platform-desktop, reuse a separate native-engine Rust crate from the shell, and route user actions through a command bus.",
+      "rationale": "The boundaries enforce A-1 and A-2 now and leave native, WASM, MCP, history, and headless consumers a shared contract through M6.",
+      "specBasis": [
+        "§3/A-1",
+        "§3/A-2",
+        "Appendix A",
+        "§8/A-6"
+      ]
+    },
+    {
+      "id": "D-0003",
+      "topic": "Engine pin",
+      "decision": "Pin the official stable OpenSCAD 2021.01 Windows executable and Linux AppImage, recording both SHA-256 values in ENGINE_VERSION.",
+      "rationale": "A-5 requires the official stable release by default; checksummed platform artifacts keep local and Linux CI geometry reproducible, and no demonstrated parity or engine defect yet justifies a nightly or commit pin.",
+      "specBasis": [
+        "§2.2 item 2",
+        "§2.7/A-5"
+      ]
+    },
+    {
+      "id": "D-0004",
+      "topic": "Preview geometry resolution",
+      "decision": "Use a preview-only fixed `$fn=48` override for the M0 walking skeleton and apply no facet override to full renders.",
+      "rationale": "This is the current implementation, not yet a true maximum: it can raise a model's lower source `$fn`. The cap algorithm is parked for an M1 §2.7 clarification while full renders remain unmodified.",
+      "specBasis": [
+        "FR-4.3/A-2",
+        "N-7"
+      ]
+    },
+    {
+      "id": "D-0005",
+      "topic": "Desktop binary IPC",
+      "decision": "Encode native STL bytes as base64 only across Tauri's JSON command boundary, then immediately restore Uint8Array in the platform adapter.",
+      "rationale": "The normative application contract remains binary-safe without leaking Tauri serialization details into shared code.",
+      "specBasis": [
+        "Appendix A/A-3",
+        "§3/A-1"
+      ]
+    },
+    {
+      "id": "D-0006",
+      "topic": "Geometry validation",
+      "decision": "Validate binary STL length and finite coordinates and compute triangle count and bounds at the engine/application boundary.",
+      "rationale": "Measured nonuniform bounds provide stronger AC-2.a evidence than trusting a file's existence or a mocked render response.",
+      "specBasis": [
+        "AC-2.a",
+        "§7 V-1"
+      ]
+    },
+    {
+      "id": "D-0007",
+      "topic": "Frontend loading boundary",
+      "decision": "Load the editor and model viewer as independent dynamic chunks and set the build warning limit to 600 kB.",
+      "rationale": "The two heavy approved libraries are needed in different panes; independent chunks keep the M0 shell small and make later narrow-layout pane switching inexpensive.",
+      "specBasis": [
+        "§2.7 discretion",
+        "N-1",
+        "§8/A-6"
+      ]
+    },
+    {
+      "id": "D-0008",
+      "topic": "Repository license posture",
+      "decision": "Keep the public source repository all-rights-reserved until the owner selects a distribution license.",
+      "rationale": "Public visibility alone does not grant reuse rights, and the clean-room engagement is intended to produce owner-controlled code.",
+      "specBasis": [
+        "§1.2 ownership",
+        "§2.7 discretion"
+      ]
+    },
+    {
+      "id": "D-0009",
+      "topic": "Repository location",
+      "decision": "Use the public GitHub repository scottconverse/scadmill with main as the bootstrap branch.",
+      "rationale": "The owner explicitly authorized a public ScadMill repository and authenticated GitHub publishing.",
+      "specBasis": [
+        "Owner instruction 2026-07-09",
+        "§8 M0"
+      ]
+    },
+    {
+      "id": "D-0010",
+      "topic": "Similarity-gate coverage",
+      "decision": "Keep product source beneath the repository-root src directory and copy the owner gate inputs without modification.",
+      "rationale": "The delivered workflow evaluates candidate/src; this layout keeps the full product implementation inside that owner-defined scope.",
+      "specBasis": [
+        "§2.5/A-4",
+        "§3/A-6"
+      ]
+    },
+    {
+      "id": "D-0011",
+      "topic": "Immutable per-PR provenance",
+      "decision": "Require pull requests to add at least one new provenance entry and reject modifications, deletions, or renames of historical entries; validate push and manual runs in baseline mode.",
+      "rationale": "Content validation alone would let every later pull request reuse the M0 entry, while requiring an artificial new entry on non-PR runs would create false history.",
+      "specBasis": [
+        "§2.4",
+        "§2.7 unit of work",
+        "§7 V-2"
+      ]
+    },
+    {
+      "id": "D-0012",
+      "topic": "Rust toolchain and lint policy",
+      "decision": "Pin Rust 1.96.0 with the minimal profile plus rustfmt and clippy, and require format and warning-free clippy checks for both Rust manifests in CI.",
+      "rationale": "An exact toolchain makes native builds reproducible, and applying V-2 lint to both the reusable engine crate and Tauri shell prevents the TypeScript-only lint lane from leaving native code unchecked.",
+      "specBasis": [
+        "§2.7 discretion",
+        "§7 V-2",
+        "§8/A-6"
+      ]
+    },
+    {
+      "id": "D-0013",
+      "topic": "Native engine discovery",
+      "decision": "For M0, resolve an explicit configured path first, then SCADMILL_OPENSCAD, then PATH; on Windows, follow a Scoop shim descriptor to the direct executable.",
+      "rationale": "The direct executable makes child-process lifetime observable and cancellable, while the environment override supports ordinary installations that do not add OpenSCAD to PATH. Bundled-engine precedence remains M1 scope under FR-4.6.",
+      "specBasis": [
+        "§2.7 discretion",
+        "FR-4.6",
+        "A-4"
+      ]
+    },
+    {
+      "id": "D-0014",
+      "topic": "Browser fallback",
+      "decision": "Run the browser-hosted M0 shell in explicit editor-only mode and disable rendering when no platform engine adapter exists.",
+      "rationale": "This demonstrates the separability required by A-2 and keeps editing usable instead of presenting a broken native control in the web host.",
+      "specBasis": [
+        "§3/A-2",
+        "AC-4.d",
+        "N-7"
+      ]
+    },
+    {
+      "id": "D-0015",
+      "topic": "CI supply-chain pinning",
+      "decision": "Pin implementer-authored GitHub Actions to full commit SHAs, disable persisted checkout credentials, and verify the official Linux OpenSCAD artifact checksum before extraction.",
+      "rationale": "Immutable action and engine identities reduce mutable-tag and runner-package drift without changing the owner-supplied independence workflow.",
+      "specBasis": [
+        "§2.7 discretion",
+        "§7 V-2",
+        "§2.5/A-4"
+      ]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "§3/A-6, AC-12.b, AC-13.a source-policy gates",
+      "test": "The CI source scanner covers app and UI components, enforces the 400-physical-line cap, rejects platform imports and color literals, and avoids known false positives.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/source-policy.test.ts --reporter=verbose",
+        "observedAt": "2026-07-09T23:17:49.3258852-06:00",
+        "outcome": "Retained RED transcripts reviewed at ledger time; original wall-clock times were not retained. Initial expansion: Test Files 1 failed (1); Tests 2 failed | 2 passed (4). Assertions showed no src/app 401-line violation and no #fff hardcoded-color violation. Constructor falsification: Test Files 1 failed (1); Tests 1 failed | 4 skipped (5); received hardcoded-color `Color(themeToken)`. Physical-line falsification: Test Files 1 failed (1); Tests 1 failed | 5 skipped (6); a 400-line file ending in newline was reported as 401."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/source-policy.test.ts --reporter=verbose && pnpm.cmd lint",
+        "observedAt": "2026-07-09T22:59:24-06:00",
+        "outcome": "Test Files 1 passed (1); Tests 6 passed (6). Checked 39 files in 26ms. No fixes applied. Source policy passed: UI files are within 400 lines and platform boundaries are intact."
+      }
+    },
+    {
+      "criterion": "V-1 / AC-2.a binary geometry",
+      "test": "The TypeScript binary STL parser reports triangle positions and bounds.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/geometry/stl.test.ts --reporter=verbose",
+        "observedAt": "2026-07-09T23:17:49.3258852-06:00",
+        "outcome": "Retained RED transcript reviewed at ledger time; original wall-clock time was not retained. Test Files 1 failed (1); Tests 1 failed (1). Assertion: expected triangleCount 0 to be 1."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/geometry/stl.test.ts --reporter=verbose",
+        "observedAt": "2026-07-09T23:17:49.3258852-06:00",
+        "outcome": "Retained GREEN transcript reviewed at ledger time; original wall-clock time was not retained. Test Files 1 passed (1); Tests 1 passed (1)."
+      }
+    },
+    {
+      "criterion": "V-1 native STL input validation",
+      "test": "The Rust engine boundary parses bounds and rejects short, truncated, and non-finite binary STL payloads.",
+      "red": {
+        "command": "cargo test --manifest-path src/native-engine/Cargo.toml (the retained transcript did not preserve the exact focused filter)",
+        "observedAt": "2026-07-09T23:17:49.3258852-06:00",
+        "outcome": "Retained RED transcript reviewed at ledger time; original wall-clock time was not retained. The first parser run had 1 failed test; after the rejection cases were added, 3 tests failed for short/truncated/non-finite handling."
+      },
+      "green": {
+        "command": "cargo test --locked --manifest-path src/native-engine/Cargo.toml",
+        "observedAt": "2026-07-09T23:17:49.3258852-06:00",
+        "outcome": "running 5 tests; parses_triangle_count_and_bounds, rejects_non_finite_coordinates, and rejects_short_and_truncated_payloads all ok; test result: ok. 5 passed; 0 failed."
+      }
+    },
+    {
+      "criterion": "AC-2.a real native geometry",
+      "test": "Pinned OpenSCAD renders a nonuniform cube and the native boundary measures 12 triangles with 10×20×30 bounds.",
+      "red": {
+        "command": "cargo test --manifest-path src/native-engine/Cargo.toml (the retained transcript identifies the focused real-engine test but not its exact filter syntax)",
+        "observedAt": "2026-07-09T23:17:49.3258852-06:00",
+        "outcome": "Retained RED transcript reviewed at ledger time; original wall-clock time was not retained. Tests 1 failed; assertion showed triangle count 0 versus expected 12."
+      },
+      "green": {
+        "command": "cargo test --locked --manifest-path src/native-engine/Cargo.toml",
+        "observedAt": "2026-07-09T23:17:49.3258852-06:00",
+        "outcome": "test tests::renders_nonuniform_geometry_with_the_real_engine ... ok; test result: ok. 5 passed; 0 failed. The test asserts 12 triangles, [10.0, 20.0, 30.0] bounds, and a 684-byte binary STL."
+      }
+    },
+    {
+      "criterion": "§2.7/A-5 pinned engine identity",
+      "test": "The native engine reports the pinned stable version.",
+      "red": {
+        "command": "cargo test --manifest-path src/native-engine/Cargo.toml (the retained transcript identifies the focused version test but not its exact filter syntax)",
+        "observedAt": "2026-07-09T23:17:49.3258852-06:00",
+        "outcome": "Retained RED transcript reviewed at ledger time; original wall-clock time was not retained. Tests 1 failed; assertion compared `unknown` with expected `2021.01`."
+      },
+      "green": {
+        "command": "cargo test --locked --manifest-path src/native-engine/Cargo.toml",
+        "observedAt": "2026-07-09T23:17:49.3258852-06:00",
+        "outcome": "test tests::reads_the_pinned_engine_version ... ok; test result: ok. 5 passed; 0 failed."
+      }
+    },
+    {
+      "criterion": "FR-4.2 never-reject EngineService boundary",
+      "test": "NativeEngineService assigns job IDs and maps bridge render rejection into a result value; export contract completion remains M1 scope.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/engine/native-engine-service.test.ts --reporter=verbose",
+        "observedAt": "2026-07-09T23:17:49.3258852-06:00",
+        "outcome": "Retained RED transcript reviewed at ledger time; original wall-clock time was not retained. Test Files 1 failed (1); Tests 2 failed (2)."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/engine/native-engine-service.test.ts --reporter=verbose",
+        "observedAt": "2026-07-09T23:17:49.3258852-06:00",
+        "outcome": "Retained GREEN transcript reviewed at ledger time; original wall-clock time was not retained. Test Files 1 passed (1); Tests 2 passed (2)."
+      }
+    },
+    {
+      "criterion": "§3/A-3 command bus and typed stores",
+      "test": "Document edits and preview renders flow through one command history.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/runtime/workbench-runtime.test.ts --reporter=verbose",
+        "observedAt": "2026-07-09T23:17:49.3258852-06:00",
+        "outcome": "Retained RED transcript reviewed at ledger time; original wall-clock time was not retained. The first assertion left the document unchanged; the first implementation then failed with `TypeError: entries is not iterable`."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/runtime/workbench-runtime.test.ts --reporter=verbose",
+        "observedAt": "2026-07-09T23:17:49.3258852-06:00",
+        "outcome": "Retained GREEN transcript reviewed at ledger time; original wall-clock time was not retained. Test Files 1 passed (1); Tests 1 passed (1)."
+      }
+    },
+    {
+      "criterion": "§3/A-1 desktop platform adapter",
+      "test": "The Tauri bridge maps native base64 STL, bounds, version, source, and quality to the shared binary contract.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/platform-desktop/tauri-bridge.test.ts --reporter=verbose",
+        "observedAt": "2026-07-09T23:17:49.3258852-06:00",
+        "outcome": "Retained RED transcript reviewed at ledger time; original wall-clock time was not retained. Test Files 1 failed (1); Tests 1 failed (1)."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/platform-desktop/tauri-bridge.test.ts --reporter=verbose",
+        "observedAt": "2026-07-09T23:17:49.3258852-06:00",
+        "outcome": "Retained GREEN transcript reviewed at ledger time; original wall-clock time was not retained. Test Files 1 passed (1); Tests 1 passed (1)."
+      }
+    },
+    {
+      "criterion": "AC-2.a Workbench geometry presentation",
+      "test": "The Workbench dispatches a preview render and presents the engine bounds and preview-quality label.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/Workbench.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-09T23:17:49.3258852-06:00",
+        "outcome": "Retained RED transcript reviewed at ledger time; original wall-clock time was not retained. Test Files 1 failed (1); Tests 1 failed (1); Testing Library could not find the `Render preview` button."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/Workbench.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-09T23:17:49.3258852-06:00",
+        "outcome": "Retained GREEN transcript reviewed at ledger time; original wall-clock time was not retained. Test Files 1 passed (1); Tests 1 passed (1); the assertion reads `10 × 10 × 10 mm` and `Preview quality`."
+      }
+    },
+    {
+      "criterion": "M0 startup invocation discipline (the AC-4.e rapid-edit supersession test remains M1 scope)",
+      "test": "React StrictMode performs one native version probe and one startup preview render.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/app/App.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-09T23:17:49.3258852-06:00",
+        "outcome": "Retained RED transcript reviewed at ledger time; original wall-clock time was not retained. Test Files 1 failed (1); Tests 1 failed (1). Assertion: expected `vi.fn()` to be called 1 times, but got 2 times for engine.version()."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/app/App.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-09T23:17:49.3258852-06:00",
+        "outcome": "Retained GREEN transcript reviewed at ledger time; original wall-clock time was not retained. Test Files 1 passed (1); Tests 1 passed (1)."
+      }
+    },
+    {
+      "criterion": "AC-4.d editor-only fallback",
+      "test": "A rejected engine version probe enters editor-only unavailable state without an unhandled rejection.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/app/App.test.tsx -t \"falls back to editor-only mode when the engine version probe rejects\" --reporter=verbose",
+        "observedAt": "2026-07-09T23:17:49.3258852-06:00",
+        "outcome": "Retained RED transcript reviewed at ledger time; original wall-clock time was not retained. Test Files 1 failed (1); Tests 1 failed | 1 skipped (2); Errors 1 error. The document still contained `Checking OpenSCAD…`, and Vitest reported unhandled `Error: OpenSCAD executable not found`."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/app/App.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-09T23:17:49.3258852-06:00",
+        "outcome": "Retained GREEN transcript reviewed at ledger time; original wall-clock time was not retained. Test Files 1 passed (1); Tests 2 passed (2); no errors or warnings."
+      }
+    },
+    {
+      "criterion": "M0 native desktop integration and AC-2.a",
+      "test": "The Tauri window starts through the real native command, renders cube(10), fills the viewer, and exposes exact measured bounds.",
+      "red": {
+        "command": "pnpm.cmd desktop dev",
+        "observedAt": "2026-07-09T23:17:49.3258852-06:00",
+        "outcome": "First integration run failed: `Error: EBUSY: resource busy or locked, watch .../src-tauri/target/.../build_script_build-....exe`; Tauri reported `The beforeDevCommand terminated with a non-zero status code.` After launch was restored, visual falsification also showed the status row consuming the flexible workspace row when the optional engine banner was absent."
+      },
+      "green": {
+        "command": "pnpm.cmd desktop dev; inspect the ScadMill window through Windows accessibility after native startup",
+        "observedAt": "2026-07-09T23:17:49.3258852-06:00",
+        "outcome": "Native desktop smoke passed after excluding src-tauri/target from Vite watch and assigning explicit CSS grid rows. Accessibility document text: `ScadMill`, `cube(10);`, `Model viewer`, `Preview quality`, `10 × 10 × 10 mm`, `OpenSCAD 2021.01`, `Rendered 3d`, `UTF-8`. A captured window showed real cube geometry filling the viewer and the status row at the bottom."
+      }
+    },
+    {
+      "criterion": "§6 license-policy expression enforcement",
+      "test": "Required Unicode-3.0 terms fail while expressions with a complete permitted OR choice pass.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/licenses.test.ts --reporter=verbose",
+        "observedAt": "2026-07-09T22:48:47-06:00",
+        "outcome": "Test Files 1 failed (1); Tests 2 failed | 1 passed (3)."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/licenses.test.ts --reporter=verbose",
+        "observedAt": "2026-07-09T22:49:17-06:00",
+        "outcome": "Test Files 1 passed (1); Tests 3 passed (3)."
+      }
+    },
+    {
+      "criterion": "§2.4 strict provenance validation",
+      "test": "Nested unknown fields, invalid file status, incomplete observations, and malformed questions are rejected.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/provenance.test.ts --reporter=verbose",
+        "observedAt": "2026-07-09T22:51:15-06:00",
+        "outcome": "Test Files 1 failed (1); Tests 1 failed | 4 passed (5)."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/provenance.test.ts --reporter=verbose",
+        "observedAt": "2026-07-09T22:51:57-06:00",
+        "outcome": "Test Files 1 passed (1); Tests 5 passed (5)."
+      }
+    },
+    {
+      "criterion": "§2.4 and §2.7 per-PR ledger append enforcement",
+      "test": "A pull request without a new ledger entry fails, additions pass, and historical-entry rewrites fail.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/provenance.test.ts --reporter=verbose",
+        "observedAt": "2026-07-09T22:56:45-06:00",
+        "outcome": "Test Files 1 failed (1); Tests 2 failed | 6 passed (8)."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/provenance.test.ts --reporter=verbose",
+        "observedAt": "2026-07-09T22:57:02-06:00",
+        "outcome": "Test Files 1 passed (1); Tests 8 passed (8)."
+      }
+    },
+    {
+      "criterion": "M0 final verification excluding the owner-blocked Rust license amendment",
+      "test": "All locally executable, non-owner-blocked web, native, provenance, dependency, build, and formatting gates pass together.",
+      "red": {
+        "command": "Check for the repository and package.json before initialization",
+        "observedAt": "2026-07-09T23:17:49.3258852-06:00",
+        "outcome": "Retained baseline transcript reviewed at ledger time; original wall-clock time was not retained. `BASELINE: repository absent; no project test suite exists yet.` `BASELINE: package.json absent; test command unavailable.`"
+      },
+      "green": {
+        "command": "Parse .github/workflows/ci.yml; pnpm.cmd typecheck; pnpm.cmd lint; pnpm.cmd exec vitest run --reporter=verbose; pnpm.cmd build; pnpm.cmd check:licenses npm; pnpm.cmd check:provenance; cargo fmt --check and cargo clippy -D warnings for both manifests; cargo test --locked for native-engine; cargo check --locked for the Tauri shell",
+        "observedAt": "2026-07-09T23:21:38.1174826-06:00",
+        "outcome": "CI YAML parsed successfully. Typecheck exited 0. Lint checked 39 files with no fixes and source policy passed. Test Files 9 passed (9); Tests 25 passed (25); no warnings or errors. Vite transformed 47 modules and built successfully. npm license policy passed: 113 packages checked. Provenance ledger passed validation in baseline mode. Both Rust fmt checks and both warning-denying clippy lanes exited 0. Native tests: 5 passed; 0 failed, including the real pinned engine. Tauri shell cargo check exited 0. The separate Rust license-policy command intentionally remains blocked on the 19 Unicode-3.0 packages recorded in Q-0001."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "https://github.com/openscad/openscad-playground",
+      "sought": "Official OpenSCAD WASM documentation.",
+      "confirmation": "A search-result snippet identified a web UI project; the result was not opened and no project content was used."
+    },
+    {
+      "url": "file:///C:/Users/REDACTED/Desktop/CODE/openscad-studio",
+      "sought": "The owner-provided ScadMill handoff after its original path moved.",
+      "confirmation": "Only the prohibited project's directory name was incidentally visible; the directory was not opened and no content was used."
+    },
+    {
+      "url": "file:///C:/Users/REDACTED/Desktop/CODE/tinkerquarry",
+      "sought": "The owner-provided ScadMill handoff after its original path moved.",
+      "confirmation": "Only the prohibited project's directory name was incidentally visible; the directory was not opened and no content was used."
+    }
+  ],
+  "questions": [
+    "Q-0001 is open: Unicode-3.0 is not currently permitted by §6, blocking only the Rust license-policy CI check and a fully green first PR.",
+    "Q-0002 is open: the protocol treatment of two pre-implementation legal feasibility references needs owner confirmation; no product implementation is blocked.",
+    "Q-0003 is open: the true preview facet-cap semantics need owner clarification; only the M1 cap algorithm is blocked."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

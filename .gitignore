@@ -1,0 +1,16 @@
+node_modules/
+dist/
+coverage/
+*.log
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+src/native-engine/target/
+src/desktop-shell/src-tauri/target/
+src/desktop-shell/src-tauri/gen/
+*.pdb
+*.dSYM/

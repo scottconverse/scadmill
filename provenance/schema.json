@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/scottconverse/scadmill/blob/main/provenance/schema.json",
+  "title": "ScadMill provenance ledger entry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "createdAt",
+    "summary",
+    "author",
+    "specSections",
+    "filesTouched",
+    "externalInputs",
+    "providedInputs",
+    "decisions",
+    "testEvidence",
+    "nearMisses",
+    "questions",
+    "attestation"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "summary": { "$ref": "#/$defs/nonEmptyString" },
+    "author": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "name", "model", "role"],
+      "properties": {
+        "kind": { "$ref": "#/$defs/nonEmptyString" },
+        "name": { "$ref": "#/$defs/nonEmptyString" },
+        "model": { "$ref": "#/$defs/nonEmptyString" },
+        "role": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "specSections": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/nonEmptyString" }
+    },
+    "filesTouched": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "status"],
+        "properties": {
+          "path": { "$ref": "#/$defs/repoPath" },
+          "status": { "enum": ["added", "modified", "deleted", "renamed"] }
+        }
+      }
+    },
+    "externalInputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["url", "accessedOn", "purpose"],
+        "properties": {
+          "url": { "type": "string", "format": "uri", "pattern": "^https://" },
+          "accessedOn": { "type": "string", "format": "date" },
+          "purpose": { "$ref": "#/$defs/nonEmptyString" }
+        }
+      }
+    },
+    "providedInputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["label", "destination", "sha256"],
+        "properties": {
+          "label": { "$ref": "#/$defs/nonEmptyString" },
+          "destination": { "$ref": "#/$defs/repoPath" },
+          "sha256": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" }
+        }
+      }
+    },
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "topic", "decision", "rationale", "specBasis"],
+        "properties": {
+          "id": { "$ref": "#/$defs/nonEmptyString" },
+          "topic": { "$ref": "#/$defs/nonEmptyString" },
+          "decision": { "$ref": "#/$defs/nonEmptyString" },
+          "rationale": { "$ref": "#/$defs/nonEmptyString" },
+          "specBasis": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "$ref": "#/$defs/nonEmptyString" }
+          }
+        }
+      }
+    },
+    "testEvidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["criterion", "test", "red", "green"],
+        "properties": {
+          "criterion": { "$ref": "#/$defs/nonEmptyString" },
+          "test": { "$ref": "#/$defs/nonEmptyString" },
+          "red": { "$ref": "#/$defs/testObservation" },
+          "green": { "$ref": "#/$defs/testObservation" }
+        }
+      }
+    },
+    "nearMisses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["url", "sought", "confirmation"],
+        "properties": {
+          "url": { "type": "string", "format": "uri" },
+          "sought": { "$ref": "#/$defs/nonEmptyString" },
+          "confirmation": { "$ref": "#/$defs/nonEmptyString" }
+        }
+      }
+    },
+    "questions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/nonEmptyString" }
+    },
+    "attestation": {
+      "const": "No prohibited source was consulted in producing this change."
+    }
+  },
+  "$defs": {
+    "nonEmptyString": { "type": "string", "minLength": 1 },
+    "repoPath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+$"
+    },
+    "testObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["command", "observedAt", "outcome"],
+      "properties": {
+        "command": { "$ref": "#/$defs/nonEmptyString" },
+        "observedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Time the command evidence was observed or recorded; the outcome states when the original execution time was not retained."
+        },
+        "outcome": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    }
+  }
+}

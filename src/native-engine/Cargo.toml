@@ -1,0 +1,15 @@
+[package]
+name = "scadmill-native-engine"
+version = "0.0.0"
+edition = "2024"
+license = "LicenseRef-Proprietary"
+publish = false
+
+[lib]
+name = "scadmill_native_engine"
+path = "src/lib.rs"
+
+[dependencies]
+serde = { version = "=1.0.228", features = ["derive"] }
+tempfile = "=3.27.0"
+thiserror = "=2.0.18"

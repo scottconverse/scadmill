@@ -1,0 +1,7 @@
+packages:
+  - .
+
+autoInstallPeers: false
+
+minimumReleaseAgeExclude:
+  - vite@8.1.4

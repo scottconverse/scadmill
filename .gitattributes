@@ -1,0 +1,7 @@
+* text=auto eol=lf
+*.png binary
+*.stl binary
+*.3mf binary
+*.wasm binary
+owner-gate/similarity_gate.py text eol=lf
+.github/workflows/ci-similarity-gate.yml text eol=lf
