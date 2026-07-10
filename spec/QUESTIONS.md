@@ -50,3 +50,17 @@ Numbered questions are appended here under §2.7. Only the affected work item is
 - **Question:** Is neutral Three.js illumination a rendering mechanic outside the theme palette, or which Appendix C viewer token must drive ambient and key-light color?
 - **Evidence:** The M0 viewer authored a non-normative `--viewer-light` variable, but Appendix C defines no illumination token. Reusing `viewer.meshHighlight` would give that token two unrelated meanings and tint the rendered mesh. The runtime slice will remove the non-normative variable and use the renderer's neutral default while continuing to theme the visible scene background and mesh.
 - **Blocked:** Only declaring viewer illumination color owner-selectable. Live switching for the normative viewer background and mesh tokens, and all unrelated theming work, continue.
+
+## Q-0008 — Open — 2026-07-10
+
+- **Section:** FR-0.7; AC-0.b; M1 C0; M2 C6/C9
+- **Question:** Before C6 defines projects, should desktop per-project layout state live inside project workspace data or in the per-user config store keyed by a canonical project path?
+- **Evidence:** C0 and AC-0.b require per-workspace restart persistence in M1, while the project and settings capabilities that own workspace identity and durable configuration are assigned to M2. The layout codec and injected persistence port do not depend on that owner decision, but the final desktop key and storage location do.
+- **Blocked:** Only the final desktop persistence adapter and its canonical project-identity test. Typed layout state, mutation commands, codec validation, injected restart round trips, web profile persistence, and all UI behavior continue.
+
+## Q-0009 — Open — 2026-07-10
+
+- **Section:** FR-0.2, FR-0.3, FR-0.6; M1 C0; M2–M5 owning capabilities
+- **Question:** Is M1 intended to deliver honest layout shells for the Files, Search, History, AI, Libraries, and Parameters destinations whose functional capabilities land in later milestones, or must any of those owning capabilities be pulled forward before the C0 layout can exit?
+- **Evidence:** M1 explicitly includes C0, whose rail and viewer-column requirements name C6, C10, C11, C5, and FR-15 items scheduled for M2–M5. Implementing their product behavior in the C0 slice would exceed §2.7's coherent FR-cluster/capability-slice unit and the milestone sequence; omitting the destinations would violate the C0 layout contract.
+- **Blocked:** Only claiming later-capability content inside those destinations. C0 will provide labeled, keyboard-reachable shells with truthful empty/not-yet-configured states and no controls that imply unavailable functionality.

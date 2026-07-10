@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { App } from "../../src/app/App";
 import type { EngineService, RenderFailure } from "../../src/application/engine/contracts";
+import type { WorkspaceLayoutPersistence } from "../../src/application/runtime/layout-persistence";
 import { messages } from "../../src/messages/en";
 
 class FakeDarkModeQuery {
@@ -73,7 +74,11 @@ describe("App", () => {
 
     await waitFor(() => expect(app.queryByText("Checking OpenSCAD…")).not.toBeInTheDocument());
     expect(app.getAllByText(messages.engineUnavailable)).toHaveLength(2);
-    expect(app.getByRole("button", { name: messages.renderPreview })).toBeDisabled();
+    expect(
+      within(view.container.querySelector(".titlebar") as HTMLElement).getByRole("button", {
+        name: messages.renderPreview,
+      }),
+    ).toBeDisabled();
     expect(engine.version).toHaveBeenCalledTimes(1);
     expect(engine.render).not.toHaveBeenCalled();
   });
@@ -125,5 +130,75 @@ describe("App", () => {
 
     view.unmount();
     expect(darkMode.listeners).toHaveLength(0);
+  });
+
+  it("persists all four splitter drags through an App restart", async () => {
+    const originalViewportWidth = window.innerWidth;
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1280 });
+    const engine: EngineService = {
+      render: vi.fn(),
+      export: vi.fn(),
+      version: vi.fn().mockRejectedValue(new Error("OpenSCAD executable not found")),
+      cancel: vi.fn(),
+    };
+    let stored: string | null = null;
+    const persistence: WorkspaceLayoutPersistence = {
+      load: () => stored,
+      save: (value) => {
+        stored = value;
+      },
+    };
+    const first = render(<App engine={engine} layoutPersistence={persistence} />);
+    const firstApp = within(first.container);
+    const drags = [
+      { name: "Resize files panel", pointerId: 1, from: [100, 20], to: [140, 20] },
+      { name: "Resize viewer column", pointerId: 2, from: [600, 20], to: [560, 20] },
+      { name: "Resize parameters", pointerId: 3, from: [20, 500], to: [20, 460] },
+      { name: "Resize console", pointerId: 4, from: [20, 700], to: [20, 660] },
+    ] as const;
+
+    for (const drag of drags) {
+      const splitter = firstApp.getByRole("separator", { name: drag.name });
+      fireEvent.pointerDown(splitter, {
+        pointerId: drag.pointerId,
+        clientX: drag.from[0],
+        clientY: drag.from[1],
+      });
+      fireEvent.pointerMove(splitter, {
+        pointerId: drag.pointerId,
+        clientX: drag.to[0],
+        clientY: drag.to[1],
+      });
+      fireEvent.pointerUp(splitter, {
+        pointerId: drag.pointerId,
+        clientX: drag.to[0],
+        clientY: drag.to[1],
+      });
+    }
+    await waitFor(() => expect(stored).not.toBeNull());
+    first.unmount();
+
+    const second = render(<App engine={engine} layoutPersistence={persistence} />);
+    const restored = within(second.container);
+    expect(restored.getByRole("separator", { name: "Resize files panel" })).toHaveAttribute(
+      "aria-valuenow",
+      "300",
+    );
+    expect(restored.getByRole("separator", { name: "Resize viewer column" })).toHaveAttribute(
+      "aria-valuenow",
+      "520",
+    );
+    expect(restored.getByRole("separator", { name: "Resize parameters" })).toHaveAttribute(
+      "aria-valuenow",
+      "260",
+    );
+    expect(restored.getByRole("separator", { name: "Resize console" })).toHaveAttribute(
+      "aria-valuenow",
+      "220",
+    );
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      value: originalViewportWidth,
+    });
   });
 });

@@ -12,8 +12,9 @@
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "test:watch": "vitest",
-    "lint": "biome lint src tests scripts vite.config.ts && node scripts/check-source-policy.mjs",
+    "lint": "biome lint src tests scripts vite.config.ts playwright.config.ts && node scripts/check-source-policy.mjs",
     "check:provenance": "node scripts/check-provenance.mjs",
     "check:licenses": "node scripts/check-licenses.mjs",
     "desktop": "cd src/desktop-shell && pnpm exec tauri"
@@ -32,6 +33,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.3",
+    "@playwright/test": "1.61.1",
     "@tauri-apps/cli": "2.11.4",
     "@testing-library/dom": "10.4.1",
     "@testing-library/jest-dom": "6.9.1",

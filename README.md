@@ -8,6 +8,7 @@ The project is being delivered milestone by milestone from the clean-room functi
 
 - Edit OpenSCAD source in a CodeMirror-based workbench and render it through the out-of-process native engine adapter.
 - Inspect real STL geometry in an orbitable Three.js viewer, with an editor-only fallback when the engine is unavailable.
+- Arrange the editor, viewer, parameters, diagnostics, and activity destinations in a resizable, collapsible workspace with keyboard commands, web-profile persistence, and a single-column layout below 900 px or by default on mobile web.
 - Follow the OS Light/Dark preference or switch among Light, Dark, and High Contrast themes without reloading the editor or viewer.
 - Validate complete Appendix C custom-theme JSON files and register them for the later settings import flow.
 
@@ -32,7 +33,7 @@ For the M0 desktop shell, engine discovery checks `SCADMILL_OPENSCAD` and then `
 
 ## Verification
 
-`pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm check:provenance`, `pnpm check:licenses npm`, `cargo fmt -- --check`, `cargo clippy -- -D warnings`, and the Rust test suite form the local quality gate. Run the Rust commands with `--manifest-path` for both manifests under `src/native-engine` and `src/desktop-shell/src-tauri`. The Rust license-policy CI step remains deliberately red on the open Unicode-3.0 policy question Q-0001. The owner-supplied independence gate runs only in isolated GitHub Actions and must never be executed locally.
+`pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm test:e2e`, `pnpm build`, `pnpm check:provenance`, `pnpm check:licenses npm`, `cargo fmt -- --check`, `cargo clippy -- -D warnings`, and the Rust test suite form the local quality gate. Install the acceptance-test browser once with `pnpm exec playwright install chromium`. Run the Rust commands with `--manifest-path` for both manifests under `src/native-engine` and `src/desktop-shell/src-tauri`. The Rust license-policy CI step remains deliberately red on the open Unicode-3.0 policy question Q-0001. The owner-supplied independence gate runs only in isolated GitHub Actions and must never be executed locally.
 
 ## Provenance and privacy
 

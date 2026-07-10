@@ -8,15 +8,29 @@ import { codeEditorTheme } from "./code-editor-theme";
 export interface CodeEditorProps {
   value: string;
   onChange(value: string): void;
+  onCursorChange?(position: CursorPosition): void;
   label: string;
 }
 
-export function CodeEditor({ value, onChange, label }: CodeEditorProps) {
+export interface CursorPosition {
+  line: number;
+  column: number;
+}
+
+function cursorPosition(state: EditorState): CursorPosition {
+  const head = state.selection.main.head;
+  const line = state.doc.lineAt(head);
+  return { line: line.number, column: head - line.from + 1 };
+}
+
+export function CodeEditor({ value, onChange, onCursorChange, label }: CodeEditorProps) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const initialValue = useRef(value);
   const onChangeRef = useRef(onChange);
+  const onCursorChangeRef = useRef(onCursorChange);
   onChangeRef.current = onChange;
+  onCursorChangeRef.current = onCursorChange;
 
   useEffect(() => {
     if (!host.current) {
@@ -34,11 +48,15 @@ export function CodeEditor({ value, onChange, label }: CodeEditorProps) {
             if (update.docChanged) {
               onChangeRef.current(update.state.doc.toString());
             }
+            if (update.docChanged || update.selectionSet) {
+              onCursorChangeRef.current?.(cursorPosition(update.state));
+            }
           }),
         ],
       }),
     });
     view.current = editor;
+    onCursorChangeRef.current?.(cursorPosition(editor.state));
     return () => {
       view.current = null;
       editor.destroy();

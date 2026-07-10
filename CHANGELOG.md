@@ -20,6 +20,11 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - A custom-theme runtime registry with stable preferences and deterministic same-name re-import replacement.
 - CodeMirror theme and syntax-palette adapters for every Appendix C editor token, including selected-text foreground normalization.
 - Live Three.js background and mesh recoloring that preserves the existing scene, camera, controls, geometry, and material.
+- The C0 workspace shell with a three-region desktop layout, four live-preview splitters, collapsible and maximizable panels, badge-ready activity destinations, a web menu row, and an always-visible status bar.
+- Responsive Code/Model switching below 900 px and by default on mobile web, left-dock overlays, parameter and console bottom sheets, and body-overflow-safe behavior at the 800 px acceptance viewport.
+- Versioned, strictly validated layout persistence with browser-profile storage, an injected desktop persistence seam, reset-to-default behavior, and once-per-non-cancelled-failed-job console auto-opening.
+- Global C0 layout shortcuts and keyboard-operable separators routed through the shared command bus.
+- A pinned Playwright browser-acceptance lane in local scripts and CI for the normative 800 px responsive flow.
 
 ### Changed
 

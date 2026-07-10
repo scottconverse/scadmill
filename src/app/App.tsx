@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { EngineInfo, EngineService } from "../application/engine/contracts";
+import type { WorkspaceLayoutPersistence } from "../application/runtime/layout-persistence";
 import { createWorkbenchRuntime } from "../application/runtime/workbench-runtime";
 import type { ThemeHost } from "../application/theme/theme-runtime";
 import { messages } from "../messages/en";
@@ -11,10 +12,22 @@ import { useThemeSelection } from "./use-theme-selection";
 export interface AppProps {
   engine: EngineService;
   themeHost?: ThemeHost;
+  layoutPersistence?: WorkspaceLayoutPersistence;
+  showWebMenu?: boolean;
+  forceNarrowLayout?: boolean;
 }
 
-export function App({ engine, themeHost }: AppProps) {
-  const runtime = useMemo(() => createWorkbenchRuntime(engine), [engine]);
+export function App({
+  engine,
+  themeHost,
+  layoutPersistence,
+  showWebMenu,
+  forceNarrowLayout,
+}: AppProps) {
+  const runtime = useMemo(
+    () => createWorkbenchRuntime(engine, { layoutPersistence }),
+    [engine, layoutPersistence],
+  );
   const themePreference = useReadonlyStore(runtime.settings, (settings) => settings.theme);
   const activeTheme = useThemeSelection(themePreference, themeHost);
   const [engineInfo, setEngineInfo] = useState<EngineInfo | null | undefined>();
@@ -51,6 +64,8 @@ export function App({ engine, themeHost }: AppProps) {
       engineAvailable={Boolean(engineInfo)}
       activeTheme={activeTheme}
       themePreference={themePreference}
+      showWebMenu={showWebMenu}
+      forceNarrowLayout={forceNarrowLayout}
       onThemePreferenceChange={(theme) =>
         void runtime.dispatch({ kind: "set-theme", origin: "user", theme })
       }

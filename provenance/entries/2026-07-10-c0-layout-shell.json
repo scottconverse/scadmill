@@ -1,0 +1,383 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-10-c0-layout-shell",
+  "createdAt": "2026-07-10T03:02:24-06:00",
+  "summary": "Deliver the M1 C0 workspace-layout slice: strict versioned layout state, command-bus mutations, four resizable splitters with ephemeral live preview, collapsible and maximizable regions, badge-ready activity destinations, an honest menu row and status bar foundation, responsive overlays and sheets, mobile-web narrow defaults, browser-profile persistence, keyboard commands, once-per-non-cancelled-failed-job console auto-opening, and an automated 800px browser acceptance test.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 questions, decisions, and unit of work",
+    "Section 3 A-3 single command bus",
+    "Section 4.0 C0 workspace layout and interaction model",
+    "Section 4.0 FR-0.1 through FR-0.8",
+    "Section 4.0 AC-0.a through AC-0.d",
+    "Section 8 M1 C0 layout",
+    "Appendix D C0 keyboard commands"
+  ],
+  "filesTouched": [
+    { "path": ".github/workflows/ci.yml", "status": "modified" },
+    { "path": ".gitignore", "status": "modified" },
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "package.json", "status": "modified" },
+    { "path": "playwright.config.ts", "status": "added" },
+    { "path": "pnpm-lock.yaml", "status": "modified" },
+    {
+      "path": "provenance/entries/2026-07-10-c0-layout-shell.json",
+      "status": "added"
+    },
+    { "path": "spec/QUESTIONS.md", "status": "modified" },
+    { "path": "src/app/App.tsx", "status": "modified" },
+    {
+      "path": "src/application/layout/workspace-layout.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/application/runtime/layout-persistence.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/application/runtime/workbench-runtime.ts",
+      "status": "modified"
+    },
+    { "path": "src/main.tsx", "status": "modified" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    {
+      "path": "src/platform-web/browser-layout-persistence.ts",
+      "status": "added"
+    },
+    { "path": "src/platform-web/mobile-web.ts", "status": "added" },
+    { "path": "src/ui/layout/PanelSplitter.tsx", "status": "added" },
+    { "path": "src/ui/layout/use-layout-keybindings.ts", "status": "added" },
+    { "path": "src/ui/layout/use-narrow-layout.ts", "status": "added" },
+    { "path": "src/ui/layout/WebMenuBar.tsx", "status": "added" },
+    { "path": "src/ui/layout/WorkspaceFrame.tsx", "status": "added" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/editor/CodeEditor.tsx", "status": "modified" },
+    { "path": "src/ui/workbench.css", "status": "modified" },
+    { "path": "tests/app/App.test.tsx", "status": "modified" },
+    {
+      "path": "tests/application/layout/workspace-layout.test.ts",
+      "status": "added"
+    },
+    {
+      "path": "tests/application/runtime/workbench-runtime-layout.test.ts",
+      "status": "added"
+    },
+    { "path": "tests/e2e/c0-responsive.e2e.ts", "status": "added" },
+    {
+      "path": "tests/platform-web/browser-layout-persistence.test.ts",
+      "status": "added"
+    },
+    { "path": "tests/platform-web/mobile-web.test.ts", "status": "added" },
+    { "path": "tests/ui/layout/PanelSplitter.test.tsx", "status": "added" },
+    {
+      "path": "tests/ui/layout/use-layout-keybindings.test.tsx",
+      "status": "added"
+    },
+    {
+      "path": "tests/ui/layout/use-narrow-layout.test.tsx",
+      "status": "added"
+    },
+    { "path": "tests/ui/layout/WebMenuBar.test.tsx", "status": "added" },
+    { "path": "tests/ui/layout/WorkspaceFrame.test.tsx", "status": "added" },
+    { "path": "tests/ui/Workbench.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://playwright.dev/docs/test-webserver",
+      "accessedOn": "2026-07-10",
+      "purpose": "Confirm the official Playwright Test webServer and baseURL configuration for local Vite acceptance tests."
+    },
+    {
+      "url": "https://playwright.dev/docs/test-configuration",
+      "accessedOn": "2026-07-10",
+      "purpose": "Confirm official Playwright Test configuration placement and Chromium project options."
+    },
+    {
+      "url": "https://registry.npmjs.org/@playwright%2ftest",
+      "accessedOn": "2026-07-10",
+      "purpose": "Resolve and pin the current approved Playwright Test package version 1.61.1."
+    },
+    {
+      "url": "https://www.w3.org/TR/mediaqueries-4/",
+      "accessedOn": "2026-07-10",
+      "purpose": "Confirm that the Media Queries Level 4 range context supports a strict width comparison for the normative less-than-900px boundary."
+    },
+    {
+      "url": "https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Media_queries/Using",
+      "accessedOn": "2026-07-10",
+      "purpose": "Confirm current browser-facing syntax for exclusive media-query range comparisons."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0028",
+      "topic": "Canonical C0 layout state",
+      "decision": "Represent every durable desktop dimension, collapsed state, active rail destination, and narrow Code/Model choice in one immutable reducer state; keep maximization, open overlays and sheets, and the last auto-opened job ephemeral; reject persisted JSON unless its version, exact key set, types, and bounded integer dimensions all validate.",
+      "rationale": "One strict reducer makes AC-0.a deterministic, prevents malformed or future storage from creating unusable geometry, and keeps transient presentation state out of restart persistence.",
+      "specBasis": ["FR-0.1", "FR-0.6", "FR-0.7", "AC-0.a", "AC-0.b"]
+    },
+    {
+      "id": "D-0029",
+      "topic": "Splitter preview and command history",
+      "decision": "Preview splitter movement in WorkspaceFrame-local state on pointer movement, clamp it to panel bounds, and dispatch exactly one resize-panel command on pointer release; expose the same bounds and value through a keyboard-operable separator.",
+      "rationale": "Panels visibly follow mouse and touch movement without flooding persistence or the unified command history, while keyboard users receive equivalent bounded control.",
+      "specBasis": ["FR-0.1", "FR-0.8", "AC-0.b", "A-3"]
+    },
+    {
+      "id": "D-0030",
+      "topic": "Layout persistence ownership",
+      "decision": "Inject layout persistence at the runtime boundary, provide best-effort versioned localStorage persistence for web profiles, and leave the desktop implementation unbound until Q-0008 resolves project identity and storage ownership.",
+      "rationale": "The codec, restart behavior, web requirement, and application boundary can be completed without inventing a desktop per-project key that C6 and C9 may later invalidate.",
+      "specBasis": ["FR-0.7", "AC-0.b", "Q-0008"]
+    },
+    {
+      "id": "D-0031",
+      "topic": "Responsive boundary and mobile-web default",
+      "decision": "Use the strict Media Queries Level 4 `(width < 900px)` expression in React, combine it with a mobile-web host signal, publish the resolved choice as `data-layout-mode`, and make CSS derive the entire narrow presentation from that single attribute.",
+      "rationale": "Inclusive max-width approximations left a fractional interval below 900 uncovered, while separate CSS width rules contradicted forced mobile narrow mode at large landscape widths. One resolved presentation attribute covers both normative inputs without divergent CSS state.",
+      "specBasis": ["FR-0.6", "AC-0.c"]
+    },
+    {
+      "id": "D-0032",
+      "topic": "Future-capability destinations",
+      "decision": "Render Files, Search, History, AI, Libraries, and Parameters as labeled, keyboard-reachable shells with truthful empty or not-configured copy, badge support, and no controls that imply their later owning capabilities are present.",
+      "rationale": "C0 normatively requires the destinations before C5, C6, C10, C11, and C15 land; an honest shell satisfies the layout contract and the one-capability unit of work while Q-0009 remains open.",
+      "specBasis": ["FR-0.2", "FR-0.3", "FR-0.6", "Q-0009"]
+    },
+    {
+      "id": "D-0033",
+      "topic": "Console auto-open identity",
+      "decision": "Record the render job identifier when its first non-cancelled failure opens the console; repeated diagnostics for that job cannot reopen it after a user closes it, successful and cancelled renders never change console visibility, and a later failed job may open it once.",
+      "rationale": "Job identity directly encodes the once-per-render behavior and avoids both repeated interruption and accidental success-driven closing.",
+      "specBasis": ["FR-0.4", "AC-0.d"]
+    },
+    {
+      "id": "D-0034",
+      "topic": "Web and native menu seam",
+      "decision": "Provide a working in-window View and Render menu row on web, show disabled explanatory File, Edit, and Help shells until their capabilities arrive, and keep the same honest row on desktop until C13 supplies a native menu; App retains an explicit seam to omit it only when the native shell actually owns those commands.",
+      "rationale": "This delivers a usable menu surface without prematurely hiding commands or claiming that the later C13 native integration already exists.",
+      "specBasis": ["FR-0.1", "FR-13.2", "Q-0009"]
+    },
+    {
+      "id": "D-0035",
+      "topic": "Viewport-aware persisted dimensions",
+      "decision": "Preserve validated dock and viewer preferences while capping their wide-layout grid tracks at 28vw and 44vw; give splitters the effective rendered value and viewport-constrained maximum for ARIA, keyboard, and pointer calculations; authoritative layout changes clear any in-flight preview.",
+      "rationale": "Independent maxima could consume more than the viewport, and reporting the larger stored value created a pointer dead zone. Effective sizes retain the preference for larger windows while keeping rendered geometry, input math, and accessibility metadata aligned.",
+      "specBasis": ["FR-0.1", "FR-0.7", "AC-0.b", "AC-0.c"]
+    },
+    {
+      "id": "D-0036",
+      "topic": "Truthful status and accessibility state",
+      "decision": "Derive status counts and console rows from render results, report the absence of a result or diagnostics explicitly, publish CodeMirror selection coordinates, include badge and diagnostic state in accessible names, and derive pressed state from actual visibility rather than persisted open flags.",
+      "rationale": "N-7 forbids fabricated zero counts and cursor values, and assistive technology must receive the same current state that sighted users see, including when maximization temporarily hides an otherwise-open panel.",
+      "specBasis": ["FR-0.5", "FR-0.8", "N-7"]
+    },
+    {
+      "id": "D-0037",
+      "topic": "C0 responsive acceptance automation",
+      "decision": "Use pinned Playwright Test with a self-managed Vite server and Chromium browser runs to exercise AC-0.c at 800px, constrained splitter geometry at 900px, and the mobile-web narrow default at 1024px in local and CI gates.",
+      "rationale": "Component tests cannot compute browser layout, pointer hit targets, or body scroll width; the specification requires every non-manual acceptance criterion to have automation, and mobile forcing must be verified independently of the width breakpoint.",
+      "specBasis": ["Section 4 acceptance-test rule", "FR-0.6", "AC-0.c", "Section 6 Playwright"]
+    },
+    {
+      "id": "D-0038",
+      "topic": "Narrow-sheet persistence boundary",
+      "decision": "Treat narrow dock and bottom-sheet visibility as transient presentation state that never changes the durable wide-layout collapsed flags; render failures may still open the console in both representations as the explicit FR-0.4 transition.",
+      "rationale": "Closing or replacing a mobile overlay must not produce different desktop persistence depending on which visually equivalent dismissal path was used.",
+      "specBasis": ["FR-0.4", "FR-0.6", "FR-0.7"]
+    },
+    {
+      "id": "D-0039",
+      "topic": "Web menu disclosure semantics",
+      "decision": "Expose View and Render as ordinary disclosure popovers rather than ARIA menus, allow only one disclosure at a time, and return focus to its trigger after command activation or Escape dismissal.",
+      "rationale": "The current contents are a small set of ordinary buttons, so disclosure semantics are more accurate and avoid claiming an unimplemented roving-focus menu pattern.",
+      "specBasis": ["FR-0.1", "FR-0.8"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "AC-0.a and FR-0.7 canonical state and persistence codec",
+      "test": "The pure layout reducer pins the exact fresh-profile snapshot, clamps all four dimensions, implements rail, collapse, maximize, narrow, reset, and render transitions, round-trips durable data, and rejects malformed or extra-key payloads.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/layout/workspace-layout.test.ts --reporter=verbose",
+        "observedAt": "2026-07-10T01:15:21-06:00",
+        "outcome": "Initial RED had Tests 5 failed | 1 passed (6); the follow-up strict-codec falsification still accepted an unexpected key."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/layout/workspace-layout.test.ts --reporter=verbose",
+        "observedAt": "2026-07-10T02:51:53-06:00",
+        "outcome": "Test Files  1 passed (1)\nTests  8 passed (8)\nDuration  432ms"
+      }
+    },
+    {
+      "criterion": "A-3, FR-0.4, and FR-0.7 runtime integration",
+      "test": "The runtime hydrates once, records and persists one real layout command, records nothing for a no-op, and auto-opens the console from render completion without adding synthetic user history.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/runtime/workbench-runtime-layout.test.ts --reporter=verbose",
+        "observedAt": "2026-07-10T01:56:18.8462792-06:00",
+        "outcome": "Retained RED transcripts reviewed at ledger time: hydration loaded zero times instead of once, a no-op consumed command identifiers, and a failed render left the console closed. Original execution time was not retained."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/runtime/workbench-runtime-layout.test.ts tests/application/runtime/workbench-runtime.test.ts --reporter=verbose",
+        "observedAt": "2026-07-10T02:31:15-06:00",
+        "outcome": "Test Files 2 passed (2); Tests 7 passed (7), including once-per-job behavior, cancelled-render falsification, no-op history, and durable/ephemeral restart boundaries."
+      }
+    },
+    {
+      "criterion": "FR-0.1, FR-0.2, FR-0.3, and FR-0.8 workspace interaction",
+      "test": "The real component tree exposes five labeled regions and four semantic separators, dispatches rail and collapse actions, maximizes one primary region, aligns viewport-capped effective sizes with accessible splitter values, previews pointer motion without a store mutation, and commits once on release.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/layout/PanelSplitter.test.tsx tests/ui/layout/WorkspaceFrame.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-10T01:36:22-06:00",
+        "outcome": "Tests 2 failed | 6 passed (8): pointer preview was not published to the frame and the grid retained its original 260px dock track during drag."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/layout/PanelSplitter.test.tsx tests/ui/layout/WorkspaceFrame.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-10T02:49:54-06:00",
+        "outcome": "Test Files  2 passed (2)\nTests  12 passed (12)\nDuration  963ms"
+      }
+    },
+    {
+      "criterion": "Appendix D C0 keyboard commands and narrow overlay semantics",
+      "test": "Platform-aware Mod shortcuts map with exact modifier matching, suppress repeat, prevent defaults only when handled, clean up their global listener, and route narrow dock, sheet, and Code/Model commands to visible narrow state.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/layout/use-layout-keybindings.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-10T01:37:19-06:00",
+        "outcome": "Test Files 1 failed (1); Tests 8 failed | 7 passed (15). All required commands returned null and the handled event was not prevented. A later narrow falsification showed Mod+B incorrectly toggled the durable desktop dock."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/layout/use-layout-keybindings.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-10T02:31:15-06:00",
+        "outcome": "Test Files 1 passed (1); Tests 16 passed (16), covering mapping, narrow routing, modifier/repeat falsification, preventDefault, and listener cleanup."
+      }
+    },
+    {
+      "criterion": "FR-0.7 web persistence and the AC-0.b application seam",
+      "test": "A best-effort browser adapter survives storage access exceptions, the App injects it into runtime construction, and all four pointer-driven splitter sizes survive an unmount and fresh App construction. Desktop per-project persistence remains parked by Q-0008.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/platform-web/browser-layout-persistence.test.ts tests/app/App.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-10T01:33:11-06:00",
+        "outcome": "The adapter stub initially failed one of two tests, and App integration later rendered the resized splitter but left stored layout null."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/platform-web/browser-layout-persistence.test.ts tests/app/App.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-10T02:37:40-06:00",
+        "outcome": "Test Files  2 passed (2)\nTests  7 passed (7)\nDuration  1.93s"
+      }
+    },
+    {
+      "criterion": "FR-0.6 mobile-web narrow default",
+      "test": "Mobile Client Hints take precedence, with user-agent and touch-iPad fallbacks selecting narrow mode independently of viewport width.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/platform-web/mobile-web.test.ts --reporter=verbose",
+        "observedAt": "2026-07-10T02:10:00-06:00",
+        "outcome": "The mobile detection module was absent; no assertion-level RED transcript was retained."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/platform-web/mobile-web.test.ts --reporter=verbose",
+        "observedAt": "2026-07-10T02:37:40-06:00",
+        "outcome": "Test Files  1 passed (1)\nTests  2 passed (2)\nDuration  373ms"
+      }
+    },
+    {
+      "criterion": "FR-0.6 large-viewport mobile presentation",
+      "test": "A Chromium mobile context at 1024px must resolve narrow mode, visibly render the Code/Model switcher, place the editor after the 44px rail, and avoid body overflow.",
+      "red": {
+        "command": "pnpm.cmd exec playwright test --grep \"complete narrow presentation\"",
+        "observedAt": "2026-07-10T02:59:00-06:00",
+        "outcome": "1 failed\nLocator: getByRole('group', { name: 'Workspace view' })\nExpected: visible\nError: element(s) not found"
+      },
+      "green": {
+        "command": "pnpm.cmd exec playwright test --grep \"complete narrow presentation\"",
+        "observedAt": "2026-07-10T03:00:00-06:00",
+        "outcome": "Running 1 test using 1 worker\n1 passed (2.0s)"
+      }
+    },
+    {
+      "criterion": "C0 web menu and honest future-command shells",
+      "test": "The application menu exposes working View and preview-render callbacks, current pressed state, shortcuts, reset, explicitly disabled future destinations, single-disclosure behavior, and focus restoration after command or Escape dismissal.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/layout/WebMenuBar.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-10T02:17:23-06:00",
+        "outcome": "The menu-behavior assertion failed: after activating a command, one disclosure remained open instead of zero."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/layout/WebMenuBar.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-10T02:53:17-06:00",
+        "outcome": "Test Files  1 passed (1)\nTests  3 passed (3)\nDuration  1.07s"
+      }
+    },
+    {
+      "criterion": "AC-0.c automated responsive acceptance",
+      "test": "Pinned Playwright Chromium tests exercise the normative 800px Code/Model and body-scroll flow plus a constrained 900px viewer splitter whose rendered size, ARIA value, 24px pointer target, live preview, and committed size must agree.",
+      "red": {
+        "command": "pnpm.cmd exec playwright test --grep \"capped viewer\"",
+        "observedAt": "2026-07-10T02:41:42-06:00",
+        "outcome": "1 failed\nExpected aria-valuenow: \"396\"\nReceived: \"480\"\nThe complete assertion transcript was retained in the implementation session; the initial 800px visual defects were found manually before Playwright automation was added."
+      },
+      "green": {
+        "command": "pnpm.cmd test:e2e",
+        "observedAt": "2026-07-10T03:01:14-06:00",
+        "outcome": "Running 3 tests using 1 worker\n3 passed (6.7s)"
+      }
+    },
+    {
+      "criterion": "Responsive manual falsification supplement",
+      "test": "The in-app browser inspected wide, breakpoint, phone, and short-landscape geometry; overlays and sheets; persistence and reset; body, primary, menu, and status overflow; and browser logs.",
+      "red": {
+        "command": "In-app browser audit at http://127.0.0.1:4173",
+        "observedAt": "2026-07-10T01:56:18-06:00",
+        "outcome": "The narrow dock began at x=88 instead of x=44; the console sheet measured 0.64px instead of 180px; and a fractional 899.2px viewport remained wide. This was a visual-layout RED, not an automated-test transcript."
+      },
+      "green": {
+        "command": "In-app browser audit at 1280, 900, 899, 800, 390, 320, and 800x300",
+        "observedAt": "2026-07-10T02:56:00-06:00",
+        "outcome": "Body, root, primary, menu, and status widths matched the viewport at 1280, 900, 899, 800, 390, and 320. At 900 the viewer and aria-valuenow were 396 with a 24px splitter; at 899 narrow mode removed all four wide-only controls. At 320 command dismissal returned focus to View and opened a 180px console sheet from x=44 to x=320. The rail remained vertically scrollable at 800x300; browser warnings/errors were empty."
+      }
+    },
+    {
+      "criterion": "FR-0.5, FR-0.8, and N-7 status and assistive-technology honesty",
+      "test": "The status bar distinguishes no result from computed zero diagnostics, counts structured errors and warnings, publishes the live CodeMirror cursor selection, exposes the summary in the console button name, renders actual diagnostic rows in the opened console, omits inert wide-only controls in narrow mode, and transfers focus out of a collapsed region.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/Workbench.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-10T02:19:00-06:00",
+        "outcome": "The idle-status assertion could not find 'No diagnostics yet', and the failure-status assertion could not find the accessible name 'Toggle console: 1 error, 1 warning'."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/Workbench.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-10T02:53:24-06:00",
+        "outcome": "Test Files  1 passed (1)\nTests  7 passed (7)\nDuration  1.60s"
+      }
+    },
+    {
+      "criterion": "Regression and build gate",
+      "test": "All JavaScript tests, production build, lint and source-policy checks, both Rust test/check/clippy/fmt lanes, and the real OpenSCAD geometry test remain green.",
+      "red": {
+        "command": "pnpm.cmd lint",
+        "observedAt": "2026-07-10T01:45:19-06:00",
+        "outcome": "The first integrated CSS lint reported descending specificity and the source policy rejected transparent as a hardcoded component color."
+      },
+      "green": {
+        "command": "pnpm.cmd test\npnpm.cmd test:e2e\npnpm.cmd build\npnpm.cmd lint\npnpm.cmd typecheck\npnpm.cmd check:licenses npm\npnpm.cmd audit --audit-level high\npnpm.cmd check:provenance\ncargo fmt --manifest-path src/native-engine/Cargo.toml -- --check\ncargo fmt --manifest-path src/desktop-shell/src-tauri/Cargo.toml -- --check\ncargo test --locked --manifest-path src/native-engine/Cargo.toml\ncargo test --locked --manifest-path src/desktop-shell/src-tauri/Cargo.toml\ncargo check --locked --manifest-path src/native-engine/Cargo.toml\ncargo check --locked --manifest-path src/desktop-shell/src-tauri/Cargo.toml\ncargo clippy --locked --manifest-path src/native-engine/Cargo.toml --all-targets -- -D warnings\ncargo clippy --locked --manifest-path src/desktop-shell/src-tauri/Cargo.toml --all-targets -- -D warnings",
+        "observedAt": "2026-07-10T03:02:24-06:00",
+        "outcome": "Vitest: Test Files  27 passed (27)\nTests  267 passed (267)\nDuration  4.21s\nPlaywright: Running 3 tests using 1 worker\n3 passed (6.7s)\nVite: 65 modules transformed; built in 395ms.\nLint: Checked 79 files in 53ms. No fixes applied.\nSource policy passed: UI files are within 400 lines and platform boundaries are intact.\nTypeScript exited 0. npm license policy passed: 116 packages checked. No known vulnerabilities found. Provenance ledger passed validation (baseline mode; no PR base supplied).\nNative engine: 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s. Desktop and doc-test lanes: 0 failed. Both fmt, check, and warning-denying clippy invocations exited 0."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "Q-0001 remains open: the final `pnpm.cmd check:licenses rust` run failed exactly 19 Unicode-3.0 package records, preventing a fully green pull request; no package or policy was altered in this slice.",
+    "Q-0008 remains open: the desktop persistence adapter and canonical per-project identity/restart test are parked; the codec, injection boundary, injected restart behavior, and web persistence are implemented.",
+    "Q-0009 remains open: later-capability destinations are truthful labeled shells and their owning product behavior is not claimed in this slice.",
+    "FR-0.5 is not claimed complete: elapsed render timing and a visual spinner remain before the M1 exit gate."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

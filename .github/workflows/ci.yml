@@ -32,6 +32,10 @@ jobs:
         run: pnpm lint
       - name: Unit and integration tests
         run: pnpm test
+      - name: Install acceptance-test browser
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Browser acceptance tests
+        run: pnpm test:e2e
       - name: Production build
         run: pnpm build
       - name: npm license policy
