@@ -78,4 +78,30 @@ describe("createWorkbenchRuntime", () => {
       },
     ]);
   });
+
+  it("records one command for a real theme change and ignores a no-op selection", async () => {
+    const engine = successfulEngine();
+    const runtime = createWorkbenchRuntime(engine, {
+      makeId: () => "theme-command",
+      now: () => new Date("2026-07-10T06:30:00.000Z"),
+    });
+
+    expect(runtime.settings.getState()).toEqual({ theme: "system" });
+
+    await runtime.dispatch({ kind: "set-theme", origin: "user", theme: "high-contrast" });
+    await runtime.dispatch({ kind: "set-theme", origin: "user", theme: "high-contrast" });
+
+    expect(runtime.settings.getState()).toEqual({ theme: "high-contrast" });
+    expect(runtime.history.getState()).toEqual([
+      {
+        commandId: "theme-command",
+        timestamp: "2026-07-10T06:30:00.000Z",
+        origin: "user",
+        kind: "set-theme",
+        summary: "Switch theme to High contrast",
+        undoable: false,
+      },
+    ]);
+    expect(engine.render).not.toHaveBeenCalled();
+  });
 });

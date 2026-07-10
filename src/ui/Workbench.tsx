@@ -1,7 +1,8 @@
 import { lazy, Suspense } from "react";
-
-import type { WorkbenchRuntime } from "../application/runtime/workbench-runtime";
 import type { RenderSuccess3D } from "../application/engine/contracts";
+import type { WorkbenchRuntime } from "../application/runtime/workbench-runtime";
+import type { ThemePreference } from "../application/theme/theme-runtime";
+import type { ThemeTokens } from "../application/theme/theme-schema";
 import { messages } from "../messages/en";
 import { useReadonlyStore } from "./use-readonly-store";
 import "./workbench.css";
@@ -13,6 +14,9 @@ export interface WorkbenchProps {
   runtime: WorkbenchRuntime;
   engineLabel: string;
   engineAvailable?: boolean;
+  activeTheme: ThemeTokens;
+  themePreference: ThemePreference;
+  onThemePreferenceChange(preference: ThemePreference): void;
 }
 
 function boundsLabel(result?: RenderSuccess3D): string | null {
@@ -22,7 +26,14 @@ function boundsLabel(result?: RenderSuccess3D): string | null {
   return `${size.map((value) => Number(value.toFixed(3))).join(" \u00d7 ")} mm`;
 }
 
-export function Workbench({ runtime, engineLabel, engineAvailable = true }: WorkbenchProps) {
+export function Workbench({
+  runtime,
+  engineLabel,
+  engineAvailable = true,
+  activeTheme,
+  themePreference,
+  onThemePreferenceChange,
+}: WorkbenchProps) {
   const document = useReadonlyStore(runtime.documents, (state) => state);
   const render = useReadonlyStore(runtime.render, (state) => state);
   const result = render.result?.kind === "3d" ? render.result : undefined;
@@ -35,14 +46,18 @@ export function Workbench({ runtime, engineLabel, engineAvailable = true }: Work
           <span className="brand-mark" aria-hidden="true">S</span>
           <h1>{messages.appName}</h1>
         </div>
-        <button
-          className="render-button"
-          disabled={!engineAvailable || render.status === "rendering"}
-          onClick={() => void runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" })}
-          type="button"
-        >
-          {render.status === "rendering" ? messages.rendering : messages.renderPreview}
-        </button>
+        <div className="titlebar-actions">
+          <button
+            className="render-button"
+            disabled={!engineAvailable || render.status === "rendering"}
+            onClick={() =>
+              void runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" })
+            }
+            type="button"
+          >
+            {render.status === "rendering" ? messages.rendering : messages.renderPreview}
+          </button>
+        </div>
       </header>
 
       {!engineAvailable && <div className="engine-banner" role="status">{messages.engineUnavailable}</div>}
@@ -74,7 +89,7 @@ export function Workbench({ runtime, engineLabel, engineAvailable = true }: Work
             )}
           </div>
           <Suspense fallback={<div className="surface-loading" role="status">{messages.loadingViewer}</div>}>
-            <ModelViewer result={result} />
+            <ModelViewer result={result} colors={activeTheme.viewer} />
           </Suspense>
           {measuredBounds && <output className="bounds-readout">{measuredBounds}</output>}
           {render.result?.kind === "failure" && (
@@ -87,6 +102,21 @@ export function Workbench({ runtime, engineLabel, engineAvailable = true }: Work
         <span>{engineLabel}</span>
         <span>{render.status === "success" ? `Rendered ${render.result?.kind ?? ""}` : render.status}</span>
         <span>{messages.untitledStatus}</span>
+        <label className="theme-picker">
+          <span>{messages.themeLabel}</span>
+          <select
+            aria-label={messages.themeLabel}
+            value={themePreference}
+            onChange={(event) =>
+              onThemePreferenceChange(event.currentTarget.value as ThemePreference)
+            }
+          >
+            <option value="system">{messages.themeSystem}</option>
+            <option value="light">{messages.themeLight}</option>
+            <option value="dark">{messages.themeDark}</option>
+            <option value="high-contrast">{messages.themeHighContrast}</option>
+          </select>
+        </label>
       </footer>
     </main>
   );

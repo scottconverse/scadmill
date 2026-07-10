@@ -43,3 +43,10 @@ Numbered questions are appended here under §2.7. Only the affected work item is
 - **Question:** Must user-defined themes accept the entire browser CSS color grammar, including alpha and wide-gamut forms, with normalization and background compositing before contrast checks; or may custom theme tokens be restricted to opaque six-digit sRGB hex values?
 - **Evidence:** Appendix C currently says only "CSS colors." The shipped-theme contrast oracle uses exact sRGB luminance on opaque hex, while contrast for alpha, `color()`, and wide-gamut values depends on normalization, gamut mapping, and the composited background. Accepting those values structurally without defining that pipeline would make FR-12.5 nondeterministic across hosts.
 - **Blocked:** Final custom-theme color acceptance and contrast validation only. Exact schema parsing, shipped opaque themes, the conservative shipped-theme contrast gate, OS/manual selection, and runtime theme switching continue.
+
+## Q-0007 — Open — 2026-07-10
+
+- **Section:** FR-12.2; Appendix C viewer tokens
+- **Question:** Is neutral Three.js illumination a rendering mechanic outside the theme palette, or which Appendix C viewer token must drive ambient and key-light color?
+- **Evidence:** The M0 viewer authored a non-normative `--viewer-light` variable, but Appendix C defines no illumination token. Reusing `viewer.meshHighlight` would give that token two unrelated meanings and tint the rendered mesh. The runtime slice will remove the non-normative variable and use the renderer's neutral default while continuing to theme the visible scene background and mesh.
+- **Blocked:** Only declaring viewer illumination color owner-selectable. Live switching for the normative viewer background and mesh tokens, and all unrelated theming work, continue.

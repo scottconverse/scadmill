@@ -1,0 +1,257 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-10-c12-theme-runtime",
+  "createdAt": "2026-07-10T00:57:57.4351962-06:00",
+  "summary": "Deliver the M1 C12 runtime slice: OS and manual theme selection through the command bus, exact Appendix C variable publication, stable CodeMirror and Three.js adapters, a custom-theme registry, and responsive status-bar access without reload or resource reconstruction.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 questions, decisions, and unit of work",
+    "Section 3 A-3 single command bus",
+    "Section 4.0 FR-0.5 always-visible status-bar theme control",
+    "Section 4.2 FR-2.8 active viewer colors",
+    "Section 4.12 FR-12.1 shipped themes, OS preference, and manual override",
+    "Section 4.12 FR-12.2 canonical token consumption",
+    "Section 4.12 FR-12.3 live editor and viewer switching",
+    "Section 4.12 FR-12.4 custom-theme runtime foundation",
+    "Section 4.12 AC-12.b and AC-12.d foundations",
+    "Section 7 V-1 and V-2",
+    "Section 8 M1 C12 theming core",
+    "Appendix C normative theme token schema"
+  ],
+  "filesTouched": [
+    { "path": ".gitignore", "status": "modified" },
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "package.json", "status": "modified" },
+    { "path": "pnpm-lock.yaml", "status": "modified" },
+    {
+      "path": "provenance/entries/2026-07-10-c12-theme-runtime.json",
+      "status": "added"
+    },
+    { "path": "spec/QUESTIONS.md", "status": "modified" },
+    { "path": "src/app/App.tsx", "status": "modified" },
+    { "path": "src/app/use-theme-selection.ts", "status": "added" },
+    {
+      "path": "src/application/runtime/workbench-runtime.ts",
+      "status": "modified"
+    },
+    {
+      "path": "src/application/theme/theme-registry.ts",
+      "status": "added"
+    },
+    { "path": "src/application/theme/theme-runtime.ts", "status": "added" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/theme/tokens.css", "status": "deleted" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/editor/CodeEditor.tsx", "status": "modified" },
+    {
+      "path": "src/ui/editor/code-editor-theme.ts",
+      "status": "added"
+    },
+    { "path": "src/ui/viewer/ModelViewer.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/viewer-theme.ts", "status": "added" },
+    { "path": "src/ui/workbench.css", "status": "modified" },
+    { "path": "tests/app/App.test.tsx", "status": "modified" },
+    {
+      "path": "tests/application/runtime/workbench-runtime.test.ts",
+      "status": "modified"
+    },
+    {
+      "path": "tests/application/theme/theme-css-variable-usage.test.ts",
+      "status": "added"
+    },
+    {
+      "path": "tests/application/theme/theme-registry.test.ts",
+      "status": "added"
+    },
+    {
+      "path": "tests/application/theme/theme-runtime.test.ts",
+      "status": "added"
+    },
+    { "path": "tests/ui/Workbench.test.tsx", "status": "modified" },
+    {
+      "path": "tests/ui/editor/CodeEditor.theme.test.tsx",
+      "status": "added"
+    },
+    {
+      "path": "tests/ui/viewer/ModelViewer.theme.test.tsx",
+      "status": "added"
+    }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0022",
+      "topic": "Theme selection lifecycle",
+      "decision": "Represent the current shipped-theme choice as System, Light, Dark, or High Contrast; follow prefers-color-scheme changes only while System is selected; dispatch every manual change through the shared command bus; keep the value session-scoped until C9 persistence is delivered.",
+      "rationale": "This satisfies the immediate C12 behavior and architecture boundary without preempting FR-9.2's desktop-config and web-storage design in M2.",
+      "specBasis": ["FR-12.1", "FR-0.5", "A-3", "FR-9.2"]
+    },
+    {
+      "id": "D-0023",
+      "topic": "Canonical runtime palette",
+      "decision": "Mechanically flatten every Appendix C color leaf to one of exactly 64 kebab-case CSS custom properties, publish the complete set on the theme root, delete the legacy media-query palette, and reject every production color variable outside that generated set.",
+      "rationale": "One JSON-derived palette prevents mixed manual and OS themes, semantic aliases, and undeclared component colors.",
+      "specBasis": ["FR-12.2", "AC-12.a", "AC-12.b", "Appendix C"]
+    },
+    {
+      "id": "D-0024",
+      "topic": "Stable CodeMirror theming",
+      "decision": "Install one persistent CodeMirror theme and HighlightStyle that reference all 20 editor variables, define fresh semantic extension tags for later OpenSCAD grammar work, and mark selected ranges so syntax foreground normalizes to editor.text.",
+      "rationale": "Root-variable changes restyle the mounted editor without replacing its document, selection, history, or EditorView, while the selected-text rule honors the contrast decision already recorded as D-0019.",
+      "specBasis": ["FR-12.2", "FR-12.3", "FR-1.2", "D-0019"]
+    },
+    {
+      "id": "D-0025",
+      "topic": "Stable Three.js theming and illumination",
+      "decision": "Pass the resolved viewer palette directly to ModelViewer and mutate the existing Scene background and MeshStandardMaterial color; use Three.js neutral default light colors while Q-0007 is open.",
+      "rationale": "Direct application avoids CSS sampling races and preserves renderer, scene, camera, controls, mesh, geometry, and material identity. Appendix C has no illumination token, so neutral rendering mechanics avoid inventing or overloading one.",
+      "specBasis": ["FR-2.8", "FR-12.2", "FR-12.3", "Q-0007"]
+    },
+    {
+      "id": "D-0026",
+      "topic": "Custom-theme runtime identity",
+      "decision": "Derive a stable encoded custom preference from meta.name, keep custom themes separate from immutable shipped System resolution, and treat re-import of the same exact name as replacement.",
+      "rationale": "Appendix C supplies no separate identifier. An encoded name is deterministic for later persistence, and replacement supports editing and re-import without duplicate catalog entries.",
+      "specBasis": ["FR-12.4", "Appendix C", "Q-0004"]
+    },
+    {
+      "id": "D-0027",
+      "topic": "Responsive status-bar theme access",
+      "decision": "Place the theme selector in the always-visible status bar, keep it within the viewport at mobile width, and truncate the long engine-health label before hiding or clipping the theme control.",
+      "rationale": "FR-0.5 assigns the control to the status bar. Constraining the flexible engine label preserves all compact status items and avoids fixed-row overlap at 390 pixels.",
+      "specBasis": ["FR-0.5", "FR-0.6", "N-3"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "FR-12.1 OS following, explicit overrides, and complete runtime publication",
+      "test": "The pure runtime resolves System from the current OS mode, preserves each explicit override, maps an independent exact list of all 64 variables, and replaces a theme on one root.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/theme/theme-runtime.test.ts --reporter=verbose",
+        "observedAt": "2026-07-10T00:31:02-06:00",
+        "outcome": "Tests 5 failed | 1 passed (6): System and explicit resolution returned Dark, the variable map was empty, and no root theme metadata was applied."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/theme/theme-runtime.test.ts --reporter=verbose",
+        "observedAt": "2026-07-10T00:42:55-06:00",
+        "outcome": "Test Files 1 passed (1); Tests 6 passed (6), including exact ordered equality with the test-owned 64-variable list."
+      }
+    },
+    {
+      "criterion": "A-3 and FR-12.1 user-visible manual selection",
+      "test": "A real theme change mutates the settings store and appends one non-undoable command history entry, while a no-op selection records nothing.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/runtime/workbench-runtime.test.ts -t \"records one command\" --reporter=verbose",
+        "observedAt": "2026-07-10T00:37:16-06:00",
+        "outcome": "Test Files 1 failed (1); the settings state remained System after dispatching the set-theme command."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/app/App.test.tsx tests/application/runtime/workbench-runtime.test.ts --reporter=verbose",
+        "observedAt": "2026-07-10T00:38:58-06:00",
+        "outcome": "Test Files 2 passed (2); Tests 5 passed (5). Manual selection flowed through the command bus, OS changes were ignored during override, returning to System used the latest OS value, and the mounted workbench remained stable."
+      }
+    },
+    {
+      "criterion": "FR-12.2 and FR-12.3 CodeMirror palette adapter",
+      "test": "The mounted CodeMirror style modules consume all 20 Appendix C editor variables, and a non-empty selection receives a foreground-normalizing mark without rebuilding the editor.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/CodeEditor.theme.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-10T00:35:51-06:00",
+        "outcome": "Tests 2 failed (2): the style modules contained no editor variable references and no cm-selected-text range existed."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/CodeEditor.theme.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-10T00:42:05-06:00",
+        "outcome": "Test Files 1 passed (1); Tests 2 passed (2). The app integration additionally preserved the same EditorView, document text, and selected range across a manual theme switch."
+      }
+    },
+    {
+      "criterion": "FR-2.8 and FR-12.3 live Three.js palette adapter",
+      "test": "Changing viewer colors mutates the existing background and mesh material while preserving every long-lived Three.js resource; hostile legacy light styling cannot tint neutral lights.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/viewer/ModelViewer.theme.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-10T00:57:57.4351962-06:00",
+        "outcome": "Retained RED transcripts reviewed at ledger time. The hot-switch case expected background e4ebf2 but retained 101827; the illumination falsification expected neutral ffffff but received the hostile legacy value 123456. Original execution timestamps were not retained."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/viewer/ModelViewer.theme.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-10T00:48:33-06:00",
+        "outcome": "Test Files 1 passed (1); Tests 2 passed (2). Scene, renderer, camera, controls, mesh, geometry, and material identities were stable and neither geometry nor material was disposed during switching."
+      }
+    },
+    {
+      "criterion": "FR-12.2 exact production variable vocabulary",
+      "test": "A repository scan independently pins the 64 Appendix C names and rejects every production CSS, TypeScript, or TSX custom-property definition or reference outside that set.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/theme/theme-css-variable-usage.test.ts --reporter=verbose",
+        "observedAt": "2026-07-10T00:42:54-06:00",
+        "outcome": "Tests 1 failed | 1 passed (2). The scan reported exactly --chrome-error, --focus-ring, and --viewer-light across the legacy palette and consumers."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/theme/theme-css-variable-usage.test.ts tests/ui/Workbench.test.tsx tests/ui/editor/CodeEditor.theme.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-10T00:46:36-06:00",
+        "outcome": "Test Files 3 passed (3); Tests 6 passed (6). The legacy palette was deleted and every existing semantic consumer uses an Appendix C variable."
+      }
+    },
+    {
+      "criterion": "FR-0.5 active theme control placement",
+      "test": "The uniquely named Theme combobox is a descendant of the always-visible status-bar footer.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/Workbench.test.tsx -t \"keeps the active theme control\" --reporter=verbose",
+        "observedAt": "2026-07-10T00:44:48-06:00",
+        "outcome": "Test Files 1 failed (1); closest footer was null because the control was in the title bar."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/Workbench.test.tsx -t \"keeps the active theme control\" --reporter=verbose",
+        "observedAt": "2026-07-10T00:45:10-06:00",
+        "outcome": "Test Files 1 passed (1); the control is in footer.statusbar."
+      }
+    },
+    {
+      "criterion": "FR-12.4 custom-theme runtime registration foundation",
+      "test": "The registry creates a stable encoded preference, resolves custom themes independent of OS mode, replaces same-name re-imports, preserves shipped System resolution, and rejects unknown preferences.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/theme/theme-registry.test.ts --reporter=verbose",
+        "observedAt": "2026-07-10T00:49:26-06:00",
+        "outcome": "Tests 3 failed | 1 passed (4): registrations were not retained, replacement was absent, and an unknown custom preference fell into shipped-theme resolution."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/theme/theme-registry.test.ts --reporter=verbose",
+        "observedAt": "2026-07-10T00:49:42-06:00",
+        "outcome": "Test Files 1 passed (1); Tests 4 passed (4)."
+      }
+    },
+    {
+      "criterion": "FR-0.5, FR-12.1, and N-3 visual/runtime falsification",
+      "test": "The real browser switched among Dark, Light, and High Contrast, sampled rendered editor/viewer/status colors, checked the status control at 1280, 800, and 390 pixels, and inspected console warnings/errors.",
+      "red": {
+        "command": "In-app browser audit at http://127.0.0.1:1420",
+        "observedAt": "2026-07-10T00:57:57.4351962-06:00",
+        "outcome": "Light mode exposed a low-contrast Theme label using chrome.textMuted instead of statusBarText; at 390 pixels the engine-health text wrapped under the editor and forced the footer to 553 pixels wide."
+      },
+      "green": {
+        "command": "In-app browser audit at 1280x800, 800x700, and 390x844",
+        "observedAt": "2026-07-10T00:57:57.4351962-06:00",
+        "outcome": "All three shipped modes visibly switched. Light rendered editor rgb(255,255,255), viewer rgb(247,249,252), and status rgb(23,50,77); High Contrast rendered the audited surfaces black with white text. At 390 pixels the footer and picker stayed inside the viewport with scrollWidth 390 and scrollHeight 844. Browser warnings/errors: none."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "Q-0001 remains open: Unicode-3.0 policy still prevents a fully green repository-wide Rust license lane and PR.",
+    "Q-0004 remains open: only the visible Settings-facing custom-theme import and selection control is parked; parsing and runtime registration are implemented.",
+    "Q-0005 remains open: the conservative contrast matrix is not claimed as the owner-final normative matrix.",
+    "Q-0006 remains open: arbitrary CSS color normalization, alpha compositing, wide-gamut handling, and custom-theme contrast acceptance are parked.",
+    "Q-0007 remains open: neutral Three.js illumination is treated as rendering mechanics pending an owner-selected token policy.",
+    "AC-12.d is not claimed complete until C1 supplies visible OpenSCAD token classification and C8 supplies a real console surface that switches in the same session."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

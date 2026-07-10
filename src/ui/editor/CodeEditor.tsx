@@ -1,7 +1,9 @@
-import { basicSetup } from "codemirror";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
+import { basicSetup } from "codemirror";
 import { useEffect, useRef } from "react";
+
+import { codeEditorTheme } from "./code-editor-theme";
 
 export interface CodeEditorProps {
   value: string;
@@ -26,6 +28,7 @@ export function CodeEditor({ value, onChange, label }: CodeEditorProps) {
         doc: initialValue.current,
         extensions: [
           basicSetup,
+          codeEditorTheme,
           EditorView.contentAttributes.of({ "aria-label": label }),
           EditorView.updateListener.of((update) => {
             if (update.docChanged) {

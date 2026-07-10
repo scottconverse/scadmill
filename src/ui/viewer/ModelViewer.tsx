@@ -3,7 +3,6 @@ import {
   AmbientLight,
   BufferAttribute,
   BufferGeometry,
-  Color,
   DirectionalLight,
   Mesh,
   MeshStandardMaterial,
@@ -16,9 +15,11 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { RenderSuccess3D } from "../../application/engine/contracts";
 import { parseBinaryStl } from "../../application/geometry/stl";
 import { messages } from "../../messages/en";
+import { applyViewerTheme, type ViewerThemeColors } from "./viewer-theme";
 
 export interface ModelViewerProps {
   result?: RenderSuccess3D;
+  colors: ViewerThemeColors;
 }
 
 interface ViewerResources {
@@ -31,19 +32,20 @@ interface ViewerResources {
   hasFit: boolean;
 }
 
-export function ModelViewer({ result }: ModelViewerProps) {
+export function ModelViewer({ result, colors }: ModelViewerProps) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const resources = useRef<ViewerResources | null>(null);
+  const colorsRef = useRef(colors);
+  const { background, mesh: meshColor } = colors;
+  colorsRef.current = colors;
 
   useEffect(() => {
     if (!canvas.current || typeof WebGLRenderingContext === "undefined") {
       return;
     }
-    const styles = getComputedStyle(canvas.current);
     const scene = new Scene();
-    scene.background = new Color(styles.getPropertyValue("--viewer-background").trim());
-    scene.add(new AmbientLight(styles.getPropertyValue("--viewer-light").trim(), 1.6));
-    const keyLight = new DirectionalLight(styles.getPropertyValue("--viewer-light").trim(), 2.8);
+    scene.add(new AmbientLight(undefined, 1.6));
+    const keyLight = new DirectionalLight(undefined, 2.8);
     keyLight.position.set(4, 6, 8);
     scene.add(keyLight);
 
@@ -96,9 +98,7 @@ export function ModelViewer({ result }: ModelViewerProps) {
     const geometry = new BufferGeometry();
     geometry.setAttribute("position", new BufferAttribute(parsed.positions, 3));
     geometry.computeVertexNormals();
-    const styles = getComputedStyle(canvas.current);
     const material = new MeshStandardMaterial({
-      color: new Color(styles.getPropertyValue("--viewer-mesh").trim()),
       roughness: 0.72,
       metalness: 0.08,
     });
@@ -111,6 +111,7 @@ export function ModelViewer({ result }: ModelViewerProps) {
     }
     viewer.mesh = mesh;
     viewer.scene.add(mesh);
+    applyViewerTheme(viewer, colorsRef.current);
 
     if (!viewer.hasFit) {
       const center = parsed.bounds.min.map(
@@ -126,6 +127,14 @@ export function ModelViewer({ result }: ModelViewerProps) {
       viewer.hasFit = true;
     }
   }, [result]);
+
+  useEffect(() => {
+    const viewer = resources.current;
+    if (!viewer) {
+      return;
+    }
+    applyViewerTheme(viewer, { background, mesh: meshColor });
+  }, [background, meshColor]);
 
   return (
     <div className="model-viewer">

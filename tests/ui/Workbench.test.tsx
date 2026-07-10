@@ -1,9 +1,10 @@
 // @vitest-environment happy-dom
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { EngineService, RenderSuccess3D } from "../../src/application/engine/contracts";
 import { createWorkbenchRuntime } from "../../src/application/runtime/workbench-runtime";
+import { SHIPPED_THEMES } from "../../src/application/theme/shipped-themes";
 import { Workbench } from "../../src/ui/Workbench";
 
 function oneTriangleStl(): Uint8Array {
@@ -18,6 +19,30 @@ function oneTriangleStl(): Uint8Array {
 }
 
 describe("Workbench", () => {
+  it("keeps the active theme control in the always-visible status bar", () => {
+    const engine: EngineService = {
+      render: vi.fn(),
+      export: vi.fn(),
+      version: vi.fn(),
+      cancel: vi.fn(),
+    };
+    const runtime = createWorkbenchRuntime(engine, { makeId: () => "command-1" });
+
+    const view = render(
+      <Workbench
+        runtime={runtime}
+        engineLabel="OpenSCAD 2021.01"
+        activeTheme={SHIPPED_THEMES[0]}
+        themePreference="system"
+        onThemePreferenceChange={vi.fn()}
+      />,
+    );
+
+    expect(within(view.container).getByRole("combobox", { name: "Theme" }).closest("footer")).toHaveClass(
+      "statusbar",
+    );
+  });
+
   it("renders preview geometry and its measured engine bounds", async () => {
     const result: RenderSuccess3D = {
       kind: "3d",
@@ -37,12 +62,21 @@ describe("Workbench", () => {
       cancel: vi.fn(),
     };
     const runtime = createWorkbenchRuntime(engine, { makeId: () => "command-1" });
-    render(<Workbench runtime={runtime} engineLabel="OpenSCAD 2021.01" />);
+    const view = render(
+      <Workbench
+        runtime={runtime}
+        engineLabel="OpenSCAD 2021.01"
+        activeTheme={SHIPPED_THEMES[0]}
+        themePreference="system"
+        onThemePreferenceChange={vi.fn()}
+      />,
+    );
 
-    fireEvent.click(screen.getByRole("button", { name: "Render preview" }));
+    const workbench = within(view.container);
+    fireEvent.click(workbench.getByRole("button", { name: "Render preview" }));
 
-    expect(await screen.findByText("10 × 10 × 10 mm")).toBeVisible();
-    expect(screen.getByText("Preview quality")).toBeVisible();
+    expect(await workbench.findByText("10 × 10 × 10 mm")).toBeVisible();
+    expect(workbench.getByText("Preview quality")).toBeVisible();
     expect(engine.render).toHaveBeenCalledTimes(1);
   });
 });

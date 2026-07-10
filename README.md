@@ -2,7 +2,14 @@
 
 ScadMill is a source-first OpenSCAD workbench for desktop and web. It combines an OpenSCAD code editor with a live, interactive model viewer while keeping the unmodified OpenSCAD engine out of process.
 
-The project is being delivered milestone by milestone from the clean-room functional specification in [`spec/scadmill-spec-v0.4.md`](spec/scadmill-spec-v0.4.md). M0 is currently in progress.
+The project is being delivered milestone by milestone from the clean-room functional specification in [`spec/scadmill-spec-v0.4.md`](spec/scadmill-spec-v0.4.md). The M0 walking skeleton is implemented and M1 capability slices are in progress; formal milestone advancement remains subject to the open owner decisions in [`spec/QUESTIONS.md`](spec/QUESTIONS.md).
+
+## Current capabilities
+
+- Edit OpenSCAD source in a CodeMirror-based workbench and render it through the out-of-process native engine adapter.
+- Inspect real STL geometry in an orbitable Three.js viewer, with an editor-only fallback when the engine is unavailable.
+- Follow the OS Light/Dark preference or switch among Light, Dark, and High Contrast themes without reloading the editor or viewer.
+- Validate complete Appendix C custom-theme JSON files and register them for the later settings import flow.
 
 ## Requirements
 

@@ -2,15 +2,21 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { EngineInfo, EngineService } from "../application/engine/contracts";
 import { createWorkbenchRuntime } from "../application/runtime/workbench-runtime";
+import type { ThemeHost } from "../application/theme/theme-runtime";
 import { messages } from "../messages/en";
+import { useReadonlyStore } from "../ui/use-readonly-store";
 import { Workbench } from "../ui/Workbench";
+import { useThemeSelection } from "./use-theme-selection";
 
 export interface AppProps {
   engine: EngineService;
+  themeHost?: ThemeHost;
 }
 
-export function App({ engine }: AppProps) {
+export function App({ engine, themeHost }: AppProps) {
   const runtime = useMemo(() => createWorkbenchRuntime(engine), [engine]);
+  const themePreference = useReadonlyStore(runtime.settings, (settings) => settings.theme);
+  const activeTheme = useThemeSelection(themePreference, themeHost);
   const [engineInfo, setEngineInfo] = useState<EngineInfo | null | undefined>();
   const versionProbe = useRef<{ engine: EngineService; result: Promise<EngineInfo | null> } | null>(null);
 
@@ -38,5 +44,16 @@ export function App({ engine }: AppProps) {
       ? `OpenSCAD ${engineInfo.version}`
       : messages.engineUnavailable;
 
-  return <Workbench runtime={runtime} engineLabel={engineLabel} engineAvailable={Boolean(engineInfo)} />;
+  return (
+    <Workbench
+      runtime={runtime}
+      engineLabel={engineLabel}
+      engineAvailable={Boolean(engineInfo)}
+      activeTheme={activeTheme}
+      themePreference={themePreference}
+      onThemePreferenceChange={(theme) =>
+        void runtime.dispatch({ kind: "set-theme", origin: "user", theme })
+      }
+    />
+  );
 }

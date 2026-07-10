@@ -16,10 +16,15 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Editor-only fallback when the native engine is absent or its version probe fails.
 - Complete Light, Dark, and High Contrast Appendix C token sets, checked by exact-schema and conservative WCAG AA contrast tests.
 - A strict custom-theme JSON parser with structured schema and color-validation diagnostics, forming the foundation for the settings import flow.
+- Runtime theme selection that follows the OS by default, supports manual Light, Dark, and High Contrast overrides through the status bar, and applies all 64 Appendix C color variables without reload.
+- A custom-theme runtime registry with stable preferences and deterministic same-name re-import replacement.
+- CodeMirror theme and syntax-palette adapters for every Appendix C editor token, including selected-text foreground normalization.
+- Live Three.js background and mesh recoloring that preserves the existing scene, camera, controls, geometry, and material.
 
 ### Changed
 
 - Strengthened the component color-literal CI gate across product source to catch CSS functions and fallbacks, gradients, numeric and named colors, SVG/canvas attributes, and Three.js color forms while ignoring comments, fragments, and token references.
+- Removed the legacy CSS palette and enforced an exact repository-wide allowlist of the 64 generated Appendix C custom properties.
 
 ### Known policy block
 
