@@ -4,7 +4,7 @@ import {
   canCloseDocument,
   canReopenDocument,
 } from "../application/documents/document-workspace";
-import type { Diagnostic, RenderSuccess3D } from "../application/engine/contracts";
+import type { RenderSuccess3D } from "../application/engine/contracts";
 import type { WorkspaceLayoutAction } from "../application/layout/workspace-layout";
 import type { WorkbenchRuntime } from "../application/runtime/workbench-runtime";
 import type { ThemePreference } from "../application/theme/theme-runtime";
@@ -18,6 +18,7 @@ import { useReadonlyStore } from "./use-readonly-store";
 import type { CodeEditorSession, CursorPosition } from "./editor/CodeEditor";
 import { DocumentTabBar, documentTabId } from "./editor/DocumentTabBar";
 import { useDocumentKeybindings } from "./editor/use-document-keybindings";
+import { DiagnosticConsole } from "./diagnostics/DiagnosticConsole";
 import "./workbench.css";
 
 const CodeEditor = lazy(() => import("./editor/CodeEditor").then((module) => ({ default: module.CodeEditor })));
@@ -39,21 +40,6 @@ function boundsLabel(result?: RenderSuccess3D): string | null {
   if (!bounds) return null;
   const size = bounds.max.map((maximum, axis) => maximum - bounds.min[axis]);
   return `${size.map((value) => Number(value.toFixed(3))).join(" \u00d7 ")} mm`;
-}
-
-function diagnosticRows(diagnostics: readonly Diagnostic[]) {
-  const occurrences = new Map<string, number>();
-  return diagnostics.map((diagnostic) => {
-    const identity = [
-      diagnostic.file ?? "",
-      diagnostic.line ?? "",
-      diagnostic.severity,
-      diagnostic.message,
-    ].join(":");
-    const occurrence = (occurrences.get(identity) ?? 0) + 1;
-    occurrences.set(identity, occurrence);
-    return { diagnostic, key: `${identity}:${occurrence}` };
-  });
 }
 
 export function Workbench({
@@ -123,20 +109,13 @@ export function Workbench({
     : layout.consoleOpen && layout.maximized === null;
   const consoleContent = !activeRenderResult
     ? <p>{messages.noCurrentDiagnostics(document.path)}</p>
-    : diagnostics && diagnostics.length > 0
-      ? (
-          <ul aria-label={messages.renderDiagnostics} className="console-diagnostics">
-            {diagnosticRows(diagnostics).map(({ diagnostic, key }) => (
-              <li key={key}>
-                <span className="console-diagnostic-severity" data-severity={diagnostic.severity}>
-                  {diagnostic.severity}
-                </span>
-                <span>{diagnostic.message}</span>
-              </li>
-            ))}
-          </ul>
-        )
-      : <pre className="console-log">{activeRenderResult.rawLog || diagnosticStatus}</pre>;
+    : (
+        <DiagnosticConsole
+          diagnostics={diagnostics}
+          emptyMessage={diagnosticStatus}
+          rawLog={activeRenderResult.rawLog}
+        />
+      );
   const dispatchLayout = useCallback(
     (action: WorkspaceLayoutAction) => {
       const focusedElement = globalThis.document?.activeElement;

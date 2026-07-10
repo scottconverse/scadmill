@@ -501,7 +501,7 @@ describe("Workbench", () => {
             { severity: "error", message: "Parser error" },
             { severity: "warning", message: "Deprecated form" },
           ],
-          rawLog: "Parser error\nDeprecated form",
+          rawLog: "Parser error\nDeprecated form\nraw compiler footer",
         }),
       }),
       export: vi.fn(),
@@ -537,6 +537,7 @@ describe("Workbench", () => {
     expect(consoleRegion).toBeVisible();
     expect(within(consoleRegion).getByText("Parser error")).toBeVisible();
     expect(within(consoleRegion).getByText("Deprecated form")).toBeVisible();
+    expect(within(consoleRegion).getByText(/raw compiler footer/u)).toBeVisible();
     expect(within(consoleRegion).queryByText("No diagnostics from this session.")).not.toBeInTheDocument();
   });
 

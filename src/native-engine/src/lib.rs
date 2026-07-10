@@ -1,4 +1,5 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::env;
 use std::fs;
 use std::io;
@@ -45,6 +46,15 @@ pub enum RenderQuality {
     Full,
 }
 
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(untagged)]
+pub enum ParamValue {
+    Number(f64),
+    Boolean(bool),
+    String(String),
+    Vector(Vec<f64>),
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct NativeRenderOutput {
     pub mesh: Vec<u8>,
@@ -67,6 +77,8 @@ pub enum EngineError {
     Process { exit_code: Option<i32>, log: String },
     #[error("OpenSCAD returned an unreadable version response: {0}")]
     InvalidVersion(String),
+    #[error("invalid parameter {name}: {detail}")]
+    InvalidParameter { name: String, detail: &'static str },
     #[error(transparent)]
     Stl(#[from] StlError),
 }
@@ -159,22 +171,116 @@ fn io_error(operation: &'static str) -> impl FnOnce(io::Error) -> EngineError {
     move |source| EngineError::Io { operation, source }
 }
 
+fn parameter_definitions(
+    parameters: &BTreeMap<String, ParamValue>,
+) -> Result<Vec<String>, EngineError> {
+    parameters
+        .iter()
+        .map(|(name, value)| {
+            if !valid_parameter_name(name) {
+                return Err(EngineError::InvalidParameter {
+                    name: name.clone(),
+                    detail: "name must be an OpenSCAD identifier",
+                });
+            }
+            Ok(format!("{name}={}", format_parameter_value(name, value)?))
+        })
+        .collect()
+}
+
+fn valid_parameter_name(name: &str) -> bool {
+    let mut characters = name.chars();
+    let Some(mut first) = characters.next() else {
+        return false;
+    };
+    if first == '$' {
+        let Some(special_start) = characters.next() else {
+            return false;
+        };
+        first = special_start;
+    }
+    (first == '_' || first.is_ascii_alphabetic())
+        && characters.all(|character| character == '_' || character.is_ascii_alphanumeric())
+}
+
+fn finite_number(name: &str, value: f64) -> Result<String, EngineError> {
+    if value.is_finite() {
+        Ok(value.to_string())
+    } else {
+        Err(EngineError::InvalidParameter {
+            name: name.to_string(),
+            detail: "numbers must be finite",
+        })
+    }
+}
+
+fn quoted_string(name: &str, value: &str) -> Result<String, EngineError> {
+    let mut output = String::from("\"");
+    for character in value.chars() {
+        match character {
+            '\\' => output.push_str("\\\\"),
+            '"' => output.push_str("\\\""),
+            '\n' => output.push_str("\\n"),
+            '\r' => output.push_str("\\r"),
+            '\t' => output.push_str("\\t"),
+            control if control.is_control() => {
+                return Err(EngineError::InvalidParameter {
+                    name: name.to_string(),
+                    detail: "strings contain an unsupported control character",
+                });
+            }
+            other => output.push(other),
+        }
+    }
+    output.push('"');
+    Ok(output)
+}
+
+fn format_parameter_value(name: &str, value: &ParamValue) -> Result<String, EngineError> {
+    match value {
+        ParamValue::Number(number) => finite_number(name, *number),
+        ParamValue::Boolean(boolean) => Ok(boolean.to_string()),
+        ParamValue::String(string) => quoted_string(name, string),
+        ParamValue::Vector(numbers) => {
+            let values = numbers
+                .iter()
+                .map(|number| finite_number(name, *number))
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(format!("[{}]", values.join(", ")))
+        }
+    }
+}
+
 pub fn render_scad(
     engine: &Path,
     source: &str,
     quality: RenderQuality,
 ) -> Result<NativeRenderOutput, EngineError> {
+    render_scad_with_parameters(engine, source, quality, &BTreeMap::new())
+}
+
+pub fn render_scad_with_parameters(
+    engine: &Path,
+    source: &str,
+    quality: RenderQuality,
+    parameters: &BTreeMap<String, ParamValue>,
+) -> Result<NativeRenderOutput, EngineError> {
+    let definitions = parameter_definitions(parameters)?;
     let workspace = tempfile::tempdir().map_err(io_error("create a render workspace"))?;
     let input_path = workspace.path().join("main.scad");
     let output_path = workspace.path().join("model.stl");
     fs::write(&input_path, source).map_err(io_error("write the OpenSCAD input"))?;
 
     let mut command = Command::new(engine);
+    command.current_dir(workspace.path());
     command.args(["--export-format", "binstl"]);
+    for definition in definitions {
+        command.arg("-D").arg(definition);
+    }
     if quality == RenderQuality::Preview {
         command.args(["-D", "$fn=48"]);
     }
-    command.arg("-o").arg(&output_path).arg(&input_path);
+    command.arg("-o").arg("model.stl").arg("main.scad");
 
     let started = Instant::now();
     let output = command
@@ -268,8 +374,10 @@ pub fn parse_binary_stl(bytes: &[u8]) -> Result<ParsedStl, StlError> {
 #[cfg(test)]
 mod tests {
     use super::{
-        RenderQuality, StlError, engine_version, find_engine, parse_binary_stl, render_scad,
+        ParamValue, RenderQuality, StlError, engine_version, find_engine, parameter_definitions,
+        parse_binary_stl, render_scad, render_scad_with_parameters,
     };
+    use std::collections::BTreeMap;
 
     fn one_triangle() -> Vec<u8> {
         let mut bytes = vec![0_u8; 84 + 50];
@@ -343,5 +451,101 @@ mod tests {
             engine_version(&engine).expect("version should be readable"),
             "2021.01"
         );
+    }
+
+    #[test]
+    fn formats_typed_parameter_definitions_in_stable_order() {
+        let parameters = BTreeMap::from([
+            ("size".to_string(), ParamValue::Number(20.0)),
+            ("centered".to_string(), ParamValue::Boolean(true)),
+            (
+                "label".to_string(),
+                ParamValue::String("quoted \"text\" \\ path".to_string()),
+            ),
+            (
+                "points".to_string(),
+                ParamValue::Vector(vec![1.0, -2.5, 3.0]),
+            ),
+        ]);
+
+        assert_eq!(
+            parameter_definitions(&parameters).expect("parameters should format"),
+            vec![
+                "centered=true",
+                "label=\"quoted \\\"text\\\" \\\\ path\"",
+                "points=[1, -2.5, 3]",
+                "size=20",
+            ]
+        );
+    }
+
+    #[test]
+    fn rejects_unsafe_parameter_names_and_non_finite_numbers() {
+        assert!(
+            parameter_definitions(&BTreeMap::from([(
+                "size; echo(1)".to_string(),
+                ParamValue::Number(1.0),
+            )]))
+            .is_err()
+        );
+        assert!(
+            parameter_definitions(&BTreeMap::from([(
+                "size".to_string(),
+                ParamValue::Number(f64::NAN),
+            )]))
+            .is_err()
+        );
+        assert!(
+            parameter_definitions(&BTreeMap::from([(
+                "points".to_string(),
+                ParamValue::Vector(vec![1.0, f64::INFINITY]),
+            )]))
+            .is_err()
+        );
+        for name in ["$", "$1"] {
+            assert!(
+                parameter_definitions(&BTreeMap::from([(
+                    name.to_string(),
+                    ParamValue::Number(1.0),
+                )]))
+                .is_err(),
+                "{name} is not a valid OpenSCAD identifier"
+            );
+        }
+    }
+
+    #[test]
+    fn applies_parameter_overrides_to_real_engine_geometry() {
+        let engine = find_engine(None).expect("the pinned OpenSCAD engine should be installed");
+        let parameters = BTreeMap::from([("size".to_string(), ParamValue::Number(20.0))]);
+
+        let rendered = render_scad_with_parameters(
+            &engine,
+            "size = 10; cube(size);",
+            RenderQuality::Full,
+            &parameters,
+        )
+        .expect("the engine should render with a parameter override");
+
+        assert_eq!(rendered.geometry.bounds.size, [20.0, 20.0, 20.0]);
+    }
+
+    #[test]
+    fn reports_a_parser_error_with_the_raw_engine_log() {
+        let engine = find_engine(None).expect("the pinned OpenSCAD engine should be installed");
+
+        let result = render_scad(&engine, "cube(10)\n", RenderQuality::Full);
+
+        match result {
+            Err(super::EngineError::Process { exit_code, log }) => {
+                assert_eq!(exit_code, Some(1));
+                assert!(log.contains("ERROR: Parser error"), "unexpected log: {log}");
+                assert!(
+                    log.contains("in file main.scad, line"),
+                    "temporary workspace path leaked into the engine log: {log}"
+                );
+            }
+            other => panic!("expected a typed process failure, got {other:?}"),
+        }
     }
 }

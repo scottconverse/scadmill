@@ -1,0 +1,3 @@
+WARNING: Ignoring unknown variable 'missing_one' in file warnings.scad, line 1
+WARNING: Ignoring unknown variable 'missing_two' in file warnings.scad, line 2
+ERROR: Parser error: syntax error in file error.scad, line 3

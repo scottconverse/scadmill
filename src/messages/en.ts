@@ -174,6 +174,7 @@ export const messages = {
   noParametersDetected: "No parameters were detected.",
   noDiagnosticsYet: "No diagnostics from this session.",
   renderDiagnostics: "Render diagnostics",
+  rawEngineOutput: "Raw engine output",
   noDiagnosticsStatus: "No diagnostics yet",
   noCurrentDiagnostics: (path: string) => `No current diagnostics for ${path}.`,
   noCurrentDiagnosticsStatus: (path: string) => `No current diagnostics: ${path}`,
