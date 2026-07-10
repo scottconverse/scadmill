@@ -73,6 +73,17 @@ button:focus-visible, select:focus-visible, [tabindex]:focus-visible { outline: 
 .viewer-panel { position: relative; }
 .panel-heading { display: flex; align-items: center; gap: 8px; padding: 0 13px; border-bottom: 1px solid var(--chrome-border); color: var(--chrome-text-muted); font-size: 13px; }
 .panel-heading-actions { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+.editor-tab-heading { min-width: 0; gap: 4px; padding: 0 4px 0 0; }
+.document-tabs { display: flex; min-width: 0; height: 100%; flex: 1 1 auto; align-items: stretch; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+.document-tab-shell { display: flex; min-width: 0; flex: 0 0 auto; align-items: stretch; border-right: 1px solid var(--chrome-border); }
+.document-tab, .document-tab-close { border: 0; background: var(--chrome-surface); color: var(--chrome-text-muted); cursor: pointer; }
+.document-tab { display: flex; min-width: 76px; max-width: 190px; align-items: center; justify-content: space-between; gap: 8px; padding: 0 8px 0 12px; }
+.document-tab > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.document-tab:hover, .document-tab-close:not(:disabled):hover { background: var(--chrome-hover); color: var(--chrome-text); }
+.document-tab[aria-selected="true"] { background: var(--chrome-active); color: var(--chrome-text); box-shadow: inset 0 -2px var(--chrome-accent); }
+.document-tab-close { width: 28px; min-width: 28px; padding: 0; }
+.document-tab-close:disabled { color: var(--chrome-text-disabled); cursor: not-allowed; }
+.editor-document-panel { min-width: 0; min-height: 0; }
 .viewer-heading { justify-content: space-between; }
 .viewer-heading-actions { display: flex; align-items: center; gap: 8px; }
 .dirty-marker { color: var(--chrome-accent); font-size: 9px; }

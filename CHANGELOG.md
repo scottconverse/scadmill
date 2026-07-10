@@ -27,6 +27,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - A pinned Playwright browser-acceptance lane in local scripts and CI for the normative 800 px responsive flow.
 - A fresh Lezer OpenSCAD grammar with context-sensitive modifier/operator highlighting, the version-labeled 2021.01 built-in corpus, and a generated-parser freshness gate.
 - Context-aware OpenSCAD completion for the version-labeled built-in corpus and lexically visible current-file declarations, including signature metadata, paraphrased help, special variables, user-over-built-in shadowing, and a provisional `cube` call skeleton.
+- Multi-document editor tabs with stable buffer identity, accessible dirty markers, clean close/reopen, pointer and keyboard reordering, tab cycling, per-document CodeMirror session restoration, source-snapshot-aware render identity, and truthfully disabled save/unsafe-close paths while Q-0012/Q-0018/Q-0019 remain open.
 
 ### Changed
 

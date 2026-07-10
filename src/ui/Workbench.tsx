@@ -1,4 +1,9 @@
 import { lazy, Suspense, useCallback, useRef, useState } from "react";
+import {
+  activeDocument,
+  canCloseDocument,
+  canReopenDocument,
+} from "../application/documents/document-workspace";
 import type { Diagnostic, RenderSuccess3D } from "../application/engine/contracts";
 import type { WorkspaceLayoutAction } from "../application/layout/workspace-layout";
 import type { WorkbenchRuntime } from "../application/runtime/workbench-runtime";
@@ -10,7 +15,9 @@ import { WorkspaceFrame } from "./layout/WorkspaceFrame";
 import { useLayoutKeybindings } from "./layout/use-layout-keybindings";
 import { useNarrowLayout } from "./layout/use-narrow-layout";
 import { useReadonlyStore } from "./use-readonly-store";
-import type { CursorPosition } from "./editor/CodeEditor";
+import type { CodeEditorSession, CursorPosition } from "./editor/CodeEditor";
+import { DocumentTabBar, documentTabId } from "./editor/DocumentTabBar";
+import { useDocumentKeybindings } from "./editor/use-document-keybindings";
 import "./workbench.css";
 
 const CodeEditor = lazy(() => import("./editor/CodeEditor").then((module) => ({ default: module.CodeEditor })));
@@ -59,29 +66,63 @@ export function Workbench({
   forceNarrowLayout = false,
   onThemePreferenceChange,
 }: WorkbenchProps) {
-  const document = useReadonlyStore(runtime.documents, (state) => state);
+  const documents = useReadonlyStore(runtime.documents, (state) => state);
+  const document = activeDocument(documents);
   const render = useReadonlyStore(runtime.render, (state) => state);
   const layout = useReadonlyStore(runtime.layout, (state) => state);
   const narrow = useNarrowLayout(undefined, forceNarrowLayout);
-  const result = render.result?.kind === "3d" ? render.result : undefined;
+  const renderedDocument = documents.documents.find(({ id }) => id === render.documentId);
+  const renderStale = Boolean(
+    render.documentId
+    && (
+      !renderedDocument
+      || renderedDocument.revision !== render.sourceRevision
+      || !render.sourceFiles
+      || render.sourceFiles.size !== documents.documents.length
+      || documents.documents.some(({ path, source }) => render.sourceFiles?.get(path) !== source)
+    ),
+  );
+  const activeRenderResult = render.documentId === document.id && !renderStale
+    ? render.result
+    : undefined;
+  const result = activeRenderResult?.kind === "3d" ? activeRenderResult : undefined;
   const measuredBounds = boundsLabel(result);
+  const workbenchRoot = useRef<HTMLElement>(null);
+  const editorSessions = useRef(new Map<string, CodeEditorSession>());
   const statusConsoleButton = useRef<HTMLButtonElement>(null);
   const [cursor, setCursor] = useState<CursorPosition>({ line: 1, column: 1 });
-  const diagnostics = render.result?.diagnostics;
+  const diagnostics = activeRenderResult?.diagnostics;
   const errorCount = diagnostics?.filter(({ severity }) => severity === "error").length ?? 0;
   const warningCount = diagnostics?.filter(({ severity }) => severity === "warning").length ?? 0;
-  const diagnosticStatus = !render.result
-    ? messages.noDiagnosticsStatus
-    : render.result.kind === "failure" && render.result.reason === "cancelled"
+  const diagnosticStatus = !activeRenderResult
+    ? messages.noCurrentDiagnosticsStatus(document.path)
+    : activeRenderResult.kind === "failure" && activeRenderResult.reason === "cancelled"
       ? messages.renderCancelledStatus
-      : render.result.kind === "failure" && diagnostics?.length === 0
+      : activeRenderResult.kind === "failure" && diagnostics?.length === 0
         ? messages.renderFailedDiagnosticsUnavailable
         : messages.diagnosticSummary(errorCount, warningCount);
+  const renderStatus = render.status === "idle"
+    ? messages.renderIdle
+    : render.status === "rendering"
+      ? messages.renderingDocument(render.entryFile ?? document.path)
+      : render.status === "success"
+        ? renderStale
+          ? messages.renderedDocumentStale(
+              render.entryFile ?? document.path,
+              render.result?.kind ?? "geometry",
+            )
+          : messages.renderedDocument(
+              render.entryFile ?? document.path,
+              render.result?.kind ?? "geometry",
+            )
+        : renderStale
+          ? messages.staleRenderFailedDocument(render.entryFile ?? document.path)
+          : messages.renderFailedDocument(render.entryFile ?? document.path);
   const consoleVisible = narrow
     ? layout.narrowSheet === "console"
     : layout.consoleOpen && layout.maximized === null;
-  const consoleContent = !render.result
-    ? <p>{messages.noDiagnosticsYet}</p>
+  const consoleContent = !activeRenderResult
+    ? <p>{messages.noCurrentDiagnostics(document.path)}</p>
     : diagnostics && diagnostics.length > 0
       ? (
           <ul aria-label={messages.renderDiagnostics} className="console-diagnostics">
@@ -95,7 +136,7 @@ export function Workbench({
             ))}
           </ul>
         )
-      : <pre className="console-log">{render.result.rawLog || diagnosticStatus}</pre>;
+      : <pre className="console-log">{activeRenderResult.rawLog || diagnosticStatus}</pre>;
   const dispatchLayout = useCallback(
     (action: WorkspaceLayoutAction) => {
       const focusedElement = globalThis.document?.activeElement;
@@ -114,6 +155,31 @@ export function Workbench({
   const renderPreview = useCallback(() => {
     void runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
   }, [runtime]);
+  const activateDocument = useCallback((documentId: string) => {
+    const restoreTabFocus = Boolean(
+      globalThis.document?.activeElement?.closest(".code-editor"),
+    );
+    void runtime
+      .dispatch({ kind: "activate-document", origin: "user", documentId })
+      .then(() => {
+        if (!restoreTabFocus) return;
+        globalThis.setTimeout(() => {
+          const tab = [...(workbenchRoot.current?.querySelectorAll<HTMLButtonElement>(
+            "[role='tab'][data-document-id]",
+          ) ?? [])].find((candidate) => candidate.dataset.documentId === documentId);
+          tab?.focus();
+        }, 0);
+      });
+  }, [runtime]);
+  const closeDocument = useCallback((documentId: string) => {
+    void runtime.dispatch({ kind: "close-document", origin: "user", documentId });
+  }, [runtime]);
+  const moveDocument = useCallback((documentId: string, toIndex: number) => {
+    void runtime.dispatch({ kind: "move-document", origin: "user", documentId, toIndex });
+  }, [runtime]);
+  const reopenDocument = useCallback(() => {
+    void runtime.dispatch({ kind: "reopen-document", origin: "user" });
+  }, [runtime]);
   useLayoutKeybindings({
     activeRail: layout.activeRail,
     dispatch: dispatchLayout,
@@ -122,16 +188,26 @@ export function Workbench({
     narrowSheet: layout.narrowSheet,
     narrowView: layout.narrowView,
   });
+  useDocumentKeybindings({
+    workspace: documents,
+    onActivate: activateDocument,
+    onClose: closeDocument,
+    onReopen: reopenDocument,
+  });
+  const cachedEditorSession = editorSessions.current.get(document.id);
+  const initialEditorSession = cachedEditorSession?.state.doc.toString() === document.source
+    ? cachedEditorSession
+    : undefined;
 
   const editor = (
     <section className="editor-panel" aria-label={messages.editorRegion}>
-      <div className="panel-heading">
-        <span>{document.path}</span>
-        {document.dirty && (
-          <span className="dirty-marker" role="status">
-            <span className="visually-hidden">Unsaved changes</span>{"\u25cf"}
-          </span>
-        )}
+      <div className="panel-heading editor-tab-heading">
+        <DocumentTabBar
+          workspace={documents}
+          onActivate={activateDocument}
+          onClose={closeDocument}
+          onMove={moveDocument}
+        />
         {!narrow && <div className="panel-heading-actions">
           <button
             aria-label={messages.collapseEditor}
@@ -151,16 +227,31 @@ export function Workbench({
           </button>
         </div>}
       </div>
-      <Suspense fallback={<div className="surface-loading" role="status">{messages.loadingEditor}</div>}>
-        <CodeEditor
-          value={document.source}
-          label={messages.editorRegion}
-          onCursorChange={setCursor}
-          onChange={(source) =>
-            void runtime.dispatch({ kind: "edit-document", origin: "user", source })
-          }
-        />
-      </Suspense>
+      <div
+        aria-labelledby={documentTabId(document.id)}
+        className="editor-document-panel"
+        id="active-document-editor"
+        role="tabpanel"
+      >
+        <Suspense fallback={<div className="surface-loading" role="status">{messages.loadingEditor}</div>}>
+          <CodeEditor
+            initialSession={initialEditorSession}
+            key={document.id}
+            value={document.source}
+            label={messages.editorRegion}
+            onCursorChange={setCursor}
+            onSessionChange={(session) => editorSessions.current.set(document.id, session)}
+            onChange={(source) =>
+              void runtime.dispatch({
+                kind: "edit-document",
+                origin: "user",
+                documentId: document.id,
+                source,
+              })
+            }
+          />
+        </Suspense>
+      </div>
     </section>
   );
 
@@ -169,7 +260,7 @@ export function Workbench({
       <div className="panel-heading viewer-heading">
         <span>{messages.viewerRegion}</span>
         <div className="viewer-heading-actions">
-          {render.quality === "preview" && render.status === "success" && (
+          {activeRenderResult && render.quality === "preview" && render.status === "success" && (
             <span className="quality-badge">{messages.previewQuality}</span>
           )}
           {!narrow && <button
@@ -194,20 +285,27 @@ export function Workbench({
         <ModelViewer result={result} colors={activeTheme.viewer} />
       </Suspense>
       {measuredBounds && <output className="bounds-readout">{measuredBounds}</output>}
-      {render.result?.kind === "failure" && (
-        <div className="render-error" role="alert">{render.result.rawLog}</div>
+      {activeRenderResult?.kind === "failure" && (
+        <div className="render-error" role="alert">{activeRenderResult.rawLog}</div>
       )}
     </section>
   );
 
   return (
-    <main className={`workbench${showWebMenu ? " workbench-with-web-menu" : ""}`}>
+    <main
+      className={`workbench${showWebMenu ? " workbench-with-web-menu" : ""}`}
+      ref={workbenchRoot}
+    >
       {showWebMenu && (
         <WebMenuBar
+          closeDocumentDisabled={!canCloseDocument(documents, document.id)}
           layout={layout}
           narrow={narrow}
+          reopenDocumentDisabled={!canReopenDocument(documents)}
           renderDisabled={!engineAvailable || render.status === "rendering"}
+          onCloseDocument={() => closeDocument(document.id)}
           onLayoutAction={dispatchLayout}
+          onReopenDocument={reopenDocument}
           onRenderPreview={renderPreview}
         />
       )}
@@ -241,7 +339,7 @@ export function Workbench({
 
       <footer className="statusbar">
         <span className="status-engine">{engineLabel}</span>
-        <span className="status-render">{render.status === "success" ? `Rendered ${render.result?.kind ?? ""}` : render.status}</span>
+        <span className="status-render">{renderStatus}</span>
         <button
           aria-label={messages.toggleConsoleStatus(diagnosticStatus)}
           aria-pressed={consoleVisible}

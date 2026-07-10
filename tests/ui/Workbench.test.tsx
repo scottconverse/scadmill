@@ -1,11 +1,12 @@
 // @vitest-environment happy-dom
 import { EditorView } from "@codemirror/view";
-import { fireEvent, render, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { EngineService, RenderSuccess3D } from "../../src/application/engine/contracts";
 import { createWorkbenchRuntime } from "../../src/application/runtime/workbench-runtime";
 import { SHIPPED_THEMES } from "../../src/application/theme/shipped-themes";
+import { messages } from "../../src/messages/en";
 import { Workbench } from "../../src/ui/Workbench";
 
 function oneTriangleStl(): Uint8Array {
@@ -20,6 +21,351 @@ function oneTriangleStl(): Uint8Array {
 }
 
 describe("Workbench", () => {
+  it("switches document tabs without dirtying them and targets the first real editor change", async () => {
+    const engine: EngineService = {
+      render: vi.fn(),
+      export: vi.fn(),
+      version: vi.fn(),
+      cancel: vi.fn(),
+    };
+    const runtime = createWorkbenchRuntime(engine, { makeId: () => "document-command" });
+    await runtime.dispatch({
+      kind: "open-document",
+      origin: "external-agent",
+      document: {
+        id: "document-wheel",
+        path: "parts/wheel.scad",
+        source: "cylinder(r = 4, h = 2);",
+      },
+    });
+    await runtime.dispatch({
+      kind: "activate-document",
+      origin: "user",
+      documentId: "document-main",
+    });
+    const view = render(
+      <Workbench
+        runtime={runtime}
+        engineLabel="OpenSCAD 2021.01"
+        activeTheme={SHIPPED_THEMES[0]}
+        themePreference="system"
+        onThemePreferenceChange={vi.fn()}
+      />,
+    );
+    const workbench = within(view.container);
+    const mainTab = workbench.getByRole("tab", { name: "main.scad" });
+    const wheelTab = workbench.getByRole("tab", { name: "wheel.scad" });
+
+    expect(mainTab).toHaveAttribute("aria-selected", "true");
+    expect(workbench.getByRole("tabpanel")).toHaveAttribute("aria-labelledby", mainTab.id);
+    fireEvent.click(wheelTab);
+    await waitFor(() => expect(wheelTab).toHaveAttribute("aria-selected", "true"));
+
+    const content = await waitFor(() => {
+      const node = view.container.querySelector<HTMLElement>(".cm-content");
+      if (!node) throw new Error("CodeMirror did not mount.");
+      return node;
+    });
+    const editor = EditorView.findFromDOM(content);
+    if (!editor) throw new Error("CodeMirror view could not be recovered.");
+    expect(editor.state.doc.toString()).toBe("cylinder(r = 4, h = 2);");
+    expect(runtime.documents.getState().documents.map(({ revision }) => revision)).toEqual([0, 0]);
+
+    editor.dispatch({
+      changes: { from: 0, to: editor.state.doc.length, insert: "cylinder(r = 5, h = 2);" },
+    });
+
+    expect(
+      await workbench.findByRole("tab", { name: messages.documentTabUnsaved("wheel.scad") }),
+    ).toHaveAttribute("aria-selected", "true");
+    expect(runtime.documents.getState().documents.map(({ id, revision }) => ({ id, revision }))).toEqual([
+      { id: "document-main", revision: 0 },
+      { id: "document-wheel", revision: 1 },
+    ]);
+  });
+
+  it("restores a document editor session after switching away and back", async () => {
+    const engine: EngineService = {
+      render: vi.fn(),
+      export: vi.fn(),
+      version: vi.fn(),
+      cancel: vi.fn(),
+    };
+    const runtime = createWorkbenchRuntime(engine, { makeId: () => "session-command" });
+    await runtime.dispatch({
+      kind: "open-document",
+      origin: "external-agent",
+      document: {
+        id: "document-wheel",
+        path: "parts/wheel.scad",
+        source: "cylinder(r = 4, h = 2);",
+      },
+    });
+    await runtime.dispatch({
+      kind: "activate-document",
+      origin: "user",
+      documentId: "document-main",
+    });
+    const view = render(
+      <Workbench
+        runtime={runtime}
+        engineLabel="OpenSCAD 2021.01"
+        activeTheme={SHIPPED_THEMES[0]}
+        themePreference="system"
+        onThemePreferenceChange={vi.fn()}
+      />,
+    );
+    const workbench = within(view.container);
+    const firstContent = await waitFor(() => {
+      const node = view.container.querySelector<HTMLElement>(".cm-content");
+      if (!node) throw new Error("CodeMirror did not mount.");
+      return node;
+    });
+    const firstEditor = EditorView.findFromDOM(firstContent);
+    if (!firstEditor) throw new Error("CodeMirror view could not be recovered.");
+    firstEditor.dispatch({
+      changes: { from: 5, to: 7, insert: "11" },
+      selection: { anchor: 4 },
+    });
+    await waitFor(() => expect(runtime.documents.getState().documents[0].source).toBe("cube(11);"));
+
+    fireEvent.click(workbench.getByRole("tab", { name: "wheel.scad" }));
+    fireEvent.click(workbench.getByRole("tab", { name: messages.documentTabUnsaved("main.scad") }));
+    const restoredContent = await waitFor(() => {
+      const node = view.container.querySelector<HTMLElement>(".cm-content");
+      if (!node || node === firstContent) throw new Error("The restored editor has not mounted.");
+      return node;
+    });
+    const restoredEditor = EditorView.findFromDOM(restoredContent);
+    if (!restoredEditor) throw new Error("Restored CodeMirror view could not be recovered.");
+    expect(restoredEditor.state.doc.toString()).toBe("cube(11);");
+    expect(restoredEditor.state.selection.main.head).toBe(4);
+
+    restoredEditor.focus();
+    fireEvent.keyDown(restoredContent, { key: "z", ctrlKey: true });
+    await waitFor(() => expect(restoredEditor.state.doc.toString()).toBe("cube(10);"));
+    expect(runtime.documents.getState().documents[0].source).toBe("cube(10);");
+    expect(workbench.getByRole("tab", { name: "main.scad" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(
+      workbench.getByRole("button", { name: messages.closeDocument("main.scad") }),
+    ).toBeEnabled();
+  });
+
+  it("wires clean close, reopen, reorder, and tab-cycle controls through the command bus", async () => {
+    const engine: EngineService = {
+      render: vi.fn(),
+      export: vi.fn(),
+      version: vi.fn(),
+      cancel: vi.fn(),
+    };
+    const runtime = createWorkbenchRuntime(engine, { makeId: () => "document-command" });
+    await runtime.dispatch({
+      kind: "open-document",
+      origin: "external-agent",
+      document: {
+        id: "document-wheel",
+        path: "parts/wheel.scad",
+        source: "cylinder(r = 4, h = 2);",
+      },
+    });
+    await runtime.dispatch({
+      kind: "activate-document",
+      origin: "user",
+      documentId: "document-main",
+    });
+    const view = render(
+      <Workbench
+        runtime={runtime}
+        engineLabel="OpenSCAD 2021.01"
+        activeTheme={SHIPPED_THEMES[0]}
+        themePreference="system"
+        onThemePreferenceChange={vi.fn()}
+      />,
+    );
+    const workbench = within(view.container);
+
+    fireEvent.click(workbench.getByRole("button", { name: messages.fileMenu }));
+    fireEvent.click(workbench.getByRole("button", { name: messages.closeTab }));
+    await waitFor(() => {
+      expect(runtime.documents.getState().documents.map(({ id }) => id)).toEqual(["document-wheel"]);
+    });
+
+    fireEvent.click(workbench.getByRole("button", { name: messages.fileMenu }));
+    fireEvent.click(workbench.getByRole("button", { name: messages.reopenClosedTab }));
+    await waitFor(() => {
+      expect(runtime.documents.getState().documents.map(({ id }) => id)).toEqual([
+        "document-main",
+        "document-wheel",
+      ]);
+    });
+
+    const activeEditor = await waitFor(() => {
+      const node = view.container.querySelector<HTMLElement>(".cm-content");
+      if (!node) throw new Error("CodeMirror did not mount.");
+      return node;
+    });
+    activeEditor.focus();
+    expect(activeEditor).toHaveFocus();
+    const nextTab = new KeyboardEvent("keydown", {
+      key: "Tab",
+      ctrlKey: true,
+      cancelable: true,
+    });
+    window.dispatchEvent(nextTab);
+    await waitFor(() => expect(runtime.documents.getState().activeDocumentId).toBe("document-wheel"));
+    expect(nextTab.defaultPrevented).toBe(true);
+    await waitFor(() => expect(workbench.getByRole("tab", { name: "wheel.scad" })).toHaveFocus());
+
+    const wheelTab = workbench.getByRole("tab", { name: "wheel.scad" });
+    const mainTab = workbench.getByRole("tab", { name: "main.scad" });
+    fireEvent.dragStart(wheelTab);
+    fireEvent.dragOver(mainTab);
+    fireEvent.drop(mainTab);
+    await waitFor(() => {
+      expect(runtime.documents.getState().documents.map(({ id }) => id)).toEqual([
+        "document-wheel",
+        "document-main",
+      ]);
+    });
+
+    const closeMain = workbench.getByRole("button", { name: messages.closeDocument("main.scad") });
+    closeMain.focus();
+    fireEvent.click(closeMain);
+    await waitFor(() => {
+      expect(runtime.documents.getState().documents.map(({ id }) => id)).toEqual(["document-wheel"]);
+    });
+    expect(workbench.getByRole("tab", { name: "wheel.scad" })).toHaveFocus();
+  });
+
+  it("keeps a late render identified with its source tab instead of presenting it as active", async () => {
+    const result: RenderSuccess3D = {
+      kind: "3d",
+      mesh: { format: "stl-binary", bytes: oneTriangleStl() },
+      stats: {
+        triangles: 1,
+        boundingBox: { min: [0, 0, 0], max: [10, 10, 10] },
+        engineTimeMs: 12,
+      },
+      diagnostics: [],
+      rawLog: "rendered",
+    };
+    let resolveRender!: (value: RenderSuccess3D) => void;
+    const done = new Promise<RenderSuccess3D>((resolve) => {
+      resolveRender = resolve;
+    });
+    const engine: EngineService = {
+      render: vi.fn().mockReturnValue({ jobId: "render-main", done }),
+      export: vi.fn(),
+      version: vi.fn(),
+      cancel: vi.fn(),
+    };
+    const runtime = createWorkbenchRuntime(engine, { makeId: () => "document-command" });
+    await runtime.dispatch({
+      kind: "open-document",
+      origin: "external-agent",
+      document: {
+        id: "document-wheel",
+        path: "parts/wheel.scad",
+        source: "cylinder(r = 4, h = 2);",
+      },
+    });
+    await runtime.dispatch({
+      kind: "activate-document",
+      origin: "user",
+      documentId: "document-main",
+    });
+    const view = render(
+      <Workbench
+        runtime={runtime}
+        engineLabel="OpenSCAD 2021.01"
+        activeTheme={SHIPPED_THEMES[0]}
+        themePreference="system"
+        onThemePreferenceChange={vi.fn()}
+      />,
+    );
+    const workbench = within(view.container);
+
+    fireEvent.click(
+      within(view.container.querySelector(".titlebar") as HTMLElement).getByRole("button", {
+        name: messages.renderPreview,
+      }),
+    );
+    await waitFor(() => expect(runtime.render.getState()).toMatchObject({
+      status: "rendering",
+      documentId: "document-main",
+    }));
+    fireEvent.click(workbench.getByRole("tab", { name: "wheel.scad" }));
+    await waitFor(() => expect(runtime.documents.getState().activeDocumentId).toBe("document-wheel"));
+    await act(async () => resolveRender(result));
+
+    expect(await workbench.findByText("Rendered main.scad (3d)")).toBeVisible();
+    expect(workbench.queryByText(messages.previewQuality)).not.toBeInTheDocument();
+    expect(workbench.queryByText("10 × 10 × 10 mm")).not.toBeInTheDocument();
+    expect(workbench.getByText(messages.noCurrentDiagnostics("parts/wheel.scad"))).toBeVisible();
+
+    fireEvent.click(workbench.getByRole("tab", { name: "main.scad" }));
+    expect(await workbench.findByText(messages.previewQuality)).toBeVisible();
+    expect(workbench.getByText("10 × 10 × 10 mm")).toBeVisible();
+  });
+
+  it("marks a render stale and withholds its geometry after the source revision changes", async () => {
+    const result: RenderSuccess3D = {
+      kind: "3d",
+      mesh: { format: "stl-binary", bytes: oneTriangleStl() },
+      stats: {
+        triangles: 1,
+        boundingBox: { min: [0, 0, 0], max: [10, 10, 10] },
+        engineTimeMs: 12,
+      },
+      diagnostics: [],
+      rawLog: "rendered",
+    };
+    let resolveRender!: (value: RenderSuccess3D) => void;
+    const engine: EngineService = {
+      render: vi.fn().mockReturnValue({
+        jobId: "render-revision-zero",
+        done: new Promise<RenderSuccess3D>((resolve) => {
+          resolveRender = resolve;
+        }),
+      }),
+      export: vi.fn(),
+      version: vi.fn(),
+      cancel: vi.fn(),
+    };
+    const runtime = createWorkbenchRuntime(engine, { makeId: () => "render-command" });
+    const view = render(
+      <Workbench
+        runtime={runtime}
+        engineLabel="OpenSCAD 2021.01"
+        activeTheme={SHIPPED_THEMES[0]}
+        themePreference="system"
+        onThemePreferenceChange={vi.fn()}
+      />,
+    );
+    const workbench = within(view.container);
+    const pending = runtime.dispatch({
+      kind: "render-active",
+      origin: "user",
+      quality: "preview",
+    });
+    await runtime.dispatch({
+      kind: "edit-document",
+      origin: "user",
+      documentId: "document-main",
+      source: "cube(11);",
+    });
+    resolveRender(result);
+    await act(async () => pending);
+
+    expect(await workbench.findByText("Rendered main.scad (3d, stale)")).toBeVisible();
+    expect(workbench.queryByText(messages.previewQuality)).not.toBeInTheDocument();
+    expect(workbench.queryByText("10 × 10 × 10 mm")).not.toBeInTheDocument();
+    expect(workbench.getByText(messages.noCurrentDiagnostics("main.scad"))).toBeVisible();
+  });
+
   it("binds the C0 layout shell to the command-bus layout store", async () => {
     const engine: EngineService = {
       render: vi.fn(),
@@ -86,7 +432,9 @@ describe("Workbench", () => {
 
     const statusConsole = within(
       view.container.querySelector("footer") as HTMLElement,
-    ).getByRole("button", { name: "Toggle console: No diagnostics yet" });
+    ).getByRole("button", {
+      name: messages.toggleConsoleStatus(messages.noCurrentDiagnosticsStatus("main.scad")),
+    });
     const collapseEditor = workbench.getByRole("button", { name: "Collapse editor" });
     collapseEditor.focus();
     fireEvent.click(collapseEditor);
@@ -128,7 +476,7 @@ describe("Workbench", () => {
     expect(workbench.getByRole("combobox", { name: "Theme" }).closest("footer")).toHaveClass(
       "statusbar",
     );
-    expect(workbench.getByText("No diagnostics yet")).toBeVisible();
+    expect(workbench.getByText(messages.noCurrentDiagnosticsStatus("main.scad"))).toBeVisible();
     expect(workbench.getByText("Ln 1, Col 1")).toBeVisible();
 
     const content = await waitFor(() => {

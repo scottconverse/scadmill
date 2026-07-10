@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
-import { fireEvent, render, within } from "@testing-library/react";
+import { fireEvent, render, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import { DEFAULT_KEYBINDINGS } from "../../../src/application/commands/default-keybindings";
 import { DEFAULT_WORKSPACE_LAYOUT } from "../../../src/application/layout/workspace-layout";
 import { WebMenuBar } from "../../../src/ui/layout/WebMenuBar";
 
@@ -9,6 +10,8 @@ describe("WebMenuBar", () => {
   it("offers honest web menus and routes working commands through callbacks", () => {
     const onLayoutAction = vi.fn();
     const onRenderPreview = vi.fn();
+    const onCloseDocument = vi.fn();
+    const onReopenDocument = vi.fn();
     const view = render(
       <WebMenuBar
         layout={DEFAULT_WORKSPACE_LAYOUT}
@@ -16,14 +19,32 @@ describe("WebMenuBar", () => {
         renderDisabled={false}
         onLayoutAction={onLayoutAction}
         onRenderPreview={onRenderPreview}
+        closeDocumentDisabled={false}
+        reopenDocumentDisabled={false}
+        onCloseDocument={onCloseDocument}
+        onReopenDocument={onReopenDocument}
       />,
     );
     const menu = within(view.container);
 
     expect(menu.getByRole("navigation", { name: "Application menu" })).toBeVisible();
-    expect(menu.getByRole("button", { name: "File" })).toBeDisabled();
+    expect(menu.getByRole("button", { name: "File" })).toBeEnabled();
     expect(menu.getByRole("button", { name: "Edit" })).toBeDisabled();
     expect(menu.getByRole("button", { name: "Help" })).toBeDisabled();
+
+    const openFile = () => fireEvent.click(menu.getByText("File"));
+    openFile();
+    expect(menu.getByRole("button", { name: "Save" })).toBeDisabled();
+    expect(menu.getByRole("button", { name: "Save all" })).toBeDisabled();
+    expect(menu.getByRole("button", { name: "New file" })).toBeDisabled();
+    expect(menu.getByRole("button", { name: "Open project/folder" })).toBeDisabled();
+    expect(menu.getByText(DEFAULT_KEYBINDINGS.saveDocument)).toBeVisible();
+    expect(menu.getByText(DEFAULT_KEYBINDINGS.closeTab)).toBeVisible();
+    fireEvent.click(menu.getByRole("button", { name: "Close tab" }));
+    expect(onCloseDocument).toHaveBeenCalledTimes(1);
+    openFile();
+    fireEvent.click(menu.getByRole("button", { name: "Reopen closed tab" }));
+    expect(onReopenDocument).toHaveBeenCalledTimes(1);
 
     const openView = () => fireEvent.click(menu.getByText("View"));
     openView();
@@ -119,5 +140,33 @@ describe("WebMenuBar", () => {
       key: "Escape",
     });
     expect(viewTrigger).toHaveFocus();
+  });
+
+  it("dismisses an open menu when focus moves on or the pointer leaves the menu bar", async () => {
+    const view = render(
+      <WebMenuBar
+        layout={DEFAULT_WORKSPACE_LAYOUT}
+        narrow={false}
+        renderDisabled={false}
+        onLayoutAction={vi.fn()}
+        onRenderPreview={vi.fn()}
+      />,
+    );
+    const menu = within(view.container);
+    const fileTrigger = menu.getByRole("button", { name: "File" });
+    const viewTrigger = menu.getByRole("button", { name: "View" });
+
+    fireEvent.click(fileTrigger);
+    expect(view.container.querySelectorAll('[data-menu-open="true"]')).toHaveLength(1);
+    viewTrigger.focus();
+    await waitFor(() => {
+      expect(view.container.querySelectorAll('[data-menu-open="true"]')).toHaveLength(0);
+    });
+
+    fireEvent.click(fileTrigger);
+    fireEvent.pointerDown(document.body);
+    await waitFor(() => {
+      expect(view.container.querySelectorAll('[data-menu-open="true"]')).toHaveLength(0);
+    });
   });
 });

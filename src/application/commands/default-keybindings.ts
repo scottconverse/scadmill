@@ -1,0 +1,15 @@
+export const DEFAULT_KEYBINDINGS = {
+  saveDocument: "Mod+S",
+  saveAllDocuments: "Mod+Alt+S",
+  newFile: "Mod+N",
+  openProject: "Mod+O",
+  closeTab: "Mod+W",
+  reopenClosedTab: "Mod+Shift+T",
+  nextTab: "Ctrl+Tab",
+  previousTab: "Ctrl+Shift+Tab",
+  toggleDock: "Mod+B",
+  toggleParameters: "Mod+Shift+B",
+  toggleConsole: "Mod+J",
+  maximizeEditor: "Mod+Shift+E",
+  maximizeViewer: "Mod+Shift+V",
+} as const;

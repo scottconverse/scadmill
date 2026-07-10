@@ -9,6 +9,7 @@ The project is being delivered milestone by milestone from the clean-room functi
 - Edit OpenSCAD source in a CodeMirror-based workbench and render it through the out-of-process native engine adapter.
 - Highlight OpenSCAD keywords, built-ins, literals, special variables, comments, operators, and statement modifiers through a fresh version-labeled Lezer grammar.
 - Offer context-aware completion for the version-labeled provisional built-in corpus and lexically visible current-file symbols, with signatures, paraphrased descriptions, and a provisional deterministic `cube` call skeleton while Q-0013 remains open.
+- Work across reorderable, keyboard-accessible document tabs with isolated edit/undo sessions, dirty-state announcements, clean close/reopen commands, and render results bound to the exact source snapshot; save and unsafe/final close behavior remain explicitly parked in `spec/QUESTIONS.md`.
 - Inspect real STL geometry in an orbitable Three.js viewer, with an editor-only fallback when the engine is unavailable.
 - Arrange the editor, viewer, parameters, diagnostics, and activity destinations in a resizable, collapsible workspace with keyboard commands, web-profile persistence, and a single-column layout below 900 px or by default on mobile web.
 - Follow the OS Light/Dark preference or switch among Light, Dark, and High Contrast themes without reloading the editor or viewer.

@@ -2,27 +2,41 @@ import type {
   WorkspaceLayoutAction,
   WorkspaceLayoutState,
 } from "../../application/layout/workspace-layout";
+import { DEFAULT_KEYBINDINGS } from "../../application/commands/default-keybindings";
 import { messages } from "../../messages/en";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export interface WebMenuBarProps {
   layout: WorkspaceLayoutState;
   narrow: boolean;
   renderDisabled: boolean;
+  closeDocumentDisabled?: boolean;
+  reopenDocumentDisabled?: boolean;
   onLayoutAction(action: WorkspaceLayoutAction): void;
   onRenderPreview(): void;
+  onCloseDocument?(): void;
+  onReopenDocument?(): void;
 }
 
 interface MenuCommandProps {
   active?: boolean;
+  disabled?: boolean;
   label: string;
   shortcut?: string;
+  title?: string;
   onClick(): void;
 }
 
-function MenuCommand({ active, label, shortcut, onClick }: MenuCommandProps) {
+function MenuCommand({ active, disabled, label, shortcut, title, onClick }: MenuCommandProps) {
   return (
-    <button aria-label={label} aria-pressed={active} onClick={onClick} type="button">
+    <button
+      aria-label={label}
+      aria-pressed={active}
+      disabled={disabled}
+      onClick={onClick}
+      title={title}
+      type="button"
+    >
       <span>{label}</span>
       {shortcut && <kbd>{shortcut}</kbd>}
     </button>
@@ -33,19 +47,53 @@ export function WebMenuBar({
   layout,
   narrow,
   renderDisabled,
+  closeDocumentDisabled = true,
+  reopenDocumentDisabled = true,
   onLayoutAction,
   onRenderPreview,
+  onCloseDocument = () => undefined,
+  onReopenDocument = () => undefined,
 }: WebMenuBarProps) {
-  const [openMenu, setOpenMenu] = useState<"view" | "render" | null>(null);
+  const [openMenu, setOpenMenu] = useState<"file" | "view" | "render" | null>(null);
+  const menuBar = useRef<HTMLElement>(null);
+  const fileTrigger = useRef<HTMLButtonElement>(null);
   const viewTrigger = useRef<HTMLButtonElement>(null);
   const renderTrigger = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (openMenu === null) return;
+    const dismissOutside = (event: Event) => {
+      const target = event.target;
+      const root = menuBar.current;
+      if (!(target instanceof Node) || !root) return;
+      if (event.type === "pointerdown") {
+        if (!root.contains(target)) setOpenMenu(null);
+        return;
+      }
+      const openEntry = root.querySelector('[data-menu-open="true"]');
+      if (!openEntry?.contains(target)) setOpenMenu(null);
+    };
+    globalThis.document.addEventListener("focusin", dismissOutside);
+    globalThis.document.addEventListener("pointerdown", dismissOutside);
+    return () => {
+      globalThis.document.removeEventListener("focusin", dismissOutside);
+      globalThis.document.removeEventListener("pointerdown", dismissOutside);
+    };
+  }, [openMenu]);
   const closeOpenMenu = () => {
-    const trigger = openMenu === "view" ? viewTrigger.current : renderTrigger.current;
+    const trigger = openMenu === "file"
+      ? fileTrigger.current
+      : openMenu === "view"
+        ? viewTrigger.current
+        : renderTrigger.current;
     setOpenMenu(null);
     trigger?.focus();
   };
   const runLayoutAction = (action: WorkspaceLayoutAction) => {
     onLayoutAction(action);
+    closeOpenMenu();
+  };
+  const runDocumentCommand = (command: () => void) => {
+    command();
     closeOpenMenu();
   };
   const toggleSheet = (panel: "parameter" | "console"): WorkspaceLayoutAction =>
@@ -75,15 +123,69 @@ export function WebMenuBar({
     <nav
       aria-label={messages.applicationMenu}
       className="web-menu-bar"
+      ref={menuBar}
       onKeyDown={(event) => {
         if (event.key !== "Escape" || openMenu === null) return;
         event.preventDefault();
         closeOpenMenu();
       }}
     >
-      <button disabled title={messages.fileMenuUnavailable} type="button">
-        {messages.fileMenu}
-      </button>
+      <div className="web-menu-entry" data-menu-open={openMenu === "file"}>
+        <button
+          aria-expanded={openMenu === "file"}
+          className="web-menu-trigger"
+          onClick={(event) => {
+            event.preventDefault();
+            setOpenMenu((current) => current === "file" ? null : "file");
+          }}
+          ref={fileTrigger}
+          type="button"
+        >
+          {messages.fileMenu}
+        </button>
+        {openMenu === "file" && <div className="web-menu-popover">
+          <MenuCommand
+            disabled
+            label={messages.saveDocument}
+            shortcut={DEFAULT_KEYBINDINGS.saveDocument}
+            title={messages.pendingFileCommand}
+            onClick={() => undefined}
+          />
+          <MenuCommand
+            disabled
+            label={messages.saveAllDocuments}
+            shortcut={DEFAULT_KEYBINDINGS.saveAllDocuments}
+            title={messages.pendingFileCommand}
+            onClick={() => undefined}
+          />
+          <MenuCommand
+            disabled
+            label={messages.newFile}
+            shortcut={DEFAULT_KEYBINDINGS.newFile}
+            title={messages.pendingFileCommand}
+            onClick={() => undefined}
+          />
+          <MenuCommand
+            disabled
+            label={messages.openProject}
+            shortcut={DEFAULT_KEYBINDINGS.openProject}
+            title={messages.pendingFileCommand}
+            onClick={() => undefined}
+          />
+          <MenuCommand
+            disabled={closeDocumentDisabled}
+            label={messages.closeTab}
+            shortcut={DEFAULT_KEYBINDINGS.closeTab}
+            onClick={() => runDocumentCommand(onCloseDocument)}
+          />
+          <MenuCommand
+            disabled={reopenDocumentDisabled}
+            label={messages.reopenClosedTab}
+            shortcut={DEFAULT_KEYBINDINGS.reopenClosedTab}
+            onClick={() => runDocumentCommand(onReopenDocument)}
+          />
+        </div>}
+      </div>
       <button disabled title={messages.editMenuUnavailable} type="button">
         {messages.editMenu}
       </button>
@@ -104,7 +206,7 @@ export function WebMenuBar({
           <MenuCommand
             active={dockVisible}
             label={messages.toggleDock}
-            shortcut="Mod+B"
+            shortcut={DEFAULT_KEYBINDINGS.toggleDock}
             onClick={() =>
               runLayoutAction(
                 narrow
@@ -138,13 +240,13 @@ export function WebMenuBar({
           <MenuCommand
             active={parameterVisible}
             label={messages.toggleParameters}
-            shortcut="Mod+Shift+B"
+            shortcut={DEFAULT_KEYBINDINGS.toggleParameters}
             onClick={() => runLayoutAction(toggleSheet("parameter"))}
           />
           <MenuCommand
             active={consoleVisible}
             label={messages.toggleConsole}
-            shortcut="Mod+J"
+            shortcut={DEFAULT_KEYBINDINGS.toggleConsole}
             onClick={() => runLayoutAction(toggleSheet("console"))}
           />
           {!narrow && (
@@ -152,13 +254,13 @@ export function WebMenuBar({
               <MenuCommand
                 active={layout.maximized === "editor"}
                 label={layout.maximized === "editor" ? messages.restoreEditor : messages.maximizeEditor}
-                shortcut="Mod+Shift+E"
+                shortcut={DEFAULT_KEYBINDINGS.maximizeEditor}
                 onClick={() => runLayoutAction({ kind: "toggle-maximize", region: "editor" })}
               />
               <MenuCommand
                 active={layout.maximized === "viewer"}
                 label={layout.maximized === "viewer" ? messages.restoreViewer : messages.maximizeViewer}
-                shortcut="Mod+Shift+V"
+                shortcut={DEFAULT_KEYBINDINGS.maximizeViewer}
                 onClick={() => runLayoutAction({ kind: "toggle-maximize", region: "viewer" })}
               />
             </>

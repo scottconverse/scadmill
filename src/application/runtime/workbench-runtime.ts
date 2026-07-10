@@ -1,5 +1,13 @@
 import { createStore, type StoreApi } from "zustand/vanilla";
 
+import {
+  activeDocument,
+  createDocumentWorkspace,
+  reduceDocumentWorkspace,
+  type DocumentSeed,
+  type DocumentWorkspaceAction,
+  type DocumentWorkspaceState,
+} from "../documents/document-workspace";
 import type { EngineService, Quality, RenderResult } from "../engine/contracts";
 import {
   parseWorkspaceLayout,
@@ -16,16 +24,14 @@ import {
 
 export type CommandOrigin = "user" | "ai-panel" | "external-agent";
 
-export interface DocumentState {
-  path: string;
-  source: string;
-  dirty: boolean;
-}
-
 export interface RenderState {
   status: "idle" | "rendering" | "success" | "failure";
   jobId?: string;
   quality?: Quality;
+  documentId?: string;
+  entryFile?: string;
+  sourceRevision?: number;
+  sourceFiles?: ReadonlyMap<string, string>;
   result?: RenderResult;
 }
 
@@ -43,7 +49,12 @@ export interface HistoryEntry {
 }
 
 export type WorkbenchCommand =
-  | { kind: "edit-document"; origin: CommandOrigin; source: string }
+  | { kind: "open-document"; origin: CommandOrigin; document: DocumentSeed }
+  | { kind: "activate-document"; origin: CommandOrigin; documentId: string }
+  | { kind: "edit-document"; origin: CommandOrigin; documentId: string; source: string }
+  | { kind: "move-document"; origin: CommandOrigin; documentId: string; toIndex: number }
+  | { kind: "close-document"; origin: CommandOrigin; documentId: string }
+  | { kind: "reopen-document"; origin: CommandOrigin }
   | { kind: "set-theme"; origin: CommandOrigin; theme: ThemePreference }
   | { kind: "update-layout"; origin: CommandOrigin; action: WorkspaceLayoutAction }
   | { kind: "render-active"; origin: CommandOrigin; quality: Quality };
@@ -55,7 +66,7 @@ export interface ReadonlyStore<T> {
 }
 
 export interface WorkbenchRuntime {
-  documents: ReadonlyStore<DocumentState>;
+  documents: ReadonlyStore<DocumentWorkspaceState>;
   render: ReadonlyStore<RenderState>;
   settings: ReadonlyStore<SettingsState>;
   layout: ReadonlyStore<WorkspaceLayoutState>;
@@ -122,7 +133,7 @@ function summarizeLayoutAction(action: WorkspaceLayoutAction): string {
 
 export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOptions = {}): WorkbenchRuntime {
   const layoutPersistence = options.layoutPersistence ?? EPHEMERAL_WORKSPACE_LAYOUT_PERSISTENCE;
-  const documents = createStore<DocumentState>(() => ({ path: "main.scad", source: "cube(10);", dirty: false }));
+  const documents = createStore<DocumentWorkspaceState>(() => createDocumentWorkspace());
   const render = createStore<RenderState>(() => ({ status: "idle" }));
   const settings = createStore<SettingsState>(() => ({ theme: "system" }));
   const layout = createStore<WorkspaceLayoutState>(() => parseWorkspaceLayout(layoutPersistence.load()));
@@ -158,12 +169,66 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     return true;
   }
 
+  function sourceSnapshotIsCurrent(snapshot: ReadonlyMap<string, string>): boolean {
+    const current = documents.getState().documents;
+    return current.length === snapshot.size
+      && current.every(({ path, source }) => snapshot.get(path) === source);
+  }
+
+  function documentAction(command: WorkbenchCommand): DocumentWorkspaceAction | null {
+    switch (command.kind) {
+      case "open-document":
+        return { kind: "open", document: command.document };
+      case "activate-document":
+        return { kind: "activate", documentId: command.documentId };
+      case "edit-document":
+        return { kind: "edit", documentId: command.documentId, source: command.source };
+      case "move-document":
+        return { kind: "move", documentId: command.documentId, toIndex: command.toIndex };
+      case "close-document":
+        return { kind: "close", documentId: command.documentId };
+      case "reopen-document":
+        return { kind: "reopen" };
+      default:
+        return null;
+    }
+  }
+
+  function summarizeDocumentCommand(
+    command: WorkbenchCommand,
+    before: DocumentWorkspaceState,
+  ): string {
+    switch (command.kind) {
+      case "open-document":
+        return `Open ${command.document.path}`;
+      case "activate-document":
+        return `Activate ${before.documents.find(({ id }) => id === command.documentId)?.path ?? command.documentId}`;
+      case "edit-document":
+        return `Edit ${before.documents.find(({ id }) => id === command.documentId)?.path ?? command.documentId}`;
+      case "move-document":
+        return `Move ${before.documents.find(({ id }) => id === command.documentId)?.path ?? command.documentId} to tab ${command.toIndex + 1}`;
+      case "close-document":
+        return `Close ${before.documents.find(({ id }) => id === command.documentId)?.path ?? command.documentId}`;
+      case "reopen-document":
+        return `Reopen ${before.recentlyClosed.at(-1)?.document.path ?? "document"}`;
+      default:
+        return "Update documents";
+    }
+  }
+
   async function dispatch(command: WorkbenchCommand): Promise<void> {
-    if (command.kind === "edit-document") {
-      const commandId = makeId();
-      const document = documents.getState();
-      documents.setState({ ...document, source: command.source, dirty: true });
-      record(command, commandId, `Edit ${document.path}`, true);
+    const action = documentAction(command);
+    if (action) {
+      const before = documents.getState();
+      const next = reduceDocumentWorkspace(before, action);
+      if (next === before) return;
+      documents.setState(next, true);
+      record(
+        command,
+        makeId(),
+        summarizeDocumentCommand(command, before),
+        command.kind === "edit-document",
+      );
       return;
     }
 
@@ -188,16 +253,30 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       return;
     }
 
+    if (command.kind !== "render-active") {
+      throw new Error(`Unhandled workbench command: ${command.kind}`);
+    }
+
     const commandId = makeId();
-    const document = documents.getState();
+    const workspace = documents.getState();
+    const document = activeDocument(workspace);
+    const sourceFiles = new Map(workspace.documents.map(({ path, source }) => [path, source]));
     const job = engine.render({
       entryFile: document.path,
-      files: new Map([[document.path, document.source]]),
+      files: sourceFiles,
       parameters: {},
       quality: command.quality,
       timeoutMs: command.quality === "preview" ? 30_000 : 600_000,
     });
-    render.setState({ status: "rendering", jobId: job.jobId, quality: command.quality });
+    render.setState({
+      status: "rendering",
+      jobId: job.jobId,
+      quality: command.quality,
+      documentId: document.id,
+      entryFile: document.path,
+      sourceRevision: document.revision,
+      sourceFiles,
+    }, true);
     record(
       command,
       commandId,
@@ -213,8 +292,23 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       status: result.kind === "failure" ? "failure" : "success",
       jobId: job.jobId,
       quality: command.quality,
+      documentId: document.id,
+      entryFile: document.path,
+      sourceRevision: document.revision,
+      sourceFiles,
       result,
-    });
+    }, true);
+    const currentWorkspace = documents.getState();
+    const currentTarget = currentWorkspace.documents.find(({ id }) => id === document.id);
+    if (
+      !currentTarget
+      || currentTarget.path !== document.path
+      || currentTarget.revision !== document.revision
+      || currentWorkspace.activeDocumentId !== document.id
+      || !sourceSnapshotIsCurrent(sourceFiles)
+    ) {
+      return;
+    }
     updateLayout({
       kind: result.kind === "failure" && result.reason !== "cancelled"
         ? "render-failed"
