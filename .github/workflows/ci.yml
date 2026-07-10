@@ -26,6 +26,8 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Generated OpenSCAD parser is current
+        run: pnpm check:generated
       - name: Typecheck
         run: pnpm typecheck
       - name: Lint and architectural policy

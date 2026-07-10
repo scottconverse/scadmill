@@ -7,13 +7,9 @@ import {
   ViewPlugin,
   type ViewUpdate,
 } from "@codemirror/view";
-import { Tag, tags } from "@lezer/highlight";
+import { tags } from "@lezer/highlight";
 
-export const scadHighlightTags = {
-  userModule: Tag.define("scad-user-module", tags.variableName),
-  specialVariable: Tag.define("scad-special-variable", tags.variableName),
-  modifierChar: Tag.define("scad-modifier-char", tags.punctuation),
-} as const;
+import { scadHighlightTags } from "./openscad-highlight-tags";
 
 const editorTheme = EditorView.theme({
   "&": {

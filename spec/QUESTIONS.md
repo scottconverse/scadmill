@@ -64,3 +64,52 @@ Numbered questions are appended here under §2.7. Only the affected work item is
 - **Question:** Is M1 intended to deliver honest layout shells for the Files, Search, History, AI, Libraries, and Parameters destinations whose functional capabilities land in later milestones, or must any of those owning capabilities be pulled forward before the C0 layout can exit?
 - **Evidence:** M1 explicitly includes C0, whose rail and viewer-column requirements name C6, C10, C11, C5, and FR-15 items scheduled for M2–M5. Implementing their product behavior in the C0 slice would exceed §2.7's coherent FR-cluster/capability-slice unit and the milestone sequence; omitting the destinations would violate the C0 layout contract.
 - **Blocked:** Only claiming later-capability content inside those destinations. C0 will provide labeled, keyboard-reachable shells with truthful empty/not-yet-configured states and no controls that imply unavailable functionality.
+
+## Q-0010 — Open — 2026-07-10
+
+- **Section:** AC-1.e; Appendix D; §2.7 milestone sequence
+- **Question:** At M1, must every Appendix D command have a working product handler even when its owning capability is scheduled for M2–M5, or should every binding route through the stable command bus with an explicit unavailable result until that capability lands?
+- **Evidence:** Appendix D includes commands owned by C2, C4, C6, C7, C9, and C11. Pulling every handler into M1 would contradict the milestone table, while silently omitting bindings would contradict the literal AC-1.e wording.
+- **Blocked:** Only the final AC-1.e claim for later-capability commands. The command registry, routing contract, C1-owned handlers, and unrelated editor work continue.
+
+## Q-0011 — Open — 2026-07-10
+
+- **Section:** FR-1.7; FR-1.8; M2 C9 settings
+- **Question:** Does M1 require only typed editor/keybinding defaults and runtime configuration seams, with the visible rebind/settings UI and durable preference storage arriving with C9 in M2?
+- **Evidence:** C1 requires rebindable commands and editor settings in M1, but C9 owns the settings surface and persistence in M2. A typed injected configuration boundary supports both without inventing a second settings owner.
+- **Blocked:** Only the visible editor-settings/rebinding UI and final durable adapter. Defaults, runtime application, the command bus, and unrelated editor work continue.
+
+## Q-0012 — Open — 2026-07-10
+
+- **Section:** AC-1.d; FR-1.1; M2 C6 project/file management
+- **Question:** Should M1 satisfy save behavior through a `save-document` command and injected persistence port before C6 defines the project filesystem, or is AC-1.d intentionally parked until C6 lands in M2?
+- **Evidence:** AC-1.d requires the dirty indicator to clear on save in M1, while C6 owns project files in M2. An injected port can prove lifecycle behavior without pre-deciding project storage.
+- **Blocked:** Only the final save boundary and AC-1.d claim. In-memory document state, dirty tracking, command routing, and unrelated editor work continue.
+
+## Q-0013 — Open — 2026-07-10
+
+- **Section:** FR-1.2; FR-1.3; AC-1.a; AC-1.b; ENGINE_VERSION
+- **Question:** Which engine-version reference is the normative exhaustive corpus for highlighting and built-in completion, and should completion insert named arguments, positional placeholders, or a prescribed mixture for signatures with defaults?
+- **Evidence:** The public cheat sheet identifies itself as v2021.01, while A-5 permits a newer stable release or pinned official commit. AC-1.b requires the "correct argument skeleton" for `cube` but does not define whether that means `cube(size = 1, center = false);`, `cube([width, depth, height], center);`, or another valid form.
+- **Blocked:** Only exhaustive AC-1.a coverage and the final AC-1.b insertion text. A version-labeled representative grammar, token classes, completion infrastructure, and unrelated editor work continue.
+
+## Q-0014 — Open — 2026-07-10
+
+- **Section:** FR-1.4; M2 C6 project/file management
+- **Question:** Before C6 defines project discovery and file ownership, should cross-file `include`/`use` symbol completion consume an injected in-memory project-source map?
+- **Evidence:** FR-1.4 is in M1, but the capability responsible for enumerating and loading project files is in M2. An injected read-only source map permits deterministic symbol analysis without choosing a filesystem policy early.
+- **Blocked:** Only the cross-file source adapter. Current-file symbol analysis, a project-source port, and unrelated editor work continue.
+
+## Q-0015 — Open — 2026-07-10
+
+- **Section:** Appendix D; N-3 web target; AC-1.e
+- **Question:** Are browser-reserved shortcuts such as Mod+W, Mod+N, Mod+O, and Ctrl+Tab normative only for the desktop shell, or must the web target provide alternate bindings that Appendix D should enumerate?
+- **Evidence:** Browsers may intercept these combinations before the application receives them, so an in-app handler cannot make them reliable on the web target. Claiming universal web conformance would therefore depend on host behavior outside ScadMill's control.
+- **Blocked:** Only the web acceptance claim for browser-reserved bindings. Desktop bindings, non-reserved web bindings, command routing, and unrelated editor work continue.
+
+## Q-0016 — Open — 2026-07-10
+
+- **Section:** FR-1.6; C8 diagnostics; AC-1.c
+- **Question:** After an edit invalidates the last render, should inline diagnostics disappear immediately or remain visibly marked as stale until the next render completes?
+- **Evidence:** Keeping old locations unmarked can point at the wrong text, while clearing immediately removes potentially useful feedback. The specification requires inline diagnostics and staleness-aware renders but does not define this intermediate editor state.
+- **Blocked:** Only the post-edit diagnostic presentation policy. Diagnostic parsing, per-run identity, location mapping, and unrelated editor work continue.

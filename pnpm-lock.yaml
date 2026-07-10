@@ -20,6 +20,9 @@ importers:
       '@lezer/highlight':
         specifier: 1.2.3
         version: 1.2.3
+      '@lezer/lr':
+        specifier: 1.4.10
+        version: 1.4.10
       '@tauri-apps/api':
         specifier: 2.11.1
         version: 2.11.1
@@ -42,6 +45,9 @@ importers:
       '@biomejs/biome':
         specifier: 2.5.3
         version: 2.5.3
+      '@lezer/generator':
+        specifier: 1.8.0
+        version: 1.8.0
       '@playwright/test':
         specifier: 1.61.1
         version: 1.61.1
@@ -200,6 +206,10 @@ packages:
 
   '@lezer/common@1.5.2':
     resolution: {integrity: sha512-sxQE460fPZyU3sdc8lafxiPwJHBzZRy/udNFynGQky1SePYBdhkBl1kOagA9uT3pxR8K09bOrmTUqA9wb/PjSQ==}
+
+  '@lezer/generator@1.8.0':
+    resolution: {integrity: sha512-/SF4EDWowPqV1jOgoGSGTIFsE7Ezdr7ZYxyihl5eMKVO5tlnpIhFcDavgm1hHY5GEonoOAEnJ0CU0x+tvuAuUg==}
+    hasBin: true
 
   '@lezer/highlight@1.2.3':
     resolution: {integrity: sha512-qXdH7UqTvGfdVBINrgKhDsVTJTxactNNxLk7+UMwZhU13lMHaOBlJe9Vqp907ya56Y3+ed2tlqzys7jDkTmW0g==}
@@ -1062,6 +1072,11 @@ snapshots:
   '@jridgewell/sourcemap-codec@1.5.5': {}
 
   '@lezer/common@1.5.2': {}
+
+  '@lezer/generator@1.8.0':
+    dependencies:
+      '@lezer/common': 1.5.2
+      '@lezer/lr': 1.4.10
 
   '@lezer/highlight@1.2.3':
     dependencies:

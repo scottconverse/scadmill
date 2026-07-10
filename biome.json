@@ -6,7 +6,13 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!src/desktop-shell/src-tauri/target/**", "!dist/**", "!coverage/**"]
+    "includes": [
+      "**",
+      "!src/**/generated/**",
+      "!src/desktop-shell/src-tauri/target/**",
+      "!dist/**",
+      "!coverage/**"
+    ]
   },
   "formatter": {
     "enabled": false

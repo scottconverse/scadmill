@@ -4,6 +4,7 @@ import { basicSetup } from "codemirror";
 import { useEffect, useRef } from "react";
 
 import { codeEditorTheme } from "./code-editor-theme";
+import { openScad } from "./openscad-language";
 
 export interface CodeEditorProps {
   value: string;
@@ -42,6 +43,7 @@ export function CodeEditor({ value, onChange, onCursorChange, label }: CodeEdito
         doc: initialValue.current,
         extensions: [
           basicSetup,
+          openScad(),
           codeEditorTheme,
           EditorView.contentAttributes.of({ "aria-label": label }),
           EditorView.updateListener.of((update) => {
