@@ -1,0 +1,147 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-10-c8-navigation",
+  "createdAt": "2026-07-10T06:57:55.3017688-06:00",
+  "summary": "Deliver the next M1 C8 slice: current-snapshot OpenSCAD errors and warnings become Appendix C-themed CodeMirror squiggles and gutter markers; structured diagnostics with valid locations become native buttons that activate a matching current or already-open document, move the cursor to the exact 1-based line, scroll it into view, and focus the editor. Invalid, out-of-range, echo, trace, info, stale, and unavailable-file locations remain non-marking or non-interactive. Q-0020 parks only loading a reported path that C6 has not made available.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.2 permitted inputs",
+    "Section 2.4 provenance ledger",
+    "Section 2.7 questions, decisions, and unit of work",
+    "Section 3 A-3 command bus",
+    "Section 3 A-6 modularity caps",
+    "Section 4.1 FR-1.6 inline diagnostics",
+    "Section 4.8 C8 diagnostics and console",
+    "Section 4.8 FR-8.2 clickable structured diagnostics",
+    "Section 4.8 FR-8.3 echo presentation",
+    "Section 4.8 FR-8.6 editor squiggles",
+    "Section 4.8 AC-8.b diagnostic cursor navigation",
+    "Section 5 N-3 keyboard accessibility",
+    "Section 5 N-4 English message catalog",
+    "Section 7 V-1 test-first verification",
+    "Section 8 M1 C8",
+    "Appendix C editor and console theme tokens"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "package.json", "status": "modified" },
+    { "path": "pnpm-lock.yaml", "status": "modified" },
+    {
+      "path": "provenance/entries/2026-07-10-c8-navigation.json",
+      "status": "added"
+    },
+    { "path": "spec/QUESTIONS.md", "status": "modified" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/diagnostics/DiagnosticConsole.tsx", "status": "modified" },
+    {
+      "path": "src/ui/diagnostics/use-diagnostic-navigation.ts",
+      "status": "added"
+    },
+    { "path": "src/ui/editor/CodeEditor.tsx", "status": "modified" },
+    { "path": "src/ui/editor/code-editor-theme.ts", "status": "modified" },
+    { "path": "src/ui/workbench.css", "status": "modified" },
+    { "path": "tests/ui/Workbench.test.tsx", "status": "modified" },
+    {
+      "path": "tests/ui/editor/CodeEditor.language.test.tsx",
+      "status": "modified"
+    },
+    { "path": "tests/ui/editor/CodeEditor.theme.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://registry.npmjs.org/@codemirror/lint",
+      "accessedOn": "2026-07-10",
+      "purpose": "Resolve and pin the approved official CodeMirror lint extension at the already-resolved transitive version 6.9.7 as a direct runtime dependency."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0067",
+      "topic": "Inline engine-diagnostic adapter",
+      "decision": "Use the official @codemirror/lint 6.9.7 extension and translate only current error and warning diagnostics with valid in-range 1-based lines into full-line lint ranges; install the lint gutter and always replace its diagnostic set, including with an empty set.",
+      "rationale": "The maintained CodeMirror extension provides editor-native ranges, markers, and tooltip semantics, while filtering echo, trace, info, missing, non-integer, non-positive, and out-of-range locations prevents unrelated lines from being marked.",
+      "specBasis": ["FR-1.6", "FR-8.2", "FR-8.3", "FR-8.6", "AC-8.b"]
+    },
+    {
+      "id": "D-0068",
+      "topic": "Current-snapshot cross-file navigation",
+      "decision": "Resolve a diagnostic target from its project-relative file or the render entry-file fallback, require an exact matching current or open document and a valid source line, route activation through the existing command bus, then issue an ephemeral editor navigation request.",
+      "rationale": "This delivers same-file and open-cross-file AC-8.b behavior without manufacturing source bytes, document identities, or filesystem authority for an unloaded path that belongs to C6 and is now isolated as Q-0020.",
+      "specBasis": ["A-3", "FR-8.2", "AC-8.b", "Q-0020"]
+    },
+    {
+      "id": "D-0069",
+      "topic": "Editor navigation request lifecycle",
+      "decision": "Identify each click with a monotonic request id, apply it only to the matching active document, select the reported line start, center-scroll and focus the editor, then acknowledge and clear the request after handling.",
+      "rationale": "A request id lets repeated clicks on the same diagnostic work, while clearing after acknowledgement prevents a later manual tab switch from replaying an old navigation through a restored CodeMirror session.",
+      "specBasis": ["FR-8.2", "AC-8.b", "N-3"]
+    },
+    {
+      "id": "D-0070",
+      "topic": "Lint presentation token ownership",
+      "decision": "Override CodeMirror lint's embedded range, point, tooltip-border, active-range, and gutter-marker colors with editor.squiggleError, editor.squiggleWarning, and editor.activeLine tokens; replace embedded SVG marker colors with a token-colored error circle and warning diamond.",
+      "rationale": "Installing the official extension must not bypass Appendix C or introduce fixed third-party red/orange visuals into a live-switchable Light, Dark, or High Contrast editor.",
+      "specBasis": ["FR-12.2", "FR-12.3", "Appendix C", "N-7"]
+    },
+    {
+      "id": "D-0071",
+      "topic": "Conservative stale-diagnostic boundary",
+      "decision": "Feed inline diagnostics from the globally current render source snapshot, independent of which participating open document is active, and feed none when any participating source no longer matches; do not claim this conservative clear-on-stale behavior as the final Q-0016 presentation policy.",
+      "rationale": "A cross-file diagnostic remains visible after its tab activates when the render snapshot is still current, but no obsolete line marker is installed after any source edit; a future stale presentation can be layered separately if the owner chooses it.",
+      "specBasis": ["FR-1.6", "FR-8.6", "Q-0016", "AC-8.b"]
+    },
+    {
+      "id": "D-0072",
+      "topic": "Cross-file end-to-end claim boundary",
+      "decision": "Treat the open-cross-file test as the UI contract for an already-resolved project-relative diagnostic only; do not claim native include/use-file navigation end-to-end until the subsequent FR-4.5 staging slice writes all project files and maps every engine workspace path back to its logical source.",
+      "rationale": "The current native bridge sends only entry source and resolves only main.scad, so injecting a structured parts/wheel.scad diagnostic proves Workbench behavior but not yet the native production path that produces it.",
+      "specBasis": ["FR-4.5", "FR-8.2", "AC-8.b", "Section 2.7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "FR-1.6, FR-8.6, and AC-8.b inline markers and click navigation",
+      "test": "Errors and warnings create exact-line lint ranges and gutter markers while echo and invalid locations do not; navigation moves and focuses the editor without editing; and a diagnostic button activates an open cross-file target at its reported line with the marker retained from the current render snapshot.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/CodeEditor.language.test.tsx tests/ui/Workbench.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-10T06:46:02.3852091-06:00",
+        "outcome": "RED: 3 assertion-level tests failed for the intended missing behavior: zero lint ranges/markers, selection remained on line 1 instead of line 2, and no location-bearing diagnostic button existed."
+      },
+      "green": {
+        "command": "pnpm.cmd test",
+        "observedAt": "2026-07-10T07:04:07-06:00",
+        "outcome": "GREEN: all 34 files and 334 tests passed, including exact marker counts, clear-on-empty and controlled-value behavior, direct navigation, stale suppression, open cross-file activation, cursor status, focus, and retained current-snapshot marker."
+      }
+    },
+    {
+      "criterion": "Appendix C lint presentation",
+      "test": "The mounted CodeMirror stylesheet removes the extension's embedded lint background images and contains token-driven error/warning range and gutter-marker rules.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/CodeEditor.theme.test.tsx -t \"replaces CodeMirror lint colors\" --reporter=verbose",
+        "observedAt": "2026-07-10T06:51:31.4760438-06:00",
+        "outcome": "RED: the focused assertion found CodeMirror's embedded fixed lint SVG/color rules and no ScadMill background-image or token-colored marker overrides."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/CodeEditor.theme.test.tsx -t \"replaces CodeMirror lint colors\" --reporter=verbose",
+        "observedAt": "2026-07-10T06:51:59.1100114-06:00",
+        "outcome": "GREEN: the focused token-ownership assertion passed after installing ScadMill's themed range, point, active-range, and gutter overrides."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "Q-0016 remains open: this slice conservatively suppresses all inline markers when the source snapshot is stale but does not claim that as the final owner-selected stale-diagnostic UX.",
+    "Q-0020 was appended under Section 2.7: active and already-open file navigation proceeds, while loading an unavailable reported path remains parked until the C6 source authority is decided.",
+    "Native include/use-file diagnostic production is not claimed by this UI slice; it remains required in the subsequent M1 FR-4.5 staging and path-mapping work recorded by D-0072.",
+    "The browser-hosted shell was verified with one mounted lint gutter, token-driven marker rules, and no browser warnings or errors; native error/warning visuals are covered by the focused CodeMirror and Workbench integration tests because the web shell truthfully remains engine-unavailable before M3."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

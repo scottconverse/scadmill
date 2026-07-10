@@ -43,10 +43,45 @@ const editorTheme = EditorView.theme({
     outlineColor: "var(--editor-matching-bracket)",
   },
   ".cm-diagnostic-error, .cm-lintRange-error": {
+    backgroundImage: "none",
+    borderLeftColor: "var(--editor-squiggle-error)",
     textDecorationColor: "var(--editor-squiggle-error)",
+    textDecorationLine: "underline",
+    textDecorationStyle: "wavy",
+    textUnderlineOffset: "2px",
   },
   ".cm-diagnostic-warning, .cm-lintRange-warning": {
+    backgroundImage: "none",
+    borderLeftColor: "var(--editor-squiggle-warning)",
     textDecorationColor: "var(--editor-squiggle-warning)",
+    textDecorationLine: "underline",
+    textDecorationStyle: "wavy",
+    textUnderlineOffset: "2px",
+  },
+  ".cm-lintRange-active": {
+    backgroundColor: "var(--editor-active-line)",
+  },
+  ".cm-lintPoint:after": {
+    borderBottomColor: "var(--editor-squiggle-error)",
+  },
+  ".cm-lintPoint-warning:after": {
+    borderBottomColor: "var(--editor-squiggle-warning)",
+  },
+  ".cm-lint-marker-error": {
+    boxSizing: "border-box",
+    border: "2px solid var(--editor-squiggle-error)",
+    borderRadius: "50%",
+    backgroundColor: "var(--editor-squiggle-error)",
+    content: '""',
+  },
+  ".cm-lint-marker-warning": {
+    width: ".72em",
+    height: ".72em",
+    margin: ".14em",
+    borderRadius: "1px",
+    backgroundColor: "var(--editor-squiggle-warning)",
+    content: '""',
+    transform: "rotate(45deg)",
   },
   ".cm-tooltip": {
     borderColor: "var(--chrome-border)",

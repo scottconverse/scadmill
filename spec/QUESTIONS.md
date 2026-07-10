@@ -134,3 +134,10 @@ Numbered questions are appended here under §2.7. Only the affected work item is
 - **Question:** When the final clean tab closes, should the editor become empty or immediately create a new untitled scratch document?
 - **Evidence:** FR-6.3 requires startup scratch mode but does not define the post-close state. Choosing either behavior would pre-decide project/file semantics.
 - **Blocked:** Only closing the final clean tab. Closing clean tabs when another document remains, activation, reorder, dirty tracking, and reopening continue.
+
+## Q-0020 — Open — 2026-07-10
+
+- **Section:** FR-8.2; AC-8.b; M1 C8; M2 C6 project/file management
+- **Question:** Before C6 supplies project-file discovery and loading, should M1 diagnostic navigation activate only current or already-open source buffers, with opening an unloaded reported path completed through the C6 source port in M2, or must M1 introduce an injected read-only project-file loader solely for C8?
+- **Evidence:** The M1 document workspace and render snapshot currently contain open text buffers only. A diagnostic can safely activate any matching open project-relative path, but opening a path that is not loaded requires source bytes, document identity, and filesystem authority owned by C6; reconstructing it from an engine message would be unsafe and lossy.
+- **Blocked:** Only opening a reported file that is not already available as an open buffer. Same-file and open-cross-file diagnostic clicks, cursor movement, current-snapshot inline squiggles/gutter markers, and all unrelated M1 work continue.

@@ -320,8 +320,15 @@ describe("Workbench", () => {
         boundingBox: { min: [0, 0, 0], max: [10, 10, 10] },
         engineTimeMs: 12,
       },
-      diagnostics: [],
-      rawLog: "rendered",
+      diagnostics: [
+        {
+          severity: "error",
+          message: "Old parser error in file main.scad, line 1",
+          file: "main.scad",
+          line: 1,
+        },
+      ],
+      rawLog: "ERROR: Old parser error in file main.scad, line 1",
     };
     let resolveRender!: (value: RenderSuccess3D) => void;
     const engine: EngineService = {
@@ -364,6 +371,7 @@ describe("Workbench", () => {
     expect(workbench.queryByText(messages.previewQuality)).not.toBeInTheDocument();
     expect(workbench.queryByText("10 × 10 × 10 mm")).not.toBeInTheDocument();
     expect(workbench.getByText(messages.noCurrentDiagnostics("main.scad"))).toBeVisible();
+    expect(view.container.querySelector(".cm-lintRange-error")).not.toBeInTheDocument();
   });
 
   it("binds the C0 layout shell to the command-bus layout store", async () => {
@@ -539,6 +547,90 @@ describe("Workbench", () => {
     expect(within(consoleRegion).getByText("Deprecated form")).toBeVisible();
     expect(within(consoleRegion).getByText(/raw compiler footer/u)).toBeVisible();
     expect(within(consoleRegion).queryByText("No diagnostics from this session.")).not.toBeInTheDocument();
+  });
+
+  it("activates an open diagnostic file and moves the editor cursor to its reported line", async () => {
+    const engine: EngineService = {
+      render: vi.fn().mockReturnValue({
+        jobId: "render-cross-file-diagnostic",
+        done: Promise.resolve({
+          kind: "failure",
+          reason: "engine-error",
+          diagnostics: [
+            {
+              severity: "error",
+              message: "Parser error in file parts/wheel.scad, line 2",
+              file: "parts/wheel.scad",
+              line: 2,
+            },
+          ],
+          rawLog: "ERROR: Parser error in file parts/wheel.scad, line 2",
+        }),
+      }),
+      export: vi.fn(),
+      version: vi.fn(),
+      cancel: vi.fn(),
+    };
+    const runtime = createWorkbenchRuntime(engine, { makeId: () => "diagnostic-command" });
+    await runtime.dispatch({
+      kind: "open-document",
+      origin: "external-agent",
+      document: {
+        id: "document-wheel",
+        path: "parts/wheel.scad",
+        source: "radius = 4;\ncylinder(r = radius, h = 2);",
+      },
+    });
+    await runtime.dispatch({
+      kind: "activate-document",
+      origin: "user",
+      documentId: "document-main",
+    });
+    const view = render(
+      <Workbench
+        runtime={runtime}
+        engineLabel="OpenSCAD 2021.01"
+        activeTheme={SHIPPED_THEMES[0]}
+        themePreference="system"
+        onThemePreferenceChange={vi.fn()}
+      />,
+    );
+    const workbench = within(view.container);
+
+    fireEvent.click(
+      within(view.container.querySelector(".titlebar") as HTMLElement).getByRole("button", {
+        name: messages.renderPreview,
+      }),
+    );
+    const diagnostic = await workbench.findByRole("button", {
+      name: messages.goToDiagnostic(
+        "Parser error in file parts/wheel.scad, line 2",
+        "parts/wheel.scad",
+        2,
+      ),
+    });
+    fireEvent.click(diagnostic);
+
+    await waitFor(() => {
+      expect(runtime.documents.getState().activeDocumentId).toBe("document-wheel");
+      expect(workbench.getByRole("tab", { name: "wheel.scad" })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      );
+    });
+    const content = await waitFor(() => {
+      const node = view.container.querySelector<HTMLElement>(".cm-content");
+      if (!node) throw new Error("CodeMirror did not mount.");
+      return node;
+    });
+    const editor = EditorView.findFromDOM(content);
+    if (!editor) throw new Error("CodeMirror view could not be recovered.");
+    await waitFor(() => {
+      expect(editor.state.doc.lineAt(editor.state.selection.main.head).number).toBe(2);
+      expect(workbench.getByText("Ln 2, Col 1")).toBeVisible();
+      expect(content).toHaveFocus();
+      expect(view.container.querySelectorAll(".cm-lintRange-error")).toHaveLength(1);
+    });
   });
 
   it("omits wide-only collapse and maximize controls from narrow mode", () => {

@@ -61,7 +61,11 @@ button:focus-visible, select:focus-visible, [tabindex]:focus-visible { outline: 
 .workspace-console .layout-panel-heading { color: var(--console-text); }
 .console-diagnostics, .console-log { margin: 0; padding: 12px 16px; }
 .console-diagnostics { display: grid; gap: 6px; list-style: none; }
-.console-diagnostics li { display: flex; gap: 8px; }
+.console-diagnostic { display: grid; width: 100%; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 2px 8px; padding: 2px 4px; border: 0; background: none; color: inherit; font: inherit; text-align: left; }
+button.console-diagnostic { cursor: pointer; }
+button.console-diagnostic:hover, button.console-diagnostic:focus-visible { background: var(--chrome-hover); }
+.console-diagnostic-message { min-width: 0; overflow-wrap: anywhere; }
+.console-diagnostic-location { grid-column: 2; min-width: 0; overflow-wrap: anywhere; color: var(--console-info); }
 .console-diagnostic-severity { color: var(--console-info); font-weight: 700; text-transform: uppercase; }
 .console-diagnostic-severity[data-severity="error"] { color: var(--console-error); }
 .console-diagnostic-severity[data-severity="warning"] { color: var(--console-warning); }

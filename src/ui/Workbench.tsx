@@ -19,6 +19,7 @@ import type { CodeEditorSession, CursorPosition } from "./editor/CodeEditor";
 import { DocumentTabBar, documentTabId } from "./editor/DocumentTabBar";
 import { useDocumentKeybindings } from "./editor/use-document-keybindings";
 import { DiagnosticConsole } from "./diagnostics/DiagnosticConsole";
+import { useDiagnosticNavigation } from "./diagnostics/use-diagnostic-navigation";
 import "./workbench.css";
 
 const CodeEditor = lazy(() => import("./editor/CodeEditor").then((module) => ({ default: module.CodeEditor })));
@@ -68,9 +69,16 @@ export function Workbench({
       || documents.documents.some(({ path, source }) => render.sourceFiles?.get(path) !== source)
     ),
   );
-  const activeRenderResult = render.documentId === document.id && !renderStale
-    ? render.result
+  const currentRenderResult = renderStale ? undefined : render.result;
+  const activeRenderResult = render.documentId === document.id
+    ? currentRenderResult
     : undefined;
+  const diagnosticNavigation = useDiagnosticNavigation({
+    diagnostics: currentRenderResult?.diagnostics,
+    entryFile: render.entryFile,
+    runtime,
+    workspace: documents,
+  });
   const result = activeRenderResult?.kind === "3d" ? activeRenderResult : undefined;
   const measuredBounds = boundsLabel(result);
   const workbenchRoot = useRef<HTMLElement>(null);
@@ -111,8 +119,11 @@ export function Workbench({
     ? <p>{messages.noCurrentDiagnostics(document.path)}</p>
     : (
         <DiagnosticConsole
+          canNavigate={diagnosticNavigation.canNavigate}
           diagnostics={diagnostics}
+          entryFile={render.entryFile}
           emptyMessage={diagnosticStatus}
+          onNavigate={diagnosticNavigation.navigate}
           rawLog={activeRenderResult.rawLog}
         />
       );
@@ -214,11 +225,14 @@ export function Workbench({
       >
         <Suspense fallback={<div className="surface-loading" role="status">{messages.loadingEditor}</div>}>
           <CodeEditor
+            diagnostics={diagnosticNavigation.editorDiagnostics}
             initialSession={initialEditorSession}
             key={document.id}
             value={document.source}
             label={messages.editorRegion}
+            navigation={diagnosticNavigation.navigation}
             onCursorChange={setCursor}
+            onNavigationHandled={diagnosticNavigation.completeNavigation}
             onSessionChange={(session) => editorSessions.current.set(document.id, session)}
             onChange={(source) =>
               void runtime.dispatch({

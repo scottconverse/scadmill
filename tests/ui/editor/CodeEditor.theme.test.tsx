@@ -55,4 +55,17 @@ describe("CodeEditor theme", () => {
       .join("\n");
     expect(styles).toMatch(/\.cm-selected-text[^}]*var\(--editor-text\)/u);
   });
+
+  it("replaces CodeMirror lint colors with Appendix C squiggle tokens", () => {
+    render(<CodeEditor value="cube(10);" onChange={vi.fn()} label="Editor" />);
+
+    const styles = [...document.querySelectorAll("style")]
+      .map((style) => style.textContent ?? "")
+      .join("\n");
+    expect(styles).toMatch(/\.cm-lintRange-error[^}]*background-image:\s*none/u);
+    expect(styles).toMatch(/\.cm-lintRange-error[^}]*var\(--editor-squiggle-error\)/u);
+    expect(styles).toMatch(/\.cm-lintRange-warning[^}]*var\(--editor-squiggle-warning\)/u);
+    expect(styles).toMatch(/\.cm-lint-marker-error[^}]*var\(--editor-squiggle-error\)/u);
+    expect(styles).toMatch(/\.cm-lint-marker-warning[^}]*var\(--editor-squiggle-warning\)/u);
+  });
 });

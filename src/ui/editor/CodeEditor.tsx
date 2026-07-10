@@ -1,16 +1,31 @@
+import {
+  lintGutter,
+  setDiagnostics,
+  type Diagnostic as CodeMirrorDiagnostic,
+} from "@codemirror/lint";
 import { Annotation, EditorState, StateEffect, Transaction } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { basicSetup } from "codemirror";
 import { useEffect, useRef } from "react";
 
+import type { Diagnostic } from "../../application/engine/contracts";
 import { codeEditorTheme } from "./code-editor-theme";
 import { openScad } from "./openscad-language";
 
 const controlledDocumentUpdate = Annotation.define<boolean>();
+const EMPTY_DIAGNOSTICS: readonly Diagnostic[] = [];
+
+export interface EditorNavigationRequest {
+  requestId: number;
+  line: number;
+}
 
 export interface CodeEditorProps {
   value: string;
   onChange(value: string): void;
+  diagnostics?: readonly Diagnostic[];
+  navigation?: EditorNavigationRequest;
+  onNavigationHandled?(requestId: number): void;
   onCursorChange?(position: CursorPosition): void;
   initialSession?: CodeEditorSession;
   onSessionChange?(session: CodeEditorSession): void;
@@ -42,9 +57,35 @@ function sessionSnapshot(editor: EditorView): CodeEditorSession {
   };
 }
 
+function codeMirrorDiagnostics(
+  state: EditorState,
+  diagnostics: readonly Diagnostic[],
+): CodeMirrorDiagnostic[] {
+  return diagnostics.flatMap((diagnostic) => {
+    if (
+      (diagnostic.severity !== "error" && diagnostic.severity !== "warning")
+      || !diagnostic.line
+      || !Number.isInteger(diagnostic.line)
+      || diagnostic.line < 1
+      || diagnostic.line > state.doc.lines
+    ) return [];
+    const line = state.doc.line(diagnostic.line);
+    return [{
+      from: line.from,
+      to: line.to,
+      severity: diagnostic.severity,
+      message: diagnostic.message,
+      source: "OpenSCAD",
+    }];
+  });
+}
+
 export function CodeEditor({
   value,
   onChange,
+  diagnostics = EMPTY_DIAGNOSTICS,
+  navigation,
+  onNavigationHandled,
   onCursorChange,
   initialSession,
   onSessionChange,
@@ -56,9 +97,12 @@ export function CodeEditor({
   const initialSessionRef = useRef(initialSession);
   const onChangeRef = useRef(onChange);
   const onCursorChangeRef = useRef(onCursorChange);
+  const onNavigationHandledRef = useRef(onNavigationHandled);
   const onSessionChangeRef = useRef(onSessionChange);
+  const handledNavigationRequest = useRef<number | null>(null);
   onChangeRef.current = onChange;
   onCursorChangeRef.current = onCursorChange;
+  onNavigationHandledRef.current = onNavigationHandled;
   onSessionChangeRef.current = onSessionChange;
 
   useEffect(() => {
@@ -68,6 +112,7 @@ export function CodeEditor({
     const extensions = [
       basicSetup,
       openScad(),
+      lintGutter(),
       codeEditorTheme,
       EditorView.contentAttributes.of({ "aria-label": label }),
       EditorView.updateListener.of((update) => {
@@ -122,6 +167,37 @@ export function CodeEditor({
       });
     }
   }, [value]);
+
+  useEffect(() => {
+    const editor = view.current;
+    if (!editor) return;
+    editor.dispatch(setDiagnostics(editor.state, codeMirrorDiagnostics(editor.state, diagnostics)));
+  }, [diagnostics]);
+
+  useEffect(() => {
+    const editor = view.current;
+    if (
+      !editor
+      || !navigation
+      || handledNavigationRequest.current === navigation.requestId
+    ) return;
+    handledNavigationRequest.current = navigation.requestId;
+    if (
+      !Number.isInteger(navigation.line)
+      || navigation.line < 1
+      || navigation.line > editor.state.doc.lines
+    ) {
+      onNavigationHandledRef.current?.(navigation.requestId);
+      return;
+    }
+    const line = editor.state.doc.line(navigation.line);
+    editor.dispatch({
+      selection: { anchor: line.from },
+      effects: EditorView.scrollIntoView(line.from, { y: "center" }),
+    });
+    editor.focus();
+    onNavigationHandledRef.current?.(navigation.requestId);
+  }, [navigation]);
 
   return <div className="code-editor" ref={host} />;
 }

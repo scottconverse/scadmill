@@ -175,6 +175,9 @@ export const messages = {
   noDiagnosticsYet: "No diagnostics from this session.",
   renderDiagnostics: "Render diagnostics",
   rawEngineOutput: "Raw engine output",
+  diagnosticLocation: (path: string, line: number) => `${path}:${line}`,
+  goToDiagnostic: (message: string, path: string, line: number) =>
+    `Go to ${path} line ${line}: ${message}`,
   noDiagnosticsStatus: "No diagnostics yet",
   noCurrentDiagnostics: (path: string) => `No current diagnostics for ${path}.`,
   noCurrentDiagnosticsStatus: (path: string) => `No current diagnostics: ${path}`,

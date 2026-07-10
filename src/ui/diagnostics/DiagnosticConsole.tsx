@@ -3,7 +3,10 @@ import { messages } from "../../messages/en";
 
 export interface DiagnosticConsoleProps {
   diagnostics?: readonly Diagnostic[];
+  entryFile?: string;
   emptyMessage: string;
+  canNavigate?(diagnostic: Diagnostic): boolean;
+  onNavigate?(diagnostic: Diagnostic): void;
   rawLog: string;
 }
 
@@ -24,7 +27,10 @@ function diagnosticRows(diagnostics: readonly Diagnostic[]) {
 
 export function DiagnosticConsole({
   diagnostics = [],
+  entryFile,
   emptyMessage,
+  canNavigate,
+  onNavigate,
   rawLog,
 }: DiagnosticConsoleProps) {
   if (diagnostics.length === 0 && rawLog.length === 0) {
@@ -34,14 +40,48 @@ export function DiagnosticConsole({
     <>
       {diagnostics.length > 0 && (
         <ul aria-label={messages.renderDiagnostics} className="console-diagnostics">
-          {diagnosticRows(diagnostics).map(({ diagnostic, key }) => (
-            <li key={key}>
-              <span className="console-diagnostic-severity" data-severity={diagnostic.severity}>
-                {diagnostic.severity}
-              </span>
-              <span>{diagnostic.message}</span>
-            </li>
-          ))}
+          {diagnosticRows(diagnostics).map(({ diagnostic, key }) => {
+            const path = diagnostic.file ?? entryFile;
+            const navigable = Boolean(
+              onNavigate
+              && path
+              && diagnostic.line
+              && canNavigate?.(diagnostic),
+            );
+            const content = (
+              <>
+                <span className="console-diagnostic-severity" data-severity={diagnostic.severity}>
+                  {diagnostic.severity}
+                </span>
+                <span className="console-diagnostic-message">{diagnostic.message}</span>
+                {path && diagnostic.line && (
+                  <span className="console-diagnostic-location">
+                    {messages.diagnosticLocation(path, diagnostic.line)}
+                  </span>
+                )}
+              </>
+            );
+            return (
+              <li key={key}>
+                {navigable && path && diagnostic.line
+                  ? (
+                      <button
+                        aria-label={messages.goToDiagnostic(
+                          diagnostic.message,
+                          path,
+                          diagnostic.line,
+                        )}
+                        className="console-diagnostic"
+                        onClick={() => onNavigate?.(diagnostic)}
+                        type="button"
+                      >
+                        {content}
+                      </button>
+                    )
+                  : <div className="console-diagnostic">{content}</div>}
+              </li>
+            );
+          })}
         </ul>
       )}
       {rawLog.length > 0 && (
