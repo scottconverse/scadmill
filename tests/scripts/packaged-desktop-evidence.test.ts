@@ -258,6 +258,13 @@ describe("packaged desktop evidence helpers", () => {
     })).toThrow("restored exactly");
   });
 
+  it("observes the implicit HR separator through a concrete DOM selector", async () => {
+    const runner = await readFile(join(process.cwd(), "scripts", "run-packaged-desktop-evidence.mjs"), "utf8");
+
+    expect(runner).toContain("querySelectorAll('hr[aria-label]')");
+    expect(runner).not.toContain("querySelectorAll('[role=\"separator\"]')");
+  });
+
   it("finds a sentinel split across streaming read boundaries", async () => {
     const root = await mkdtemp(join(tmpdir(), "scadmill-evidence-"));
     temporaryRoots.push(root);

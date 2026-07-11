@@ -88,6 +88,20 @@
         "observedAt": "2026-07-11T17:00:36-06:00",
         "outcome": "GREEN: focused Test Files 5 passed (5), Tests 42 passed (42), duration 1.25 s; TypeScript exited 0; lint checked 296 files and source policy passed; provenance baseline validation passed; both executable modules parsed; diff integrity passed. This is static evidence only and does not claim a packaged runtime PASS."
       }
+    },
+    {
+      "criterion": "The harness observes the splitter's real DOM element rather than requiring an explicit ARIA role attribute",
+      "test": "Read the packaged runner and require its observation code to select the concrete HR element carrying the label; reject the incorrect explicit-role selector because HR exposes separator as an implicit accessibility role without a role attribute.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T17:02:07-06:00",
+        "outcome": "ASSERTION-LEVEL RED: Test Files 1 failed (1); Tests 1 failed | 17 passed (18). The new runner queried [role=separator], which cannot match the production HR splitter's implicit role."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts --reporter=verbose; node --check scripts/run-packaged-desktop-evidence.mjs; git diff --check",
+        "observedAt": "2026-07-11T17:02:23-06:00",
+        "outcome": "GREEN: Test Files 1 passed (1); Tests 18 passed (18); duration 440 ms. The runner parses and diff integrity passes."
+      }
     }
   ],
   "nearMisses": [],

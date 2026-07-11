@@ -347,7 +347,7 @@ async function inputValue(client, label) {
 
 async function splitterAriaValue(client, label) {
   const value = await client.execute(`
-    const element = [...document.querySelectorAll('[role="separator"]')]
+    const element = [...document.querySelectorAll('hr[aria-label]')]
       .find((candidate) => candidate.getAttribute('aria-label') === arguments[0]
         && candidate.getClientRects().length > 0);
     return element?.getAttribute('aria-valuenow') ?? null;
@@ -363,7 +363,7 @@ async function captureProjectLayoutObservation(client, expectedDockWidth) {
       .filter((key) => key.startsWith(prefix))
       .sort()
       .map((key) => ({ key, value: localStorage.getItem(key) }));
-    const splitter = [...document.querySelectorAll('[role="separator"]')]
+    const splitter = [...document.querySelectorAll('hr[aria-label]')]
       .find((candidate) => candidate.getAttribute('aria-label') === 'Resize files panel'
         && candidate.getClientRects().length > 0);
     const value = splitter?.getAttribute('aria-valuenow') ?? null;
