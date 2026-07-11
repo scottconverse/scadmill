@@ -42,7 +42,6 @@ export function isParameterValueCompatible(
       Array.isArray(value)
       && value.length === reference.length
       && value.length > 0
-      && value.length <= 4
       && value.every((component) => typeof component === "number" && Number.isFinite(component))
     );
   }
@@ -63,10 +62,9 @@ export function parameterValueToSource(value: ParameterValue): string {
   if (typeof value === "string") return JSON.stringify(value);
   if (
     value.length < 1
-    || value.length > 4
     || value.some((component) => !Number.isFinite(component))
   ) {
-    throw new TypeError("Parameter vectors must contain one to four finite numbers.");
+    throw new TypeError("Parameter vectors must contain non-empty finite numbers.");
   }
   return `[${value.map((component) => (Object.is(component, -0) ? "0" : String(component))).join(", ")}]`;
 }

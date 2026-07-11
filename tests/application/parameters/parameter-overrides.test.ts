@@ -48,6 +48,15 @@ describe("customizer parameter overrides", () => {
     );
   });
 
+  it("rewrites changed tokens in a six-component vector while preserving untouched token bytes", () => {
+    const source = "pose = [1.0, /* keep x */  2, 3, 4, /* keep tail */  5, 6.0]; cube(1);";
+    const parameters = extractCustomizerParameters(source);
+
+    expect(writeParameterValues(source, parameters, { pose: [1, 2, 3, 4, 50, 60] })).toBe(
+      "pose = [1.0, /* keep x */  2, 3, 4, /* keep tail */  50, 60]; cube(1);",
+    );
+  });
+
   it("keeps identifier-shaped prototype keys as inert own properties", () => {
     const parameters = extractCustomizerParameters(`__proto__ = [0, 1]; cube(1);`);
     const previous = JSON.parse('{"__proto__":[2,3]}') as Record<string, readonly number[]>;
@@ -68,6 +77,15 @@ describe("customizer parameter overrides", () => {
     expect(() => writeParameterValues(source, parameters, { point: [0, Number.POSITIVE_INFINITY] }))
       .toThrow("point");
     expect(() => writeParameterValues(source, parameters, { width: "wide" })).toThrow("width");
+
+    const longVectorSource = "pose = [0, 1, 2, 3, 4, 5]; cube(1);";
+    const longVectorParameters = extractCustomizerParameters(longVectorSource);
+    expect(() => writeParameterValues(longVectorSource, longVectorParameters, {
+      pose: [6, 7, 8, 9, 10],
+    })).toThrow("pose");
+    expect(() => writeParameterValues(longVectorSource, longVectorParameters, {
+      pose: [6, 7, 8, 9, 10, Number.NaN],
+    })).toThrow("pose");
   });
 
   it("refuses stale source ranges after the document changes", () => {

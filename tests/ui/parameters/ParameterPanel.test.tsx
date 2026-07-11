@@ -94,6 +94,28 @@ cube(first);`;
     expect(view.queryByText("$fn")).not.toBeInTheDocument();
   });
 
+  it("renders and edits every component of a six-component vector", () => {
+    const vectorSource = "pose = [0, 1, 2, 3, 4, 5]; cube(1);";
+    const state = parameterDocument(
+      createParameterState([{ documentId: "doc-a", revision: 0, source: vectorSource }]),
+      "doc-a",
+    );
+    const onAction = vi.fn();
+    const view = render(
+      <ParameterPanel documentId="doc-a" state={state} onAction={onAction} onWrite={vi.fn()} />,
+    );
+    const components = view.getAllByLabelText(/pose component/);
+
+    expect(components).toHaveLength(6);
+    fireEvent.change(components[5] as HTMLInputElement, { target: { value: "11" } });
+    expect(onAction).toHaveBeenCalledWith({
+      kind: "set-value",
+      documentId: "doc-a",
+      name: "pose",
+      value: [0, 1, 2, 3, 4, 11],
+    });
+  });
+
   it("routes value, reset, write, and parameter-set actions without editing source itself", () => {
     const parameterState = reduceParameterState(
       createParameterState([{ documentId: "doc-a", revision: 0, source }]),

@@ -124,7 +124,7 @@ function ParameterInput({ parameter, value, onValue }: ParameterInputProps) {
           {vector.map((component, index) => (
             <input
               aria-label={messages.vectorComponent(parameter.name, index)}
-              key={`${parameter.name}-${VECTOR_AXES[index] ?? "component"}`}
+              key={`${parameter.name}-${VECTOR_AXES[index] ?? `component-${index}`}`}
               onChange={(event) => {
                 const next = event.currentTarget.valueAsNumber;
                 if (!Number.isFinite(next)) return;

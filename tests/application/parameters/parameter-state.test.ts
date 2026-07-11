@@ -6,6 +6,37 @@ import {
 } from "../../../src/application/parameters/parameter-state";
 
 describe("per-document customizer state", () => {
+  it("edits, saves, and reapplies a six-component vector as one exact value", () => {
+    let state = createParameterState([{
+      documentId: "doc-a",
+      revision: 0,
+      source: "pose = [0, 1, 2, 3, 4, 5]; cube(1);",
+    }]);
+    const edited = [6, 7, 8, 9, 10, 11] as const;
+
+    state = reduceParameterState(state, {
+      kind: "set-value",
+      documentId: "doc-a",
+      name: "pose",
+      value: edited,
+    });
+    expect(parameterDocument(state, "doc-a").overrides).toEqual({ pose: edited });
+
+    state = reduceParameterState(state, {
+      kind: "save-set",
+      documentId: "doc-a",
+      name: "Moved",
+    });
+    state = reduceParameterState(state, { kind: "reset-all", documentId: "doc-a" });
+    state = reduceParameterState(state, {
+      kind: "apply-set",
+      documentId: "doc-a",
+      name: "Moved",
+    });
+
+    expect(parameterDocument(state, "doc-a").overrides).toEqual({ pose: edited });
+  });
+
   it("reparses each accepted revision, preserves compatible names, and drops renamed values", () => {
     let state = createParameterState([
       { documentId: "doc-a", revision: 0, source: "width = 10; enabled = true; cube(width);" },
@@ -211,5 +242,23 @@ describe("per-document customizer state", () => {
       name: "secret",
       value: 9,
     })).toThrow(/hidden/i);
+
+    const vectorState = createParameterState([{
+      documentId: "doc-vector",
+      revision: 0,
+      source: "pose = [0, 1, 2, 3, 4, 5]; cube(1);",
+    }]);
+    expect(() => reduceParameterState(vectorState, {
+      kind: "set-value",
+      documentId: "doc-vector",
+      name: "pose",
+      value: [6, 7, 8, 9, 10],
+    })).toThrow(/compatible/i);
+    expect(() => reduceParameterState(vectorState, {
+      kind: "set-value",
+      documentId: "doc-vector",
+      name: "pose",
+      value: [6, 7, 8, 9, 10, Number.NEGATIVE_INFINITY],
+    })).toThrow(/compatible/i);
   });
 });

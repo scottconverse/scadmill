@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-m2-customizer-long-vectors",
+  "createdAt": "2026-07-11T17:41:55-06:00",
+  "summary": "Close the C5 compatibility and serialization gap that rejected structurally valid Customizer vectors longer than four components.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 test-first evidence and milestone gates",
+    "FR-5.1 vector per-component numeric inputs",
+    "FR-5.2 parameter controls",
+    "FR-5.3 exact source rewriting",
+    "FR-5.4 stock parameter-set interchange",
+    "FR-5.5 parameter value preservation"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-11-m2-customizer-long-vectors.json", "status": "added" },
+    { "path": "src/application/parameters/customizer-schema.ts", "status": "modified" },
+    { "path": "src/ui/parameters/ParameterPanel.tsx", "status": "modified" },
+    { "path": "tests/application/parameters/customizer-schema.test.ts", "status": "added" },
+    { "path": "tests/application/parameters/parameter-overrides.test.ts", "status": "modified" },
+    { "path": "tests/application/parameters/parameter-set-codec.test.ts", "status": "modified" },
+    { "path": "tests/application/parameters/parameter-state.test.ts", "status": "modified" },
+    { "path": "tests/ui/parameters/ParameterPanel.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0206",
+      "topic": "Customizer vectors longer than four components",
+      "decision": "Treat every nonempty finite numeric vector as serializable and require compatibility against the source default by exact component count, without an application-owned maximum component count. Give panel inputs beyond the conventional x/y/z/w axes stable index-qualified keys.",
+      "rationale": "The structural parser and Customizer contract already accept vectors longer than four values. The obsolete schema ceiling made valid parsed controls fail during edits, exact source rewriting, and named-set export; removing only that ceiling aligns every C5 path while preserving the existing nonempty, exact-length, finite-number, file-size, and hostile-input safeguards.",
+      "specBasis": [
+        "FR-5.1 vector per-component numeric inputs",
+        "FR-5.3 exact source rewriting",
+        "FR-5.4 stock parameter-set interchange",
+        "FR-5.5 parameter value preservation"
+      ]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Six-component vectors traverse schema, live state, source rewriting, stock set interchange, and panel input without weakening safety checks",
+      "test": "Assert acceptance and serialization of six finite values; edit/save/reset/reapply through parameter state; preserve unchanged source component tokens while rewriting tail values; export/import the exact stock JSON string; interact with the sixth panel input; and retain rejection of empty, wrong-length, nonfinite, hostile, and malformed values.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/parameters/customizer-schema.test.ts tests/application/parameters/parameter-state.test.ts tests/application/parameters/parameter-overrides.test.ts tests/application/parameters/parameter-set-codec.test.ts tests/ui/parameters/ParameterPanel.test.tsx",
+        "observedAt": "2026-07-11T17:40:45-06:00",
+        "outcome": "ASSERTION-LEVEL RED: Test Files 4 failed | 1 passed (5); Tests 5 failed | 40 passed (45). Schema acceptance returned false, state editing and exact rewrite rejected the value as incompatible, stock-set encoding raised ParameterSetFormatError, and the safety-message assertion exposed the obsolete one-to-four wording. The six-input panel interaction passed independently."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/parameters/customizer-schema.test.ts tests/application/parameters/parameter-state.test.ts tests/application/parameters/parameter-overrides.test.ts tests/application/parameters/parameter-set-codec.test.ts tests/ui/parameters/ParameterPanel.test.tsx",
+        "observedAt": "2026-07-11T17:41:29-06:00",
+        "outcome": "GREEN: Test Files 5 passed (5); Tests 45 passed (45); Duration 1.53s."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "The shared parser and rendered controls already accepted vectors longer than four, so parser-only or render-only tests could not detect the downstream schema ceiling.",
+    "Inputs after the conventional x/y/z/w axes shared one React key; index-qualified fallback keys now preserve stable reconciliation for vectors with six or more components.",
+    "Verification: pnpm.cmd typecheck exited 0 with $ tsc --noEmit.",
+    "Verification: pnpm.cmd lint exited 0; Biome checked 303 files in 133ms with no fixes, and source policy passed.",
+    "Verification: pnpm.cmd build exited 0; Vite transformed 183 modules and built production assets successfully in 289ms.",
+    "Verification: pnpm.cmd check:provenance exited 0 with Provenance ledger passed validation (baseline mode; no PR base supplied).",
+    "No new arbitrary component cap was introduced; existing parser/source/import byte and structure bounds remain the owning size controls.",
+    "No owner similarity gate, comparison repository, workflow content, or prohibited source was opened or executed."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

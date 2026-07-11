@@ -58,6 +58,22 @@ describe("OpenSCAD parameter-set JSON v1", () => {
     ]);
   });
 
+  it("exports and imports an exact six-component vector using stock JSON strings", () => {
+    const longVectorParameters = extractCustomizerParameters(
+      "pose = [0, 1, 2, 3, 4, 5]; cube(1);",
+    );
+    const encoded = encodeParameterSets([{
+      name: "Moved",
+      values: { pose: [6, 7, 8, 9, 10, 11] },
+    }]);
+
+    expect(JSON.parse(encoded).parameterSets.Moved.pose).toBe("[6, 7, 8, 9, 10, 11]");
+    expect(decodeParameterSets(encoded, longVectorParameters)).toEqual([{
+      name: "Moved",
+      values: { pose: [6, 7, 8, 9, 10, 11] },
+    }]);
+  });
+
   it("retains Hidden values from an imported set for future visibility", () => {
     const hiddenParameters = extractCustomizerParameters(
       `width = 60; /* [Hidden] */ secret = 7; cube(width);`,
