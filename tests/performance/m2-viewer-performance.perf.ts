@@ -46,20 +46,15 @@ test("profiles production orbit rendering at two million triangles by default", 
   const canvas = page.locator("canvas");
   const box = await canvas.boundingBox();
   if (!box) throw new Error("The performance canvas has no layout box.");
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + 120, box.y + box.height / 2 + 60, {
+    steps: 12,
+  });
+  await page.mouse.up();
   await page.evaluate(() => {
     window.scadmillViewerProfile = window.runScadMillViewerProfile();
   });
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.down();
-  for (let step = 0; step < 150; step += 1) {
-    const phase = step / 9;
-    await page.mouse.move(
-      box.x + box.width / 2 + Math.sin(phase) * 120,
-      box.y + box.height / 2 + Math.cos(phase) * 60,
-    );
-    await page.waitForTimeout(20);
-  }
-  await page.mouse.up();
   const profile = await page.evaluate<ViewerPerformanceProfile>(async () => {
     if (!window.scadmillViewerProfile) throw new Error("The viewer sample did not start.");
     return window.scadmillViewerProfile;
@@ -77,7 +72,11 @@ test("profiles production orbit rendering at two million triangles by default", 
   expect(profile.degradation).toEqual({ edges: degraded, shadow: degraded });
   expect(profile.renderer).not.toMatch(/SwiftShader|llvmpipe|software/iu);
   expect(profile.averageFps).toBeGreaterThan(0);
-  if (TRIANGLE_COUNT === 2_000_000) expect(profile.averageFps).toBeGreaterThanOrEqual(30);
+  expect(profile.renderedFrames).toBeGreaterThan(0);
+  if (TRIANGLE_COUNT === 2_000_000) {
+    expect(profile.averageFps).toBeGreaterThanOrEqual(30);
+    expect(profile.renderedFps).toBeGreaterThanOrEqual(30);
+  }
   expect(profile.frames).toBeGreaterThan(0);
   expect(pageErrors).toEqual([]);
   expect(consoleErrors).toEqual([]);

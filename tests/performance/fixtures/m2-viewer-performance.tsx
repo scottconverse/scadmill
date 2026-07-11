@@ -1,8 +1,10 @@
 import { createRoot } from "react-dom/client";
+import { useState } from "react";
 
 import type { RenderSuccess3D } from "../../../src/application/engine/contracts";
 import type { ParsedBinaryStl } from "../../../src/application/geometry/stl";
 import type { ViewerDegradation } from "../../../src/ui/viewer/viewer-furniture";
+import type { ViewerCameraState } from "../../../src/application/viewer/viewer-state";
 import { ModelViewer } from "../../../src/ui/viewer/ModelViewer";
 
 const requestedTriangleCount = Number(new URL(location.href).searchParams.get("triangles") ?? "2000000");
@@ -21,6 +23,10 @@ export interface ViewerPerformanceProfile {
   readonly longestFrameMs: number;
   readonly longestLongTaskMs: number;
   readonly p95FrameMs: number;
+  readonly p95RenderMs: number;
+  readonly renderedFps: number;
+  readonly renderedFrames: number;
+  readonly longestRenderMs: number;
   readonly renderer: string;
   readonly triangleCount: number;
   readonly userAgent: string;
@@ -39,6 +45,9 @@ let ready!: (degradation: ViewerDegradation) => void;
 const viewerReady = new Promise<ViewerDegradation>((resolve) => { ready = resolve; });
 let status = "starting";
 window.scadmillViewerProfileStatus = () => status;
+const renderDurations: number[] = [];
+let samplingRenders = false;
+let driveCamera: ((angle: number) => void) | undefined;
 
 async function generatedGeometry(_bytes: Uint8Array, signal: AbortSignal): Promise<ParsedBinaryStl> {
   await new Promise<void>((resolve) => globalThis.setTimeout(resolve, 0));
@@ -93,15 +102,24 @@ const RESULT: RenderSuccess3D = {
 };
 
 function Fixture() {
+  const [camera, setCamera] = useState<ViewerCameraState>({
+    projection: "perspective",
+    position: [1_800, 1_300, 1_500],
+    target: [1_000, 500, 0],
+    up: [0, 0, 1],
+    zoom: 1,
+  });
+  driveCamera = (angle) => setCamera({
+    ...camera,
+    position: [
+      1_000 + Math.cos(angle) * 1_500,
+      500 + Math.sin(angle) * 1_500,
+      1_200,
+    ],
+  });
   return (
     <ModelViewer
-      camera={{
-        projection: "perspective",
-        position: [1_800, 1_300, 1_500],
-        target: [1_000, 500, 0],
-        up: [0, 0, 1],
-        zoom: 1,
-      }}
+      camera={camera}
       colors={{
         background: "#101820",
         mesh: "#d8e5ee",
@@ -122,6 +140,9 @@ function Fixture() {
           status = "ready";
           ready(degradation);
         }
+      }}
+      onFrameRendered={(durationMs) => {
+        if (samplingRenders) renderDurations.push(durationMs);
       }}
       result={RESULT}
     />
@@ -152,6 +173,8 @@ window.runScadMillViewerProfile = async () => {
     for (const entry of list.getEntries()) longTasks.push(entry.duration);
   });
   observer.observe({ type: "longtask", buffered: false });
+  renderDurations.length = 0;
+  samplingRenders = true;
 
   const intervals: number[] = [];
   const startedAt = await new Promise<number>((resolve) => requestAnimationFrame(resolve));
@@ -163,11 +186,13 @@ window.runScadMillViewerProfile = async () => {
       previous = now;
       frames += 1;
       const elapsed = now - startedAt;
+      driveCamera?.(elapsed / 750);
       if (elapsed < 3_000) requestAnimationFrame(sample);
       else resolve(elapsed);
     };
     requestAnimationFrame(sample);
   });
+  samplingRenders = false;
   await new Promise<void>((resolve) => globalThis.setTimeout(resolve, 100));
   observer.disconnect();
 
@@ -181,6 +206,10 @@ window.runScadMillViewerProfile = async () => {
     longestFrameMs: Math.max(0, ...intervals),
     longestLongTaskMs: Math.max(0, ...longTasks),
     p95FrameMs: percentile(intervals, 0.95),
+    p95RenderMs: percentile(renderDurations, 0.95),
+    renderedFps: renderDurations.length / (durationMs / 1_000),
+    renderedFrames: renderDurations.length,
+    longestRenderMs: Math.max(0, ...renderDurations),
     renderer,
     triangleCount: TRIANGLE_COUNT,
     userAgent: navigator.userAgent,

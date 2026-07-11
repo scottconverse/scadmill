@@ -69,8 +69,8 @@
       },
       "green": {
         "command": "pnpm.cmd --silent profile:viewer",
-        "observedAt": "2026-07-11T14:41:19-06:00",
-        "outcome": "GREEN HARNESS DIAGNOSTIC: 1 passed (10.4s) after isolating parsed geometry from render measurement. The production viewer reached ready, rendered exactly 2,000,000 triangles, and completed the trusted orbit sample."
+        "observedAt": "2026-07-11T14:50:57-06:00",
+        "outcome": "GREEN HARNESS DIAGNOSTIC: 1 passed (6.1s) after isolating parsed geometry from render measurement. The production viewer reached ready, rendered exactly 2,000,000 triangles, and completed the trusted orbit sample."
       }
     },
     {
@@ -83,7 +83,7 @@
       },
       "green": {
         "command": "pnpm.cmd --silent profile:viewer",
-        "observedAt": "2026-07-11T14:41:19-06:00",
+        "observedAt": "2026-07-11T14:50:57-06:00",
         "outcome": "GREEN: real Playwright pointer input, a data favicon, empty page/console error arrays, and the unmasked ANGLE AMD Radeon 780M Direct3D11 renderer all passed."
       }
     },
@@ -97,8 +97,22 @@
       },
       "green": {
         "command": "pnpm.cmd --silent profile:viewer",
-        "observedAt": "2026-07-11T14:41:19-06:00",
-        "outcome": "LOCAL DIAGNOSTIC ONLY: 59.9500 average fps, 180 frames over 3002.5 ms, 16.8 ms p95, 17.1 ms longest frame, zero long tasks, and both edges/shadow degraded. Evidence: outputs/gate-scadmill-2026-07-10/artifacts/m2-r04-viewer-diagnostic-20260711T204119Z. Profile SHA-256 EE38DD48AC1441DECE89D726D8AD79D90600149513773A49C8B39374CC05AFC6; command output SHA-256 74C778F6B8F7E38BBA8F044D3D1487721C1A184F428749A9AC616C2747F89993; video disclosure SHA-256 603A9516FB525253AF4D47447DFFFAD3FC1A35B237DD079BC3B155C6D17EE80D; CPU disclosure SHA-256 E9B3B2D63DAE429CFB159761CB03107B3DC56ED5F0D157FF1F0895DE02F071B8. hardwareQualification is unqualified-current-host-amd-radeon-780m."
+        "observedAt": "2026-07-11T14:50:57-06:00",
+        "outcome": "LOCAL DIAGNOSTIC ONLY: 59.9500 animation fps and 59.2839 production-render submissions per second (178 actual ModelViewer render calls), 180 animation frames over 3002.5 ms, 16.8 ms p95, 17.7 ms longest frame, 0.4 ms p95 render submission, zero long tasks, and both edges/shadow degraded. Evidence: outputs/gate-scadmill-2026-07-10/artifacts/m2-r04-viewer-diagnostic-20260711T205057Z. Profile SHA-256 9E17235506A6C93E914D172CF906E5D5F67937B0CD817F5ABC6B2B4029FF3B8F; command output SHA-256 6CA4513D341F35F5B5DD3677DCD737949546E91042A59501948BEB0031DE02E8; video disclosure SHA-256 603A9516FB525253AF4D47447DFFFAD3FC1A35B237DD079BC3B155C6D17EE80D; CPU disclosure SHA-256 E9B3B2D63DAE429CFB159761CB03107B3DC56ED5F0D157FF1F0895DE02F071B8. hardwareQualification is unqualified-current-host-amd-radeon-780m."
+      }
+    },
+    {
+      "criterion": "The numeric result counts actual production ModelViewer render submissions rather than unrelated requestAnimationFrame callbacks",
+      "test": "Instrument the production renderer completion point through an optional observer callback, drive controlled orbit camera positions for the sample window, and require both animation fps and actual rendered fps to meet 30 at exactly two million triangles.",
+      "red": {
+        "command": "pnpm.cmd --silent profile:viewer",
+        "observedAt": "2026-07-11T14:48:24-06:00",
+        "outcome": "ASSERTION-LEVEL RED: the strengthened test rejected the prior rAF-only metric because renderedFrames was 0; a 60 Hz browser clock by itself was no longer accepted as proof that the model rendered."
+      },
+      "green": {
+        "command": "pnpm.cmd --silent profile:viewer",
+        "observedAt": "2026-07-11T14:50:57-06:00",
+        "outcome": "GREEN DIAGNOSTIC: 178 real production ModelViewer render submissions over 3002.5 ms (59.2839 rendered fps), alongside 59.9500 animation fps and the same hardware/triangle/degradation assertions."
       }
     }
   ],

@@ -353,16 +353,20 @@ describe("ModelViewer theme", () => {
 
   it("renders on demand instead of scheduling an endless animation loop", () => {
     const frames: FrameRequestCallback[] = [];
+    const onFrameRendered = vi.fn();
     vi.stubGlobal("requestAnimationFrame", vi.fn((callback: FrameRequestCallback) => {
       frames.push(callback);
       return frames.length;
     }));
 
-    render(<ModelViewer colors={darkColors} />);
+    render(<ModelViewer colors={darkColors} onFrameRendered={onFrameRendered} />);
 
     expect(frames).toHaveLength(1);
     frames.shift()?.(0);
     expect(frames).toHaveLength(0);
+    expect(onFrameRendered).toHaveBeenCalledOnce();
+    expect(onFrameRendered.mock.calls[0][0]).toBeGreaterThanOrEqual(0);
+    expect(Number.isFinite(onFrameRendered.mock.calls[0][0])).toBe(true);
   });
 
   it("applies a controlled per-document camera without refitting it on a new mesh", () => {

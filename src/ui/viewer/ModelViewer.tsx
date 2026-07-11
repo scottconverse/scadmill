@@ -46,13 +46,7 @@ import {
   type ViewerResources,
 } from "./model-viewer-runtime";
 import { ModelViewerOverlays, type SpatialOverlays } from "./model-viewer-overlays";
-import {
-  DEFAULT_CAMERA,
-  DEFAULT_FURNITURE,
-  DEFAULT_MESH_PARSER,
-  DEFAULT_MOUSE_MAPPING,
-  type ModelMeshParser,
-} from "./model-viewer-defaults";
+import { DEFAULT_CAMERA, DEFAULT_FURNITURE, DEFAULT_MESH_PARSER, DEFAULT_MOUSE_MAPPING, type ModelMeshParser } from "./model-viewer-defaults";
 
 export interface ModelViewerHandle { capturePng(): Promise<Uint8Array>; }
 export type { ModelMeshParser } from "./model-viewer-defaults";
@@ -73,6 +67,7 @@ export interface ModelViewerProps {
   readonly onCameraChange?: (camera: ViewerCameraState) => void;
   readonly onPointPick?: (point: Point3) => void;
   readonly onDegradationChange?: (degradation: ViewerDegradation) => void;
+  readonly onFrameRendered?: (durationMs: number) => void;
 }
 
 export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(function ModelViewer({
@@ -91,6 +86,7 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
   onCameraChange,
   onPointPick,
   onDegradationChange,
+  onFrameRendered,
 }, forwardedRef) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const resources = useRef<ViewerResources | null>(null);
@@ -106,6 +102,7 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
   const onCameraChangeRef = useRef(onCameraChange);
   const onPointPickRef = useRef(onPointPick);
   const onDegradationChangeRef = useRef(onDegradationChange);
+  const onFrameRenderedRef = useRef(onFrameRendered);
   const [overlays, setOverlays] = useState<SpatialOverlays>({
     measurements: new Map(),
     annotations: new Map(),
@@ -124,6 +121,7 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
   onCameraChangeRef.current = onCameraChange;
   onPointPickRef.current = onPointPick;
   onDegradationChangeRef.current = onDegradationChange;
+  onFrameRenderedRef.current = onFrameRendered;
   const appearanceKey = [
     colors.background,
     colors.mesh,
@@ -203,7 +201,9 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
       if (!active || viewer.frame !== null) return;
       viewer.frame = requestAnimationFrame(() => {
         viewer.frame = null;
+        const startedAt = performance.now();
         viewer.renderer.render(viewer.scene, viewer.camera);
+        onFrameRenderedRef.current?.(performance.now() - startedAt);
         updateOverlays();
       });
     };
