@@ -62,6 +62,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Bound native project files, canonical project ID, and desktop layout-identity material to one validated snapshot response, with the returned canonical ID driving later project operations and malformed responses rejected as a unit.
 - Replaced SVG-viewBox-derived 2D bounds with the pinned engine's machine-readable geometry summary because the 2026.06.12 SVG exporter adds presentation margins around exact model geometry.
 - Updated the native CI lane from the 2021.01 stable AppImage to the checksummed 2026.06.12 snapshot required by A-7.
+- Completed the regular CI platform contract by running desktop-shell Rust tests in V-2 and the Playwright V-4 lane on both Ubuntu and Windows, while retaining the exact pinned-engine checks and removing the obsolete Q-0001 blocker label. These workflow changes are locally contract- and syntax-validated; their hosted CI runs remain required evidence.
 - Editor commands now report typed handled/unavailable outcomes; F12 visibly explains that go-to-definition is parked instead of recording a silent success.
 - Rebindable shortcuts now share one platform-aware Control/Command policy, and handled editor shortcuts no longer fall through to global layout or render actions.
 - Appendix D Alt+Click now adds a real CodeMirror cursor alongside the editor's native Control/Command-click behavior; allowed viewer/global rebinds fall through when the viewer command is inactive.

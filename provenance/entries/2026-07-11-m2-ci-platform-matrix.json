@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-m2-ci-platform-matrix",
+  "createdAt": "2026-07-11T17:20:00-06:00",
+  "summary": "Close the regular-CI M2 findings by executing desktop-shell Rust tests, running browser acceptance on Linux and Windows, and removing obsolete Q-0001 blocker copy without changing the pinned engine.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 test-first evidence and milestone gates",
+    "V-2 CI",
+    "V-4 end-to-end"
+  ],
+  "filesTouched": [
+    { "path": ".github/workflows/ci.yml", "status": "modified" },
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-11-m2-ci-platform-matrix.json", "status": "added" },
+    { "path": "tests/scripts/ci-workflow.test.ts", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0203",
+      "topic": "Regular CI operating-system coverage",
+      "decision": "Keep the established Ubuntu web and native verification, add the missing desktop-shell cargo test to the native job, and move browser acceptance into a fail-independent ubuntu-latest/windows-latest matrix with operating-system-appropriate pinned Chromium installation. Retain every established check and the exact OpenSCAD 2026.06.12 URL, checksum, and version assertion.",
+      "rationale": "V-2 requires the product's unit and integration tests on every pull request, including the desktop shell, while V-4 explicitly requires end-to-end execution on Windows and Linux. A dedicated two-platform acceptance matrix supplies real operating-system lanes without duplicating the complete web verification suite or weakening the native engine gate.",
+      "specBasis": [
+        "V-2 CI",
+        "V-4 end-to-end",
+        "Section 2.7 test-first evidence and milestone gates"
+      ]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The regular CI workflow runs desktop-shell tests, contains no resolved-Q-0001 blocker label, and defines meaningful Linux and Windows browser-acceptance lanes",
+      "test": "Read only .github/workflows/ci.yml and require the exact desktop cargo-test command, absence of Q-0001, an ubuntu-latest/windows-latest matrix, both operating-system browser-install branches, and the Playwright acceptance command.",
+      "red": {
+        "command": ".\\node_modules\\.bin\\vitest.cmd run tests/scripts/ci-workflow.test.ts",
+        "observedAt": "2026-07-11T17:17:38-06:00",
+        "outcome": "ASSERTION-LEVEL RED (verbatim counts):\n Test Files  1 failed (1)\n      Tests  3 failed (3)\n   Duration  498ms (transform 32ms, setup 255ms, import 12ms, tests 16ms, environment 0ms)\nFailures: 'runs desktop-shell Rust tests in the native V-2 lane' did not find the desktop-shell cargo-test command; 'does not describe the resolved Q-0001 license policy as blocked' found Q-0001 in the Rust license step name; 'runs browser acceptance on both Linux and Windows for V-4' found no e2e job."
+      },
+      "green": {
+        "command": ".\\node_modules\\.bin\\vitest.cmd run tests/scripts/ci-workflow.test.ts",
+        "observedAt": "2026-07-11T17:20:29-06:00",
+        "outcome": "GREEN (verbatim counts):\n Test Files  1 passed (1)\n      Tests  3 passed (3)\n   Duration  504ms (transform 35ms, setup 267ms, import 20ms, tests 3ms, environment 0ms)"
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "actionlint .github/workflows/ci.yml exited 0 with no diagnostics, validating only the regular CI workflow syntax and expressions.",
+    "No hosted workflow run was triggered or inspected, so this change records local contract and YAML validation only and does not claim the new CI lanes are runtime-green.",
+    "No owner-gate file, owner similarity workflow, comparison repository, or prohibited source was opened, read, modified, or executed."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
