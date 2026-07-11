@@ -76,7 +76,7 @@ describe("browser project metadata persistence", () => {
     expect(() => recovery.clear()).toThrow(/could not be cleared/iu);
     expect(recent.load()).toEqual([]);
     expect(() => recent.save([])).toThrow(/could not be saved/iu);
-    expect(workspace.load()).toBeNull();
+    expect(() => workspace.load()).toThrow(/could not be loaded/iu);
     expect(() => workspace.save("metadata")).toThrow(/could not be saved/iu);
   });
 });

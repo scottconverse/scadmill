@@ -171,3 +171,51 @@ it("saves a captured PNG through the configured artifact destination", async () 
     mimeType: "image/png",
   });
 });
+
+it("connects the persistent annotation error, retry, and exact JSON export actions", async () => {
+  let blocked = true;
+  const save = vi.fn().mockResolvedValue({ location: "scadmill-annotations-v1.json" });
+  const engine: EngineService = {
+    render: vi.fn(),
+    export: vi.fn(),
+    version: vi.fn(),
+    cancel: vi.fn(),
+  };
+  const runtime = createWorkbenchRuntime(engine, {
+    artifactDestination: { available: true, save },
+    workspaceMetadataPersistence: {
+      load: () => {
+        if (blocked) throw new Error("Profile read blocked.");
+        return null;
+      },
+      save: () => undefined,
+    },
+  });
+  render(
+    <ViewerPaneConnector
+      colors={colors}
+      dimmed={false}
+      documentId="doc"
+      maximized={false}
+      narrow={false}
+      renderStatus="idle"
+      runtime={runtime}
+      viewer={viewerDocument(createViewerState(), "doc")}
+      onLayoutAction={vi.fn()}
+      onShowConsole={vi.fn()}
+    />,
+  );
+
+  expect(paneProps.annotationPersistence).toEqual({ status: "load-error" });
+  await (paneProps.onExportAnnotationMetadata as () => Promise<void>)();
+  expect(save).toHaveBeenCalledWith({
+    suggestedName: "scadmill-annotations-v1.json",
+    bytes: new TextEncoder().encode('{"version":1,"files":[]}'),
+    mimeType: "application/json",
+  });
+  expect(runtime.annotationPersistence.getState()).toEqual({ status: "load-error" });
+
+  blocked = false;
+  await (paneProps.onRetryAnnotationPersistence as () => Promise<void>)();
+  await waitFor(() => expect(paneProps.annotationPersistence).toEqual({ status: "saved" }));
+});

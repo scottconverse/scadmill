@@ -190,6 +190,18 @@ export const messages = {
   annotations: "Annotations",
   annotationText: "Annotation text",
   annotationPlacementHelp: "Choose the annotation tool, then select a point on the model.",
+  annotationChangesUnsaved:
+    "Annotation changes are not saved. They remain available in this session, but closing ScadMill may lose them.",
+  annotationMetadataLoadFailed:
+    "Saved annotation metadata could not be loaded. Stored annotations are unavailable until loading succeeds.",
+  annotationMetadataLoadFailedWithChanges:
+    "Saved annotation metadata could not be loaded. New annotation changes are not saved; they remain available in this session, but Retry will replace the unreadable saved metadata with the current version.",
+  retrySavingAnnotations: "Retry saving annotations",
+  retryLoadingAnnotations: "Retry loading annotations",
+  exportCurrentAnnotations: "Export current annotations as JSON",
+  annotationExportUnavailable: "Annotation JSON export is unavailable in this environment.",
+  annotationMetadataExported: "Current annotation metadata exported as version 1 JSON.",
+  annotationMetadataExportFailed: "Current annotation metadata could not be exported.",
   noMeasurements: "No measurements yet.",
   noAnnotations: "No annotations yet.",
   deleteMeasurement: (label: string) => `Delete measurement ${label}`,
@@ -397,6 +409,8 @@ export const messages = {
   recoveryCouldNotBeSaved: "Unsaved-work recovery could not be saved.",
   recoveryCouldNotBeCleared: "Unsaved-work recovery could not be cleared.",
   recoveryTooLarge: "Unsaved work exceeds the 4 MiB recovery limit.",
+  workspaceMetadataCouldNotBeLoaded: "Workspace annotation metadata could not be loaded.",
+  workspaceMetadataCouldNotBeSaved: "Workspace annotation metadata could not be saved.",
   recentProjectsCouldNotBeSaved: "Recent projects could not be saved.",
   scratchAutosaveFailed: "The scratch document could not be autosaved.",
   additionalScratchNotPersisted:

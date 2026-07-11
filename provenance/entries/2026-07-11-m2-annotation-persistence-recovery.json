@@ -1,0 +1,155 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-m2-annotation-persistence-recovery",
+  "createdAt": "2026-07-11T13:43:03-06:00",
+  "summary": "Close M2-R06 by replacing silent annotation metadata failures with explicit saved, unsaved, load-error, and load-error-with-new-changes states; preserve every in-memory annotation and file-lifecycle mutation after storage rejection; provide retry and deterministic version-1 JSON export; and surface the condition accessibly until durable recovery succeeds.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 test-first evidence and milestone gates",
+    "FR-2.7 per-file annotation persistence",
+    "N-3 accessibility",
+    "N-7 UI honesty",
+    "M2-R06 annotation persistence residual"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-11-m2-annotation-persistence-recovery.json", "status": "added" },
+    { "path": "src/application/runtime/workbench-runtime-contracts.ts", "status": "modified" },
+    { "path": "src/application/runtime/workbench-runtime.ts", "status": "modified" },
+    { "path": "src/application/viewer/annotation-persistence.ts", "status": "modified" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/platform-web/browser-project-metadata.ts", "status": "modified" },
+    { "path": "src/ui/viewer/ViewerPane.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/ViewerPaneConnector.tsx", "status": "modified" },
+    { "path": "src/ui/workbench.css", "status": "modified" },
+    { "path": "tests/application/runtime/workbench-runtime-projects.test.ts", "status": "modified" },
+    { "path": "tests/application/viewer/annotation-persistence.test.ts", "status": "modified" },
+    { "path": "tests/platform-web/browser-project-metadata.test.ts", "status": "modified" },
+    { "path": "tests/ui/viewer/ViewerPane.test.tsx", "status": "modified" },
+    { "path": "tests/ui/viewer/ViewerPaneConnector.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0140",
+      "topic": "Annotation durability truth state",
+      "decision": "Model workspace annotation metadata as an explicit saved, unsaved, load-error, or load-error-with-new-changes runtime store. Apply annotation and project-file lifecycle changes to the validated in-memory version-1 document first; a rejected write leaves the aggregate document unsaved and retryable, and only a successful persistence save returns it to saved.",
+      "rationale": "FR-2.7 requires per-file persistence, while N-7 forbids presenting a failed write as durable. One workspace-level state covers add, delete, move, Save As copy, and trash operations without discarding usable session data or reporting the underlying project command as failed.",
+      "specBasis": ["FR-2.7", "N-7", "M2-R06"]
+    },
+    {
+      "id": "D-0141",
+      "topic": "Unreadable metadata recovery without implicit overwrite",
+      "decision": "Treat blocked, malformed, oversized, or unsupported initial metadata as load-error; retry loading while the in-memory document is unchanged, but if the user makes a new annotation change, retain a combined load-error-unsaved state and require explicit Retry before replacing the unreadable durable payload. A failed replacement retry preserves that combined state.",
+      "rationale": "Silently treating a failed load as an empty successful workspace can erase recoverable notes on the next write. Retrying the read first, and requiring an explicit recovery action after divergence, preserves both UI honesty and the user's opportunity to export the current valid state.",
+      "specBasis": ["FR-2.7", "N-2 reliability", "N-7"]
+    },
+    {
+      "id": "D-0142",
+      "topic": "Accessible retry and exact recovery export",
+      "decision": "Render a persistent role=alert at the viewer surface for unsaved and load-error states, label session-loss and unavailable-stored-data consequences separately, provide state-specific Retry actions, and export the deterministic current version-1 annotation JSON as scadmill-annotations-v1.json through the existing artifact destination without clearing the error.",
+      "rationale": "The failure applies to workspace metadata rather than one rendered document, so it must remain visible even without current 3D geometry. The exact bounded JSON already validated by the repository is the smallest dependency-free recovery artifact, and export is not evidence of durable application storage.",
+      "specBasis": ["FR-2.7", "N-3", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Rejected annotation writes remain visible, retryable, and exact across restart",
+      "test": "Reject add and delete saves, retain the updated viewer state, verify failed retry remains unsaved, accept a later retry, and reconstruct the exact annotations from the durable version-1 payload after runtime restart.",
+      "red": {
+        "command": "node_modules\\.bin\\vitest.cmd run tests/application/runtime/workbench-runtime-projects.test.ts --reporter=verbose -t \"keeps an annotation usable|failed annotation deletion|failed move, copy\"",
+        "observedAt": "2026-07-11T13:38:15-06:00",
+        "outcome": "ASSERTION-LEVEL RED: 1 file failed; 3 tests failed and 9 were skipped. Both recovery assertions received status unsaved instead of saved because retry commands were not implemented; the lifecycle/export assertion received zero artifact saves instead of one."
+      },
+      "green": {
+        "command": "node_modules\\.bin\\vitest.cmd run tests/application/runtime/workbench-runtime-projects.test.ts --reporter=verbose -t \"keeps an annotation usable|failed annotation deletion|failed move, copy\"",
+        "observedAt": "2026-07-11T13:45:31-06:00",
+        "outcome": "GREEN: 1 file passed; 3 tests passed and 9 were skipped in 763 ms. Add/delete failures, retry failure and success, project move/copy/delete accumulation, exact JSON export, and exact moved/copied annotation restoration after runtime restart passed."
+      }
+    },
+    {
+      "criterion": "Corrupt or unreadable initial metadata is never silently overwritten",
+      "test": "Start from malformed durable JSON, add a valid in-memory note, require zero writes before explicit retry, then verify one exact save and a saved state after retry.",
+      "red": {
+        "command": "node_modules\\.bin\\vitest.cmd run tests/application/viewer/annotation-persistence.test.ts --reporter=verbose -t \"does not overwrite unreadable\"",
+        "observedAt": "2026-07-11T13:47:38-06:00",
+        "outcome": "ASSERTION-LEVEL RED after overwrite prevention: 1 file failed; 1 test failed and 5 were skipped. A rejected explicit replacement retry downgraded load-error-unsaved to unsaved, losing the still-relevant initial-load failure. The earlier RED also proved that the first mutation wrote once before explicit recovery."
+      },
+      "green": {
+        "command": "node_modules\\.bin\\vitest.cmd run tests/application/viewer/annotation-persistence.test.ts --reporter=verbose -t \"does not overwrite unreadable\"",
+        "observedAt": "2026-07-11T13:47:49-06:00",
+        "outcome": "GREEN: 1 file passed; 1 test passed and 5 were skipped in 462 ms. No write occurred before explicit retry; a failed retry preserved load-error-unsaved, and the following successful retry cleared the state only after its durable save."
+      }
+    },
+    {
+      "criterion": "Annotation persistence errors are accessible and recovery actions are connected",
+      "test": "Render distinct unsaved and load-error alerts without geometry, invoke state-specific Retry and exact-JSON Export controls, then verify the connector reflects a successful retry and routes export through the configured artifact destination.",
+      "red": {
+        "command": "node_modules\\.bin\\vitest.cmd run tests/ui/viewer/ViewerPane.test.tsx --reporter=verbose -t \"keeps annotation persistence failures\"; node_modules\\.bin\\vitest.cmd run tests/ui/viewer/ViewerPaneConnector.test.tsx --reporter=verbose -t \"connects the persistent annotation\"",
+        "observedAt": "2026-07-11T13:40:25-06:00",
+        "outcome": "ASSERTION-LEVEL REDS: ViewerPane had no accessible alert, and ViewerPaneConnector passed undefined instead of the expected load-error state. Both focused files failed one assertion-level test."
+      },
+      "green": {
+        "command": "node_modules\\.bin\\vitest.cmd run tests/ui/viewer/ViewerPane.test.tsx --reporter=verbose -t \"keeps annotation persistence failures\"; node_modules\\.bin\\vitest.cmd run tests/ui/viewer/ViewerPaneConnector.test.tsx --reporter=verbose -t \"connects the persistent annotation\"",
+        "observedAt": "2026-07-11T13:40:40-06:00",
+        "outcome": "GREEN across both focused files: each target test passed; ViewerPane retained 9 skipped tests and ViewerPaneConnector retained 3 skipped tests. The alert copy, two Retry labels, export action, exact empty version-1 bytes, and saved-state rerender passed."
+      }
+    },
+    {
+      "criterion": "Production browser-profile read denial reaches the honest load-error state",
+      "test": "A blocked browser storage adapter throws the catalogued workspace-metadata load error instead of converting denial into an indistinguishable empty profile.",
+      "red": {
+        "command": "node_modules\\.bin\\vitest.cmd run tests/platform-web/browser-project-metadata.test.ts --reporter=verbose -t \"degrades reads safely\"",
+        "observedAt": "2026-07-11T13:38:55-06:00",
+        "outcome": "ASSERTION-LEVEL RED: 1 file failed; 1 test failed and 4 were skipped. The expected load error was not thrown because the adapter returned null on read denial."
+      },
+      "green": {
+        "command": "node_modules\\.bin\\vitest.cmd run tests/platform-web/browser-project-metadata.test.ts --reporter=verbose -t \"degrades reads safely\"",
+        "observedAt": "2026-07-11T13:39:15-06:00",
+        "outcome": "GREEN: 1 file passed; 1 test passed and 4 were skipped in 489 ms. Blocked annotation metadata reads and writes now report distinct catalogued failures."
+      }
+    },
+    {
+      "criterion": "Focused annotation persistence blast radius remains green",
+      "test": "Run repository, runtime/project, viewer UI, browser-profile, and desktop-webview metadata coverage together after the full correction.",
+      "red": {
+        "command": "The four assertion-level RED groups above are the behavior evidence; no additional failure was manufactured for the widened regression run.",
+        "observedAt": "2026-07-11T13:42:26-06:00",
+        "outcome": "The baseline before implementation passed 6 files and 25 tests; the new tests then failed on the intended missing status, retry, export, alert, and load-error assertions."
+      },
+      "green": {
+        "command": "node_modules\\.bin\\vitest.cmd run tests/application/viewer/annotation-persistence.test.ts tests/application/runtime/workbench-runtime-projects.test.ts tests/ui/viewer/ViewerPane.test.tsx tests/ui/viewer/ViewerDetailsPanel.test.tsx tests/ui/viewer/ViewerPaneConnector.test.tsx tests/platform-web/browser-project-metadata.test.ts tests/platform-desktop/desktop-project-metadata.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T13:52:52-06:00",
+        "outcome": "GREEN: Test Files 7 passed (7); Tests 42 passed (42); Duration 1.54 s. No failures, errors, warnings, or skips were reported."
+      }
+    },
+    {
+      "criterion": "Widened M2 regression, browser, static, and build gates remain green",
+      "test": "Run the complete Vitest and one-worker/no-retry Playwright suites, then typecheck, lint authored source and source-policy boundaries, and build the production client after the final annotation recovery state was integrated.",
+      "red": {
+        "command": "Covered by the focused assertion-level RED evidence above; no unrelated product behavior was broken to create a widened failure.",
+        "observedAt": "2026-07-11T13:55:44-06:00",
+        "outcome": "The first browser attempt lost its Vite child after a 30-second test timeout and subsequent cases received connection refused; an immediate clean run at the normative 4173 origin passed and is the reported product result. An alternate-port diagnostic was not treated as product evidence because that test deliberately grants clipboard permission only to the normative origin."
+      },
+      "green": {
+        "command": "node_modules\\.bin\\vitest.cmd run; node_modules\\.bin\\playwright.cmd test --workers=1 --retries=0; node_modules\\.bin\\tsc.cmd --noEmit; node_modules\\.bin\\biome.cmd lint src tests scripts vite.config.ts playwright.config.ts; node scripts/check-source-policy.mjs; node_modules\\.bin\\vite.cmd build",
+        "observedAt": "2026-07-11T13:56:30-06:00",
+        "outcome": "GREEN: Vitest Test Files 103 passed (103), Tests 744 passed (744), Duration 11.02 s; Playwright 15 passed with one worker and no retries in 23.5 s; TypeScript exited 0 with no diagnostics; Biome checked 274 files with no fixes; source policy passed; Vite built 174 modules in 333 ms. No product failure, error, warning, or skip remained."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "M2-R06 is closed with no known annotation-persistence residual: add, delete, file move, Save As copy, trash, retry failure/success, restart restoration, malformed or denied initial load, and exact recovery export have assertion coverage.",
+    "The owner similarity gate, workflow content, comparison repositories, and harness were not inspected or executed locally."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

@@ -52,6 +52,10 @@ export function ViewerPaneConnector({
 }: ViewerPaneConnectorProps) {
   const preferences = useReadonlyStore(runtime.settings, (state) => state.profile.viewer);
   const profile = useReadonlyStore(runtime.settings, (state) => state.profile);
+  const annotationPersistence = useReadonlyStore(
+    runtime.annotationPersistence,
+    (state) => state,
+  );
   const effectiveViewer = useMemo<ViewerDocumentState>(() => ({
     ...viewer,
     camera: { ...viewer.camera, projection: preferences.projection },
@@ -95,6 +99,14 @@ export function ViewerPaneConnector({
   const cancel = useCallback(() => {
     void runtime.dispatch({ kind: "cancel-render", origin: "user" });
   }, [runtime]);
+  const retryAnnotationPersistence = useCallback(
+    () => runtime.dispatch({ kind: "retry-annotation-persistence", origin: "user" }),
+    [runtime],
+  );
+  const exportAnnotationMetadata = useCallback(
+    () => runtime.dispatch({ kind: "export-annotation-metadata", origin: "user" }),
+    [runtime],
+  );
 
   return (
     <ViewerPane
@@ -113,6 +125,11 @@ export function ViewerPaneConnector({
       renderStatus={renderStatus}
       result={result}
       viewer={effectiveViewer}
+      annotationPersistence={annotationPersistence}
+      onRetryAnnotationPersistence={retryAnnotationPersistence}
+      onExportAnnotationMetadata={runtime.artifacts.available
+        ? exportAnnotationMetadata
+        : undefined}
       onScreenshot={runtime.artifacts.available
         ? (bytes) => runtime.artifacts.save({
             suggestedName: `${documentId}.png`,

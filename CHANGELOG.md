@@ -43,6 +43,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Native integration coverage for real multi-file includes, imported binary STL assets, cross-file parser errors, parameter overrides, 2D bounds, ASCII STL/SVG/PNG exports, and post-timeout render recovery.
 - A complete M2 Customizer surface with structural top-level parameter extraction, stock annotation controls, grouped/hidden sections, debounced overrides, exact source rewriting, named sets, and stock OpenSCAD JSON interchange.
 - A demand-driven 3D viewer with controlled cameras, axis views, fit and projection controls, configurable mouse mapping and scene furniture, off-thread STL decoding, large-mesh degradation, point-to-point measurements, bounded per-project/file annotation persistence, last-good error presentation, and scene PNG capture.
+- Persistent annotation-storage recovery: honest load/save failure alerts, session-safe in-memory changes, explicit retry, and deterministic version-1 JSON export through the configured artifact destination.
 - An exact 2D SVG pane with an allowlist sanitizer, engine-bounds normalization, automatic or pinned 2D/3D routing, cursor-centered pan/zoom, fit, dimensions, and millimeters-per-pixel scale.
 - Folder-backed desktop and IndexedDB-backed web project storage with text/binary fidelity, a functional file tree, durable saves, create/rename/move/trash/reveal operations, unloaded-file navigation, external-change handling, crash recovery, and durable recent projects.
 - Full-quality 3MF, binary/ASCII STL, OFF, AMF, SVG, DXF, and PNG export with awaited artifact destinations, cancellation, and exact mesh file-size/triangle/bounds summaries.
@@ -80,6 +81,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Corrected the production 2D viewer grid so the SVG canvas receives the flexible viewer row without a 3D toolbar, and moved wheel zoom to an explicitly non-passive listener so zoom no longer emits a browser console error or risks page scrolling.
 - Moved project-ZIP compression and expansion into a dedicated worker with cooperative 1 MiB transferable copies, streamed import reads, progress and cancellation; a retained Chromium profile round-trips a 92 MiB asset in a 96,489,071-byte archive with no long task, a 18.7 ms maximum heartbeat gap, 13.2 ms cancellation, and a 192,395,630-byte peak main-heap delta.
 - Bounded crash-recovery snapshots at 4 MiB of UTF-8 JSON and coalesced rapid edits into the latest durable capture after 300 ms, with visible persistence errors when the bound is exceeded.
+- Replaced silent annotation metadata failures with a workspace-level saved/unsaved/load-error state. Failed add, delete, file move, Save As copy, and trash metadata updates now remain retryable in memory; the warning clears only after a successful durable load or save.
 
 ### Known policy block
 

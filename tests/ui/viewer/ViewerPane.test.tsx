@@ -79,6 +79,50 @@ function Harness({ result }: { result?: RenderResult }) {
 }
 
 describe("ViewerPane result routing", () => {
+  it("keeps annotation persistence failures visible with retry and exact-JSON recovery actions", () => {
+    const retry = vi.fn();
+    const exportMetadata = vi.fn();
+    const common = {
+      colors,
+      maximized: false,
+      narrow: false,
+      renderStatus: "idle" as const,
+      onLayoutAction: vi.fn(),
+      onRetryAnnotationPersistence: retry,
+      onExportAnnotationMetadata: exportMetadata,
+    };
+    const view = render(
+      <ViewerPane {...common} annotationPersistence={{ status: "unsaved" }} />,
+    );
+
+    const alert = view.getByRole("alert");
+    expect(alert).toHaveTextContent(/annotation changes are not saved/iu);
+    expect(alert).toHaveTextContent(/closing ScadMill may lose them/iu);
+    fireEvent.click(view.getByRole("button", { name: "Retry saving annotations" }));
+    fireEvent.click(view.getByRole("button", { name: "Export current annotations as JSON" }));
+    expect(retry).toHaveBeenCalledOnce();
+    expect(exportMetadata).toHaveBeenCalledOnce();
+    expect(view.getByRole("alert")).toBeVisible();
+
+    view.rerender(
+      <ViewerPane {...common} annotationPersistence={{ status: "load-error" }} />,
+    );
+    expect(view.getByRole("alert")).toHaveTextContent(/saved annotation metadata could not be loaded/iu);
+    expect(view.getByRole("button", { name: "Retry loading annotations" })).toBeVisible();
+
+    view.rerender(
+      <ViewerPane {...common} annotationPersistence={{ status: "load-error-unsaved" }} />,
+    );
+    expect(view.getByRole("alert")).toHaveTextContent(/could not be loaded/iu);
+    expect(view.getByRole("alert")).toHaveTextContent(/new annotation changes are not saved/iu);
+    expect(view.getByRole("button", { name: "Retry saving annotations" })).toBeVisible();
+
+    view.rerender(
+      <ViewerPane {...common} annotationPersistence={{ status: "saved" }} />,
+    );
+    expect(view.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("offers an available next step when rendering is unavailable", async () => {
     const props = {
       colors,

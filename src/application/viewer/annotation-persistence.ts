@@ -24,6 +24,10 @@ export interface WorkspaceAnnotationMetadata {
   readonly files: readonly WorkspaceAnnotationFile[];
 }
 
+export interface WorkspaceAnnotationPersistenceState {
+  readonly status: "saved" | "unsaved" | "load-error" | "load-error-unsaved";
+}
+
 export const EPHEMERAL_WORKSPACE_METADATA_PERSISTENCE: WorkspaceMetadataPersistence = {
   load: () => null,
   save: () => undefined,
@@ -145,16 +149,50 @@ function cloneFile(file: WorkspaceAnnotationFile): WorkspaceAnnotationFile {
 
 export class WorkspaceAnnotationRepository {
   private files: WorkspaceAnnotationFile[];
+  private persistenceState: WorkspaceAnnotationPersistenceState = { status: "saved" };
+  private dirty = false;
 
   constructor(private readonly persistence: WorkspaceMetadataPersistence) {
     let serialized: string | null = null;
-    try { serialized = persistence.load(); } catch { /* use an empty workspace */ }
+    try {
+      serialized = persistence.load();
+    } catch {
+      this.files = [];
+      this.persistenceState = { status: "load-error" };
+      return;
+    }
     try {
       this.files = serialized === null
         ? []
         : parseWorkspaceAnnotationMetadata(serialized).files.map(cloneFile);
     } catch {
       this.files = [];
+      this.persistenceState = { status: "load-error" };
+    }
+  }
+
+  state(): WorkspaceAnnotationPersistenceState {
+    return { ...this.persistenceState };
+  }
+
+  serializeCurrent(): string {
+    return serializeWorkspaceAnnotationMetadata({ version: 1, files: this.files });
+  }
+
+  retry(): void {
+    if (this.persistenceState.status !== "load-error" || this.dirty) {
+      this.persist();
+      return;
+    }
+    try {
+      const serialized = this.persistence.load();
+      this.files = serialized === null
+        ? []
+        : parseWorkspaceAnnotationMetadata(serialized).files.map(cloneFile);
+      this.persistenceState = { status: "saved" };
+    } catch (error) {
+      this.persistenceState = { status: "load-error" };
+      throw error;
     }
   }
 
@@ -174,6 +212,7 @@ export class WorkspaceAnnotationRepository {
       ],
     });
     this.files = next.files.map(cloneFile);
+    this.dirty = true;
     this.persist();
   }
 
@@ -196,13 +235,25 @@ export class WorkspaceAnnotationRepository {
       candidate.projectId === projectId && candidate.path === path)) return;
     this.files = this.files.filter((candidate) =>
       candidate.projectId !== projectId || candidate.path !== path);
+    this.dirty = true;
     this.persist();
   }
 
   private persist(): void {
-    this.persistence.save(serializeWorkspaceAnnotationMetadata({
-      version: 1,
-      files: this.files,
-    }));
+    if (this.persistenceState.status === "load-error" && this.dirty) {
+      this.persistenceState = { status: "load-error-unsaved" };
+      return;
+    }
+    const preservesLoadFailure = this.persistenceState.status === "load-error-unsaved";
+    try {
+      this.persistence.save(this.serializeCurrent());
+      this.dirty = false;
+      this.persistenceState = { status: "saved" };
+    } catch (error) {
+      this.persistenceState = {
+        status: preservesLoadFailure ? "load-error-unsaved" : "unsaved",
+      };
+      throw error;
+    }
   }
 }

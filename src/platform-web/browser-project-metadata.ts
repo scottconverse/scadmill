@@ -34,14 +34,19 @@ export function createBrowserWorkspaceMetadataPersistence(
   const selected = availableStorage(storage);
   return {
     load: () => {
-      try { return selected?.getItem(WORKSPACE_METADATA_KEY) ?? null; } catch { return null; }
+      try {
+        if (!selected) throw new Error("unavailable");
+        return selected.getItem(WORKSPACE_METADATA_KEY);
+      } catch {
+        throw new Error(messages.workspaceMetadataCouldNotBeLoaded);
+      }
     },
     save: (serialized) => {
       try {
         if (!selected) throw new Error("unavailable");
         selected.setItem(WORKSPACE_METADATA_KEY, serialized);
       } catch {
-        throw new Error("Workspace metadata could not be saved.");
+        throw new Error(messages.workspaceMetadataCouldNotBeSaved);
       }
     },
   };

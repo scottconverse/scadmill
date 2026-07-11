@@ -111,13 +111,18 @@ describe("workbench project integration", () => {
   });
 
   it("keeps an annotation usable when workspace metadata persistence rejects the save", async () => {
+    let blocked = true;
+    let serialized: string | null = null;
     const runtime = createWorkbenchRuntime(engine(), {
       initialProject: createProjectSnapshot("project-a", new Map([
         ["main.scad", "cube(10);"],
       ])),
       workspaceMetadataPersistence: {
-        load: () => null,
-        save: () => { throw new Error("Profile storage is blocked."); },
+        load: () => serialized,
+        save: (value) => {
+          if (blocked) throw new Error("Profile storage is blocked.");
+          serialized = value;
+        },
       },
     });
 
@@ -132,6 +137,210 @@ describe("workbench project integration", () => {
     })).resolves.toBeUndefined();
     expect(viewerDocument(runtime.viewer.getState(), "document-main").annotations).toEqual([
       { id: "local-note", point: [3, 2, 1], text: "Still visible" },
+    ]);
+    expect(runtime.annotationPersistence.getState()).toEqual({ status: "unsaved" });
+
+    await runtime.dispatch({
+      kind: "retry-annotation-persistence",
+      origin: "user",
+    });
+    expect(runtime.annotationPersistence.getState()).toEqual({ status: "unsaved" });
+
+    blocked = false;
+    await runtime.dispatch({
+      kind: "retry-annotation-persistence",
+      origin: "user",
+    });
+    expect(runtime.annotationPersistence.getState()).toEqual({ status: "saved" });
+    const restored = createWorkbenchRuntime(engine(), {
+      initialProject: createProjectSnapshot("project-a", new Map([
+        ["main.scad", "cube(10);"],
+      ])),
+      workspaceMetadataPersistence: {
+        load: () => serialized,
+        save: () => undefined,
+      },
+    });
+    expect(viewerDocument(restored.viewer.getState(), "document-main").annotations).toEqual([
+      { id: "local-note", point: [3, 2, 1], text: "Still visible" },
+    ]);
+  });
+
+  it("keeps a failed annotation deletion unsaved until retry makes the deletion durable", async () => {
+    let blocked = false;
+    let serialized: string | null = null;
+    const persistence = {
+      load: () => serialized,
+      save: (value: string) => {
+        if (blocked) throw new Error("Quota exceeded.");
+        serialized = value;
+      },
+    };
+    const snapshot = createProjectSnapshot("project-a", new Map([["main.scad", "cube(10);"]]));
+    const runtime = createWorkbenchRuntime(engine(), {
+      initialProject: snapshot,
+      workspaceMetadataPersistence: persistence,
+    });
+    await runtime.dispatch({
+      kind: "update-viewer",
+      origin: "user",
+      action: {
+        kind: "add-annotation",
+        documentId: "document-main",
+        annotation: { id: "delete-me", point: [1, 1, 1], text: "Delete me" },
+      },
+    });
+    blocked = true;
+
+    await runtime.dispatch({
+      kind: "update-viewer",
+      origin: "user",
+      action: { kind: "delete-annotation", documentId: "document-main", annotationId: "delete-me" },
+    });
+
+    expect(viewerDocument(runtime.viewer.getState(), "document-main").annotations).toEqual([]);
+    expect(runtime.annotationPersistence.getState()).toEqual({ status: "unsaved" });
+    expect(serialized).toContain("delete-me");
+    blocked = false;
+    await runtime.dispatch({ kind: "retry-annotation-persistence", origin: "user" });
+    expect(runtime.annotationPersistence.getState()).toEqual({ status: "saved" });
+    const restarted = createWorkbenchRuntime(engine(), {
+      initialProject: snapshot,
+      workspaceMetadataPersistence: persistence,
+    });
+    expect(viewerDocument(restarted.viewer.getState(), "document-main").annotations).toEqual([]);
+  });
+
+  it("restores exact annotations when retry recovers from corrupt initial metadata", async () => {
+    let serialized = "{corrupt";
+    const runtime = createWorkbenchRuntime(engine(), {
+      initialProject: createProjectSnapshot("project-a", new Map([["main.scad", "cube(10);"]])),
+      workspaceMetadataPersistence: {
+        load: () => serialized,
+        save: (value) => { serialized = value; },
+      },
+    });
+    expect(runtime.annotationPersistence.getState()).toEqual({ status: "load-error" });
+    expect(viewerDocument(runtime.viewer.getState(), "document-main").annotations).toEqual([]);
+    serialized = '{"version":1,"files":[{"projectId":"project-a","path":"main.scad","annotations":[{"id":"restored","point":[9,8,7],"text":"Recovered"}]}]}';
+
+    await runtime.dispatch({ kind: "retry-annotation-persistence", origin: "user" });
+
+    expect(runtime.annotationPersistence.getState()).toEqual({ status: "saved" });
+    expect(viewerDocument(runtime.viewer.getState(), "document-main").annotations).toEqual([
+      { id: "restored", point: [9, 8, 7], text: "Recovered" },
+    ]);
+  });
+
+  it("retains failed move, copy, and delete metadata changes and exports their exact current JSON", async () => {
+    let blocked = false;
+    let serialized: string | null = null;
+    const savedArtifacts: { suggestedName: string; bytes: Uint8Array; mimeType: string }[] = [];
+    const files = new Map<string, ProjectFileContent>([
+      ["main.scad", "cube(10);"],
+      ["obsolete.scad", "sphere(3);"],
+    ]);
+    const storage = memoryStorage(files);
+    let nextId = 0;
+    const runtime = createWorkbenchRuntime(engine(), {
+      artifactDestination: {
+        available: true,
+        save: async (request) => {
+          savedArtifacts.push(request);
+          return { location: request.suggestedName };
+        },
+      },
+      initialProject: createProjectSnapshot("project-a", files),
+      makeId: () => `opened-${++nextId}`,
+      projectStorage: storage,
+      workspaceMetadataPersistence: {
+        load: () => serialized,
+        save: (value) => {
+          if (blocked) throw new Error("Quota exceeded.");
+          serialized = value;
+        },
+      },
+    });
+    await runtime.dispatch({
+      kind: "update-viewer",
+      origin: "user",
+      action: {
+        kind: "add-annotation",
+        documentId: "document-main",
+        annotation: { id: "main-note", point: [1, 2, 3], text: "Main" },
+      },
+    });
+    await runtime.dispatch({ kind: "open-project-file", origin: "user", path: "obsolete.scad" });
+    const obsoleteDocumentId = runtime.documents.getState().activeDocumentId;
+    await runtime.dispatch({
+      kind: "update-viewer",
+      origin: "user",
+      action: {
+        kind: "add-annotation",
+        documentId: obsoleteDocumentId,
+        annotation: { id: "obsolete-note", point: [4, 5, 6], text: "Obsolete" },
+      },
+    });
+    await runtime.dispatch({ kind: "close-document", origin: "user", documentId: obsoleteDocumentId });
+    blocked = true;
+
+    await runtime.dispatch({
+      kind: "move-project-file",
+      origin: "user",
+      path: "main.scad",
+      destinationPath: "moved.scad",
+    });
+    expect(runtime.annotationPersistence.getState()).toEqual({ status: "unsaved" });
+    expect(viewerDocument(runtime.viewer.getState(), "document-main").annotations).toEqual([
+      { id: "main-note", point: [1, 2, 3], text: "Main" },
+    ]);
+
+    await runtime.dispatch({
+      kind: "save-document-as-confirmed",
+      origin: "user",
+      documentId: "document-main",
+      path: "copy.scad",
+    });
+    expect(runtime.annotationPersistence.getState()).toEqual({ status: "unsaved" });
+    await runtime.dispatch({ kind: "delete-project-file", origin: "user", path: "obsolete.scad" });
+    expect(runtime.annotationPersistence.getState()).toEqual({ status: "unsaved" });
+
+    await runtime.dispatch({ kind: "export-annotation-metadata", origin: "user" });
+    expect(savedArtifacts).toHaveLength(1);
+    expect(savedArtifacts[0]?.suggestedName).toBe("scadmill-annotations-v1.json");
+    expect(savedArtifacts[0]?.mimeType).toBe("application/json");
+    expect(new TextDecoder().decode(savedArtifacts[0]?.bytes)).toBe(
+      '{"version":1,"files":[{"projectId":"project-a","path":"copy.scad","annotations":[{"id":"main-note","point":[1,2,3],"text":"Main"}]},{"projectId":"project-a","path":"moved.scad","annotations":[{"id":"main-note","point":[1,2,3],"text":"Main"}]}]}',
+    );
+    expect(runtime.annotationPersistence.getState()).toEqual({ status: "unsaved" });
+
+    blocked = false;
+    await runtime.dispatch({ kind: "retry-annotation-persistence", origin: "user" });
+    expect(runtime.annotationPersistence.getState()).toEqual({ status: "saved" });
+    expect(serialized).toBe(new TextDecoder().decode(savedArtifacts[0]?.bytes));
+
+    let reopenedId = 0;
+    const restarted = createWorkbenchRuntime(engine(), {
+      initialProject: await storage.snapshot("project-a"),
+      makeId: () => `restarted-${++reopenedId}`,
+      workspaceMetadataPersistence: {
+        load: () => serialized,
+        save: () => undefined,
+      },
+    });
+    await restarted.dispatch({ kind: "open-project-file", origin: "user", path: "moved.scad" });
+    const movedDocumentId = restarted.documents.getState().documents.find(
+      ({ path }) => path === "moved.scad",
+    )?.id ?? "missing-moved-document";
+    expect(viewerDocument(restarted.viewer.getState(), movedDocumentId).annotations).toEqual([
+      { id: "main-note", point: [1, 2, 3], text: "Main" },
+    ]);
+    await restarted.dispatch({ kind: "open-project-file", origin: "user", path: "copy.scad" });
+    const copiedDocumentId = restarted.documents.getState().documents.find(
+      ({ path }) => path === "copy.scad",
+    )?.id ?? "missing-copy-document";
+    expect(viewerDocument(restarted.viewer.getState(), copiedDocumentId).annotations).toEqual([
+      { id: "main-note", point: [1, 2, 3], text: "Main" },
     ]);
   });
 

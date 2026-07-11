@@ -19,7 +19,10 @@ import type { ProjectStorage } from "../files/project-file-service";
 import type { RecentProjectsPersistence } from "../files/recent-projects";
 import type { ProjectCommand, ProjectSessionState } from "../files/project-session";
 import type { ProjectFileContent, ProjectSnapshot } from "../files/project-snapshot";
-import type { WorkspaceMetadataPersistence } from "../viewer/annotation-persistence";
+import type {
+  WorkspaceAnnotationPersistenceState,
+  WorkspaceMetadataPersistence,
+} from "../viewer/annotation-persistence";
 
 export type CommandOrigin = "user" | "ai-panel" | "external-agent" | "system";
 
@@ -66,6 +69,8 @@ export type WorkbenchCommand =
   | { kind: "editor-command"; origin: CommandOrigin; outcome: EditorCommandOutcome }
   | { kind: "cancel-render"; origin: CommandOrigin }
   | { kind: "clear-console"; origin: CommandOrigin }
+  | { kind: "retry-annotation-persistence"; origin: CommandOrigin }
+  | { kind: "export-annotation-metadata"; origin: CommandOrigin }
   | { kind: "update-layout"; origin: CommandOrigin; action: WorkspaceLayoutAction }
   | { kind: "update-viewer"; origin: CommandOrigin; action: ViewerAction }
   | { kind: "update-parameters"; origin: CommandOrigin; action: ParameterAction }
@@ -95,6 +100,7 @@ export interface WorkbenchRuntime {
   settings: ReadonlyStore<SettingsState>;
   layout: ReadonlyStore<WorkspaceLayoutState>;
   viewer: ReadonlyStore<ViewerState>;
+  annotationPersistence: ReadonlyStore<WorkspaceAnnotationPersistenceState>;
   parameters: ReadonlyStore<ParameterState>;
   project: ReadonlyStore<ProjectSessionState>;
   history: ReadonlyStore<readonly HistoryEntry[]>;

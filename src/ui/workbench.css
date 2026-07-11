@@ -186,6 +186,12 @@ button.console-diagnostic:hover, button.console-diagnostic:focus-visible { backg
 .viewer-render-overlay { position: absolute; z-index: 8; top: 88px; left: 50%; display: flex; align-items: center; gap: 8px; padding: 7px 9px; border: 1px solid var(--chrome-border); border-radius: 6px; background: var(--chrome-surface-raised); color: var(--chrome-text); transform: translateX(-50%); }
 .viewer-render-overlay button, .viewer-error-badge { border: 1px solid var(--chrome-border); border-radius: 4px; background: var(--chrome-surface); color: var(--chrome-text); cursor: pointer; }
 .viewer-error-badge { position: absolute; z-index: 8; bottom: 14px; left: 14px; max-width: calc(100% - 180px); padding: 6px 8px; border-color: var(--chrome-badge-error); color: var(--chrome-badge-error); }
+.viewer-annotation-persistence { position: absolute; z-index: 9; top: 48px; left: 14px; display: grid; max-width: min(520px, calc(100% - 28px)); gap: 7px; padding: 9px 10px; border: 1px solid var(--chrome-badge-error); border-radius: 6px; background: var(--chrome-surface-raised); color: var(--chrome-text); font-size: 12px; box-shadow: 0 6px 18px var(--chrome-selection); }
+.viewer-panel-with-toolbar .viewer-annotation-persistence { top: 88px; }
+.viewer-annotation-persistence p { margin: 0; overflow-wrap: anywhere; }
+.viewer-annotation-persistence div { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+.viewer-annotation-persistence button { min-height: 28px; border: 1px solid var(--chrome-border); border-radius: 4px; background: var(--chrome-surface); color: var(--chrome-text); cursor: pointer; }
+.viewer-annotation-persistence span { color: var(--chrome-text-muted); }
 .viewer-degradation, .viewer-notice { position: absolute; z-index: 7; right: 14px; left: 14px; padding: 6px 8px; margin: 0; border: 1px solid var(--chrome-badge-warning); border-radius: 5px; background: var(--chrome-surface-raised); color: var(--chrome-text); font-size: 11px; }
 .viewer-degradation { top: 88px; }
 .viewer-notice { bottom: 52px; border-color: var(--chrome-badge-info); }

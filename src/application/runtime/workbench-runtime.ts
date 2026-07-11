@@ -98,6 +98,7 @@ function readonlyStore<T>(store: StoreApi<T>): ReadonlyStore<T> {
 }
 
 export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOptions = {}): WorkbenchRuntime {
+  const artifacts = options.artifactDestination ?? UNAVAILABLE_ARTIFACT_DESTINATION;
   const layoutPersistence = options.layoutPersistence ?? EPHEMERAL_WORKSPACE_LAYOUT_PERSISTENCE;
   const settingsPersistence = options.settingsPersistence ?? EPHEMERAL_SETTINGS_PERSISTENCE;
   const recentProjectsPersistence = options.recentProjectsPersistence
@@ -147,6 +148,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     createSettingsState(options.rendering, options.keybindings, persistedSettings)
   );
   const runConsole = createStore<ConsoleState>(() => createConsoleState());
+  const annotationPersistence = createStore(() => annotationRepository.state());
   const layout = createStore<WorkspaceLayoutState>(() => parseWorkspaceLayout(layoutPersistence.load()));
   let initialViewer = createViewerState();
   for (const document of initialWorkspace.documents) {
@@ -387,6 +389,8 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       }
     } catch {
       // File operations remain successful when optional workspace metadata cannot be saved.
+    } finally {
+      annotationPersistence.setState(annotationRepository.state(), true);
     }
   }
 
@@ -625,6 +629,28 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       return;
     }
 
+    if (command.kind === "retry-annotation-persistence") {
+      try {
+        annotationRepository.retry();
+      } catch {
+        // The persistent error state remains visible and retryable.
+      }
+      annotationPersistence.setState(annotationRepository.state(), true);
+      if (annotationRepository.state().status === "saved") restoreWorkspaceAnnotations();
+      record(command, makeId(), "Retry annotation metadata persistence", false);
+      return;
+    }
+
+    if (command.kind === "export-annotation-metadata") {
+      await artifacts.save({
+        suggestedName: "scadmill-annotations-v1.json",
+        bytes: new TextEncoder().encode(annotationRepository.serializeCurrent()),
+        mimeType: "application/json",
+      });
+      record(command, makeId(), "Export current annotation metadata", false);
+      return;
+    }
+
     if (command.kind === "update-layout") {
       if (!updateLayout(command.action)) {
         return;
@@ -655,6 +681,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
           } catch {
             // Keep the in-memory annotation usable when profile storage is unavailable.
           }
+          annotationPersistence.setState(annotationRepository.state(), true);
         }
       }
       record(command, makeId(), `Update viewer for ${command.action.documentId}`, false);
@@ -820,13 +847,14 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
   }
 
   return {
-    artifacts: options.artifactDestination ?? UNAVAILABLE_ARTIFACT_DESTINATION,
+    artifacts,
     documents: readonlyStore(documents),
     render: readonlyStore(render),
     console: readonlyStore(runConsole),
     settings: readonlyStore(settings),
     layout: readonlyStore(layout),
     viewer: readonlyStore(viewer),
+    annotationPersistence: readonlyStore(annotationPersistence),
     parameters: readonlyStore(parameters),
     project: readonlyStore(project),
     history: readonlyStore(history),

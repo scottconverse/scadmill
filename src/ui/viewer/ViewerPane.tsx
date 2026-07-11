@@ -13,6 +13,7 @@ import {
 } from "../../application/commands/default-keybindings";
 import type { WorkspaceLayoutAction } from "../../application/layout/workspace-layout";
 import type { ThemeTokens } from "../../application/theme/theme-schema";
+import type { WorkspaceAnnotationPersistenceState } from "../../application/viewer/annotation-persistence";
 import { cameraForAxis, cameraToFit, toggleProjection } from "../../application/viewer/camera";
 import type { Bounds3, Point3 } from "../../application/viewer/measurements";
 import {
@@ -68,6 +69,9 @@ export interface ViewerPaneProps {
     readonly pan: "left" | "middle" | "right";
   };
   readonly onCancel?: () => void;
+  readonly annotationPersistence?: WorkspaceAnnotationPersistenceState;
+  readonly onRetryAnnotationPersistence?: () => void | Promise<void>;
+  readonly onExportAnnotationMetadata?: () => void | Promise<void>;
   readonly onLayoutAction: (action: WorkspaceLayoutAction) => void;
   readonly onModeChange?: (mode: ViewerMode) => void;
   readonly onScreenshot?: (bytes: Uint8Array) => void | Promise<void>;
@@ -99,7 +103,10 @@ export function ViewerPane({
   meshColor = null,
   keybindings,
   mouseMapping,
+  annotationPersistence = { status: "saved" },
   onCancel,
+  onRetryAnnotationPersistence,
+  onExportAnnotationMetadata,
   onLayoutAction,
   onModeChange,
   onScreenshot,
@@ -220,6 +227,16 @@ export function ViewerPane({
     setDegradation((current) => current.edges === next.edges && current.shadow === next.shadow
       ? current
       : next);
+  };
+  const retryAnnotationPersistence = () => {
+    if (!onRetryAnnotationPersistence) return;
+    void Promise.resolve(onRetryAnnotationPersistence()).catch(() => undefined);
+  };
+  const exportAnnotationMetadata = () => {
+    if (!onExportAnnotationMetadata) return;
+    void Promise.resolve(onExportAnnotationMetadata())
+      .then(() => setNotice(messages.annotationMetadataExported))
+      .catch(() => setNotice(messages.annotationMetadataExportFailed));
   };
 
   useEffect(() => {
@@ -353,6 +370,28 @@ export function ViewerPane({
         <button aria-label={messages.showRenderError} className="viewer-error-badge" onClick={onShowConsole} type="button">
           {messages.renderErrorBadge}
         </button>
+      )}
+      {annotationPersistence.status !== "saved" && (
+        <section className="viewer-annotation-persistence" role="alert">
+          <p>{annotationPersistence.status === "unsaved"
+            ? messages.annotationChangesUnsaved
+            : annotationPersistence.status === "load-error-unsaved"
+              ? messages.annotationMetadataLoadFailedWithChanges
+              : messages.annotationMetadataLoadFailed}</p>
+          <div>
+            <button onClick={retryAnnotationPersistence} type="button">
+              {annotationPersistence.status === "unsaved"
+                || annotationPersistence.status === "load-error-unsaved"
+                ? messages.retrySavingAnnotations
+                : messages.retryLoadingAnnotations}
+            </button>
+            {onExportAnnotationMetadata ? (
+              <button onClick={exportAnnotationMetadata} type="button">
+                {messages.exportCurrentAnnotations}
+              </button>
+            ) : <span>{messages.annotationExportUnavailable}</span>}
+          </div>
+        </section>
       )}
       {(degradation.edges || degradation.shadow) && <p className="viewer-degradation" role="status">{messages.largeMeshDegraded}</p>}
       {notice && <p className="viewer-notice" role="status">{notice}</p>}
