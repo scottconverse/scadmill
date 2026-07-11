@@ -9,9 +9,21 @@ import {
   OPENSCAD_CONTEXTUAL_BUILTINS,
   OPENSCAD_SPECIAL_VARIABLES,
 } from "./openscad-builtins";
-import { currentFileCompletions, type OpenScadUserCompletion } from "./openscad-symbols";
+import {
+  currentFileCompletions,
+  projectFileCompletions,
+  type OpenScadUserCompletion,
+} from "./openscad-symbols";
 
 type OpenScadCompletionName = keyof typeof openScadCompletionDescriptions;
+
+export interface OpenScadProjectCompletionContext {
+  readonly documentPath: string;
+  readonly sources: ReadonlyMap<string, string>;
+}
+
+export type OpenScadProjectCompletionProvider =
+  () => OpenScadProjectCompletionContext | undefined;
 
 export interface OpenScadCompletion extends Completion {
   label: OpenScadCompletionName;
@@ -189,7 +201,10 @@ function builtinCompletionKey(label: string, expressionContext: boolean): string
   return `${symbolKind}:${label}`;
 }
 
-export const openScadCompletionSource: CompletionSource = (context) => {
+function completeOpenScad(
+  context: CompletionContext,
+  project?: OpenScadProjectCompletionContext,
+) {
   if (isInsideExcludedNode(context)) return null;
 
   const word = context.matchBefore(/[$A-Za-z_][A-Za-z0-9_$]*$/);
@@ -217,6 +232,13 @@ export const openScadCompletionSource: CompletionSource = (context) => {
       completion,
     ]),
   );
+  if (project) {
+    for (const completion of projectFileCompletions(context.state, project)) {
+      if (userCompletionMatchesContext(completion, specialVariableContext, expressionContext)) {
+        options.set(`${completion.symbolKind}:${completion.label}`, completion);
+      }
+    }
+  }
   for (const completion of currentFileCompletions(context.state, context.pos)) {
     if (userCompletionMatchesContext(completion, specialVariableContext, expressionContext)) {
       options.set(`${completion.symbolKind}:${completion.label}`, completion);
@@ -228,4 +250,12 @@ export const openScadCompletionSource: CompletionSource = (context) => {
     options: [...options.values()],
     validFor: /[$A-Za-z_][A-Za-z0-9_$]*/,
   };
-};
+}
+
+export const openScadCompletionSource: CompletionSource = (context) => completeOpenScad(context);
+
+export function createOpenScadCompletionSource(
+  project: OpenScadProjectCompletionProvider,
+): CompletionSource {
+  return (context) => completeOpenScad(context, project());
+}

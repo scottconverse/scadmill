@@ -19,3 +19,17 @@ export function buildRuntimeRenderFileMap(
     workspace.documents.map(({ id, path, source }) => ({ documentId: id, path, source })),
   );
 }
+
+export function buildRuntimeTextFileMap(
+  project: ProjectSessionState,
+  workspace: DocumentWorkspaceState,
+): ReadonlyMap<string, string> {
+  const sources = new Map<string, string>();
+  for (const [path, content] of project.snapshot.files) {
+    if (typeof content === "string") sources.set(path, content);
+  }
+  for (const document of workspace.documents) {
+    sources.set(document.path, document.source);
+  }
+  return sources;
+}

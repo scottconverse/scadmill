@@ -1,0 +1,206 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-fr1-cross-file-completion",
+  "createdAt": "2026-07-11T16:09:44-06:00",
+  "summary": "Complete FR-1.4 cross-file OpenSCAD symbol completion by connecting the C6 in-memory project snapshot to the editor and structurally following project include/use references without granting filesystem access.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.7 milestone protocol",
+    "Section 4.1 C1 editor and language support",
+    "FR-1.4",
+    "Section 4.6 C6 files, projects, import/export, sharing",
+    "FR-6.1 and FR-6.2",
+    "Amendment A-8",
+    "Q-0014"
+  ],
+  "filesTouched": [
+    {
+      "path": "CHANGELOG.md",
+      "status": "modified"
+    },
+    {
+      "path": "README.md",
+      "status": "modified"
+    },
+    {
+      "path": "provenance/entries/2026-07-11-fr1-cross-file-completion.json",
+      "status": "added"
+    },
+    {
+      "path": "spec/QUESTIONS.md",
+      "status": "modified"
+    },
+    {
+      "path": "src/application/runtime/project-render-files.ts",
+      "status": "modified"
+    },
+    {
+      "path": "src/messages/en.ts",
+      "status": "modified"
+    },
+    {
+      "path": "src/ui/Workbench.tsx",
+      "status": "modified"
+    },
+    {
+      "path": "src/ui/editor/CodeEditor.tsx",
+      "status": "modified"
+    },
+    {
+      "path": "src/ui/editor/openscad-completion.ts",
+      "status": "modified"
+    },
+    {
+      "path": "src/ui/editor/openscad-language.ts",
+      "status": "modified"
+    },
+    {
+      "path": "src/ui/editor/openscad-symbols.ts",
+      "status": "modified"
+    },
+    {
+      "path": "src/ui/editor/use-project-completion-context.ts",
+      "status": "added"
+    },
+    {
+      "path": "tests/application/runtime/project-render-files.test.ts",
+      "status": "added"
+    },
+    {
+      "path": "tests/ui/Workbench.test.tsx",
+      "status": "modified"
+    },
+    {
+      "path": "tests/ui/editor/CodeEditor.language.test.tsx",
+      "status": "modified"
+    },
+    {
+      "path": "tests/ui/editor/openscad-completion.test.ts",
+      "status": "modified"
+    }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0190",
+      "topic": "Cross-file completion source authority",
+      "decision": "Supply CodeEditor with a read-only text map built from the C6 in-memory project snapshot and overlay every open text buffer before completion; exclude binary assets by type and retain the latest map behind a live completion-provider reference.",
+      "rationale": "FR-1.4 must see saved and unsaved project source without reading the host filesystem, copying binary assets during UI rendering, or leaving CodeMirror with stale symbols after project state changes.",
+      "specBasis": [
+        "FR-1.4",
+        "FR-6.1",
+        "FR-6.2",
+        "Q-0014"
+      ]
+    },
+    {
+      "id": "D-0191",
+      "topic": "Structural include/use traversal and symbol precedence",
+      "decision": "Parse include/use statements with the fresh Lezer grammar, resolve only exact normalized project-relative paths from the injected map, traverse references recursively with cycle, file-count, and per-source bounds, expose variables and callables through include but only callables through use, and order declarations as current file over project over built-ins.",
+      "rationale": "Structural traversal avoids comment and string false positives, OpenSCAD visibility rules prevent use from leaking project variables, bounded exact-map lookup contains hostile paths and cycles, and deterministic precedence keeps the closest user declaration authoritative.",
+      "specBasis": [
+        "FR-1.4",
+        "FR-4.5",
+        "Q-0014"
+      ]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Direct referenced project declarations",
+      "test": "Offer modules, functions, and variables from a structurally included project file while excluding an unrelated project file.",
+      "red": {
+        "command": "node node_modules/vitest/vitest.mjs run tests/ui/editor/openscad-completion.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T15:57:50-06:00",
+        "outcome": "RED: 1 of 13 tests failed because the expected project module bracket(width = 10) was absent; 12 existing completion tests passed."
+      },
+      "green": {
+        "command": "node node_modules/vitest/vitest.mjs run tests/ui/editor/openscad-completion.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T15:59:00-06:00",
+        "outcome": "GREEN: all 13 completion tests passed after adding exact injected-map lookup and structural declaration extraction."
+      }
+    },
+    {
+      "criterion": "Recursive and OpenSCAD-accurate project visibility",
+      "test": "Follow transitive references without looping or accepting traversal paths, and expose project variables only through include rather than use.",
+      "red": {
+        "command": "node node_modules/vitest/vitest.mjs run tests/ui/editor/openscad-completion.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T15:59:26-06:00",
+        "outcome": "RED: 2 of 15 tests failed because nested_part(size = 4) was absent from a transitive include and secret_value incorrectly leaked through use; 13 tests passed."
+      },
+      "green": {
+        "command": "node node_modules/vitest/vitest.mjs run tests/ui/editor/openscad-completion.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T15:59:57-06:00",
+        "outcome": "GREEN: all 15 completion tests passed with recursive visibility propagation, cycle detection, and unsafe-path rejection."
+      }
+    },
+    {
+      "criterion": "Live CodeEditor source updates",
+      "test": "Install the injected project completion source in a mounted CodeMirror editor and read replacement project maps without reconstructing the editor.",
+      "red": {
+        "command": "node node_modules/vitest/vitest.mjs run tests/ui/editor/CodeEditor.language.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-11T16:00:20-06:00",
+        "outcome": "RED: 1 of 8 tests failed because completion never became active for the referenced project module; 7 existing editor-language tests passed."
+      },
+      "green": {
+        "command": "node node_modules/vitest/vitest.mjs run tests/ui/editor/CodeEditor.language.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-11T16:07:56-06:00",
+        "outcome": "GREEN: all 8 editor-language tests passed, including a mounted completion result and a rerender that replaced bracket with brace without stale options."
+      }
+    },
+    {
+      "criterion": "C6-to-editor integration",
+      "test": "Load a C6 project containing text and binary files through Workbench and complete a module from an included, unopened text file in the live editor.",
+      "red": {
+        "command": "node node_modules/vitest/vitest.mjs run tests/ui/Workbench.test.tsx --reporter=verbose -t \"feeds the active C6 project snapshot into cross-file completion\"",
+        "observedAt": "2026-07-11T16:01:27-06:00",
+        "outcome": "RED: the new Workbench integration test failed because CodeMirror completion status remained null; 18 unrelated Workbench tests were skipped by the filter."
+      },
+      "green": {
+        "command": "node node_modules/vitest/vitest.mjs run",
+        "observedAt": "2026-07-11T16:16:14-06:00",
+        "outcome": "GREEN: all 105 test files and 771 tests passed, including the focused completion, live-editor, Workbench, binary-exclusion, unsafe/cyclic-reference, include/use-visibility, and current-file-precedence cases."
+      }
+    },
+    {
+      "criterion": "Text-only runtime map composition",
+      "test": "Compose completion sources from saved project text plus authoritative open buffers without retaining binary assets or mutating the source snapshot.",
+      "red": {
+        "command": "node node_modules/vitest/vitest.mjs run tests/application/runtime/project-render-files.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T16:12:11-06:00",
+        "outcome": "RED: the new focused test failed because buildRuntimeTextFileMap did not yet exist."
+      },
+      "green": {
+        "command": "node node_modules/vitest/vitest.mjs run tests/application/runtime/project-render-files.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T16:15:27-06:00",
+        "outcome": "GREEN: the focused runtime-map test passed, proving binary exclusion, open-buffer precedence, inclusion of an open text file, and snapshot immutability."
+      }
+    },
+    {
+      "criterion": "Repository UI source boundary",
+      "test": "Keep cross-file completion composition outside the Workbench UI monolith and preserve the repository's 400-line UI ceiling.",
+      "red": {
+        "command": "node_modules/.bin/biome lint src tests scripts vite.config.ts playwright.config.ts && node scripts/check-source-policy.mjs",
+        "observedAt": "2026-07-11T16:11:00-06:00",
+        "outcome": "RED: Biome passed, but source policy rejected Workbench.tsx at 412 physical lines against the 400-line limit."
+      },
+      "green": {
+        "command": "node_modules/.bin/biome.cmd lint src tests scripts vite.config.ts playwright.config.ts && node scripts/check-source-policy.mjs",
+        "observedAt": "2026-07-11T16:16:14-06:00",
+        "outcome": "GREEN: Biome checked 290 files with no fixes, and source policy passed after extracting text-map composition and its memoized editor context; Workbench.tsx is exactly 400 physical lines."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "Q-0014 remains open only for the historical M1 scheduling interpretation; M2 now supplies the conservative injected project-source map it proposed.",
+    "Q-0013 still parks only the final exhaustive built-in corpus and insertion text; this change does not alter that provisional corpus."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

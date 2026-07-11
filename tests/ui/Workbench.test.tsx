@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { completionStatus, currentCompletions, startCompletion } from "@codemirror/autocomplete";
 import { EditorView } from "@codemirror/view";
 import { act, fireEvent, render, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
@@ -24,6 +25,49 @@ function oneTriangleStl(): Uint8Array {
 }
 
 describe("Workbench", () => {
+  it("feeds the active C6 project snapshot into cross-file completion", async () => {
+    const engine: EngineService = {
+      render: vi.fn(), export: vi.fn(), version: vi.fn(), cancel: vi.fn(),
+    };
+    const runtime = createWorkbenchRuntime(engine);
+    const main = "include <lib/shapes.scad>\nbr";
+    await runtime.dispatch({
+      kind: "replace-project-confirmed",
+      origin: "user",
+      snapshot: createProjectSnapshot("completion-project", new Map<string, string | Uint8Array>([
+        ["main.scad", main],
+        ["lib/shapes.scad", "module bracket(size = 12) { cube(size); }"],
+        ["assets/logo.png", Uint8Array.of(137, 80, 78, 71)],
+      ])),
+      displayName: "Completion project",
+      entryFile: "main.scad",
+    });
+    const view = render(
+      <Workbench
+        runtime={runtime}
+        engineLabel="OpenSCAD 2026.06.12"
+        activeTheme={SHIPPED_THEMES[0]}
+        themePreference="system"
+        onThemePreferenceChange={vi.fn()}
+      />,
+    );
+    const content = await waitFor(() => {
+      const node = view.container.querySelector<HTMLElement>(".cm-content");
+      if (!node) throw new Error("CodeMirror did not mount.");
+      return node;
+    });
+    const editor = EditorView.findFromDOM(content);
+    if (!editor) throw new Error("CodeMirror view could not be recovered from its DOM.");
+    editor.dispatch({ selection: { anchor: editor.state.doc.length } });
+
+    expect(startCompletion(editor)).toBe(true);
+    await waitFor(() => expect(completionStatus(editor.state)).toBe("active"));
+    expect(currentCompletions(editor.state)).toContainEqual(expect.objectContaining({
+      label: "bracket",
+      detail: "bracket(size = 12)",
+    }));
+  });
+
   it("exposes the default-on automatic render toggle", async () => {
     const engine: EngineService = {
       render: vi.fn(),

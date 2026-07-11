@@ -88,6 +88,12 @@ export const openScadCurrentFileSymbolDescriptions = {
   variable: "Variable defined in the current file.",
 } as const;
 
+export const openScadProjectFileSymbolDescriptions = {
+  module: (path: string) => `Module defined in project file ${path}.`,
+  function: (path: string) => `Function defined in project file ${path}.`,
+  variable: (path: string) => `Variable defined in project file ${path}.`,
+} as const;
+
 export const openScadCurrentFileSymbolDetails = {
   variable: "variable",
 } as const;

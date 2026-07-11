@@ -9,6 +9,7 @@ import { DiagnosticConsole } from "./diagnostics/DiagnosticConsole";
 import { useDiagnosticNavigation } from "./diagnostics/use-diagnostic-navigation";
 import type { CodeEditorSession, CursorPosition } from "./editor/CodeEditor";
 import { DocumentTabBar, documentTabId } from "./editor/DocumentTabBar";
+import { useProjectCompletionContext } from "./editor/use-project-completion-context";
 import { useDocumentKeybindings } from "./editor/use-document-keybindings";
 import { useEditorCommandCoordinator } from "./editor/use-editor-command-coordinator";
 import { type EngineRecoveryState, EngineUnavailableBanner } from "./engine/EngineUnavailableBanner";
@@ -65,6 +66,7 @@ export function Workbench({
   const viewerState = useReadonlyStore(runtime.viewer, (state) => state);
   const parameterState = useReadonlyStore(runtime.parameters, (state) => state);
   const projectState = useReadonlyStore(runtime.project, (state) => state);
+  const editorProjectCompletion = useProjectCompletionContext(projectState, documents);
   const narrow = useNarrowLayout(undefined, forceNarrowLayout);
   const activeViewer = viewerDocument(viewerState, document.id);
   const presentation = resolveActiveViewerPresentation({
@@ -74,10 +76,8 @@ export function Workbench({
     render,
     viewer: activeViewer,
   });
-  const currentRenderResult = presentation.currentResult;
-  const activeRenderResult = presentation.failure ?? presentation.result;
   const diagnosticNavigation = useDiagnosticNavigation({
-    diagnostics: currentRenderResult?.diagnostics,
+    diagnostics: presentation.currentResult?.diagnostics,
     entryFile: render.entryFile,
     runtime,
     workspace: documents,
@@ -90,7 +90,7 @@ export function Workbench({
   const [cursor, setCursor] = useState<CursorPosition>({ line: 1, column: 1 });
   const [requestedProject, setRequestedProject] = useState<ProjectOpenRequest>();
   const [recoveryPending, setRecoveryPending] = useState(false);
-  const diagnosticStatus = diagnosticStatusLabel(activeRenderResult, document.path);
+  const diagnosticStatus = diagnosticStatusLabel(presentation.failure ?? presentation.result, document.path);
   const renderStatus = renderStatusLabel(render, presentation.stale, document.path);
   const consoleVisible = narrow
     ? layout.narrowSheet === "console"
@@ -99,7 +99,7 @@ export function Workbench({
     <DiagnosticConsole
       canNavigate={diagnosticNavigation.canNavigate}
       emptyMessage={messages.noCurrentDiagnostics(document.path)}
-      navigableJobId={currentRenderResult ? render.jobId : undefined}
+      navigableJobId={presentation.currentResult ? render.jobId : undefined}
       onClear={() => void runtime.dispatch({ kind: "clear-console", origin: "user" })}
       onNavigate={diagnosticNavigation.navigate}
       state={consoleState}
@@ -238,6 +238,7 @@ export function Workbench({
             value={document.source}
             label={messages.editorRegion}
             navigation={diagnosticNavigation.navigation}
+            projectCompletion={editorProjectCompletion}
             onCommand={editorCommands.handleOutcome}
             onCursorChange={setCursor}
             onNavigationHandled={diagnosticNavigation.completeNavigation}

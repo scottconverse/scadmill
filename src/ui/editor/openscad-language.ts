@@ -1,3 +1,4 @@
+import type { CompletionSource } from "@codemirror/autocomplete";
 import { LRLanguage, LanguageSupport } from "@codemirror/language";
 import { styleTags, tags } from "@lezer/highlight";
 
@@ -31,14 +32,18 @@ const openScadParser = parser.configure({
 export const openScadLanguage = LRLanguage.define({
   parser: openScadParser,
   languageData: {
-    autocomplete: openScadCompletionSource,
     commentTokens: { line: "//", block: { open: "/*", close: "*/" } },
     closeBrackets: { brackets: ["(", "[", "{", '"'] },
   },
 });
 
-export function openScad(): LanguageSupport {
-  return new LanguageSupport(openScadLanguage);
+export function openScad(
+  completionSource: CompletionSource = openScadCompletionSource,
+): LanguageSupport {
+  return new LanguageSupport(
+    openScadLanguage,
+    openScadLanguage.data.of({ autocomplete: completionSource }),
+  );
 }
 
 export function parseOpenScad(source: string) {

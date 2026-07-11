@@ -8,7 +8,7 @@ The project is being delivered milestone by milestone from the clean-room functi
 
 - Edit OpenSCAD source in a CodeMirror-based workbench and render it through the out-of-process native engine adapter.
 - Highlight OpenSCAD keywords, built-ins, literals, special variables, comments, operators, and statement modifiers through a fresh version-labeled Lezer grammar.
-- Offer context-aware completion for the version-labeled provisional built-in corpus and lexically visible current-file symbols, with signatures, paraphrased descriptions, and a provisional deterministic `cube` call skeleton while Q-0013 remains open.
+- Offer context-aware completion for the version-labeled provisional built-in corpus, lexically visible current-file symbols, and declarations pulled recursively from project files referenced by `include`/`use`. Signatures identify their project-relative source; the deterministic `cube` skeleton remains provisional while Q-0013 is open.
 - Work across reorderable, keyboard-accessible document tabs with isolated edit/undo sessions, dirty-state announcements, project-backed save, clean close/reopen commands, and render results bound to the exact source snapshot. Dirty-close and final-tab policy remain explicitly parked in `spec/QUESTIONS.md`.
 - Apply typed native-engine parameter overrides without rewriting source, including validated numbers, booleans, strings, and numeric vectors. Preview and full renders use separate timeouts and quality policies; F5 requests preview and F6 requests full geometry.
 - Stage complete multi-file projects with byte-preserving binary assets, resolve `include`/`use` from the project root, select 3D STL or 2D SVG from engine output, and export every Appendix A native format at full quality. PNG currently uses the engine's default camera; explicit `CameraPose` requests are rejected rather than losing `up` while Q-0021 is open.
@@ -29,13 +29,13 @@ The project is being delivered milestone by milestone from the clean-room functi
 | Slice | Verified boundary | Still parked beyond accepted M1 |
 |---|---|---|
 | C0 layout | Default/narrow layouts, splitters, keyboard access, web-profile persistence, and console auto-open have automated coverage. | Final desktop per-project storage ownership is Q-0008. |
-| C1 editor | Tabs, dirty tracking, language support, completion infrastructure, diagnostics, editor settings, and C1-owned commands are implemented. | Save/retention blocks AC-1.d and AC-4.d under Q-0012; final command, corpus, and cross-file completion claims remain Q-0010/Q-0013/Q-0014. |
+| C1 editor | Tabs, dirty tracking, language support, completion infrastructure, diagnostics, editor settings, and C1-owned commands are implemented. | Save/retention blocks AC-1.d and AC-4.d under Q-0012; final command and corpus claims remain Q-0010/Q-0013. Q-0014 now governs only the historical M1 scheduling interpretation. |
 | C4 native engine | Real 2D/3D geometry, typed parameters, multi-file staging, exports, streaming, timeout/cancel cleanup, debounce, and supersession are covered. | A true preview facet cap is Q-0003; explicit-camera PNG is Q-0021; native/WASM parity is the M3 gate. |
 | C8 diagnostics | Ordered run history, raw output, structured diagnostics, filters, retention, inline markers, and navigation to current/open files are covered. | Loading a reported file not already open is Q-0020. |
 | C12 theming | Complete shipped token sets, contrast checks, no component color literals, and live editor/viewer/console switching are covered. | Import-control ownership and final custom-color/contrast policy are Q-0004/Q-0005/Q-0006. |
 | Quality gates | TypeScript, browser, native, desktop-shell, npm- and Rust-license, build, and provenance checks are green locally. | The owner similarity gate is CI-only and is never run locally. |
 
-That table preserves the accepted M1 boundary as historical evidence. M2 now supplies the project-backed save and unloaded-file navigation paths that were unavailable at M1, plus the visible custom-theme settings flow.
+That table preserves the accepted M1 boundary as historical evidence. M2 now supplies the project-backed save, unloaded-file navigation, and read-only cross-file completion source map that were unavailable at M1, plus the visible custom-theme settings flow.
 
 ## M2 boundary record
 

@@ -1,4 +1,10 @@
 // @vitest-environment happy-dom
+import {
+  closeCompletion,
+  completionStatus,
+  currentCompletions,
+  startCompletion,
+} from "@codemirror/autocomplete";
 import { language, syntaxTree } from "@codemirror/language";
 import { diagnosticCount } from "@codemirror/lint";
 import { EditorView } from "@codemirror/view";
@@ -21,6 +27,56 @@ describe("CodeEditor OpenSCAD language support", () => {
     const tree = syntaxTree(editor.state);
     expect(tree.type.name).toBe("Document");
     expect(tree.toString()).not.toContain("⚠");
+  });
+
+  it("uses the injected read-only project sources for live completion", async () => {
+    const value = "include <lib/shapes.scad>\nbr";
+    const rendered = render(
+      <CodeEditor
+        projectCompletion={{
+          documentPath: "main.scad",
+          sources: new Map([
+            ["main.scad", value],
+            ["lib/shapes.scad", "module bracket(size = 8) { cube(size); }"],
+          ]),
+        }}
+        value={value}
+        onChange={vi.fn()}
+        label="Editor"
+      />,
+    );
+    const content = rendered.container.querySelector<HTMLElement>(".cm-content");
+    if (!content) throw new Error("CodeMirror content did not mount.");
+    const editor = EditorView.findFromDOM(content);
+    if (!editor) throw new Error("CodeMirror view could not be recovered from its DOM.");
+    editor.dispatch({ selection: { anchor: editor.state.doc.length } });
+
+    expect(startCompletion(editor)).toBe(true);
+    await waitFor(() => expect(completionStatus(editor.state)).toBe("active"));
+    expect(currentCompletions(editor.state)).toContainEqual(expect.objectContaining({
+      label: "bracket",
+      detail: "bracket(size = 8)",
+    }));
+
+    expect(closeCompletion(editor)).toBe(true);
+    rendered.rerender(
+      <CodeEditor
+        projectCompletion={{
+          documentPath: "main.scad",
+          sources: new Map([
+            ["main.scad", value],
+            ["lib/shapes.scad", "module brace(size = 9) { cube(size); }"],
+          ]),
+        }}
+        value={value}
+        onChange={vi.fn()}
+        label="Editor"
+      />,
+    );
+    expect(startCompletion(editor)).toBe(true);
+    await waitFor(() => expect(completionStatus(editor.state)).toBe("active"));
+    expect(currentCompletions(editor.state).map(({ label }) => label)).toContain("brace");
+    expect(currentCompletions(editor.state).map(({ label }) => label)).not.toContain("bracket");
   });
 
   it("omits the OpenSCAD grammar for a plain-text project file", () => {

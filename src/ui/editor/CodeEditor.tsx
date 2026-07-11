@@ -33,6 +33,10 @@ import {
   executeEditorCommand,
   type EditorCommandRequest,
 } from "./editor-command-execution";
+import {
+  createOpenScadCompletionSource,
+  type OpenScadProjectCompletionContext,
+} from "./openscad-completion";
 import { openScad } from "./openscad-language";
 
 const controlledDocumentUpdate = Annotation.define<boolean>();
@@ -102,6 +106,7 @@ export interface EditorNavigationRequest {
 export interface CodeEditorProps {
   value: string;
   language?: "openscad" | "plain";
+  projectCompletion?: OpenScadProjectCompletionContext;
   onChange(value: string): void;
   diagnostics?: readonly Diagnostic[];
   navigation?: EditorNavigationRequest;
@@ -167,6 +172,7 @@ function codeMirrorDiagnostics(
 export function CodeEditor({
   value,
   onChange,
+  projectCompletion,
   diagnostics = EMPTY_DIAGNOSTICS,
   navigation,
   onNavigationHandled,
@@ -187,6 +193,16 @@ export function CodeEditor({
   const initialSessionRef = useRef(initialSession);
   const initialEditorSettingsRef = useRef(editorSettings);
   const initialKeybindingsRef = useRef(keybindings);
+  const projectCompletionContextRef = useRef<OpenScadProjectCompletionContext | undefined>(
+    undefined,
+  );
+  const completionSourceRef = useRef<ReturnType<typeof createOpenScadCompletionSource> | null>(
+    null,
+  );
+  projectCompletionContextRef.current = projectCompletion;
+  completionSourceRef.current ??= createOpenScadCompletionSource(
+    () => projectCompletionContextRef.current,
+  );
   const editorSettingsCompartment = useRef<Compartment | null>(null);
   const editorCommandsCompartment = useRef<Compartment | null>(null);
   const onChangeRef = useRef(onChange);
@@ -212,7 +228,7 @@ export function CodeEditor({
     editorCommandsCompartment.current = commandsCompartment;
     const extensions = [
       basicSetup,
-      languageMode === "openscad" ? openScad() : [],
+      languageMode === "openscad" ? openScad(completionSourceRef.current ?? undefined) : [],
       lintGutter(),
       codeEditorTheme,
       commandsCompartment.of(editorCommandExtension(

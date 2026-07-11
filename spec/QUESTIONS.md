@@ -8,8 +8,8 @@ Numbered questions are appended here under §2.7. Only the affected work item is
 |---|---|---|
 | Resolved — policy gate | Q-0001 | The owner allowed `Unicode-3.0`; the Rust and combined dependency-license checks are green. |
 | Open/actionable — policy gate | Q-0002 | This question does not block product implementation. |
-| Open/actionable — scoped behavior | Q-0003, Q-0005–Q-0010, Q-0013–Q-0019, Q-0021–Q-0022, Q-0024–Q-0028, Q-0030–Q-0031 | Each blocks only the item named in its **Blocked** field; no question silently blocks unrelated work. |
-| Open/historical — delivered conservatively | Q-0004, Q-0011–Q-0012, Q-0020 | M2 delivered the later capability named by each question. The owner answer still governs the historical milestone interpretation. |
+| Open/actionable — scoped behavior | Q-0003, Q-0005–Q-0010, Q-0013, Q-0015–Q-0019, Q-0021–Q-0022, Q-0024–Q-0028, Q-0030–Q-0031 | Each blocks only the item named in its **Blocked** field; no question silently blocks unrelated work. |
+| Open/historical — delivered conservatively | Q-0004, Q-0011–Q-0012, Q-0014, Q-0020 | M2 delivered the later capability named by each question. The owner answer still governs the historical milestone interpretation. |
 | Open/later milestone | Q-0023, Q-0029 | These park M3 WebAssembly provenance or M3 welcome-screen placement, not M2 implementation. |
 
 ## Q-0001 — Resolved 2026-07-11 — opened 2026-07-09
@@ -114,6 +114,7 @@ Numbered questions are appended here under §2.7. Only the affected work item is
 - **Question:** Before C6 defines project discovery and file ownership, should cross-file `include`/`use` symbol completion consume an injected in-memory project-source map?
 - **Evidence:** FR-1.4 is in M1, but the capability responsible for enumerating and loading project files is in M2. An injected read-only source map permits deterministic symbol analysis without choosing a filesystem policy early.
 - **Blocked:** Only the cross-file source adapter. Current-file symbol analysis, a project-source port, and unrelated editor work continue.
+- **Implementation status (2026-07-11):** M2 now injects C6's in-memory, text-only project snapshot plus open-buffer overlays into the editor. Completion follows only structurally parsed project-relative `include`/`use` references, bounds cycles and hostile paths, and performs no filesystem reads. The owner answer still governs the historical M1 scheduling interpretation.
 
 ## Q-0015 — Open — 2026-07-10
 

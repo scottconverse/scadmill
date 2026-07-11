@@ -21,8 +21,10 @@ import {
   OPENSCAD_SPECIAL_VARIABLES,
 } from "../../../src/ui/editor/openscad-builtins";
 import {
+  createOpenScadCompletionSource,
   OPENSCAD_COMPLETIONS,
   openScadCompletionSource,
+  type OpenScadProjectCompletionContext,
 } from "../../../src/ui/editor/openscad-completion";
 import { codeEditorTheme } from "../../../src/ui/editor/code-editor-theme";
 import { openScad } from "../../../src/ui/editor/openscad-language";
@@ -31,9 +33,13 @@ async function complete(
   doc: string,
   pos = doc.length,
   explicit = false,
+  project?: OpenScadProjectCompletionContext,
 ): Promise<CompletionResult | null> {
   const state = EditorState.create({ doc, extensions: [openScad()] });
-  return await openScadCompletionSource(new CompletionContext(state, pos, explicit));
+  const source = project
+    ? createOpenScadCompletionSource(() => project)
+    : openScadCompletionSource;
+  return await source(new CompletionContext(state, pos, explicit));
 }
 
 describe("OpenSCAD completion", () => {
@@ -182,6 +188,107 @@ thickness = 3;`;
     expect(expression?.options.map(({ label }) => label)).toContain("twice");
     expect(expression?.options.map(({ label }) => label)).not.toContain("bracket");
     expect(variableExpression?.options.map(({ label }) => label)).toContain("thickness");
+  });
+
+  it("completes context-valid declarations from referenced project files only", async () => {
+    const project: OpenScadProjectCompletionContext = {
+      documentPath: "main.scad",
+      sources: new Map([
+        ["main.scad", "include <lib/shapes.scad>\nbr"],
+        [
+          "lib/shapes.scad",
+          "module bracket(width = 10) { cube(width); }\nfunction twice(value) = value * 2;\nthickness = 3;",
+        ],
+        ["lib/unrelated.scad", "module unrelated() {}"],
+      ]),
+    };
+    const statement = await complete("include <lib/shapes.scad>\nbr", undefined, false, project);
+    const expression = await complete(
+      "include <lib/shapes.scad>\nvalue = tw",
+      undefined,
+      false,
+      project,
+    );
+
+    expect(statement?.options).toContainEqual(expect.objectContaining({
+      label: "bracket",
+      detail: "bracket(width = 10)",
+    }));
+    expect(statement?.options.map(({ label }) => label)).not.toContain("unrelated");
+    expect(expression?.options.map(({ label }) => label)).toEqual(
+      expect.arrayContaining(["twice", "thickness"]),
+    );
+  });
+
+  it("follows transitive project references without looping through cycles or unsafe paths", async () => {
+    const project: OpenScadProjectCompletionContext = {
+      documentPath: "main.scad",
+      sources: new Map([
+        ["main.scad", "include <lib/root.scad>\nnes"],
+        [
+          "lib/root.scad",
+          "include <lib/nested.scad>\ninclude <../outside.scad>\nmodule root_part() {}",
+        ],
+        ["lib/nested.scad", "include <main.scad>\nmodule nested_part(size = 4) {}"],
+        ["../outside.scad", "module escaped() {}"],
+      ]),
+    };
+
+    const result = await complete("include <lib/root.scad>\nnes", undefined, false, project);
+
+    expect(result?.options).toContainEqual(expect.objectContaining({
+      label: "nested_part",
+      detail: "nested_part(size = 4)",
+    }));
+    expect(result?.options.map(({ label }) => label)).not.toContain("escaped");
+  });
+
+  it("keeps variables behind include while use exposes only callable declarations", async () => {
+    const project: OpenScadProjectCompletionContext = {
+      documentPath: "main.scad",
+      sources: new Map([
+        ["main.scad", "use <lib/defs.scad>\nvalue = se"],
+        [
+          "lib/defs.scad",
+          "module shared_part() {}\nfunction shared_value() = 3;\nsecret_value = 9;",
+        ],
+      ]),
+    };
+    const statement = await complete("use <lib/defs.scad>\nsha", undefined, false, project);
+    const expression = await complete(
+      "use <lib/defs.scad>\nvalue = sh",
+      undefined,
+      false,
+      project,
+    );
+
+    expect(statement?.options.map(({ label }) => label)).toContain("shared_part");
+    expect(expression?.options.map(({ label }) => label)).toContain("shared_value");
+    expect(expression?.options.map(({ label }) => label)).not.toContain("secret_value");
+  });
+
+  it("lets current-file declarations shadow same-named project declarations", async () => {
+    const project: OpenScadProjectCompletionContext = {
+      documentPath: "main.scad",
+      sources: new Map([
+        ["main.scad", "include <lib/shapes.scad>\nmodule bracket(size = 2) {}\nbr"],
+        ["lib/shapes.scad", "module bracket(size = 20) {}"],
+      ]),
+    };
+    const result = await complete(
+      "include <lib/shapes.scad>\nmodule bracket(size = 2) {}\nbr",
+      undefined,
+      false,
+      project,
+    );
+    const brackets = result?.options.filter(({ label }) => label === "bracket") ?? [];
+
+    expect(brackets).toHaveLength(1);
+    expect(brackets[0]).toMatchObject({
+      detail: "bracket(size = 2)",
+      info: "Module defined in the current file.",
+      boost: 10,
+    });
   });
 
   it("lets current-file declarations shadow a built-in completion", async () => {
