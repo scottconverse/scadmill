@@ -12,6 +12,7 @@ const GATE_ARTIFACT_DIR = process.env.SCADMILL_GATE_ARTIFACT_DIR?.trim()
   : null;
 const RUNNER_PATHS = [
   "tests/e2e/m2-browser-gate.e2e.ts",
+  "tests/e2e/m2-storage-fallback.e2e.ts",
   "tests/e2e/m2-gate.playwright.config.ts",
 ] as const;
 const REPRODUCTION_COMMAND =

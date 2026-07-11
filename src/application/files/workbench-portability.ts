@@ -45,11 +45,12 @@ export function portableWorkbenchSnapshot(runtime: WorkbenchRuntime): ProjectSna
 
 export function createWorkbenchProjectPortabilityController(
   runtime: WorkbenchRuntime,
-  storage: ImportedProjectStorage,
+  storage?: ImportedProjectStorage,
   environment: WorkbenchPortabilityEnvironment = browserEnvironment(),
 ): ProjectPortabilityController {
   return createProjectPortabilityController({
     artifacts: runtime.artifacts,
+    projectImportAvailable: storage !== undefined,
     copyText: environment.copyText,
     currentHref: environment.currentHref,
     currentProject: () => ({
@@ -58,6 +59,7 @@ export function createWorkbenchProjectPortabilityController(
     }),
     currentSource: () => activeDocument(runtime.documents.getState()).source,
     installImportedProject: async (project) => {
+      if (!storage) throw new Error(messages.projectStorageUnavailableForImport);
       if (runtime.documents.getState().documents.some(isDocumentDirty)) {
         throw new Error(messages.projectReplacementBlockedDirty);
       }

@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-m2-storage-fallback-portability",
+  "createdAt": "2026-07-11T13:25:00-06:00",
+  "summary": "Close M2-R08 by composing project portability even when IndexedDB is unavailable: exact share and ZIP export remain active, only ZIP import is disabled, and a real Chromium getter-failure journey proves byte fidelity.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 test-first evidence and milestone gates",
+    "FR-6.2 web project storage",
+    "FR-6.8 URL-fragment sharing",
+    "N-2 reliability",
+    "N-7 UI honesty"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-11-m2-storage-fallback-portability.json", "status": "added" },
+    { "path": "src/app/App.tsx", "status": "modified" },
+    { "path": "src/application/files/project-portability.ts", "status": "modified" },
+    { "path": "src/application/files/workbench-portability.ts", "status": "modified" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/ui/files/ProjectPortabilityPanel.tsx", "status": "modified" },
+    { "path": "tests/app/App.portability-fallback.test.tsx", "status": "added" },
+    { "path": "tests/application/files/workbench-portability.test.ts", "status": "modified" },
+    { "path": "tests/e2e/m2-browser-gate.e2e.ts", "status": "modified" },
+    { "path": "tests/e2e/m2-gate.playwright.config.ts", "status": "modified" },
+    { "path": "tests/e2e/m2-storage-fallback.e2e.ts", "status": "added" },
+    { "path": "tests/ui/files/FilesActivity.test.tsx", "status": "modified" },
+    { "path": "tests/ui/files/ProjectPortabilityPanel.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0135",
+      "topic": "Storage-independent portability after IndexedDB failure",
+      "decision": "Always compose the Workbench portability controller. Advertise imported-project storage as a separate capability, keep share-link and ZIP export paths live from in-memory runtime state, and disable only ZIP import when no replace-capable browser store exists.",
+      "rationale": "Sharing and export do not depend on IndexedDB. Removing them with the import path discarded the user's best backup options precisely when durable browser storage failed. A capability-specific boundary is both safer and more honest.",
+      "specBasis": ["FR-6.2", "FR-6.8", "N-2", "N-7", "M2-R08"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Storage-independent share/export composition",
+      "test": "Application, adapter, and panel tests construct the real no-storage path, require an available controller, prove exact share/ZIP output, disable only import, and require a visible storage explanation.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/files/workbench-portability.test.ts tests/ui/files/ProjectPortabilityPanel.test.tsx tests/app/App.portability-fallback.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-11T13:21:55-06:00",
+        "outcome": "ASSERTION-LEVEL RED: Test Files 3 failed (3); Tests 3 failed | 10 passed (13); Duration 1.34s. App supplied no controller, the adapter reported undefined import availability, and the panel left ZIP import enabled."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/files/project-portability.test.ts tests/application/files/workbench-portability.test.ts tests/ui/files/ProjectPortabilityPanel.test.tsx tests/ui/files/FilesActivity.test.tsx tests/app/App.portability-fallback.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-11T13:22:51-06:00",
+        "outcome": "GREEN: Test Files 5 passed (5); Tests 21 passed (21); Duration 1.65s."
+      }
+    },
+    {
+      "criterion": "Real Chromium IndexedDB-getter failure",
+      "test": "Before the production entry module loads, Chromium installs an IndexedDB getter that throws SecurityError, then edits exact Unicode source, copies and decodes the production share fragment, downloads and decodes the production project ZIP, and checks page/console errors.",
+      "red": {
+        "command": "Covered by the assertion-level App/controller/panel RED before the production change; the browser journey widens the same behavior after GREEN.",
+        "observedAt": "2026-07-11T13:22:51-06:00",
+        "outcome": "The production App previously omitted the complete portability surface when the getter returned no storage."
+      },
+      "green": {
+        "command": "pnpm.cmd exec playwright test tests/e2e/m2-storage-fallback.e2e.ts --workers=1 --retries=0",
+        "observedAt": "2026-07-11T13:24:08-06:00",
+        "outcome": "GREEN: Running 1 test using 1 worker; 1 passed (2.9s). Exact source survived both share and ZIP decode; no page or console errors were observed."
+      }
+    },
+    {
+      "criterion": "Static contracts and source policy",
+      "test": "Typecheck the new capability property across all controller fixtures and lint the complete product/test surface.",
+      "red": {
+        "command": "pnpm.cmd typecheck; pnpm.cmd lint",
+        "observedAt": "2026-07-11T13:24:25-06:00",
+        "outcome": "RED: TypeScript passed; Biome rejected one unsafe optional-chain dereference in the new App composition test. The test was made fail-fast before dereference."
+      },
+      "green": {
+        "command": "pnpm.cmd typecheck; pnpm.cmd lint",
+        "observedAt": "2026-07-11T13:24:48-06:00",
+        "outcome": "GREEN: TypeScript exited 0; Biome checked 273 files with no fixes; source policy passed with all UI files within 400 lines and platform boundaries intact."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "M2-R08 is closed by this slice. Browser project creation/import still requires IndexedDB; the product now states that limitation without removing independent backup paths.",
+    "No owner similarity gate, comparison repository, workflow content, or prohibited source was opened or executed."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

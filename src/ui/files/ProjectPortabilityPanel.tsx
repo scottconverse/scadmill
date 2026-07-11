@@ -114,17 +114,26 @@ export function ProjectPortabilityPanel({
         >
           {messages.exportProjectZip}
         </button>
-        <label aria-disabled={busy !== null} className="project-portability-import">
+        <label
+          aria-disabled={busy !== null || !controller.projectImportAvailable}
+          className="project-portability-import"
+          title={controller.projectImportAvailable
+            ? undefined
+            : messages.projectStorageUnavailableForImport}
+        >
           {messages.importProjectZip}
           <input
             accept=".zip,application/zip"
             aria-label={messages.importProjectZip}
-            disabled={busy !== null}
+            disabled={busy !== null || !controller.projectImportAvailable}
             onChange={(event) => void importProjectZip(event)}
             type="file"
           />
         </label>
       </div>}
+      {showActions && !controller.projectImportAvailable && (
+        <p role="note">{messages.projectStorageUnavailableForPortability}</p>
+      )}
       {showActions && <p role="note">{messages.shareLinkPrivacyNote}</p>}
       {showActions && shareHref && (
         <input

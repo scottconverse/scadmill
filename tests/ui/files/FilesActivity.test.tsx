@@ -25,6 +25,7 @@ it("mounts project opening, full export, and web portability product surfaces", 
   });
   const portability: ProjectPortabilityController = {
     artifactSavingAvailable: true,
+    projectImportAvailable: true,
     copyShareLink: vi.fn(),
     exportProjectZip: vi.fn(),
     importProjectZip: vi.fn(),

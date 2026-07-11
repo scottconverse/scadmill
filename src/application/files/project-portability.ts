@@ -26,6 +26,7 @@ export interface ImportedPortableProject extends CurrentPortableProject {
 
 export interface ProjectPortabilityPort {
   readonly artifacts: ArtifactDestination;
+  readonly projectImportAvailable?: boolean;
   copyText(value: string): Promise<void>;
   currentHref(): string;
   currentProject(): CurrentPortableProject;
@@ -42,6 +43,7 @@ export interface ProjectPortabilityLimits {
 
 export interface ProjectPortabilityController {
   readonly artifactSavingAvailable: boolean;
+  readonly projectImportAvailable: boolean;
   copyShareLink(): Promise<string>;
   exportProjectZip(): Promise<ArtifactSaveResult>;
   importProjectZip(file: ProjectArchiveFile): Promise<{ readonly displayName: string }>;
@@ -102,6 +104,7 @@ export function createProjectPortabilityController(
   let startupShare: Promise<SharedSource | null> | undefined;
   return {
     artifactSavingAvailable: port.artifacts.available,
+    projectImportAvailable: port.projectImportAvailable ?? true,
     copyShareLink: async () => {
       const href = await encodeShareLink(port.currentSource(), port.currentHref());
       try {

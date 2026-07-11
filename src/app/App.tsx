@@ -97,9 +97,7 @@ export function App({
     ],
   );
   const projectPortability = useMemo(
-    () => projectPortabilityStorage
-      ? createWorkbenchProjectPortabilityController(runtime, projectPortabilityStorage)
-      : undefined,
+    () => createWorkbenchProjectPortabilityController(runtime, projectPortabilityStorage),
     [projectPortabilityStorage, runtime],
   );
   const themePreference = useReadonlyStore(runtime.settings, (settings) => settings.theme);

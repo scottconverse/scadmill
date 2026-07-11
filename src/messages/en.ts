@@ -373,6 +373,10 @@ export const messages = {
   projectRequiresScadEntry: "The project has no readable .scad entry file.",
   firstProjectSourceMustBeScad: "The first project source file must end in .scad.",
   projectStorageUnavailable: "Project storage is unavailable.",
+  projectStorageUnavailableForImport:
+    "Project storage is unavailable; ZIP import is disabled.",
+  projectStorageUnavailableForPortability:
+    "Browser project storage is unavailable. Share links and ZIP export still work; ZIP import is disabled.",
   recoveryProjectStorageUnavailable: "Project storage is unavailable for recovery.",
   reopenProject: (name: string) => `Reopen ${name}`,
   checkExternalChanges: "Check for external changes",

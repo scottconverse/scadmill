@@ -12,6 +12,7 @@ function controller(
 ): ProjectPortabilityController {
   return {
     artifactSavingAvailable: true,
+    projectImportAvailable: true,
     copyShareLink: async () => "https://studio.example/#scadmill-share=v1.payload",
     exportProjectZip: async () => ({ location: "project.zip" }),
     importProjectZip: async () => ({ displayName: "project" }),
@@ -84,6 +85,20 @@ describe("ProjectPortabilityPanel", () => {
     });
     await waitFor(() => expect(importProjectZip).toHaveBeenCalledWith(file));
     expect(panel.getByRole("status")).toHaveTextContent(messages.projectZipImported("assembly"));
+  });
+
+  it("keeps share and export enabled while explaining unavailable ZIP import storage", () => {
+    const unavailable = Object.assign(controller(), { projectImportAvailable: false });
+    const view = render(<ProjectPortabilityPanel controller={unavailable} />);
+    const panel = within(view.container);
+
+    expect(panel.getByRole("button", { name: messages.copyShareLink })).toBeEnabled();
+    expect(panel.getByRole("button", { name: messages.exportProjectZip })).toBeEnabled();
+    expect(panel.getByLabelText(messages.importProjectZip)).toBeDisabled();
+    expect(panel.getByText(
+      "Browser project storage is unavailable. Share links and ZIP export still work; ZIP import is disabled.",
+      { exact: true },
+    )).toHaveAttribute("role", "note");
   });
 
   it("surfaces archive size and unsafe-path errors without replacing the current status", async () => {

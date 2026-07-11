@@ -20,6 +20,43 @@ function engine(): EngineService {
 }
 
 describe("workbench project portability adapter", () => {
+  it("keeps sharing and ZIP export available when imported-project storage is unavailable", async () => {
+    let archive = new Uint8Array();
+    const runtime = createWorkbenchRuntime(engine(), {
+      artifactDestination: {
+        available: true,
+        save: async ({ bytes }) => {
+          archive = bytes.slice();
+          return { location: "scratch.zip" };
+        },
+      },
+      initialScratchSource: "cube(8);",
+    });
+    const copyText = vi.fn();
+    const controller = createWorkbenchProjectPortabilityController(
+      runtime,
+      undefined as unknown as ImportedProjectStorage,
+      {
+        copyText,
+        currentHref: () => "https://studio.example/",
+        makeProjectId: () => "unavailable-import",
+      },
+    );
+
+    await controller.copyShareLink();
+    await controller.exportProjectZip();
+
+    expect((controller as unknown as { projectImportAvailable: boolean }).projectImportAvailable)
+      .toBe(false);
+    expect(copyText).toHaveBeenCalledOnce();
+    expect(archive.byteLength).toBeGreaterThan(0);
+    await expect(controller.importProjectZip({
+      name: "incoming.zip",
+      size: archive.byteLength,
+      arrayBuffer: async () => archive.slice().buffer,
+    })).rejects.toThrow("Project storage is unavailable; ZIP import is disabled.");
+  });
+
   it("exports dirty open buffers with untouched binary project files", async () => {
     let archive = new Uint8Array();
     const snapshot = createProjectSnapshot("assembly", new Map<string, string | Uint8Array>([

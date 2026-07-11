@@ -8,7 +8,7 @@ const artifactRoot = resolve(
 
 export default defineConfig({
   testDir: ".",
-  testMatch: "m2-browser-gate.e2e.ts",
+  testMatch: ["m2-browser-gate.e2e.ts", "m2-storage-fallback.e2e.ts"],
   outputDir: resolve(artifactRoot, "playwright"),
   forbidOnly: true,
   fullyParallel: false,
