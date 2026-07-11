@@ -1,9 +1,9 @@
 export interface WorkspaceLayoutPersistence {
-  load(): string | null;
-  save(serializedLayout: string): void;
+  load(workspaceIdentity: string): string | null;
+  save(workspaceIdentity: string, serializedLayout: string): void;
 }
 
 export const EPHEMERAL_WORKSPACE_LAYOUT_PERSISTENCE: WorkspaceLayoutPersistence = Object.freeze({
-  load: () => null,
-  save: () => undefined,
+  load: (_workspaceIdentity: string) => null,
+  save: (_workspaceIdentity: string, _serializedLayout: string) => undefined,
 });

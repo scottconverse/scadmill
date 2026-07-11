@@ -243,6 +243,13 @@ fn snapshot_project(root: &Path) -> Result<Vec<ProjectFileWire>, String> {
     Ok(files)
 }
 
+fn workspace_identity_material(root: &Path) -> Result<String, String> {
+    project_root(root)?
+        .into_os_string()
+        .into_string()
+        .map_err(|_| "Canonical project folder path is not valid Unicode.".to_string())
+}
+
 #[cfg(target_os = "windows")]
 fn atomic_install(temporary: &Path, destination: &Path) -> Result<(), String> {
     use std::os::windows::ffi::OsStrExt;
@@ -450,6 +457,17 @@ fn reveal_project_file(root: &Path, path: &str) -> Result<(), String> {
 }
 
 #[tauri::command(rename_all = "camelCase")]
+pub(crate) async fn project_workspace_identity_material(
+    project_id: String,
+) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        workspace_identity_material(Path::new(&project_id))
+    })
+    .await
+    .map_err(|error| format!("Project identity task failed: {error}"))?
+}
+
+#[tauri::command(rename_all = "camelCase")]
 pub(crate) async fn project_snapshot(project_id: String) -> Result<Vec<ProjectFileWire>, String> {
     tauri::async_runtime::spawn_blocking(move || snapshot_project(Path::new(&project_id)))
         .await
@@ -520,7 +538,7 @@ pub(crate) async fn project_reveal(project_id: String, path: String) -> Result<(
 mod tests {
     use super::{
         move_project_file, read_project_file, snapshot_project, trash_project_file_with,
-        write_project_file, write_project_file_with_installer,
+        workspace_identity_material, write_project_file, write_project_file_with_installer,
     };
     use base64::Engine as _;
     use std::fs;
@@ -583,6 +601,26 @@ mod tests {
                 .decode(&files[1].contents_base64)
                 .expect("decode text"),
             b"cube(10);"
+        );
+        fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn canonical_workspace_identity_material_collapses_alias_components() {
+        let root = temp_project();
+        let child = root.join("child");
+        fs::create_dir(&child).expect("create child");
+        let alias = child.join("..");
+
+        let expected = fs::canonicalize(&root)
+            .expect("canonical root")
+            .into_os_string()
+            .into_string()
+            .expect("unicode root");
+
+        assert_eq!(
+            workspace_identity_material(&alias).expect("canonical identity material"),
+            expected
         );
         fs::remove_dir_all(root).expect("cleanup");
     }

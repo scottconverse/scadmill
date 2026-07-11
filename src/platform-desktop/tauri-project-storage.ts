@@ -14,6 +14,28 @@ interface ProjectFileWire {
   readonly contentsBase64: string;
 }
 
+const EPHEMERAL_DESKTOP_WORKSPACE_IDENTITY = "desktop-ephemeral";
+
+async function opaqueWorkspaceIdentity(
+  invokeCommand: Invoke,
+  projectId: string,
+): Promise<string> {
+  try {
+    const material = await invokeCommand<unknown>("project_workspace_identity_material", {
+      projectId,
+    });
+    if (typeof material !== "string" || material.length === 0) {
+      return EPHEMERAL_DESKTOP_WORKSPACE_IDENTITY;
+    }
+    const bytes = new TextEncoder().encode(`scadmill-workspace-v1\0${material}`);
+    const digest = new Uint8Array(await globalThis.crypto.subtle.digest("SHA-256", bytes));
+    const hex = [...digest].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+    return `desktop-project:${hex}`;
+  } catch {
+    return EPHEMERAL_DESKTOP_WORKSPACE_IDENTITY;
+  }
+}
+
 function encodeBase64(bytes: Uint8Array): string {
   let binary = "";
   for (let offset = 0; offset < bytes.length; offset += 0x8000) {
@@ -67,7 +89,9 @@ export function createTauriProjectStorage(invokeCommand: Invoke = invoke): Proje
     snapshot: async (projectId) => {
       const files = await invokeCommand<ProjectFileWire[]>("project_snapshot", { projectId });
       if (!Array.isArray(files)) throw new Error("Native project snapshot must be a file list.");
-      return createProjectSnapshot(projectId, decodeFiles(files));
+      const decoded = decodeFiles(files);
+      const workspaceIdentity = await opaqueWorkspaceIdentity(invokeCommand, projectId);
+      return createProjectSnapshot(projectId, decoded, workspaceIdentity);
     },
     read: async (projectId, requestedPath) => {
       const path = parseProjectPath(requestedPath);

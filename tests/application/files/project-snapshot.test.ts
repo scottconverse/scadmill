@@ -17,6 +17,7 @@ describe("complete project snapshots", () => {
       ]),
     );
 
+    expect(snapshot.workspaceIdentity).toBe("project-1");
     const files = buildRenderFileMap(snapshot, [
       { documentId: "doc-main", path: "main.scad", source: "include <parts/body.scad>; // edited" },
       { documentId: "doc-body", path: "parts/body.scad", source: "cube(2);" },
@@ -58,5 +59,18 @@ describe("complete project snapshots", () => {
     const second = buildRenderFileMap(snapshot, []).get("asset.bin") as Uint8Array;
 
     expect([...second]).toEqual([1, 2, 3]);
+  });
+
+  it("accepts an opaque workspace identity distinct from the user-facing project id", () => {
+    const snapshot = createProjectSnapshot(
+      "C:\\Models\\Gear",
+      new Map([["main.scad", "cube(1);"]]),
+      `desktop-project:${"a".repeat(64)}`,
+    );
+
+    expect(snapshot.workspaceIdentity).toBe(`desktop-project:${"a".repeat(64)}`);
+    expect(() => createProjectSnapshot("project-1", new Map(), " ")).toThrow(
+      /workspace identity must be non-empty/iu,
+    );
   });
 });

@@ -134,7 +134,11 @@ export async function executeProjectCommand(
       const files = new Map(state.snapshot.files);
       files.set(path as never, "");
       return transition(
-        updatedProject(createProjectSnapshot(state.snapshot.projectId, files)),
+        updatedProject(createProjectSnapshot(
+          state.snapshot.projectId,
+          files,
+          state.snapshot.workspaceIdentity,
+        )),
         `New ${path}`,
         [{ kind: "open", document: { id: context.makeDocumentId(), path, source: "" } }],
       );

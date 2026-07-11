@@ -40,7 +40,7 @@ export function portableWorkbenchSnapshot(runtime: WorkbenchRuntime): ProjectSna
   for (const document of runtime.documents.getState().documents) {
     if (typeof files.get(document.path) === "string") files.set(document.path, document.source);
   }
-  return createProjectSnapshot(project.projectId, files);
+  return createProjectSnapshot(project.projectId, files, project.workspaceIdentity);
 }
 
 export function createWorkbenchProjectPortabilityController(

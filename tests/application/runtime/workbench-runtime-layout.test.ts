@@ -9,6 +9,7 @@ import {
   DEFAULT_WORKSPACE_LAYOUT,
   serializeWorkspaceLayout,
 } from "../../../src/application/layout/workspace-layout";
+import { createProjectSnapshot } from "../../../src/application/files/project-snapshot";
 import type { WorkspaceLayoutPersistence } from "../../../src/application/runtime/layout-persistence";
 import { createWorkbenchRuntime } from "../../../src/application/runtime/workbench-runtime";
 
@@ -31,8 +32,8 @@ function idleEngine(): EngineService {
 function memoryPersistence(): WorkspaceLayoutPersistence & { current(): string | null } {
   let stored: string | null = null;
   return {
-    load: () => stored,
-    save: (serializedLayout) => {
+    load: (_workspaceIdentity) => stored,
+    save: (_workspaceIdentity, serializedLayout) => {
       stored = serializedLayout;
     },
     current: () => stored,
@@ -64,7 +65,7 @@ describe("workbench runtime layout", () => {
 
     const runtime = createWorkbenchRuntime(idleEngine(), { layoutPersistence: persistence });
 
-    expect(persistence.load).toHaveBeenCalledOnce();
+    expect(persistence.load).toHaveBeenCalledWith("scratch");
     expect(runtime.layout.getState()).toMatchObject({
       activeRail: "history",
       dockOpen: false,
@@ -118,8 +119,8 @@ describe("workbench runtime layout", () => {
     expect(makeId).toHaveBeenCalledTimes(2);
     expect(persistence.save).toHaveBeenCalledTimes(2);
     expect(persistence.save.mock.calls).toEqual([
-      [serializeWorkspaceLayout({ ...DEFAULT_WORKSPACE_LAYOUT, dockWidth: 340 })],
-      [serializeWorkspaceLayout(DEFAULT_WORKSPACE_LAYOUT)],
+      ["scratch", serializeWorkspaceLayout({ ...DEFAULT_WORKSPACE_LAYOUT, dockWidth: 340 })],
+      ["scratch", serializeWorkspaceLayout(DEFAULT_WORKSPACE_LAYOUT)],
     ]);
     expect(runtime.history.getState()).toEqual([
       {
@@ -290,5 +291,84 @@ describe("workbench runtime layout", () => {
       narrowSheet: null,
     });
     expect(recreated.layout.getState().consoleAutoOpenedForJobId).toBeUndefined();
+  });
+
+  it("switches and restarts layouts through the storage-neutral identity port without persisting project paths", async () => {
+    const stored = new Map<string, string>();
+    const persistence = {
+      load: vi.fn((workspaceIdentity: string) => stored.get(workspaceIdentity) ?? null),
+      save: vi.fn((workspaceIdentity: string, serializedLayout: string) => {
+        stored.set(workspaceIdentity, serializedLayout);
+      }),
+    };
+    const identityA = `desktop-project:${"a".repeat(64)}`;
+    const identityB = `desktop-project:${"b".repeat(64)}`;
+    const projectA = createProjectSnapshot(
+      "C:\\Models\\Project A",
+      new Map([["main.scad", "cube(1);"]]),
+      identityA,
+    );
+    const projectB = createProjectSnapshot(
+      "C:\\Models\\Project B",
+      new Map([["main.scad", "cube(2);"]]),
+      identityB,
+    );
+    const runtime = createWorkbenchRuntime(idleEngine(), { layoutPersistence: persistence });
+
+    await runtime.dispatch({
+      kind: "update-layout",
+      origin: "user",
+      action: { kind: "resize-panel", panel: "dock", size: 330 },
+    });
+    await runtime.dispatch({
+      kind: "replace-project-confirmed",
+      origin: "user",
+      snapshot: projectA,
+      displayName: "Project A",
+      entryFile: "main.scad",
+    });
+    expect(runtime.layout.getState().dockWidth).toBe(DEFAULT_WORKSPACE_LAYOUT.dockWidth);
+
+    await runtime.dispatch({
+      kind: "update-layout",
+      origin: "user",
+      action: { kind: "resize-panel", panel: "dock", size: 340 },
+    });
+    await runtime.dispatch({
+      kind: "replace-project-confirmed",
+      origin: "user",
+      snapshot: projectB,
+      displayName: "Project B",
+      entryFile: "main.scad",
+    });
+    expect(runtime.layout.getState().dockWidth).toBe(DEFAULT_WORKSPACE_LAYOUT.dockWidth);
+
+    await runtime.dispatch({
+      kind: "update-layout",
+      origin: "user",
+      action: { kind: "resize-panel", panel: "dock", size: 350 },
+    });
+    await runtime.dispatch({
+      kind: "replace-project-confirmed",
+      origin: "user",
+      snapshot: projectA,
+      displayName: "Project A",
+      entryFile: "main.scad",
+    });
+
+    expect(runtime.layout.getState().dockWidth).toBe(340);
+    expect([...stored.keys()].sort()).toEqual(["scratch", identityA, identityB].sort());
+    expect([...stored.keys()].join("\n")).not.toContain("C:\\Models");
+    expect(persistence.load.mock.calls).toEqual([
+      ["scratch"],
+      [identityA],
+      [identityB],
+      [identityA],
+    ]);
+
+    const restartedScratch = createWorkbenchRuntime(idleEngine(), {
+      layoutPersistence: persistence,
+    });
+    expect(restartedScratch.layout.getState().dockWidth).toBe(330);
   });
 });

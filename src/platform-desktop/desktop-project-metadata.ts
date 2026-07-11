@@ -1,6 +1,7 @@
 import type { RecoveryPersistence } from "../application/files/recovery-state";
 import type { RecentProjectsPersistence } from "../application/files/recent-projects";
 import type { ScratchAutosavePersistence } from "../application/files/scratch-autosave";
+import type { WorkspaceLayoutPersistence } from "../application/runtime/layout-persistence";
 import type { WorkspaceMetadataPersistence } from "../application/viewer/annotation-persistence";
 import {
   createBrowserRecentProjectsPersistence,
@@ -13,6 +14,51 @@ interface DurableWebviewStorage {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
   removeItem(key: string): void;
+}
+
+const DESKTOP_LAYOUT_STORAGE_PREFIX = "scadmill.desktop-workspace-layout.v1";
+const OPAQUE_PROJECT_IDENTITY = /^desktop-project:[0-9a-f]{64}$/u;
+
+function availableStorage(storage?: DurableWebviewStorage): DurableWebviewStorage | undefined {
+  if (storage) return storage;
+  try {
+    return globalThis.localStorage;
+  } catch {
+    return undefined;
+  }
+}
+
+function desktopLayoutStorageKey(workspaceIdentity: string): string | null {
+  if (workspaceIdentity === "scratch" || OPAQUE_PROJECT_IDENTITY.test(workspaceIdentity)) {
+    return `${DESKTOP_LAYOUT_STORAGE_PREFIX}:${workspaceIdentity}`;
+  }
+  return null;
+}
+
+export function createDesktopWorkspaceLayoutPersistence(
+  storage?: DurableWebviewStorage,
+): WorkspaceLayoutPersistence {
+  const selected = availableStorage(storage);
+  return {
+    load: (workspaceIdentity) => {
+      const key = desktopLayoutStorageKey(workspaceIdentity);
+      if (!key) return null;
+      try {
+        return selected?.getItem(key) ?? null;
+      } catch {
+        return null;
+      }
+    },
+    save: (workspaceIdentity, serializedLayout) => {
+      const key = desktopLayoutStorageKey(workspaceIdentity);
+      if (!key) return;
+      try {
+        selected?.setItem(key, serializedLayout);
+      } catch {
+        // A blocked or full WebView profile must not make the workspace unusable.
+      }
+    },
+  };
 }
 
 export function createDesktopScratchAutosavePersistence(

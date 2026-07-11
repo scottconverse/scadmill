@@ -4,6 +4,7 @@ import {
   createDesktopRecentProjectsPersistence,
   createDesktopRecoveryPersistence,
   createDesktopScratchAutosavePersistence,
+  createDesktopWorkspaceLayoutPersistence,
   createDesktopWorkspaceMetadataPersistence,
 } from "../../src/platform-desktop/desktop-project-metadata";
 
@@ -41,4 +42,43 @@ it("uses durable desktop-webview storage for workspace annotation metadata", () 
   expect(createDesktopWorkspaceMetadataPersistence(storage).load()).toBe(
     '{"version":1,"files":[]}',
   );
+});
+
+it("persists scratch and project layouts under separate opaque desktop keys", () => {
+  const values = new Map<string, string>();
+  const storage = {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => { values.set(key, value); },
+    removeItem: (key: string) => { values.delete(key); },
+  };
+  const persistence = createDesktopWorkspaceLayoutPersistence(storage);
+  const projectA = `desktop-project:${"a".repeat(64)}`;
+  const projectB = `desktop-project:${"b".repeat(64)}`;
+
+  persistence.save("scratch", "scratch-layout");
+  persistence.save(projectA, "project-a-layout");
+  persistence.save(projectB, "project-b-layout");
+
+  expect(persistence.load("scratch")).toBe("scratch-layout");
+  expect(persistence.load(projectA)).toBe("project-a-layout");
+  expect(persistence.load(projectB)).toBe("project-b-layout");
+  const beforeRawPath = new Map(values);
+  persistence.save("C:\\Models\\Secret", "must-not-persist");
+  expect(persistence.load("C:\\Models\\Secret")).toBeNull();
+  expect(values).toEqual(beforeRawPath);
+  expect([...values.entries()].flat().join("\n")).not.toContain("C:\\Models");
+});
+
+it("keeps layout state usable when desktop profile storage fails", () => {
+  const storage = {
+    getItem: (_key: string) => { throw new Error("profile blocked"); },
+    setItem: (_key: string, _value: string) => { throw new Error("profile full"); },
+    removeItem: (_key: string) => undefined,
+  };
+  const persistence = createDesktopWorkspaceLayoutPersistence(storage);
+  const identity = `desktop-project:${"c".repeat(64)}`;
+
+  expect(persistence.load(identity)).toBeNull();
+  expect(() => persistence.save(identity, "layout")).not.toThrow();
+  expect(persistence.load("desktop-ephemeral")).toBeNull();
 });

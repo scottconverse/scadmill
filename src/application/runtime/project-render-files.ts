@@ -15,7 +15,11 @@ export function buildRuntimeRenderFileMap(
     if (!baseFiles.has(document.path)) baseFiles.set(document.path, document.savedSource);
   }
   return buildRenderFileMap(
-    createProjectSnapshot(project.snapshot.projectId, baseFiles),
+    createProjectSnapshot(
+      project.snapshot.projectId,
+      baseFiles,
+      project.snapshot.workspaceIdentity,
+    ),
     workspace.documents.map(({ id, path, source }) => ({ documentId: id, path, source })),
   );
 }

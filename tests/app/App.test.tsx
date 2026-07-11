@@ -488,8 +488,8 @@ describe("App", () => {
     };
     let stored: string | null = null;
     const persistence: WorkspaceLayoutPersistence = {
-      load: () => stored,
-      save: (value) => {
+      load: (_workspaceIdentity) => stored,
+      save: (_workspaceIdentity, value) => {
         stored = value;
       },
     };

@@ -1,0 +1,142 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-m2-desktop-layout-persistence",
+  "createdAt": "2026-07-11T16:16:04-06:00",
+  "summary": "Close the actionable M2 desktop-layout persistence residual provisionally: thread a storage-location-neutral workspace identity through project snapshots and the runtime, retain independent scratch and per-project layouts across restarts, derive opaque desktop project identities from native-canonical paths, and bind a replaceable per-user WebView adapter while Q-0008 remains owner-governed.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 questions, test-first evidence, and milestone gates",
+    "FR-0.7 panel-layout persistence",
+    "AC-0.b restart persistence",
+    "M2 C6 project identity",
+    "Q-0008 desktop layout storage ownership",
+    "N-2 reliability"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-11-m2-desktop-layout-persistence.json", "status": "added" },
+    { "path": "spec/QUESTIONS.md", "status": "modified" },
+    { "path": "src/application/files/project-session.ts", "status": "modified" },
+    { "path": "src/application/files/project-snapshot.ts", "status": "modified" },
+    { "path": "src/application/files/workbench-portability.ts", "status": "modified" },
+    { "path": "src/application/runtime/layout-persistence.ts", "status": "modified" },
+    { "path": "src/application/runtime/project-render-files.ts", "status": "modified" },
+    { "path": "src/application/runtime/workbench-runtime.ts", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/src/lib.rs", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/src/project_storage.rs", "status": "modified" },
+    { "path": "src/main.tsx", "status": "modified" },
+    { "path": "src/platform-desktop/desktop-project-metadata.ts", "status": "modified" },
+    { "path": "src/platform-desktop/tauri-project-storage.ts", "status": "modified" },
+    { "path": "src/platform-web/browser-layout-persistence.ts", "status": "modified" },
+    { "path": "tests/app/App.test.tsx", "status": "modified" },
+    { "path": "tests/application/files/project-snapshot.test.ts", "status": "modified" },
+    { "path": "tests/application/runtime/workbench-runtime-layout.test.ts", "status": "modified" },
+    { "path": "tests/platform-desktop/desktop-project-metadata.test.ts", "status": "modified" },
+    { "path": "tests/platform-desktop/tauri-project-storage.test.ts", "status": "modified" },
+    { "path": "tests/platform-web/browser-layout-persistence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0188",
+      "topic": "Storage-location-neutral layout persistence port",
+      "decision": "Require every layout load and save to carry a workspace identity distinct from the serialized layout, keep the runtime unaware of storage location, and switch the active layout only at a confirmed project-replacement boundary.",
+      "rationale": "FR-0.7 needs desktop project scoping, but Q-0008 leaves final ownership open. An identity-keyed port supports per-user or project-workspace storage without changing the reducer, codec, project commands, or UI, while confirmed replacement is the one coherent boundary where active workspace identity changes.",
+      "specBasis": ["FR-0.7", "AC-0.b", "M2 C6", "Q-0008", "Section 2.7"]
+    },
+    {
+      "id": "D-0189",
+      "topic": "Provisional opaque desktop project identity and adapter",
+      "decision": "Provisionally store desktop layouts in the durable WebView profile under either the fixed scratch identity or a desktop-project key containing a SHA-256 digest of native-canonical project-path material. Reject every other key, never persist a raw path, and fail open with a non-persistable identity if canonicalization, hashing, or profile storage is unavailable.",
+      "rationale": "The provisional adapter delivers restart-safe scratch and per-project behavior without mutating project contents or disclosing filesystem paths in profile keys. Native canonicalization coalesces equivalent folder spellings; strict key validation and fail-open behavior preserve project access. Q-0008 remains open, and D-0188 makes the adapter replaceable when the owner selects final storage ownership.",
+      "specBasis": ["FR-0.7", "AC-0.b", "M2 C6", "Q-0008", "N-2"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Project snapshots carry a workspace identity independent of display/storage project id",
+      "test": "The snapshot constructor defaults browser and scratch identities to the existing opaque project id, accepts a distinct desktop opaque identity, and rejects an empty identity.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/files/project-snapshot.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T16:03:03-06:00",
+        "outcome": "ASSERTION-LEVEL RED: Test Files 1 failed (1); Tests 1 failed | 2 passed (3); Duration 539ms. Expected snapshot.workspaceIdentity to be project-1 but received undefined."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/files/project-snapshot.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T16:03:22-06:00",
+        "outcome": "GREEN: Test Files 1 passed (1); Tests 4 passed (4); Duration 535ms."
+      }
+    },
+    {
+      "criterion": "Storage-neutral per-workspace switching and scratch restart persistence",
+      "test": "An injected in-memory adapter proves scratch, project A, and project B layouts are independent, reopening A restores A, recreating the runtime restores scratch, persistence sees only opaque identity plus codec text, and no path enters storage.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/runtime/workbench-runtime-layout.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T16:04:00-06:00",
+        "outcome": "ASSERTION-LEVEL RED: Test Files 1 failed (1); Tests 1 failed | 5 passed (6); Duration 634ms. After opening project A, dock width remained scratch value 330 instead of the default 260 because the runtime did not switch identity."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/files/project-snapshot.test.ts tests/application/runtime/workbench-runtime-layout.test.ts tests/platform-web/browser-layout-persistence.test.ts tests/platform-desktop/desktop-project-metadata.test.ts tests/platform-desktop/tauri-project-storage.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T16:19:00-06:00",
+        "outcome": "GREEN: Test Files 5 passed (5); Tests 22 passed (22); Duration 833ms."
+      }
+    },
+    {
+      "criterion": "Browser-profile and provisional desktop-adapter semantics",
+      "test": "The web adapter ignores workspace identity and retains one browser-profile key; the desktop adapter separates scratch and strict opaque project keys, rejects raw paths and ephemeral identities, and survives blocked/full profile storage.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/platform-web/browser-layout-persistence.test.ts --reporter=verbose\npnpm.cmd exec vitest run tests/platform-desktop/desktop-project-metadata.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T16:06:14-06:00",
+        "outcome": "ASSERTION-LEVEL REDS retained from separate executions: browser Test Files 1 failed (1), Tests 1 failed | 2 passed (3), Duration 358ms because it stored workspace-a instead of next-layout; desktop Test Files 1 failed (1), Tests 1 failed | 2 passed (3), Duration 440ms because the adapter export was undefined."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/files/project-snapshot.test.ts tests/application/runtime/workbench-runtime-layout.test.ts tests/platform-web/browser-layout-persistence.test.ts tests/platform-desktop/desktop-project-metadata.test.ts tests/platform-desktop/tauri-project-storage.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T16:19:00-06:00",
+        "outcome": "GREEN: Test Files 5 passed (5); Tests 22 passed (22); Duration 833ms, including blocked/full storage and identity-unavailable falsification cases."
+      }
+    },
+    {
+      "criterion": "Native-canonical opaque desktop identity without path disclosure",
+      "test": "The native shell canonicalizes alias components, the Tauri adapter hashes canonical material with domain-separated SHA-256, equivalent aliases produce the same identity, and native identity failure returns a non-persistable sentinel without blocking snapshot access or exposing the path.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/platform-desktop/tauri-project-storage.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T16:06:57-06:00",
+        "outcome": "ASSERTION-LEVEL RED: Test Files 1 failed (1); Tests 1 failed | 3 passed (4); Duration 450ms. Received raw C:\\Models\\Gear instead of a desktop-project SHA-256 identity."
+      },
+      "green": {
+        "command": "cargo test --manifest-path src/desktop-shell/src-tauri/Cargo.toml project_storage -- --nocapture",
+        "observedAt": "2026-07-11T16:16:04-06:00",
+        "outcome": "GREEN retained output reviewed at ledger time; original execution time was not retained: project_storage 7 passed; 0 failed; 18 filtered out; canonical_workspace_identity_material_collapses_alias_components passed."
+      }
+    },
+    {
+      "criterion": "Widened TypeScript, product, native-shell, formatting, and lint gates",
+      "test": "Run the complete unit suite, production build, desktop-shell suite, warning-denying clippy, rustfmt check, typecheck, and source-policy lint after the focused behavior is green.",
+      "red": {
+        "command": "pnpm.cmd typecheck",
+        "observedAt": "2026-07-11T16:16:04-06:00",
+        "outcome": "STATIC RED retained output reviewed at ledger time; original execution time was not retained: tsc reported three TS7006 implicit-any errors in the newly keyed ephemeral layout adapter; all three parameters were typed before the widened run."
+      },
+      "green": {
+        "command": "pnpm.cmd test -- --reporter=dot",
+        "observedAt": "2026-07-11T16:13:38-06:00",
+        "outcome": "GREEN: Test Files 104 passed (104); Tests 769 passed (769); Duration 13.81s. Additional green commands: pnpm.cmd typecheck; pnpm.cmd lint (288 files, source policy passed); pnpm.cmd build (178 modules, built in 290ms); cargo fmt --manifest-path src/desktop-shell/src-tauri/Cargo.toml -- --check; cargo clippy --locked --manifest-path src/desktop-shell/src-tauri/Cargo.toml --all-targets -- -D warnings (finished dev profile in 1m 11s); cargo test --locked --manifest-path src/desktop-shell/src-tauri/Cargo.toml (25 passed, 0 failed)."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "Q-0008 remains Open. The per-user WebView adapter is explicitly provisional; final project-workspace versus profile storage ownership remains owner-governed, and the directly tested identity port keeps replacement local to the platform adapter.",
+    "Process near miss: one read-only command intended to locate documented Rust checks included .github in its rg scope and exposed three generic ci.yml cargo fmt/clippy/test command lines. No workflow was opened, modified, or executed; no owner-gate or similarity-harness content was inspected; subsequent check selection used README/package documentation only.",
+    "No M3 work, installer work, owner-gate execution, comparison repository access, workflow modification, or unrelated remediation is included."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

@@ -70,6 +70,7 @@ Numbered questions are appended here under §2.7. Only the affected work item is
 - **Question:** Before C6 defines projects, should desktop per-project layout state live inside project workspace data or in the per-user config store keyed by a canonical project path?
 - **Evidence:** C0 and AC-0.b require per-workspace restart persistence in M1, while the project and settings capabilities that own workspace identity and durable configuration are assigned to M2. The layout codec and injected persistence port do not depend on that owner decision, but the final desktop key and storage location do.
 - **Blocked:** Only the final desktop persistence adapter and its canonical project-identity test. Typed layout state, mutation commands, codec validation, injected restart round trips, web profile persistence, and all UI behavior continue.
+- **Provisional implementation status (2026-07-11):** C6 now supplies a native-canonical opaque project identity. A conservative desktop adapter currently keeps layouts in the per-user WebView profile, keys scratch with the fixed `scratch` identity, and keys folder projects with a SHA-256 digest rather than a raw path. The application port accepts only identity plus serialized layout and is storage-location-neutral, so project-workspace storage can replace this adapter without changing layout state, runtime behavior, or project commands. The owner answer still governs the final storage location and whether this provisional adapter remains.
 
 ## Q-0009 — Open — 2026-07-10
 

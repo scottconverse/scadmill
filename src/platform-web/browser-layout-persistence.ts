@@ -31,14 +31,14 @@ export function createBrowserLayoutPersistence(
   };
 
   return {
-    load() {
+    load(_workspaceIdentity) {
       try {
         return getStorage()?.getItem(BROWSER_LAYOUT_STORAGE_KEY) ?? null;
       } catch {
         return null;
       }
     },
-    save(serializedLayout) {
+    save(_workspaceIdentity, serializedLayout) {
       try {
         getStorage()?.setItem(BROWSER_LAYOUT_STORAGE_KEY, serializedLayout);
       } catch {

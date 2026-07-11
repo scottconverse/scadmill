@@ -13,9 +13,11 @@ describe("createBrowserLayoutPersistence", () => {
     };
     const persistence = createBrowserLayoutPersistence(storage);
 
-    expect(persistence.load()).toBe("persisted-layout");
-    persistence.save("next-layout");
+    expect(persistence.load("workspace-a")).toBe("persisted-layout");
+    persistence.save("workspace-a", "next-layout");
+    expect(persistence.load("workspace-b")).toBe("persisted-layout");
 
+    expect(storage.getItem).toHaveBeenCalledTimes(2);
     expect(storage.getItem).toHaveBeenCalledWith(BROWSER_LAYOUT_STORAGE_KEY);
     expect(storage.setItem).toHaveBeenCalledWith(BROWSER_LAYOUT_STORAGE_KEY, "next-layout");
   });
@@ -31,8 +33,8 @@ describe("createBrowserLayoutPersistence", () => {
     };
     const persistence = createBrowserLayoutPersistence(storage);
 
-    expect(persistence.load()).toBeNull();
-    expect(() => persistence.save("layout")).not.toThrow();
+    expect(persistence.load("workspace-a")).toBeNull();
+    expect(() => persistence.save("workspace-a", "layout")).not.toThrow();
   });
 
   it("also survives a browser that throws while exposing localStorage", () => {
@@ -41,8 +43,8 @@ describe("createBrowserLayoutPersistence", () => {
     });
     const persistence = createBrowserLayoutPersistence(undefined, exposeStorage);
 
-    expect(persistence.load()).toBeNull();
-    expect(() => persistence.save("layout")).not.toThrow();
+    expect(persistence.load("workspace-a")).toBeNull();
+    expect(() => persistence.save("workspace-a", "layout")).not.toThrow();
     expect(exposeStorage).toHaveBeenCalledOnce();
   });
 });

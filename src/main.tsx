@@ -16,6 +16,7 @@ import {
   createDesktopRecentProjectsPersistence,
   createDesktopRecoveryPersistence,
   createDesktopScratchAutosavePersistence,
+  createDesktopWorkspaceLayoutPersistence,
   createDesktopWorkspaceMetadataPersistence,
 } from "./platform-desktop/desktop-project-metadata";
 import { createBrowserLayoutPersistence } from "./platform-web/browser-layout-persistence";
@@ -39,7 +40,9 @@ const engine = desktop
       () => globalThis.crypto.randomUUID(),
     )
   : new UnavailableEngineService();
-const layoutPersistence = desktop ? undefined : createBrowserLayoutPersistence();
+const layoutPersistence = desktop
+  ? createDesktopWorkspaceLayoutPersistence()
+  : createBrowserLayoutPersistence();
 const settingsPersistence = desktop
   ? await createTauriSettingsPersistence()
   : createBrowserSettingsPersistence();

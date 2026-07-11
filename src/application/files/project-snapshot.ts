@@ -8,6 +8,7 @@ export type ProjectFileContent = string | Uint8Array;
 
 export interface ProjectSnapshot {
   readonly projectId: string;
+  readonly workspaceIdentity: string;
   readonly files: ReadonlyMap<ProjectPath, ProjectFileContent>;
 }
 
@@ -28,8 +29,10 @@ function nonEmptyIdentity(value: string, label: string): void {
 export function createProjectSnapshot(
   projectId: string,
   files: ReadonlyMap<string, ProjectFileContent>,
+  workspaceIdentity = projectId,
 ): ProjectSnapshot {
   nonEmptyIdentity(projectId, "Project id");
+  nonEmptyIdentity(workspaceIdentity, "Workspace identity");
   const paths = validateProjectLayout(files.keys());
   const sortedPaths = [...paths].sort((left, right) => left.localeCompare(right));
   const copiedFiles = new Map<ProjectPath, ProjectFileContent>();
@@ -38,7 +41,7 @@ export function createProjectSnapshot(
     if (content === undefined) throw new Error(`Project content is missing for ${path}.`);
     copiedFiles.set(path, copyContent(content));
   }
-  return Object.freeze({ projectId, files: copiedFiles });
+  return Object.freeze({ projectId, workspaceIdentity, files: copiedFiles });
 }
 
 export function buildRenderFileMap(

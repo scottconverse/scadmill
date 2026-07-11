@@ -149,7 +149,10 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
   );
   const runConsole = createStore<ConsoleState>(() => createConsoleState());
   const annotationPersistence = createStore(() => annotationRepository.state());
-  const layout = createStore<WorkspaceLayoutState>(() => parseWorkspaceLayout(layoutPersistence.load()));
+  let activeWorkspaceIdentity = initialProject.workspaceIdentity;
+  const layout = createStore<WorkspaceLayoutState>(() =>
+    parseWorkspaceLayout(layoutPersistence.load(activeWorkspaceIdentity))
+  );
   let initialViewer = createViewerState();
   for (const document of initialWorkspace.documents) {
     initialViewer = reduceViewerState(initialViewer, {
@@ -264,7 +267,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       return false;
     }
     layout.setState(next, true);
-    layoutPersistence.save(serializeWorkspaceLayout(next));
+    layoutPersistence.save(activeWorkspaceIdentity, serializeWorkspaceLayout(next));
     return true;
   }
 
@@ -493,6 +496,11 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
         syncParameterDocuments,
       });
       if (transition.replacementWorkspace) {
+        activeWorkspaceIdentity = transition.project.snapshot.workspaceIdentity;
+        layout.setState(
+          parseWorkspaceLayout(layoutPersistence.load(activeWorkspaceIdentity)),
+          true,
+        );
         pendingAutoRenders.clear();
         autoRenderTimer.clear();
       }
