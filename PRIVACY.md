@@ -22,6 +22,9 @@ snapshots containing the complete saved and unsaved source of every recoverable 
 records remain in the browser profile until ScadMill replaces or clears them, or the user clears
 site data.
 
+Pinned annotation text and 3D coordinates are stored in browser-local profile metadata keyed by
+project identity and file path. Point-to-point measurements are transient and are not persisted.
+
 Ordinary settings use one platform-config JSON file on desktop and browser local storage on the
 web target. Settings export uses the same non-secret profile and never includes the AI key.
 Desktop AI keys cross only the operating-system keychain boundary. Browser AI keys use session

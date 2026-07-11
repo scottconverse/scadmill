@@ -6,6 +6,7 @@ import {
 } from "../application/documents/document-workspace";
 import type { WorkspaceLayoutAction } from "../application/layout/workspace-layout";
 import { EPHEMERAL_SECRET_STORE } from "../application/settings/secret-store";
+import { viewerDocument } from "../application/viewer/viewer-state";
 import { messages } from "../messages/en";
 import { WebMenuBar } from "./layout/WebMenuBar";
 import { WorkbenchStatusBar } from "./layout/WorkbenchStatusBar";
@@ -31,12 +32,12 @@ import { ProjectSessionHost } from "./files/ProjectSessionHost";
 import type { ProjectOpenRequest } from "./files/ProjectLifecycleControls";
 import { useFileCommands } from "./files/use-file-commands";
 import type { WorkbenchProps } from "./workbench-props";
-import { LegacyViewerPane } from "./viewer/LegacyViewerPane";
+import { ViewerPaneConnector } from "./viewer/ViewerPaneConnector";
+import { resolveActiveViewerPresentation } from "./viewer/active-viewer-presentation";
 import { SettingsLauncher } from "./settings/SettingsLauncher";
 import "./workbench.css";
 
 const CodeEditor = lazy(() => import("./editor/CodeEditor").then((module) => ({ default: module.CodeEditor })));
-
 export function Workbench({
   runtime,
   engine,
@@ -67,30 +68,24 @@ export function Workbench({
   const editorSettings = useReadonlyStore(runtime.settings, (state) => state.editor);
   const keybindings = useReadonlyStore(runtime.settings, (state) => state.keybindings);
   const layout = useReadonlyStore(runtime.layout, (state) => state);
+  const viewerState = useReadonlyStore(runtime.viewer, (state) => state);
   const projectState = useReadonlyStore(runtime.project, (state) => state);
   const narrow = useNarrowLayout(undefined, forceNarrowLayout);
-  const renderedDocument = documents.documents.find(({ id }) => id === render.documentId);
-  const renderStale = Boolean(
-    render.documentId
-    && (
-      render.projectRevision !== projectState.revision
-      || !renderedDocument
-      || renderedDocument.revision !== render.sourceRevision
-      || !render.sourceFiles
-      || documents.documents.some(({ path, source }) => render.sourceFiles?.get(path) !== source)
-    ),
-  );
-  const currentRenderResult = renderStale ? undefined : render.result;
-  const activeRenderResult = render.documentId === document.id
-    ? currentRenderResult
-    : undefined;
+  const activeViewer = viewerDocument(viewerState, document.id);
+  const presentation = resolveActiveViewerPresentation({
+    activeDocumentId: document.id,
+    documents,
+    render,
+    viewer: activeViewer,
+  });
+  const currentRenderResult = presentation.currentResult;
+  const activeRenderResult = presentation.failure ?? presentation.result;
   const diagnosticNavigation = useDiagnosticNavigation({
     diagnostics: currentRenderResult?.diagnostics,
     entryFile: render.entryFile,
     runtime,
     workspace: documents,
   });
-  const result = activeRenderResult?.kind === "3d" ? activeRenderResult : undefined;
   const effectiveEngineRecovery: EngineRecoveryState | undefined = engineRecovery
     ?? (!engineChecking ? { kind: "unavailable" } : undefined);
   const workbenchRoot = useRef<HTMLElement>(null);
@@ -100,7 +95,7 @@ export function Workbench({
   const [requestedProject, setRequestedProject] = useState<ProjectOpenRequest>();
   const [recoveryPending, setRecoveryPending] = useState(false);
   const diagnosticStatus = diagnosticStatusLabel(activeRenderResult, document.path);
-  const renderStatus = renderStatusLabel(render, renderStale, document.path);
+  const renderStatus = renderStatusLabel(render, presentation.stale, document.path);
   const consoleVisible = narrow
     ? layout.narrowSheet === "console"
     : layout.consoleOpen && layout.maximized === null;
@@ -276,15 +271,20 @@ export function Workbench({
   );
 
   const viewer = (
-    <LegacyViewerPane
-      activeResult={activeRenderResult}
+    <ViewerPaneConnector
       colors={activeTheme.viewer}
+      dimmed={presentation.dimmed}
+      documentId={document.id}
+      failure={presentation.failure}
       maximized={layout.maximized === "viewer"}
       narrow={narrow}
-      quality={render.quality}
-      renderStatus={render.status}
-      result={result}
+      quality={presentation.quality}
+      renderStatus={presentation.status}
+      result={presentation.result}
+      runtime={runtime}
+      viewer={activeViewer}
       onLayoutAction={dispatchLayout}
+      onShowConsole={focusConsole}
     />
   );
 

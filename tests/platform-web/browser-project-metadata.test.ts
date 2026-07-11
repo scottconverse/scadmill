@@ -4,6 +4,7 @@ import {
   createBrowserRecentProjectsPersistence,
   createBrowserRecoveryPersistence,
   createBrowserScratchAutosavePersistence,
+  createBrowserWorkspaceMetadataPersistence,
 } from "../../src/platform-web/browser-project-metadata";
 
 class MemoryStorage {
@@ -14,6 +15,20 @@ class MemoryStorage {
 }
 
 describe("browser project metadata persistence", () => {
+  it("round-trips versioned workspace metadata under its own browser-profile key", () => {
+    const storage = new MemoryStorage();
+    const persistence = createBrowserWorkspaceMetadataPersistence(storage);
+
+    persistence.save('{"version":1,"files":[]}');
+
+    expect(createBrowserWorkspaceMetadataPersistence(storage).load()).toBe(
+      '{"version":1,"files":[]}',
+    );
+    expect(storage.values.get("scadmill.workspace-metadata.v1")).toBe(
+      '{"version":1,"files":[]}',
+    );
+  });
+
   it("round-trips and clears recovery data", () => {
     const storage = new MemoryStorage();
     const persistence = createBrowserRecoveryPersistence(storage);
@@ -54,11 +69,14 @@ describe("browser project metadata persistence", () => {
     };
     const recovery = createBrowserRecoveryPersistence(blocked);
     const recent = createBrowserRecentProjectsPersistence(blocked);
+    const workspace = createBrowserWorkspaceMetadataPersistence(blocked);
 
     expect(recovery.load()).toBeNull();
     expect(() => recovery.save("dirty")).toThrow(/could not be saved/iu);
     expect(() => recovery.clear()).toThrow(/could not be cleared/iu);
     expect(recent.load()).toEqual([]);
     expect(() => recent.save([])).toThrow(/could not be saved/iu);
+    expect(workspace.load()).toBeNull();
+    expect(() => workspace.save("metadata")).toThrow(/could not be saved/iu);
   });
 });

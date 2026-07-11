@@ -15,6 +15,7 @@ import {
   createDesktopRecentProjectsPersistence,
   createDesktopRecoveryPersistence,
   createDesktopScratchAutosavePersistence,
+  createDesktopWorkspaceMetadataPersistence,
 } from "./platform-desktop/desktop-project-metadata";
 import { createBrowserLayoutPersistence } from "./platform-web/browser-layout-persistence";
 import { createBrowserSecretStore } from "./platform-web/browser-secret-store";
@@ -26,6 +27,7 @@ import {
   createBrowserRecentProjectsPersistence,
   createBrowserRecoveryPersistence,
   createBrowserScratchAutosavePersistence,
+  createBrowserWorkspaceMetadataPersistence,
 } from "./platform-web/browser-project-metadata";
 
 const desktop = isTauri();
@@ -56,6 +58,9 @@ const recentProjectsPersistence = desktop
 const scratchAutosavePersistence = desktop
   ? createDesktopScratchAutosavePersistence()
   : createBrowserScratchAutosavePersistence();
+const workspaceMetadataPersistence = desktop
+  ? createDesktopWorkspaceMetadataPersistence()
+  : createBrowserWorkspaceMetadataPersistence();
 
 const root = document.getElementById("root");
 if (!root) {
@@ -77,6 +82,7 @@ createRoot(root).render(
       scratchAutosavePersistence={scratchAutosavePersistence}
       settingsPersistence={settingsPersistence}
       secretStore={secretStore}
+      workspaceMetadataPersistence={workspaceMetadataPersistence}
       enginePathConfiguration={enginePathConfiguration}
     />
   </StrictMode>,

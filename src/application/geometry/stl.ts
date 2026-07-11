@@ -7,6 +7,7 @@ export interface AxisAlignedBounds3D {
 export interface ParsedBinaryStl {
   triangleCount: number;
   positions: Float32Array;
+  normals: Float32Array;
   bounds: AxisAlignedBounds3D;
 }
 
@@ -34,6 +35,7 @@ export function parseBinaryStl(bytes: Uint8Array): ParsedBinaryStl {
   }
 
   const positions = new Float32Array(triangleCount * COORDINATES_PER_TRIANGLE);
+  const normals = new Float32Array(triangleCount * COORDINATES_PER_TRIANGLE);
   const min: [number, number, number] = [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY];
   const max: [number, number, number] = [Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY];
 
@@ -50,11 +52,42 @@ export function parseBinaryStl(bytes: Uint8Array): ParsedBinaryStl {
       min[axis] = Math.min(min[axis], value);
       max[axis] = Math.max(max[axis], value);
     }
+    const positionOffset = triangle * COORDINATES_PER_TRIANGLE;
+    let normal: [number, number, number] = [
+      view.getFloat32(vertexBytes - NORMAL_BYTES, true),
+      view.getFloat32(vertexBytes - NORMAL_BYTES + 4, true),
+      view.getFloat32(vertexBytes - NORMAL_BYTES + 8, true),
+    ];
+    let magnitude = Math.hypot(...normal);
+    if (!Number.isFinite(magnitude) || magnitude === 0) {
+      const ax = positions[positionOffset];
+      const ay = positions[positionOffset + 1];
+      const az = positions[positionOffset + 2];
+      const abx = positions[positionOffset + 3] - ax;
+      const aby = positions[positionOffset + 4] - ay;
+      const abz = positions[positionOffset + 5] - az;
+      const acx = positions[positionOffset + 6] - ax;
+      const acy = positions[positionOffset + 7] - ay;
+      const acz = positions[positionOffset + 8] - az;
+      normal = [aby * acz - abz * acy, abz * acx - abx * acz, abx * acy - aby * acx];
+      magnitude = Math.hypot(...normal);
+    }
+    if (!Number.isFinite(magnitude) || magnitude === 0) {
+      normal = [0, 0, 1];
+      magnitude = 1;
+    }
+    for (let vertex = 0; vertex < 3; vertex += 1) {
+      const normalOffset = positionOffset + vertex * 3;
+      normals[normalOffset] = normal[0] / magnitude;
+      normals[normalOffset + 1] = normal[1] / magnitude;
+      normals[normalOffset + 2] = normal[2] / magnitude;
+    }
   }
 
   return {
     triangleCount,
     positions,
+    normals,
     bounds: {
       min,
       max,

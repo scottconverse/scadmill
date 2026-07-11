@@ -57,6 +57,13 @@ function decodeBase64(value: string): Uint8Array {
   return Uint8Array.from(binary, (character) => character.charCodeAt(0));
 }
 
+async function geometryIdentity(bytes: Uint8Array): Promise<string | undefined> {
+  const subtle = globalThis.crypto?.subtle;
+  if (!subtle) return undefined;
+  const digest = new Uint8Array(await subtle.digest("SHA-256", bytes.buffer as ArrayBuffer));
+  return `sha256:${[...digest].map((value) => value.toString(16).padStart(2, "0")).join("")}`;
+}
+
 function encodeBase64(bytes: Uint8Array): string {
   let binary = "";
   for (let offset = 0; offset < bytes.length; offset += 0x8000) {
@@ -156,9 +163,15 @@ export function createTauriBridge(
       }
       const vertices = reportedStatistic(response.rawLog, "Vertices");
       const volumeMm3 = reportedStatistic(response.rawLog, "Volume");
+      const bytes = decodeBase64(response.meshBase64);
+      const identity = await geometryIdentity(bytes);
       return {
         kind: "3d",
-        mesh: { format: response.format, bytes: decodeBase64(response.meshBase64) },
+        mesh: {
+          format: response.format,
+          bytes,
+          ...(identity ? { geometryIdentity: identity } : {}),
+        },
         stats: {
           ...(vertices !== undefined ? { vertices } : {}),
           triangles: response.triangleCount,

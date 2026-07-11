@@ -17,6 +17,7 @@ import type { ProjectStorage } from "../application/files/project-file-service";
 import type { RecoveryPersistence } from "../application/files/recovery-state";
 import type { RecentProjectsPersistence } from "../application/files/recent-projects";
 import type { ScratchAutosavePersistence } from "../application/files/scratch-autosave";
+import type { WorkspaceMetadataPersistence } from "../application/viewer/annotation-persistence";
 import {
   createWorkbenchProjectPortabilityController,
   type ImportedProjectStorage,
@@ -51,6 +52,7 @@ export interface AppProps {
   recentProjectsPersistence?: RecentProjectsPersistence;
   projectPortabilityStorage?: ImportedProjectStorage;
   scratchAutosavePersistence?: ScratchAutosavePersistence;
+  workspaceMetadataPersistence?: WorkspaceMetadataPersistence;
   enginePathConfiguration?: EnginePathConfiguration;
 }
 
@@ -69,6 +71,7 @@ export function App({
   recentProjectsPersistence,
   projectPortabilityStorage,
   scratchAutosavePersistence,
+  workspaceMetadataPersistence,
   enginePathConfiguration,
 }: AppProps) {
   const runtime = useMemo(
@@ -80,6 +83,7 @@ export function App({
       projectStorage,
       recentProjectsPersistence,
       settingsPersistence,
+      workspaceMetadataPersistence,
     }),
     [
       artifactDestination,
@@ -89,6 +93,7 @@ export function App({
       recentProjectsPersistence,
       scratchAutosavePersistence,
       settingsPersistence,
+      workspaceMetadataPersistence,
     ],
   );
   const projectPortability = useMemo(

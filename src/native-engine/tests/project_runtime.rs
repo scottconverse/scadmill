@@ -5,8 +5,9 @@ use scadmill_native_engine::{
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
-use std::sync::atomic::AtomicBool;
-use std::time::Duration;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::{Duration, Instant};
 
 fn render(
     entry_file: &str,
@@ -25,6 +26,52 @@ fn render(
         &AtomicBool::new(false),
         &|_| {},
     )
+}
+
+#[test]
+fn cancels_a_slow_minkowski_within_two_seconds_and_allows_the_next_render() {
+    let engine = find_engine(None).expect("the pinned engine should be installed");
+    let cancelled = Arc::new(AtomicBool::new(false));
+    let trigger = Arc::clone(&cancelled);
+    let canceller = std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(100));
+        trigger.store(true, Ordering::Release);
+    });
+    let files = BTreeMap::from([(
+        "main.scad".to_string(),
+        b"$fn=400; minkowski() { sphere(10); cube([20,20,20], center=true); }".to_vec(),
+    )]);
+    let started = Instant::now();
+
+    let result = render_project(
+        &engine,
+        "main.scad",
+        &files,
+        RenderQuality::Full,
+        &BTreeMap::new(),
+        None,
+        Duration::from_secs(30),
+        &cancelled,
+        &|_| {},
+    );
+    canceller.join().expect("canceller should finish");
+
+    assert!(
+        matches!(result, Err(EngineError::Cancelled { .. })),
+        "{result:?}"
+    );
+    assert!(
+        started.elapsed() < Duration::from_secs(2),
+        "cancellation took {:?}",
+        started.elapsed()
+    );
+    let next = render(
+        "main.scad",
+        BTreeMap::from([("main.scad".to_string(), b"cube(10);".to_vec())]),
+        RenderQuality::Full,
+    )
+    .expect("a render after cancellation should succeed");
+    assert!(matches!(next.geometry, NativeGeometry::ThreeD { .. }));
 }
 
 fn malformed_output_engine(root: &Path) -> std::path::PathBuf {

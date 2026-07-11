@@ -91,7 +91,11 @@ describe("createTauriBridge", () => {
 
     expect(result).toEqual({
       kind: "3d",
-      mesh: { format: "stl-binary", bytes: new Uint8Array([1, 2, 3]) },
+      mesh: {
+        format: "stl-binary",
+        bytes: new Uint8Array([1, 2, 3]),
+        geometryIdentity: "sha256:039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81",
+      },
       stats: {
         triangles: 12,
         boundingBox: { min: [0, 0, 0], max: [10, 10, 10] },

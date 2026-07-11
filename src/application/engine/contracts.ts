@@ -31,7 +31,7 @@ export interface RenderStats {
 
 export interface RenderSuccess3D {
   kind: "3d";
-  mesh: { format: MeshFormat; bytes: Uint8Array };
+  mesh: { format: MeshFormat; bytes: Uint8Array; geometryIdentity?: string };
   stats: RenderStats;
   diagnostics: Diagnostic[];
   rawLog: string;

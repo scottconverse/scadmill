@@ -24,6 +24,13 @@ function binaryStl(vertices: ReadonlyArray<readonly [number, number, number]>): 
   return bytes;
 }
 
+function setFacetNormal(bytes: Uint8Array, normal: readonly [number, number, number]): void {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  normal.forEach((coordinate, axis) => {
+    view.setFloat32(84 + axis * 4, coordinate, true);
+  });
+}
+
 describe("parseBinaryStl", () => {
   it("derives triangle positions and bounds from binary STL vertices", () => {
     const result = parseBinaryStl(
@@ -36,10 +43,26 @@ describe("parseBinaryStl", () => {
 
     expect(result.triangleCount).toBe(1);
     expect(Array.from(result.positions)).toEqual([-5, 2, -1, 5, 2, -1, 5, 22, 29]);
+    expect(Array.from(result.normals)).toEqual([
+      0, -0.8320503234863281, 0.5547001957893372,
+      0, -0.8320503234863281, 0.5547001957893372,
+      0, -0.8320503234863281, 0.5547001957893372,
+    ]);
     expect(result.bounds).toEqual({
       min: [-5, 2, -1],
       max: [5, 22, 29],
       size: [10, 20, 30],
     });
+  });
+
+  it("uses finite normalized facet normals without recomputing mesh topology", () => {
+    const bytes = binaryStl([[0, 0, 0], [1, 0, 0], [0, 1, 0]]);
+    setFacetNormal(bytes, [0, 0, 4]);
+
+    expect(Array.from(parseBinaryStl(bytes).normals)).toEqual([
+      0, 0, 1,
+      0, 0, 1,
+      0, 0, 1,
+    ]);
   });
 });

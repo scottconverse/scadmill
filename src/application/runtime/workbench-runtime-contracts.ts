@@ -8,6 +8,7 @@ import type {
   WorkspaceLayoutState,
 } from "../layout/workspace-layout";
 import type { ThemePreference } from "../theme/theme-runtime";
+import type { ViewerAction, ViewerState } from "../viewer/viewer-state";
 import type { WorkspaceLayoutPersistence } from "./layout-persistence";
 import type { RenderingSettings, SettingsState } from "./render-settings";
 import type { SettingsPersistence } from "../settings/settings-persistence";
@@ -17,6 +18,7 @@ import type { ProjectStorage } from "../files/project-file-service";
 import type { RecentProjectsPersistence } from "../files/recent-projects";
 import type { ProjectCommand, ProjectSessionState } from "../files/project-session";
 import type { ProjectFileContent, ProjectSnapshot } from "../files/project-snapshot";
+import type { WorkspaceMetadataPersistence } from "../viewer/annotation-persistence";
 
 export type CommandOrigin = "user" | "ai-panel" | "external-agent" | "system";
 
@@ -63,6 +65,7 @@ export type WorkbenchCommand =
   | { kind: "cancel-render"; origin: CommandOrigin }
   | { kind: "clear-console"; origin: CommandOrigin }
   | { kind: "update-layout"; origin: CommandOrigin; action: WorkspaceLayoutAction }
+  | { kind: "update-viewer"; origin: CommandOrigin; action: ViewerAction }
   | { kind: "render-active"; origin: CommandOrigin; quality: Quality };
 
 export interface HistoryEntry {
@@ -87,6 +90,7 @@ export interface WorkbenchRuntime {
   console: ReadonlyStore<ConsoleState>;
   settings: ReadonlyStore<SettingsState>;
   layout: ReadonlyStore<WorkspaceLayoutState>;
+  viewer: ReadonlyStore<ViewerState>;
   project: ReadonlyStore<ProjectSessionState>;
   history: ReadonlyStore<readonly HistoryEntry[]>;
   dispatch(command: WorkbenchCommand): Promise<void>;
@@ -105,6 +109,7 @@ export interface RuntimeOptions {
   projectStorage?: ProjectStorage;
   initialProject?: ProjectSnapshot;
   recentProjectsPersistence?: RecentProjectsPersistence;
+  workspaceMetadataPersistence?: WorkspaceMetadataPersistence;
   initialScratchSource?: string;
   initialScratchPath?: string;
 }

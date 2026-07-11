@@ -1,5 +1,6 @@
 import type { RecoveryPersistence } from "../application/files/recovery-state";
 import type { ScratchAutosavePersistence } from "../application/files/scratch-autosave";
+import type { WorkspaceMetadataPersistence } from "../application/viewer/annotation-persistence";
 import {
   type RecentProject,
   type RecentProjectsPersistence,
@@ -16,6 +17,7 @@ interface KeyValueStorage {
 const RECOVERY_KEY = "scadmill.recovery.v1";
 const RECENT_PROJECTS_KEY = "scadmill.recent-projects.v1";
 const SCRATCH_AUTOSAVE_KEY = "scadmill.scratch-autosave.v1";
+const WORKSPACE_METADATA_KEY = "scadmill.workspace-metadata.v1";
 
 function availableStorage(storage?: KeyValueStorage): KeyValueStorage | null {
   if (storage) return storage;
@@ -24,6 +26,25 @@ function availableStorage(storage?: KeyValueStorage): KeyValueStorage | null {
   } catch {
     return null;
   }
+}
+
+export function createBrowserWorkspaceMetadataPersistence(
+  storage?: KeyValueStorage,
+): WorkspaceMetadataPersistence {
+  const selected = availableStorage(storage);
+  return {
+    load: () => {
+      try { return selected?.getItem(WORKSPACE_METADATA_KEY) ?? null; } catch { return null; }
+    },
+    save: (serialized) => {
+      try {
+        if (!selected) throw new Error("unavailable");
+        selected.setItem(WORKSPACE_METADATA_KEY, serialized);
+      } catch {
+        throw new Error("Workspace metadata could not be saved.");
+      }
+    },
+  };
 }
 
 export function createBrowserRecoveryPersistence(

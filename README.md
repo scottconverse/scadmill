@@ -14,7 +14,7 @@ The project is being delivered milestone by milestone from the clean-room functi
 - Stage complete multi-file projects with byte-preserving binary assets, resolve `include`/`use` from the project root, select 3D STL or 2D SVG from engine output, and export every Appendix A native format at full quality. PNG currently uses the engine's default camera; explicit `CameraPose` requests are rejected rather than losing `up` while Q-0021 is open.
 - Stream interleaved, timestamped native stdout/stderr into per-run console history with quality, duration, exit state, geometry statistics, severity filtering, search, copy-all, clear, and a global 10,000-line cap. Parsed diagnostics are clickable, appear as themed editor squiggles and gutter markers, and can open an unloaded project file through the C6 project source port.
 - Debounce automatic preview renders, cancel superseded or timed-out process trees, retain cancelled runs in console history, and keep the UI responsive while native work runs off the UI thread.
-- Inspect real STL geometry in an orbitable Three.js viewer, with an editor-only fallback when the engine is unavailable.
+- Inspect real STL geometry in a demand-driven Three.js viewer with orbit/pan/zoom, axis views, fit, perspective/orthographic projection, themed scene furniture, large-mesh degradation, point-to-point measurement, durable per-project/file pinned annotations, exact bounds, last-good error presentation, and PNG capture. STL decoding runs off the UI thread in the browser.
 - Start in a blank scratch document, or open folder-backed desktop projects and IndexedDB-backed web projects with byte-preserving assets, functional file-tree operations, external-change prompts, crash recovery, and recent projects.
 - Export full-quality 3MF, STL, OFF, AMF, SVG, DXF, or PNG artifacts with exact mesh summaries; web projects can also import/export byte-preserving ZIP archives and create serverless single-file share links.
 - Search and change all nine settings sections through one keyboard-operable dialog. Preferences apply immediately, persist per user, restore by section, and import/export through a bounded versioned JSON profile that excludes secrets.
@@ -34,6 +34,12 @@ The project is being delivered milestone by milestone from the clean-room functi
 | C8 diagnostics | Ordered run history, raw output, structured diagnostics, filters, retention, inline markers, and navigation to current/open files are covered. | Loading a reported file not already open is Q-0020. |
 | C12 theming | Complete shipped token sets, contrast checks, no component color literals, and live editor/viewer/console switching are covered. | Import-control ownership and final custom-color/contrast policy are Q-0004/Q-0005/Q-0006. |
 | Quality gates | TypeScript, browser, native, desktop-shell, npm-license, build, and provenance checks are green locally. | The Rust license-policy check remains deliberately red pending Q-0001; the owner similarity gate is CI-only and is never run locally. |
+
+## M2 boundary record
+
+| Slice | Delivered candidate | Conservatively parked |
+|---|---|---|
+| C2 3D viewer | Native-backed STL presentation, controlled camera, point measurement, per-project/file durable annotations, exact bounds, last-good presentation, and scene-only PNG capture. | Edge/face semantics, screenshot overlay composition, and final keyboard geometry picking remain Q-0025/Q-0026/Q-0028. FR-2.5's device-class frame-rate target remains unmeasured. |
 
 ## Requirements
 

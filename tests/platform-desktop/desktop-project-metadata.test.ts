@@ -4,6 +4,7 @@ import {
   createDesktopRecentProjectsPersistence,
   createDesktopRecoveryPersistence,
   createDesktopScratchAutosavePersistence,
+  createDesktopWorkspaceMetadataPersistence,
 } from "../../src/platform-desktop/desktop-project-metadata";
 
 it("uses durable desktop-webview storage for C6 recovery, recent projects, and scratch autosave", () => {
@@ -25,4 +26,19 @@ it("uses durable desktop-webview storage for C6 recovery, recent projects, and s
   expect(createDesktopRecoveryPersistence(storage).load()).toBe("recovery");
   expect(createDesktopScratchAutosavePersistence(storage).load()).toBe("cube(3);");
   expect(createDesktopRecentProjectsPersistence(storage).load()).toHaveLength(1);
+});
+
+it("uses durable desktop-webview storage for workspace annotation metadata", () => {
+  const values = new Map<string, string>();
+  const storage = {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => { values.set(key, value); },
+    removeItem: (key: string) => { values.delete(key); },
+  };
+
+  createDesktopWorkspaceMetadataPersistence(storage).save('{"version":1,"files":[]}');
+
+  expect(createDesktopWorkspaceMetadataPersistence(storage).load()).toBe(
+    '{"version":1,"files":[]}',
+  );
 });

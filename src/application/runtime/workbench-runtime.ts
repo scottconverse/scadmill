@@ -21,6 +21,7 @@ import {
   isProjectCommand,
   type ProjectSessionState,
 } from "../files/project-session";
+import { parseProjectPath } from "../files/project-path";
 import { createProjectSnapshot, type ProjectFileContent } from "../files/project-snapshot";
 import {
   createDefaultPersistedSettings,
@@ -36,6 +37,16 @@ import {
   type WorkspaceLayoutAction,
   type WorkspaceLayoutState,
 } from "../layout/workspace-layout";
+import {
+  EPHEMERAL_WORKSPACE_METADATA_PERSISTENCE,
+  WorkspaceAnnotationRepository,
+} from "../viewer/annotation-persistence";
+import {
+  createViewerState,
+  reduceViewerState,
+  viewerDocument,
+  type ViewerState,
+} from "../viewer/viewer-state";
 import { createDeferredAction } from "./deferred-action";
 import { summarizeLayoutAction } from "./layout-action-summary";
 import { sameLayout } from "./same-layout";
@@ -82,6 +93,9 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
   const settingsPersistence = options.settingsPersistence ?? EPHEMERAL_SETTINGS_PERSISTENCE;
   const recentProjectsPersistence = options.recentProjectsPersistence
     ?? EPHEMERAL_RECENT_PROJECTS_PERSISTENCE;
+  const annotationRepository = new WorkspaceAnnotationRepository(
+    options.workspaceMetadataPersistence ?? EPHEMERAL_WORKSPACE_METADATA_PERSISTENCE,
+  );
   let persistedSettings = createDefaultPersistedSettings();
   const serializedSettings = settingsPersistence.load();
   if (serializedSettings !== null) {
@@ -125,6 +139,15 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
   );
   const runConsole = createStore<ConsoleState>(() => createConsoleState());
   const layout = createStore<WorkspaceLayoutState>(() => parseWorkspaceLayout(layoutPersistence.load()));
+  let initialViewer = createViewerState();
+  for (const document of initialWorkspace.documents) {
+    initialViewer = reduceViewerState(initialViewer, {
+      kind: "replace-annotations",
+      documentId: document.id,
+      annotations: annotationRepository.annotations(initialProject.projectId, document.path),
+    });
+  }
+  const viewer = createStore<ViewerState>(() => initialViewer);
   const history = createStore<readonly HistoryEntry[]>(() => []);
   const makeId = options.makeId ?? (() => globalThis.crypto.randomUUID());
   const now = options.now ?? (() => new Date());
@@ -213,6 +236,62 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     const current = documents.getState().documents;
     return project.getState().revision === projectRevision
       && current.every(({ path, source }) => snapshot.get(path) === source);
+  }
+
+  function restoreWorkspaceAnnotations(): void {
+    const projectId = project.getState().snapshot.projectId;
+    let next = viewer.getState();
+    for (const document of documents.getState().documents) {
+      next = reduceViewerState(next, {
+        kind: "replace-annotations",
+        documentId: document.id,
+        annotations: annotationRepository.annotations(projectId, document.path),
+      });
+    }
+    viewer.setState(next, true);
+  }
+
+  function updateAnnotationPaths(
+    command: WorkbenchCommand,
+    projectId: string,
+    workspace: DocumentWorkspaceState,
+  ): void {
+    try {
+      switch (command.kind) {
+        case "rename-project-file": {
+          const source = parseProjectPath(command.path);
+          const separator = source.lastIndexOf("/");
+          const destination = parseProjectPath(
+            separator < 0
+              ? command.newName
+              : `${source.slice(0, separator)}/${command.newName}`,
+          );
+          annotationRepository.move(projectId, source, destination);
+          return;
+        }
+        case "move-project-file":
+          annotationRepository.move(
+            projectId,
+            parseProjectPath(command.path),
+            parseProjectPath(command.destinationPath),
+          );
+          return;
+        case "save-document-as-confirmed": {
+          const source = workspace.documents.find(({ id }) => id === command.documentId)?.path;
+          if (source) {
+            annotationRepository.copy(projectId, source, parseProjectPath(command.path));
+          }
+          return;
+        }
+        case "delete-project-file":
+          annotationRepository.delete(projectId, parseProjectPath(command.path));
+          return;
+        default:
+          return;
+      }
+    } catch {
+      // File operations remain successful when optional workspace metadata cannot be saved.
+    }
   }
 
   function documentAction(command: WorkbenchCommand): DocumentWorkspaceAction | null {
@@ -308,8 +387,11 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
         documents,
         project,
         render,
+        viewer,
         cancelActiveRender,
       });
+      updateAnnotationPaths(command, beforeProject.snapshot.projectId, beforeWorkspace);
+      restoreWorkspaceAnnotations();
       if (transition.project.recentProjects !== beforeProject.recentProjects) {
         try {
           recentProjectsPersistence.save(transition.project.recentProjects);
@@ -430,6 +512,34 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       return;
     }
 
+    if (command.kind === "update-viewer") {
+      const before = viewer.getState();
+      const next = reduceViewerState(before, command.action);
+      if (next === before) return;
+      viewer.setState(next, true);
+      if (
+        command.action.kind === "add-annotation"
+        || command.action.kind === "delete-annotation"
+      ) {
+        const document = documents.getState().documents.find(
+          ({ id }) => id === command.action.documentId,
+        );
+        if (document) {
+          try {
+            annotationRepository.replace(
+              project.getState().snapshot.projectId,
+              document.path,
+              viewerDocument(next, document.id).annotations,
+            );
+          } catch {
+            // Keep the in-memory annotation usable when profile storage is unavailable.
+          }
+        }
+      }
+      record(command, makeId(), `Update viewer for ${command.action.documentId}`, false);
+      return;
+    }
+
     if (command.kind !== "render-active") {
       throw new Error(`Unhandled workbench command: ${command.kind}`);
     }
@@ -516,11 +626,20 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       !currentTarget
       || currentTarget.path !== document.path
       || currentTarget.revision !== document.revision
-      || currentWorkspace.activeDocumentId !== document.id
       || !sourceSnapshotIsCurrent(sourceFiles, projectRevision)
     ) {
       return;
     }
+    if (result.kind === "3d") {
+      viewer.setState(reduceViewerState(viewer.getState(), {
+        kind: "present-result",
+        documentId: document.id,
+        modelIdentity: job.jobId,
+        quality: command.quality,
+        result,
+      }), true);
+    }
+    if (currentWorkspace.activeDocumentId !== document.id) return;
     updateLayout({
       kind: result.kind === "failure" && result.reason !== "cancelled"
         ? "render-failed"
@@ -536,6 +655,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     console: readonlyStore(runConsole),
     settings: readonlyStore(settings),
     layout: readonlyStore(layout),
+    viewer: readonlyStore(viewer),
     project: readonlyStore(project),
     history: readonlyStore(history),
     dispatch,

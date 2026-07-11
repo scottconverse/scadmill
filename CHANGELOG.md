@@ -41,6 +41,8 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Explicit checking, unavailable, invalid-config, and ready engine-health states with deduplicated retry progress and actionable rejected-path feedback.
 - A keyboard-navigable Edit menu for the implemented find, replace, go-to-line, comment-toggle, undo, and redo commands, showing each active runtime binding.
 - Native integration coverage for real multi-file includes, imported binary STL assets, cross-file parser errors, parameter overrides, 2D bounds, ASCII STL/SVG/PNG exports, and post-timeout render recovery.
+- A demand-driven 3D viewer with controlled cameras, axis views, fit and projection controls, configurable mouse mapping and scene furniture, off-thread STL decoding, large-mesh degradation, point measurements, bounded per-project/file annotation persistence, last-good error presentation, and scene PNG capture.
+- Real Chromium WebGL acceptance evidence that viewport capture produces a decodable PNG dominated by the active theme background.
 - Folder-backed desktop and IndexedDB-backed web project storage with text/binary fidelity, a functional file tree, durable saves, create/rename/move/trash/reveal operations, unloaded-file navigation, external-change handling, crash recovery, and durable recent projects.
 - Full-quality 3MF, binary/ASCII STL, OFF, AMF, SVG, DXF, and PNG export with awaited artifact destinations, cancellation, and exact mesh file-size/triangle/bounds summaries.
 - Byte-preserving web project ZIP import/export and compressed URL-fragment share links that keep source out of server requests and identify the shared-source origin.
@@ -73,6 +75,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Q-0021 parks only explicit-camera PNG exports because the pinned snapshot CLI cannot preserve Appendix A's `CameraPose.up`; default-camera PNG and all non-PNG exports continue.
 - Q-0023 asks whether the exact-date official WebAssembly archives now visible in the snapshot manifest may replace v0.6's mandated same-commit source build; M2 native work is unaffected.
 - Q-0022 asks whether Appendix A may replace its complete in-memory `rawLog: string` with a bounded/file-backed contract; live capture is bounded without truncating the normative result, but final string materialization and spill-file growth remain size-proportional.
+- Q-0025/Q-0026/Q-0028 isolate edge/face measurement topology, screenshot overlay composition, and keyboard geometry-picking semantics; the independent 3D viewer behavior continues conservatively.
 - Q-0029 parks only recent-project duplication on the M3 welcome screen.
 - Q-0030 parks only the autosave-control and multi-untitled store semantics; default-on original-scratch autosave and multi-buffer recovery remain active without overwriting additional tabs.
 - Q-0031 parks only an application-owned cross-platform destination picker; the dialog names the real browser or desktop destination and reports the saved location.
@@ -81,5 +84,6 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Known verification gaps
 
+- FR-2.5's two-million-triangle, at-least-30-fps claim on disclosed 2020-class integrated graphics remains unverified.
 - AC-6.d has automated recovery-boundary coverage but not a retained live process-kill and relaunch artifact.
 - AC-9.c has recursive app-file exclusion and an isolated keychain abstraction test, but no retained packaged-desktop round trip against a production OS credential store.

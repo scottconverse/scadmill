@@ -1,4 +1,11 @@
-import { useEffect, useRef } from "react";
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
 import {
   AmbientLight,
   BufferAttribute,
@@ -6,140 +13,386 @@ import {
   DirectionalLight,
   Mesh,
   MeshStandardMaterial,
-  PerspectiveCamera,
+  Raycaster,
   Scene,
+  Vector2,
   WebGLRenderer,
 } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
 import type { RenderSuccess3D } from "../../application/engine/contracts";
-import { parseBinaryStl } from "../../application/geometry/stl";
+import { parseBinaryStlOffThread } from "../../application/geometry/stl-parser-worker-client";
+import type { Point3 } from "../../application/viewer/measurements";
+import {
+  createDefaultViewerCamera,
+  type PointMeasurement,
+  type ViewerAnnotation,
+  type ViewerCameraState,
+  type ViewerFurnitureState,
+} from "../../application/viewer/viewer-state";
 import { messages } from "../../messages/en";
+import type { ViewerTool } from "./ViewerToolbar";
+import { rebuildFurniture, type ViewerDegradation } from "./viewer-furniture";
 import { applyViewerTheme, type ViewerThemeColors } from "./viewer-theme";
+import {
+  canvasPng,
+  configureMouse,
+  controlsCameraState,
+  makeCamera,
+  projectPoint,
+  projectionOf,
+  removeModel,
+  updateProjection,
+  type MouseButton,
+  type OverlayPosition,
+  type ViewerResources,
+} from "./model-viewer-runtime";
+import { ModelViewerOverlays, type SpatialOverlays } from "./model-viewer-overlays";
+
+export interface ModelViewerHandle { capturePng(): Promise<Uint8Array>; }
 
 export interface ModelViewerProps {
-  result?: RenderSuccess3D;
-  colors: ViewerThemeColors;
+  readonly result?: RenderSuccess3D;
+  readonly colors: ViewerThemeColors;
+  readonly camera?: ViewerCameraState;
+  readonly furniture?: ViewerFurnitureState;
+  readonly measurements?: readonly PointMeasurement[];
+  readonly annotations?: readonly ViewerAnnotation[];
+  readonly tool?: ViewerTool;
+  readonly dimmed?: boolean;
+  readonly meshColor?: string | null;
+  readonly mouseMapping?: { readonly orbit: MouseButton; readonly pan: MouseButton };
+  readonly onCameraChange?: (camera: ViewerCameraState) => void;
+  readonly onPointPick?: (point: Point3) => void;
+  readonly onDegradationChange?: (degradation: ViewerDegradation) => void;
 }
 
-interface ViewerResources {
-  scene: Scene;
-  camera: PerspectiveCamera;
-  renderer: WebGLRenderer;
-  controls: OrbitControls;
-  mesh?: Mesh<BufferGeometry, MeshStandardMaterial>;
-  animationFrame: number;
-  hasFit: boolean;
-}
+const DEFAULT_CAMERA = createDefaultViewerCamera();
+const DEFAULT_FURNITURE: ViewerFurnitureState = {
+  grid: true,
+  axes: true,
+  edges: false,
+  shadow: false,
+};
+const DEFAULT_MOUSE_MAPPING = { orbit: "left", pan: "right" } as const;
 
-export function ModelViewer({ result, colors }: ModelViewerProps) {
+export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(function ModelViewer({
+  result,
+  colors,
+  camera = DEFAULT_CAMERA,
+  furniture = DEFAULT_FURNITURE,
+  measurements = [],
+  annotations = [],
+  tool = "navigate",
+  dimmed = false,
+  meshColor = null,
+  mouseMapping = DEFAULT_MOUSE_MAPPING,
+  onCameraChange,
+  onPointPick,
+  onDegradationChange,
+}, forwardedRef) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const resources = useRef<ViewerResources | null>(null);
+  const cameraRef = useRef(camera);
   const colorsRef = useRef(colors);
-  const { background, mesh: meshColor } = colors;
+  const furnitureRef = useRef(furniture);
+  const measurementsRef = useRef(measurements);
+  const annotationsRef = useRef(annotations);
+  const toolRef = useRef(tool);
+  const dimmedRef = useRef(dimmed);
+  const meshColorRef = useRef(meshColor);
+  const mouseMappingRef = useRef(mouseMapping);
+  const onCameraChangeRef = useRef(onCameraChange);
+  const onPointPickRef = useRef(onPointPick);
+  const onDegradationChangeRef = useRef(onDegradationChange);
+  const [overlays, setOverlays] = useState<SpatialOverlays>({
+    measurements: new Map(),
+    annotations: new Map(),
+  });
+  const [geometryError, setGeometryError] = useState<string | null>(null);
+  const [viewerError, setViewerError] = useState<string | null>(null);
+  cameraRef.current = camera;
   colorsRef.current = colors;
+  furnitureRef.current = furniture;
+  measurementsRef.current = measurements;
+  annotationsRef.current = annotations;
+  toolRef.current = tool;
+  dimmedRef.current = dimmed;
+  meshColorRef.current = meshColor;
+  mouseMappingRef.current = mouseMapping;
+  onCameraChangeRef.current = onCameraChange;
+  onPointPickRef.current = onPointPick;
+  onDegradationChangeRef.current = onDegradationChange;
+  const appearanceKey = [
+    colors.background,
+    colors.mesh,
+    colors.edges,
+    colors.grid,
+    colors.gridMajor,
+    colors.axisX,
+    colors.axisY,
+    colors.axisZ,
+    furniture.grid,
+    furniture.axes,
+    furniture.edges,
+    furniture.shadow,
+    dimmed,
+    meshColor,
+  ].join("|");
+  const overlayKey = [
+    ...measurements.flatMap(({ id, start, end }) => [id, ...start, ...end]),
+    ...annotations.flatMap(({ id, point, text }) => [id, ...point, text]),
+  ].join("|");
 
   useEffect(() => {
-    if (!canvas.current || typeof WebGLRenderingContext === "undefined") {
+    if (!canvas.current) return;
+    if (typeof WebGLRenderingContext === "undefined") {
+      setViewerError(messages.webglViewerUnavailable);
       return;
     }
+    let active = true;
     const scene = new Scene();
     scene.add(new AmbientLight(undefined, 1.6));
     const keyLight = new DirectionalLight(undefined, 2.8);
     keyLight.position.set(4, 6, 8);
     scene.add(keyLight);
-
-    const camera = new PerspectiveCamera(45, 1, 0.1, 10_000);
-    camera.position.set(28, 24, 28);
-    const renderer = new WebGLRenderer({ canvas: canvas.current, antialias: true });
-    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-    const controls = new OrbitControls(camera, canvas.current);
-    controls.enableDamping = true;
-
-    const resize = () => {
-      if (!canvas.current) return;
-      const width = Math.max(canvas.current.clientWidth, 1);
-      const height = Math.max(canvas.current.clientHeight, 1);
-      renderer.setSize(width, height, false);
-      camera.aspect = width / height;
-      camera.updateProjectionMatrix();
+    let renderer: WebGLRenderer | null = null;
+    try {
+      renderer = new WebGLRenderer({ canvas: canvas.current, antialias: true });
+      renderer.setPixelRatio(Math.min(globalThis.devicePixelRatio || 1, 2));
+    } catch {
+      renderer?.dispose();
+      setViewerError(messages.webglViewerUnavailable);
+      return;
+    }
+    setViewerError(null);
+    const initialCamera = makeCamera(cameraRef.current.projection);
+    const initialControls = new OrbitControls(initialCamera, canvas.current);
+    const viewer: ViewerResources = {
+      scene,
+      renderer,
+      keyLight,
+      camera: initialCamera,
+      controls: initialControls,
+      frame: null,
+      width: 1,
+      height: 1,
+      applyCamera: () => undefined,
+      refreshAppearance: () => undefined,
+      invalidate: () => undefined,
     };
-    resize();
-    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(resize);
-    observer?.observe(canvas.current);
-
-    const renderFrame = () => {
-      controls.update();
-      renderer.render(scene, camera);
-      if (resources.current) {
-        resources.current.animationFrame = requestAnimationFrame(renderFrame);
+    const updateOverlays = () => {
+      viewer.camera.updateMatrixWorld(true);
+      const measurementPositions = new Map<string, OverlayPosition>();
+      for (const measurement of measurementsRef.current) {
+        const midpoint = measurement.start.map(
+          (value, axis) => (value + measurement.end[axis]) / 2,
+        ) as [number, number, number];
+        const position = projectPoint(midpoint, viewer.camera, viewer.width, viewer.height);
+        if (position) measurementPositions.set(measurement.id, position);
       }
+      const annotationPositions = new Map<string, OverlayPosition>();
+      for (const annotation of annotationsRef.current) {
+        const position = projectPoint(annotation.point, viewer.camera, viewer.width, viewer.height);
+        if (position) annotationPositions.set(annotation.id, position);
+      }
+      if (active) setOverlays({ measurements: measurementPositions, annotations: annotationPositions });
     };
-    resources.current = { scene, camera, renderer, controls, animationFrame: 0, hasFit: false };
-    resources.current.animationFrame = requestAnimationFrame(renderFrame);
-
+    viewer.invalidate = () => {
+      if (!active || viewer.frame !== null) return;
+      viewer.frame = requestAnimationFrame(() => {
+        viewer.frame = null;
+        viewer.renderer.render(viewer.scene, viewer.camera);
+        updateOverlays();
+      });
+    };
+    const reportCamera = () => onCameraChangeRef.current?.(controlsCameraState(viewer));
+    const bindControls = (controls: OrbitControls) => {
+      controls.enableDamping = false;
+      controls.enabled = toolRef.current === "navigate";
+      configureMouse(controls, mouseMappingRef.current);
+      controls.addEventListener("change", viewer.invalidate);
+      controls.addEventListener("end", reportCamera);
+    };
+    const unbindControls = (controls: OrbitControls) => {
+      controls.removeEventListener("change", viewer.invalidate);
+      controls.removeEventListener("end", reportCamera);
+    };
+    bindControls(viewer.controls);
+    viewer.applyCamera = (state) => {
+      if (projectionOf(viewer.camera) !== state.projection) {
+        unbindControls(viewer.controls);
+        viewer.controls.dispose();
+        viewer.camera = makeCamera(state.projection);
+        viewer.controls = new OrbitControls(viewer.camera, canvas.current as HTMLCanvasElement);
+        bindControls(viewer.controls);
+      }
+      viewer.camera.position.set(...state.position);
+      viewer.camera.up.set(...state.up);
+      viewer.camera.zoom = state.zoom;
+      viewer.controls.target.set(...state.target);
+      viewer.camera.lookAt(viewer.controls.target);
+      updateProjection(viewer.camera, viewer.controls.target, viewer.width, viewer.height);
+      viewer.controls.update();
+      viewer.invalidate();
+    };
+    viewer.refreshAppearance = () => {
+      const themedColors = {
+        ...colorsRef.current,
+        mesh: meshColorRef.current ?? colorsRef.current.mesh,
+      };
+      applyViewerTheme(viewer, themedColors);
+      if (viewer.mesh) {
+        viewer.mesh.material.transparent = dimmedRef.current;
+        viewer.mesh.material.opacity = dimmedRef.current ? 0.35 : 1;
+        viewer.mesh.material.depthWrite = !dimmedRef.current;
+      }
+      const rebuilt = rebuildFurniture({
+        scene: viewer.scene,
+        renderer: viewer.renderer,
+        keyLight: viewer.keyLight,
+        mesh: viewer.mesh,
+        geometry: viewer.parsed,
+        furniture: furnitureRef.current,
+        colors: themedColors,
+        previous: viewer.furniture,
+      });
+      viewer.furniture = rebuilt.resources;
+      onDegradationChangeRef.current?.(rebuilt.degradation);
+      viewer.invalidate();
+    };
+    const resize = () => {
+      const element = canvas.current;
+      if (!element) return;
+      viewer.width = Math.max(element.clientWidth, 1);
+      viewer.height = Math.max(element.clientHeight, 1);
+      viewer.renderer.setSize(viewer.width, viewer.height, false);
+      updateProjection(viewer.camera, viewer.controls.target, viewer.width, viewer.height);
+      viewer.invalidate();
+    };
+    resources.current = viewer;
+    viewer.applyCamera(cameraRef.current);
+    resize();
+    let resizeFrame: number | null = null;
+    const requestResize = () => {
+      if (resizeFrame !== null) return;
+      resizeFrame = requestAnimationFrame(() => {
+        resizeFrame = null;
+        resize();
+      });
+    };
+    const observer = typeof ResizeObserver === "undefined"
+      ? null
+      : new ResizeObserver(requestResize);
+    observer?.observe(canvas.current.parentElement ?? canvas.current);
     return () => {
+      active = false;
       observer?.disconnect();
-      cancelAnimationFrame(resources.current?.animationFrame ?? 0);
-      resources.current?.mesh?.geometry.dispose();
-      resources.current?.mesh?.material.dispose();
-      controls.dispose();
-      renderer.dispose();
-      resources.current = null;
+      if (resizeFrame !== null) cancelAnimationFrame(resizeFrame);
+      if (viewer.frame !== null) cancelAnimationFrame(viewer.frame);
+      unbindControls(viewer.controls);
+      removeModel(viewer);
+      viewer.controls.dispose();
+      viewer.renderer.dispose();
+      if (resources.current === viewer) resources.current = null;
     };
   }, []);
 
+  useEffect(() => resources.current?.applyCamera(camera), [camera]);
   useEffect(() => {
     const viewer = resources.current;
-    if (!viewer || !result || !canvas.current) {
+    if (!viewer) return;
+    let active = true;
+    setGeometryError(null);
+    if (!result) {
+      removeModel(viewer);
+      viewer.refreshAppearance();
       return;
     }
-    const parsed = parseBinaryStl(result.mesh.bytes);
-    const geometry = new BufferGeometry();
-    geometry.setAttribute("position", new BufferAttribute(parsed.positions, 3));
-    geometry.computeVertexNormals();
-    const material = new MeshStandardMaterial({
-      roughness: 0.72,
-      metalness: 0.08,
+    const parser = new AbortController();
+    void parseBinaryStlOffThread(result.mesh.bytes, undefined, parser.signal).then((parsed) => {
+      if (!active || resources.current !== viewer) return;
+      const geometry = new BufferGeometry();
+      geometry.setAttribute("position", new BufferAttribute(parsed.positions, 3));
+      geometry.setAttribute("normal", new BufferAttribute(parsed.normals, 3));
+      const material = new MeshStandardMaterial({ roughness: 0.72, metalness: 0.08 });
+      const mesh = new Mesh(geometry, material);
+      removeModel(viewer);
+      viewer.mesh = mesh;
+      viewer.parsed = parsed;
+      viewer.scene.add(mesh);
+      viewer.refreshAppearance();
+    }, (error: unknown) => {
+      if (!active || resources.current !== viewer) return;
+      setGeometryError(error instanceof Error ? error.message : messages.renderedMeshDisplayFailed);
     });
-    const mesh = new Mesh(geometry, material);
-
-    if (viewer.mesh) {
-      viewer.scene.remove(viewer.mesh);
-      viewer.mesh.geometry.dispose();
-      viewer.mesh.material.dispose();
-    }
-    viewer.mesh = mesh;
-    viewer.scene.add(mesh);
-    applyViewerTheme(viewer, colorsRef.current);
-
-    if (!viewer.hasFit) {
-      const center = parsed.bounds.min.map(
-        (minimum, axis) => (minimum + parsed.bounds.max[axis]) / 2,
-      ) as [number, number, number];
-      const distance = Math.max(...parsed.bounds.size) * 2.2 || 20;
-      viewer.controls.target.set(...center);
-      viewer.camera.position.set(center[0] + distance, center[1] + distance * 0.75, center[2] + distance);
-      viewer.camera.near = Math.max(distance / 1_000, 0.01);
-      viewer.camera.far = distance * 100;
-      viewer.camera.updateProjectionMatrix();
-      viewer.controls.update();
-      viewer.hasFit = true;
-    }
+    return () => { active = false; parser.abort(); };
   }, [result]);
-
+  useEffect(() => {
+    if (appearanceKey.length > 0) resources.current?.refreshAppearance();
+  }, [appearanceKey]);
   useEffect(() => {
     const viewer = resources.current;
-    if (!viewer) {
+    if (!viewer) return;
+    viewer.controls.enabled = tool === "navigate";
+    configureMouse(viewer.controls, mouseMapping);
+    viewer.invalidate();
+  }, [mouseMapping, tool]);
+  useEffect(() => {
+    if (overlayKey === "") {
+      setOverlays({ measurements: new Map(), annotations: new Map() });
       return;
     }
-    applyViewerTheme(viewer, { background, mesh: meshColor });
-  }, [background, meshColor]);
+    resources.current?.invalidate();
+  }, [overlayKey]);
+
+  useImperativeHandle(forwardedRef, () => ({
+    async capturePng() {
+      const viewer = resources.current;
+      const element = canvas.current;
+      if (!viewer || !element) throw new Error("The model viewport is unavailable.");
+      viewer.renderer.render(viewer.scene, viewer.camera);
+      return canvasPng(element);
+    },
+  }), []);
+
+  const pickPoint = (event: ReactMouseEvent<HTMLCanvasElement>) => {
+    const viewer = resources.current;
+    if (!viewer?.mesh || toolRef.current === "navigate") return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+    const pointer = new Vector2(
+      ((event.clientX - rect.left) / rect.width) * 2 - 1,
+      -((event.clientY - rect.top) / rect.height) * 2 + 1,
+    );
+    viewer.scene.updateMatrixWorld(true);
+    viewer.camera.updateMatrixWorld(true);
+    const raycaster = new Raycaster();
+    raycaster.setFromCamera(pointer, viewer.camera);
+    const hit = raycaster.intersectObject(viewer.mesh, false)[0];
+    if (hit) onPointPickRef.current?.(hit.point.toArray());
+  };
+  const displayError = viewerError ?? geometryError;
 
   return (
-    <div className="model-viewer">
-      <canvas ref={canvas} aria-label={messages.viewerRegion} tabIndex={0} />
-      {!result && <p className="viewer-empty">{messages.modelAwaitingRender}</p>}
+    <div className={`model-viewer${dimmed ? " model-viewer-dimmed" : ""}`}>
+      <canvas
+        aria-hidden={viewerError ? true : undefined}
+        aria-label={messages.viewerRegion}
+        data-viewer-tool={tool}
+        onClick={pickPoint}
+        ref={canvas}
+        tabIndex={viewerError ? -1 : 0}
+      />
+      {!result && !displayError && <p className="viewer-empty">{messages.modelAwaitingRender}</p>}
+      {displayError && <p className="viewer-empty" role="alert">{displayError}</p>}
+      <ModelViewerOverlays
+        annotationColor={colors.annotation}
+        annotations={annotations}
+        measurementColor={colors.measurement}
+        measurements={measurements}
+        positions={overlays}
+      />
     </div>
   );
-}
+});

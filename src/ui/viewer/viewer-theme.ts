@@ -2,7 +2,8 @@ import { type BufferGeometry, Color, type Mesh, type MeshStandardMaterial, type 
 
 import type { ThemeTokens } from "../../application/theme/theme-schema";
 
-export type ViewerThemeColors = Pick<ThemeTokens["viewer"], "background" | "mesh">;
+export type ViewerThemeColors = Pick<ThemeTokens["viewer"], "background" | "mesh">
+  & Partial<Omit<ThemeTokens["viewer"], "background" | "mesh">>;
 
 export interface ViewerThemeTarget {
   readonly scene: Scene;

@@ -64,6 +64,11 @@ describe("createWorkbenchRuntime", () => {
       entryFile: "main.scad",
       result: { kind: "3d", stats: { triangles: 12 } },
     });
+    expect(runtime.viewer.getState().documents.get("document-main")?.presentation).toMatchObject({
+      modelIdentity: "render-1",
+      quality: "preview",
+      result: { kind: "3d", stats: { triangles: 12 } },
+    });
     expect(engine.render).toHaveBeenCalledWith({
       entryFile: "main.scad",
       files: new Map([["main.scad", "cube([10, 20, 30]);"]]),

@@ -9,11 +9,13 @@ import type {
   ProjectTransition,
 } from "../files/project-session";
 import type { RenderState } from "./workbench-runtime-contracts";
+import { createViewerState, type ViewerState } from "../viewer/viewer-state";
 
 export interface ProjectTransitionStores {
   readonly documents: StoreApi<DocumentWorkspaceState>;
   readonly project: StoreApi<ProjectSessionState>;
   readonly render: StoreApi<RenderState>;
+  readonly viewer: StoreApi<ViewerState>;
   cancelActiveRender(): void;
 }
 
@@ -26,6 +28,7 @@ export function applyProjectTransition(
     stores.cancelActiveRender();
     stores.documents.setState(transition.replacementWorkspace, true);
     stores.render.setState({ status: "idle" }, true);
+    stores.viewer.setState(createViewerState(), true);
     return;
   }
   if (transition.documentActions.length === 0) return;

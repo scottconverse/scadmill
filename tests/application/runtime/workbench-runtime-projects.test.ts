@@ -9,6 +9,7 @@ import {
   type ProjectFileContent,
 } from "../../../src/application/files/project-snapshot";
 import { createWorkbenchRuntime } from "../../../src/application/runtime/workbench-runtime";
+import { viewerDocument } from "../../../src/application/viewer/viewer-state";
 
 function engine(): EngineService {
   return {
@@ -50,6 +51,204 @@ function deferred() {
 }
 
 describe("workbench project integration", () => {
+  it("restores per-file annotations across a runtime restart without persisting measurements", async () => {
+    let serialized: string | null = null;
+    const workspaceMetadataPersistence = {
+      load: () => serialized,
+      save: (value: string) => { serialized = value; },
+    };
+    const snapshot = createProjectSnapshot("project-a", new Map([
+      ["main.scad", "cube(10);"],
+    ]));
+    const first = createWorkbenchRuntime(engine(), {
+      initialProject: snapshot,
+      workspaceMetadataPersistence,
+    });
+
+    await first.dispatch({
+      kind: "update-viewer",
+      origin: "user",
+      action: {
+        kind: "add-annotation",
+        documentId: "document-main",
+        annotation: { id: "note-a", point: [1, 2, 3], text: "Hole center" },
+      },
+    });
+    await first.dispatch({
+      kind: "update-viewer",
+      origin: "user",
+      action: {
+        kind: "add-point-measurement",
+        documentId: "document-main",
+        measurement: { id: "measure-a", start: [0, 0, 0], end: [1, 1, 1] },
+      },
+    });
+
+    expect(serialized).not.toBeNull();
+    const second = createWorkbenchRuntime(engine(), {
+      initialProject: snapshot,
+      workspaceMetadataPersistence,
+    });
+    const restored = viewerDocument(second.viewer.getState(), "document-main");
+    expect(restored.annotations).toEqual([
+      { id: "note-a", point: [1, 2, 3], text: "Hole center" },
+    ]);
+    expect(restored.measurements).toEqual([]);
+    await second.dispatch({
+      kind: "update-viewer",
+      origin: "user",
+      action: {
+        kind: "delete-annotation",
+        documentId: "document-main",
+        annotationId: "note-a",
+      },
+    });
+    const third = createWorkbenchRuntime(engine(), {
+      initialProject: snapshot,
+      workspaceMetadataPersistence,
+    });
+    expect(viewerDocument(third.viewer.getState(), "document-main").annotations).toEqual([]);
+  });
+
+  it("keeps an annotation usable when workspace metadata persistence rejects the save", async () => {
+    const runtime = createWorkbenchRuntime(engine(), {
+      initialProject: createProjectSnapshot("project-a", new Map([
+        ["main.scad", "cube(10);"],
+      ])),
+      workspaceMetadataPersistence: {
+        load: () => null,
+        save: () => { throw new Error("Profile storage is blocked."); },
+      },
+    });
+
+    await expect(runtime.dispatch({
+      kind: "update-viewer",
+      origin: "user",
+      action: {
+        kind: "add-annotation",
+        documentId: "document-main",
+        annotation: { id: "local-note", point: [3, 2, 1], text: "Still visible" },
+      },
+    })).resolves.toBeUndefined();
+    expect(viewerDocument(runtime.viewer.getState(), "document-main").annotations).toEqual([
+      { id: "local-note", point: [3, 2, 1], text: "Still visible" },
+    ]);
+  });
+
+  it("isolates annotations by project and path when projects and files reopen", async () => {
+    let serialized: string | null = null;
+    const workspaceMetadataPersistence = {
+      load: () => serialized,
+      save: (value: string) => { serialized = value; },
+    };
+    const projectA = createProjectSnapshot("project-a", new Map([
+      ["main.scad", "cube(10);"],
+      ["parts/wheel.scad", "cylinder(4);"],
+    ]));
+    const projectB = createProjectSnapshot("project-b", new Map([
+      ["main.scad", "sphere(10);"],
+    ]));
+    let nextId = 0;
+    const runtime = createWorkbenchRuntime(engine(), {
+      initialProject: projectA,
+      makeId: () => `opened-${++nextId}`,
+      workspaceMetadataPersistence,
+    });
+    await runtime.dispatch({
+      kind: "update-viewer",
+      origin: "user",
+      action: {
+        kind: "add-annotation",
+        documentId: "document-main",
+        annotation: { id: "main-note", point: [1, 2, 3], text: "Project A main" },
+      },
+    });
+    await runtime.dispatch({ kind: "open-project-file", origin: "user", path: "parts/wheel.scad" });
+    const wheelId = runtime.documents.getState().activeDocumentId;
+    expect(viewerDocument(runtime.viewer.getState(), wheelId).annotations).toEqual([]);
+    await runtime.dispatch({
+      kind: "update-viewer",
+      origin: "user",
+      action: {
+        kind: "add-annotation",
+        documentId: wheelId,
+        annotation: { id: "wheel-note", point: [4, 5, 6], text: "Project A wheel" },
+      },
+    });
+
+    await runtime.dispatch({
+      kind: "replace-project-confirmed",
+      origin: "user",
+      snapshot: projectB,
+      displayName: "Project B",
+      entryFile: "main.scad",
+    });
+    const projectBMainId = runtime.documents.getState().activeDocumentId;
+    expect(viewerDocument(runtime.viewer.getState(), projectBMainId).annotations).toEqual([]);
+
+    await runtime.dispatch({
+      kind: "replace-project-confirmed",
+      origin: "user",
+      snapshot: projectA,
+      displayName: "Project A",
+      entryFile: "main.scad",
+    });
+    const projectAMainId = runtime.documents.getState().activeDocumentId;
+    expect(viewerDocument(runtime.viewer.getState(), projectAMainId).annotations).toEqual([
+      { id: "main-note", point: [1, 2, 3], text: "Project A main" },
+    ]);
+    await runtime.dispatch({ kind: "open-project-file", origin: "user", path: "parts/wheel.scad" });
+    const reopenedWheelId = runtime.documents.getState().activeDocumentId;
+    expect(viewerDocument(runtime.viewer.getState(), reopenedWheelId).annotations).toEqual([
+      { id: "wheel-note", point: [4, 5, 6], text: "Project A wheel" },
+    ]);
+  });
+
+  it("moves durable annotations with a project file path", async () => {
+    let serialized: string | null = null;
+    const workspaceMetadataPersistence = {
+      load: () => serialized,
+      save: (value: string) => { serialized = value; },
+    };
+    const files = new Map<string, ProjectFileContent>([["main.scad", "cube(10);"]]);
+    const storage = memoryStorage(files);
+    const first = createWorkbenchRuntime(engine(), {
+      initialProject: createProjectSnapshot("project-a", files),
+      projectStorage: storage,
+      workspaceMetadataPersistence,
+    });
+    await first.dispatch({
+      kind: "update-viewer",
+      origin: "user",
+      action: {
+        kind: "add-annotation",
+        documentId: "document-main",
+        annotation: { id: "moved-note", point: [2, 4, 6], text: "Moves with file" },
+      },
+    });
+
+    await first.dispatch({
+      kind: "move-project-file",
+      origin: "user",
+      path: "main.scad",
+      destinationPath: "parts/design.scad",
+    });
+
+    const second = createWorkbenchRuntime(engine(), {
+      initialProject: await storage.snapshot("project-a"),
+      makeId: () => "reopened-design",
+      workspaceMetadataPersistence,
+    });
+    await second.dispatch({
+      kind: "open-project-file",
+      origin: "user",
+      path: "parts/design.scad",
+    });
+    expect(viewerDocument(second.viewer.getState(), "reopened-design").annotations).toEqual([
+      { id: "moved-note", point: [2, 4, 6], text: "Moves with file" },
+    ]);
+  });
+
   it("discards an async project transition when another project opens first", async () => {
     const started = deferred();
     const release = deferred();

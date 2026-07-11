@@ -164,3 +164,24 @@ Numbered questions are appended here under §2.7. Only the affected work item is
 - **Question:** For the web target, must ScadMill build OpenSCAD WASM from source at commit `0a66508c67374febcfc814a73b5b948dd84a1ca3` as v0.6 explicitly requires, or may it use and validate the official exact-date `OpenSCAD-2026.06.12-WebAssembly-web.zip` artifact now present in the OpenSCAD snapshot manifest?
 - **Evidence:** Section 2.7 says published prebuilt WASM snapshots stalled in August 2025 and mandates a source build. The official snapshot index accessed on 2026-07-10 lists exact-date web and node archives. The web archive SHA-256 is `509879dd6813f2c4e5cf2ce1da6420928ce9bb212cd08491ca5ec9d5bffc700b`; the node archive SHA-256 is `07c978bd06dd75a3baa8daff77483b4e9559351f11a6bc4e324e7bb34248a605`.
 - **Blocked:** Only the M3 choice of WASM artifact provenance. The native 2026.06.12 pin, all M2 work, and source-build preparation continue.
+
+## Q-0025 — Open — 2026-07-10
+
+- **Section:** FR-2.6 edge-length and face-to-face measurements
+- **Question:** For triangle meshes, does “face” mean one triangle or a connected coplanar region, does “edge” include every triangle edge or only feature/boundary edges, and how is face-to-face distance defined for nonparallel faces?
+- **Evidence:** STL carries independent triangles rather than authored topology. Each interpretation produces materially different selectable features and distances on the same mesh.
+- **Blocked:** Only edge and face measurement semantics. Point-to-point distance, bounding-box readout, labeled measurement state, deletion, and model-change clearing continue.
+
+## Q-0026 — Open — 2026-07-10
+
+- **Section:** FR-2.10 screenshot command
+- **Question:** Does “current viewport” require measurement, annotation, and render-status DOM overlays in the PNG, or only the rendered Three.js scene/canvas?
+- **Evidence:** Canvas capture preserves the exact rendered scene and theme background; composing DOM overlays requires a separately specified rasterization/layout pipeline and can produce platform-dependent typography.
+- **Blocked:** Only overlay composition in screenshots. Scene capture, PNG validation, desktop save, and web download continue. MCP exposure remains C11 scope and is not claimed at M2.
+
+## Q-0028 — Open — 2026-07-10
+
+- **Section:** N-3; FR-2.6; FR-2.7
+- **Question:** What keyboard-only interaction is accepted for selecting arbitrary model points, edges, and faces: crosshair navigation, coordinate entry, a feature list, or another mechanism?
+- **Evidence:** Keyboard camera controls and accessible measurement/annotation lists do not by themselves define how a keyboard user selects an arbitrary location in a canvas.
+- **Blocked:** Only final keyboard geometry-picking acceptance. Keyboard navigation, labeled results, deletion, and pointer picking continue.

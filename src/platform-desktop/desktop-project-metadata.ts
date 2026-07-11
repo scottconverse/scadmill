@@ -1,10 +1,12 @@
 import type { RecoveryPersistence } from "../application/files/recovery-state";
 import type { RecentProjectsPersistence } from "../application/files/recent-projects";
 import type { ScratchAutosavePersistence } from "../application/files/scratch-autosave";
+import type { WorkspaceMetadataPersistence } from "../application/viewer/annotation-persistence";
 import {
   createBrowserRecentProjectsPersistence,
   createBrowserRecoveryPersistence,
   createBrowserScratchAutosavePersistence,
+  createBrowserWorkspaceMetadataPersistence,
 } from "../platform-web/browser-project-metadata";
 
 interface DurableWebviewStorage {
@@ -29,4 +31,10 @@ export function createDesktopRecentProjectsPersistence(
   storage?: DurableWebviewStorage,
 ): RecentProjectsPersistence {
   return createBrowserRecentProjectsPersistence(storage);
+}
+
+export function createDesktopWorkspaceMetadataPersistence(
+  storage?: DurableWebviewStorage,
+): WorkspaceMetadataPersistence {
+  return createBrowserWorkspaceMetadataPersistence(storage);
 }
