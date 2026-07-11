@@ -1,0 +1,270 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-c5-customizer",
+  "createdAt": "2026-07-11T11:49:33-06:00",
+  "summary": "Deliver C5 as a stock-compatible OpenSCAD Customizer: structural annotation extraction, grouped typed controls, document-bound non-destructive preview overrides, exact source writes, revision-safe parameter state, stock-v1 named sets, and parameter-aware render, viewer, and export identity.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.2 permitted inputs",
+    "Section 2.4 provenance ledger",
+    "Section 2.7 questions, decisions, and unit of work",
+    "Section 3 A-6 modularity caps",
+    "Section 4.4 FR-4.3 parameter overrides",
+    "Section 4.5 C5 parameter panel",
+    "Section 4.5 FR-5.1 through FR-5.6",
+    "Section 4.5 AC-5.a through AC-5.d",
+    "Section 5 N-3 through N-5 and N-7",
+    "Section 6 A-8 OpenSCAD structural parsing dependency policy",
+    "Section 7 V-1 through V-4",
+    "Section 8 M2 C5"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-11-c5-customizer.json", "status": "added" },
+    { "path": "src/application/files/workbench-project-export.ts", "status": "modified" },
+    { "path": "src/application/parameters/customizer-parser.ts", "status": "added" },
+    { "path": "src/application/parameters/customizer-schema.ts", "status": "added" },
+    { "path": "src/application/parameters/parameter-overrides.ts", "status": "added" },
+    { "path": "src/application/parameters/parameter-set-codec.ts", "status": "added" },
+    { "path": "src/application/parameters/parameter-state.ts", "status": "added" },
+    { "path": "src/application/runtime/project-transition.ts", "status": "modified" },
+    { "path": "src/application/runtime/workbench-runtime-contracts.ts", "status": "modified" },
+    { "path": "src/application/runtime/workbench-runtime.ts", "status": "modified" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/layout/WorkspaceFrame.tsx", "status": "modified" },
+    { "path": "src/ui/parameters/ParameterPanel.tsx", "status": "added" },
+    { "path": "src/ui/parameters/ParameterPanelConnector.tsx", "status": "added" },
+    { "path": "src/ui/parameters/ParameterSetExchange.tsx", "status": "added" },
+    { "path": "src/ui/viewer/active-viewer-presentation.ts", "status": "modified" },
+    { "path": "src/ui/workbench.css", "status": "modified" },
+    { "path": "tests/application/files/workbench-project-export.test.ts", "status": "added" },
+    { "path": "tests/application/parameters/customizer-parser.test.ts", "status": "added" },
+    { "path": "tests/application/parameters/parameter-overrides.test.ts", "status": "added" },
+    { "path": "tests/application/parameters/parameter-set-codec.test.ts", "status": "added" },
+    { "path": "tests/application/parameters/parameter-state.test.ts", "status": "added" },
+    { "path": "tests/application/runtime/workbench-runtime-parameters.test.ts", "status": "added" },
+    { "path": "tests/application/runtime/workbench-runtime.test.ts", "status": "modified" },
+    { "path": "tests/e2e/c5-customizer.e2e.ts", "status": "added" },
+    { "path": "tests/e2e/fixtures/c5-customizer.html", "status": "added" },
+    { "path": "tests/fixtures/customizer/all-annotations.scad", "status": "added" },
+    { "path": "tests/fixtures/customizer/scadmill-parameter-set.json", "status": "added" },
+    { "path": "tests/fixtures/customizer/stock-parameter-set.json", "status": "added" },
+    { "path": "tests/fixtures/customizer/stock-round-trip.scad", "status": "added" },
+    { "path": "tests/ui/Workbench.test.tsx", "status": "modified" },
+    { "path": "tests/ui/layout/WorkspaceFrame.test.tsx", "status": "modified" },
+    { "path": "tests/ui/parameters/ParameterPanel.test.tsx", "status": "added" },
+    { "path": "tests/ui/viewer/active-viewer-presentation.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://en.wikibooks.org/wiki/OpenSCAD_User_Manual/Customizer",
+      "accessedOn": "2026-07-11",
+      "purpose": "Use the public OpenSCAD Customizer contract for top-level literals, annotations, Hidden behavior, controls, named sets, the exact JSON v1 shape, and stock -p/-P interchange."
+    },
+    {
+      "url": "https://github.com/openscad/tree-sitter-openscad/releases/tag/v0.6.1",
+      "accessedOn": "2026-07-11",
+      "purpose": "Confirm the A-8-approved official OpenSCAD-organization grammar release and use its MIT source only as an attributed structural reference; ScadMill's fresh Lezer grammar remains runtime authority."
+    },
+    {
+      "url": "https://registry.npmjs.org/@openscad%2ftree-sitter-openscad/0.6.1",
+      "accessedOn": "2026-07-10",
+      "purpose": "Bind the inspected official scoped 0.6.1 package metadata and tarball SHA-256 AC4943D8817B0AEB712D8EBC2AF8B9C61D6D841094E9DF87755796D55F17E2B1."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0115",
+      "topic": "Structural parser authority and boundary",
+      "decision": "Parse with ScadMill's generated Lezer OpenSCAD parser, inspect top-level syntax nodes in source order, pass through comments/include/use/empty statements, accept unique eligible literal assignments, and stop at the first structural module, function, or geometry statement. Use official scoped tree-sitter 0.6.1 source as an attributed reference only.",
+      "rationale": "Structural parsing avoids false boundaries inside strings and comments while keeping one runtime grammar and no unused second parser.",
+      "specBasis": ["FR-5.1", "FR-5.5", "FR-5.6", "AC-5.a", "Section 6 A-8"]
+    },
+    {
+      "id": "D-0116",
+      "topic": "Annotation and control normalization",
+      "decision": "Normalize supported stock annotations into typed group, Hidden, description, slider, stepped-slider, dropdown, checkbox, numeric, text, and one-to-four-component vector records; degrade malformed or incompatible annotations to a plain control without throwing.",
+      "rationale": "One typed schema supports deterministic source-order presentation and the required graceful fallback.",
+      "specBasis": ["FR-5.1", "FR-5.2", "FR-5.6", "AC-5.a"]
+    },
+    {
+      "id": "D-0117",
+      "topic": "Per-document revision and override reconciliation",
+      "decision": "Reparse accepted revisions per document, retain only visible compatible values that still differ from source defaults, drop renamed, removed, hidden, incompatible, or newly redundant live overrides, preserve forward-compatible named-set data, reset stale identities on fresh external opens, and clear selected-set claims after source edits.",
+      "rationale": "Source remains schema and default authority without losing saved values that may become applicable after a later edit.",
+      "specBasis": ["FR-5.3", "FR-5.4", "FR-5.5", "AC-5.d"]
+    },
+    {
+      "id": "D-0118",
+      "topic": "Non-destructive overrides and explicit source writes",
+      "decision": "Send own-property-safe typed override snapshots to the engine without rewriting source. On explicit write, validate current ranges, replace scalar right-hand sides or only changed vector component tokens from right to left, preserve comments, spacing, and unchanged numeric spelling, then clear redundant overrides.",
+      "rationale": "Controls stay non-destructive and explicit writes cannot delete inline vector comments or apply offsets from obsolete source.",
+      "specBasis": ["FR-5.3", "AC-5.b", "N-5", "N-7"]
+    },
+    {
+      "id": "D-0119",
+      "topic": "Stock parameter-set v1 codec",
+      "decision": "Encode exactly the stock parameterSets plus fileFormatVersion 1 object with string values; validate OpenSCAD identifiers including one optional leading dollar; safely support constructor, prototype, and __proto__; retain Hidden values through decode and storage but skip them while Hidden during application; ignore keys absent from the current schema.",
+      "rationale": "This preserves two-way stock compatibility and future visibility semantics without prototype mutation or invalid engine keys.",
+      "specBasis": ["FR-5.4", "AC-5.c", "N-5"]
+    },
+    {
+      "id": "D-0120",
+      "topic": "Document-bound render, viewer, project, and export identity",
+      "decision": "Make parameter state part of runtime composition; keep pending automatic render quality per document; never let one tab consume another tab's debounce; re-arm pending intent on activation; clear only the rendered or closed identity; pass the same active override snapshot to preview, full render, viewer freshness checks, and C6 full export; reset pending intent on project replacement.",
+      "rationale": "A document-bound snapshot and debounce boundary keeps engine output, tab switches, viewer honesty, and exports consistent.",
+      "specBasis": ["FR-5.3", "FR-5.5", "AC-5.b", "AC-5.d", "N-7"]
+    },
+    {
+      "id": "D-0121",
+      "topic": "Customizer panel and bounded set exchange",
+      "decision": "Render contiguous source-order collapsible group occurrences, omit Hidden controls, expose typed controls and individual/all reset, manage named sets, and import/export through the artifact destination with a 1 MiB pre-read limit, visible failure, and atomic replacement.",
+      "rationale": "Presentation remains separate from reducer state while bounded, accessible exchange preserves responsiveness and user intent.",
+      "specBasis": ["FR-5.2", "FR-5.4", "AC-5.a", "AC-5.c", "N-3", "N-4"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "FR-5.1, FR-5.6, and AC-5.a structural extraction",
+      "test": "The all-annotation fixture yields the exact eligible source-order parameters, controls, groups, Hidden records, descriptions, and stable assignment/value/component ranges; false boundaries and malformed annotations are handled safely.",
+      "red": {
+        "command": "node node_modules/vitest/vitest.mjs run tests/application/parameters/customizer-parser.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T11:07:58-06:00",
+        "outcome": "RED: 1 file failed; 3 tests failed; duration 466 ms. The inert parser returned empty control lists and missing ranges."
+      },
+      "green": {
+        "command": "node node_modules/vitest/vitest.mjs run tests/application/parameters/customizer-parser.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T11:09:00-06:00",
+        "outcome": "GREEN: 1 file passed; 3 tests passed; duration 467 ms."
+      }
+    },
+    {
+      "criterion": "FR-5.3, FR-5.5, AC-5.b, and AC-5.d parameter state and exact writes",
+      "test": "Overrides are typed and own-property-safe, survive only compatible visible names, drop renamed, hidden, stale, incompatible, and newly redundant values, preserve vector comments and formatting on explicit write, and reset fresh document identities.",
+      "red": {
+        "command": "node node_modules/vitest/vitest.mjs run tests/application/parameters/parameter-overrides.test.ts tests/application/parameters/parameter-set-codec.test.ts tests/application/parameters/parameter-state.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T11:10:01-06:00",
+        "outcome": "RED: 3 files failed; 22 tests failed; duration 571 ms. Later falsification REDs separately caught vector comment deletion, Hidden live retention, stale set application, invalid identifier acceptance, and a redundant override after source adopted its value."
+      },
+      "green": {
+        "command": "node node_modules/vitest/vitest.mjs run tests/application/parameters/customizer-parser.test.ts tests/application/parameters/parameter-overrides.test.ts tests/application/parameters/parameter-set-codec.test.ts tests/application/parameters/parameter-state.test.ts tests/application/runtime/workbench-runtime-parameters.test.ts tests/application/files/workbench-project-export.test.ts tests/ui/parameters/ParameterPanel.test.tsx tests/ui/viewer/active-viewer-presentation.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T11:49:45-06:00",
+        "outcome": "GREEN: independent final adversarial audit passed 8 files and 58 tests in 1.19 s; no remaining evidence-backed C5 defect was found."
+      }
+    },
+    {
+      "criterion": "FR-5.3 document-bound debounced preview intent",
+      "test": "A parameter change always schedules preview quality for its own document; switching tabs cannot redirect it; multiple documents retain independent intent; activation re-arms the correct preview; manual render, close, replacement, disable, and disposal clear only the appropriate pending state.",
+      "red": {
+        "command": "node node_modules/vitest/vitest.mjs run tests/application/runtime/workbench-runtime-parameters.test.ts -t \"retains preview intent|clears pending preview\" --reporter=verbose",
+        "observedAt": "2026-07-11T11:47:36-06:00",
+        "outcome": "RED: 1 file failed; 2 tests failed and 6 were filtered; duration 696 ms. A's timer rendered b.scad with empty parameters, and closing A caused a ghost render."
+      },
+      "green": {
+        "command": "node node_modules/vitest/vitest.mjs run tests/application/runtime/workbench-runtime-parameters.test.ts tests/application/runtime/workbench-runtime.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T11:49:27-06:00",
+        "outcome": "GREEN: 2 files passed; 28 tests passed; duration 636 ms, including independent A/B pending previews and project replacement cleanup."
+      }
+    },
+    {
+      "criterion": "FR-5.2 and FR-5.4 grouped controls, Hidden behavior, named sets, and bounded exchange",
+      "test": "The panel preserves contiguous A/B/A source-order group occurrences, hides Hidden controls, routes value/reset/write/set actions, and imports or exports exact stock JSON atomically with bounded input and visible failures.",
+      "red": {
+        "command": "node node_modules/vitest/vitest.mjs run tests/ui/parameters/ParameterPanel.test.tsx tests/ui/layout/WorkspaceFrame.test.tsx tests/ui/Workbench.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-11T11:17:00-06:00",
+        "outcome": "RED: focused panel, WorkspaceFrame, and Workbench composition assertions failed before controls and the parameter-content seam were implemented; a later A/B/A regression failed because repeated labels were merged."
+      },
+      "green": {
+        "command": "node node_modules/vitest/vitest.mjs run tests/ui/parameters/ParameterPanel.test.tsx tests/ui/layout/WorkspaceFrame.test.tsx tests/ui/Workbench.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-11T11:39:58-06:00",
+        "outcome": "GREEN: these files passed within the 11-file focused C5 run; the run passed 93 tests in 4.00 s. Subsequent group-key lint and falsification checks also passed."
+      }
+    },
+    {
+      "criterion": "FR-5.3 full-export override forwarding and hostile-key safety",
+      "test": "The C6 export adapter receives an independent exact scalar/vector override snapshot, current entry/files and full timeout, no preview fields, unchanged source, and inert own __proto__ data.",
+      "red": {
+        "command": "node node_modules/vitest/vitest.mjs run tests/application/files/workbench-project-export.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T11:14:07-06:00",
+        "outcome": "RED: 1 file failed; 1 test failed; duration 748 ms. The export request received an empty parameter object. A later hostile-key RED showed ordinary assignment changed the object's prototype."
+      },
+      "green": {
+        "command": "node node_modules/vitest/vitest.mjs run tests/application/files/workbench-project-export.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T11:36:52-06:00",
+        "outcome": "GREEN: the focused adversarial export test passed with a copied scalar/vector/__proto__ snapshot and normal Object prototype."
+      }
+    },
+    {
+      "criterion": "FR-5.3 and N-7 parameter-aware viewer freshness",
+      "test": "A render whose source and project files remain current becomes stale when its saved parameter snapshot differs; current geometry is withheld and last-good geometry remains dimmed.",
+      "red": {
+        "command": "node node_modules/vitest/vitest.mjs run tests/ui/viewer/active-viewer-presentation.test.ts -t \"dims last-good geometry\" --reporter=verbose",
+        "observedAt": "2026-07-11T11:15:13-06:00",
+        "outcome": "RED: 1 test failed and 4 were filtered; duration 495 ms. Old geometry remained current, not stale or dimmed."
+      },
+      "green": {
+        "command": "node node_modules/vitest/vitest.mjs run tests/ui/viewer/active-viewer-presentation.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T11:39:58-06:00",
+        "outcome": "GREEN: all 5 viewer-presentation tests passed inside the focused C5 run, including exact override-driven stale/dimmed assertions."
+      }
+    },
+    {
+      "criterion": "V-4 Customizer slider-to-re-render browser flow and mutation sensitivity",
+      "test": "The browser fixture mounts the real Workbench/runtime, changes width visibly, waits the real debounce, observes exactly one additional preview with width 25, unchanged source, and completed viewer presentation.",
+      "red": {
+        "command": "pnpm.cmd exec playwright test tests/e2e/c5-customizer.e2e.ts",
+        "observedAt": "2026-07-11T11:22:00-06:00",
+        "outcome": "RED under an intentional one-line mutation replacing parameter scheduling with timer clearing: 1 test failed after a 5 s poll; expected request count 2, received 1. The production line was immediately restored."
+      },
+      "green": {
+        "command": "pnpm.cmd exec playwright test tests/e2e/c5-customizer.e2e.ts",
+        "observedAt": "2026-07-11T11:23:00-06:00",
+        "outcome": "GREEN: 1 Chromium test passed in 3.3 s; test duration 2.1 s. The full browser suite later passed 9 tests."
+      }
+    },
+    {
+      "criterion": "AC-5.c two-way stock OpenSCAD parameter-set interchange",
+      "test": "An app-written Compact set loads through stock OpenSCAD -p/-P and produces independently checked geometry; a stock-written fixture decodes and rewrites through app code retaining current keys and dropping only stale old.",
+      "red": {
+        "command": "node node_modules/vitest/vitest.mjs run tests/application/parameters/parameter-set-codec.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T11:10:01-06:00",
+        "outcome": "RED is the codec's failing-first automated cycle; the once-per-release stock characterization is an acceptance run and this ledger does not invent a failed engine execution."
+      },
+      "green": {
+        "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File artifacts/ac-5c-stock-openscad-c5-20260711T175622Z/run-ac-5c.ps1 -RepoRoot <clean-provisional-C5-worktree> -EnginePath <exact-2026.06.12-executable>; node artifacts/ac-5c-stock-openscad-c5-20260711T175622Z/verify-ac-5c.mjs artifacts/ac-5c-stock-openscad-c5-20260711T175622Z",
+        "observedAt": "2026-07-11T17:56:58.443Z",
+        "outcome": "GREEN: fresh immutable sibling artifacts/ac-5c-stock-openscad-c5-20260711T175622Z passed against clean provisional commit fed5e29bfa12925fc1680e811ccb2fe3f0d4ccc7. Manifest and independent verifier verdicts were PASS; all 15 manifest assertions and all 12 verifier checks were true. Exact OpenSCAD 2026.06.12 executable SHA-256 DE9A0C732C23C3FEB0B49CF938777AA0AEE3E206DB9E98571672CACC4816C524 loaded the app-written Compact preset. Output STL SHA-256 07225323C0582DCC5A535BBCC46C222644476E7E0D7A02320C88777967F7D76D was 684 bytes, 12 triangles, bounds 25 x 4 x 3. Reverse codec passed 18 tests, retained width/enabled/title/point, removed only stale old, added no keys, and changed no known values. Manifest SHA-256 4DFD27F1CE1C41ABC9DEB0852E4C983D31FB994A5E50F853E59CCEA8B1CC46C3; initial verification SHA-256 311C60EDE5B7CE47A914BA8ECB40B4DAB75834AD3D2057E60F1484CE6F05A4FB."
+      }
+    },
+    {
+      "criterion": "V-1 and V-2 full C5 regression, exact engine pin, attribution, and policy gates",
+      "test": "Web unit/component/browser, type, lint/source policy, production build, generated parser, npm licenses, exact-pin native/desktop Rust, provenance, and diff gates pass; no tree-sitter runtime dependency is present; Rust license policy remains honestly separate.",
+      "red": {
+        "command": "pnpm.cmd check:licenses rust",
+        "observedAt": "2026-07-11T11:45:00-06:00",
+        "outcome": "KNOWN OPEN POLICY RED: exit 1 with exactly 19 Unicode-3.0 records, blocked by Q-0001. The result is not claimed green and C5 product behavior is not blocked."
+      },
+      "green": {
+        "command": "pnpm.cmd test; pnpm.cmd exec playwright test; pnpm.cmd typecheck; pnpm.cmd lint; pnpm.cmd build; pnpm.cmd check:generated; pnpm.cmd check:licenses npm; exact-pin cargo fmt/test/check/clippy for native-engine and desktop-shell",
+        "observedAt": "2026-07-11T11:54:14-06:00",
+        "outcome": "GREEN after ledger creation: Vitest 102 files/727 tests in 10.57 s; Playwright 9 tests in 11.0 s; typecheck; lint/source policy across 268 files with Workbench at 399 lines; 173-module build; generated freshness; 117 npm licenses; native 24+1+3+11 tests and desktop 24 tests with fmt/check/warning-denying clippy. Exact engine OpenSCAD 2026.06.12, SHA-256 DE9A0C732C23C3FEB0B49CF938777AA0AEE3E206DB9E98571672CACC4816C524. Rust license remained the exact separate 19-record Q-0001 block."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "Q-0001 remains open: Rust license policy rejects exactly 19 Unicode-3.0 records. C5 records the failure without changing policy or claiming green.",
+    "No C5 behavior question is open under Section 2.7; implementation proceeds from v0.6 and the public Customizer contract.",
+    "The scoped official tree-sitter 0.6.1 source is reference-only and MIT-attributed. No unscoped predecessor, prohibited editor extension, or second runtime parser was added.",
+    "The retained artifacts/ac-5c-stock-openscad directory is immutable. C5 uses a fresh stable-run sibling against a clean provisional checkpoint, then binds final HEAD in gate-only metadata."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

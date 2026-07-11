@@ -12,7 +12,7 @@ import {
   type DocumentWorkspaceAction,
   type DocumentWorkspaceState,
 } from "../documents/document-workspace";
-import type { EngineService } from "../engine/contracts";
+import type { EngineService, ParamValue, Quality } from "../engine/contracts";
 import { UNAVAILABLE_ARTIFACT_DESTINATION } from "../files/artifact-destination";
 import { EPHEMERAL_RECENT_PROJECTS_PERSISTENCE } from "../files/recent-projects";
 import {
@@ -37,6 +37,15 @@ import {
   type WorkspaceLayoutAction,
   type WorkspaceLayoutState,
 } from "../layout/workspace-layout";
+import {
+  createParameterState,
+  type ParameterAction,
+  type ParameterState,
+  parameterDocument,
+  parameterRecordsEqual,
+  reduceParameterState,
+} from "../parameters/parameter-state";
+import { writeParameterValues } from "../parameters/parameter-overrides";
 import {
   EPHEMERAL_WORKSPACE_METADATA_PERSISTENCE,
   WorkspaceAnnotationRepository,
@@ -148,19 +157,26 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     });
   }
   const viewer = createStore<ViewerState>(() => initialViewer);
+  const parameters = createStore<ParameterState>(() =>
+    createParameterState(initialWorkspace.documents.map((document) => ({
+      documentId: document.id,
+      revision: document.revision,
+      source: document.source,
+    })))
+  );
   const history = createStore<readonly HistoryEntry[]>(() => []);
   const makeId = options.makeId ?? (() => globalThis.crypto.randomUUID());
   const now = options.now ?? (() => new Date());
   const nowMs = options.nowMs ?? (() => Date.now());
   let disposed = false;
+  const pendingAutoRenders = new Map<string, Quality>();
   const autoRenderTimer = createDeferredAction(() => {
-    if (!disposed) {
-      void dispatch({
-        kind: "render-active",
-        origin: "system",
-        quality: settings.getState().defaultQuality,
-      });
-    }
+    if (disposed) return;
+    const documentId = activeDocument(documents.getState()).id;
+    const quality = pendingAutoRenders.get(documentId);
+    if (quality === undefined) return;
+    pendingAutoRenders.delete(documentId);
+    void dispatch({ kind: "render-active", origin: "system", quality });
   });
 
   function cancelActiveRender(): void {
@@ -168,13 +184,34 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     if (active.status === "rendering" && active.jobId) engine.cancel(active.jobId);
   }
 
-  function scheduleAutoRender(): void {
+  function schedulePendingRenderForActiveDocument(): void {
     const current = settings.getState();
     if (disposed || !current.engineAvailable || !current.autoRender) {
       autoRenderTimer.clear();
       return;
     }
+    const documentId = activeDocument(documents.getState()).id;
+    if (!pendingAutoRenders.has(documentId)) {
+      autoRenderTimer.clear();
+      return;
+    }
     autoRenderTimer.schedule(current.renderDebounceMs);
+  }
+
+  function scheduleAutoRender(
+    quality: Quality = settings.getState().defaultQuality,
+    documentId: string = activeDocument(documents.getState()).id,
+  ): void {
+    const current = settings.getState();
+    if (disposed || !current.engineAvailable || !current.autoRender) {
+      pendingAutoRenders.clear();
+      autoRenderTimer.clear();
+      return;
+    }
+    pendingAutoRenders.set(documentId, quality);
+    if (documents.getState().activeDocumentId === documentId) {
+      autoRenderTimer.schedule(current.renderDebounceMs);
+    }
   }
 
   async function replaceSettingsProfile(profile: SettingsState["profile"]): Promise<void> {
@@ -231,11 +268,70 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
 
   function sourceSnapshotIsCurrent(
     snapshot: ReadonlyMap<string, ProjectFileContent>,
+    parameterSnapshot: Readonly<Record<string, ParamValue>>,
+    documentId: string,
     projectRevision: number,
   ): boolean {
     const current = documents.getState().documents;
+    const parameterState = parameters.getState().documents.get(documentId);
     return project.getState().revision === projectRevision
-      && current.every(({ path, source }) => snapshot.get(path) === source);
+      && current.every(({ path, source }) => snapshot.get(path) === source)
+      && Boolean(parameterState && parameterRecordsEqual(parameterState.overrides, parameterSnapshot));
+  }
+
+  function syncParameterDocuments(
+    workspace: DocumentWorkspaceState,
+    replaceDocumentIds: ReadonlySet<string> = new Set(),
+  ): void {
+    const before = parameters.getState();
+    let next = before;
+    const retainedDocumentIds = new Set([
+      ...workspace.documents.map(({ id }) => id),
+      ...workspace.recentlyClosed.map(({ document }) => document.id),
+    ]);
+    if ([...next.documents.keys()].some((id) => !retainedDocumentIds.has(id))) {
+      next = {
+        documents: new Map(
+          [...next.documents].filter(([id]) => retainedDocumentIds.has(id)),
+        ),
+      };
+    }
+    for (const document of workspace.documents) {
+      const current = next.documents.get(document.id);
+      const replace = replaceDocumentIds.has(document.id);
+      if (replace || !current || current.revision < document.revision) {
+        next = reduceParameterState(next, {
+          kind: "sync-source",
+          documentId: document.id,
+          revision: document.revision,
+          source: document.source,
+          replace,
+        });
+      }
+    }
+    if (next !== before) parameters.setState(next, true);
+  }
+
+  function engineParameterSnapshot(documentId: string): Record<string, ParamValue> {
+    const snapshot: Record<string, ParamValue> = {};
+    const overrides = parameterDocument(parameters.getState(), documentId).overrides;
+    for (const [name, value] of Object.entries(overrides)) {
+      Object.defineProperty(snapshot, name, {
+        configurable: true,
+        enumerable: true,
+        value: Array.isArray(value) ? [...value] : value,
+        writable: true,
+      });
+    }
+    return snapshot;
+  }
+
+  function parameterActionAffectsRender(action: ParameterAction): boolean {
+    return action.kind === "set-value"
+      || action.kind === "reset-value"
+      || action.kind === "reset-all"
+      || action.kind === "apply-set"
+      || action.kind === "clear-overrides";
   }
 
   function restoreWorkspaceAnnotations(): void {
@@ -385,11 +481,17 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       ) return;
       applyProjectTransition(transition, {
         documents,
+        parameters,
         project,
         render,
         viewer,
         cancelActiveRender,
+        syncParameterDocuments,
       });
+      if (transition.replacementWorkspace) {
+        pendingAutoRenders.clear();
+        autoRenderTimer.clear();
+      }
       updateAnnotationPaths(command, beforeProject.snapshot.projectId, beforeWorkspace);
       restoreWorkspaceAnnotations();
       if (transition.project.recentProjects !== beforeProject.recentProjects) {
@@ -412,15 +514,30 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       const next = reduceDocumentWorkspace(before, action);
       if (next === before) return;
       documents.setState(next, true);
+      syncParameterDocuments(
+        next,
+        command.kind === "open-document" && !before.documents.some(({ id }) => id === command.document.id)
+          ? new Set([command.document.id])
+          : undefined,
+      );
       record(
         command,
         makeId(),
         summarizeDocumentCommand(command, before),
         command.kind === "edit-document",
       );
+      for (const documentId of pendingAutoRenders.keys()) {
+        if (!next.documents.some(({ id }) => id === documentId)) {
+          pendingAutoRenders.delete(documentId);
+        }
+      }
+      if (next.activeDocumentId !== before.activeDocumentId) {
+        autoRenderTimer.clear();
+        schedulePendingRenderForActiveDocument();
+      }
       if (command.kind === "edit-document") {
         cancelActiveRender();
-        scheduleAutoRender();
+        scheduleAutoRender(undefined, command.documentId);
       }
       return;
     }
@@ -444,6 +561,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     if (command.kind === "engine-availability-changed") {
       settings.setState({ engineAvailable: command.available });
       if (!command.available) {
+        pendingAutoRenders.clear();
         autoRenderTimer.clear();
         cancelActiveRender();
       }
@@ -456,7 +574,10 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
         ...settings.getState().profile,
         rendering: { ...settings.getState().profile.rendering, autoRender: command.enabled },
       });
-      if (!command.enabled) autoRenderTimer.clear();
+      if (!command.enabled) {
+        pendingAutoRenders.clear();
+        autoRenderTimer.clear();
+      }
       record(
         command,
         makeId(),
@@ -540,6 +661,52 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       return;
     }
 
+    if (command.kind === "update-parameters") {
+      const before = parameters.getState();
+      const next = reduceParameterState(before, command.action);
+      if (next === before) return;
+      parameters.setState(next, true);
+      record(
+        command,
+        makeId(),
+        `Update parameters for ${command.action.documentId}: ${command.action.kind}`,
+        command.action.kind === "set-value",
+      );
+      if (parameterActionAffectsRender(command.action)) {
+        cancelActiveRender();
+        scheduleAutoRender("preview", command.action.documentId);
+      }
+      return;
+    }
+
+    if (command.kind === "write-parameter-values") {
+      const workspace = documents.getState();
+      const document = workspace.documents.find(({ id }) => id === command.documentId);
+      if (!document) return;
+      const parameterState = parameterDocument(parameters.getState(), command.documentId);
+      const source = writeParameterValues(
+        document.source,
+        parameterState.parameters,
+        parameterState.overrides,
+      );
+      if (source === document.source) return;
+      const nextWorkspace = reduceDocumentWorkspace(workspace, {
+        kind: "edit",
+        documentId: document.id,
+        source,
+      });
+      documents.setState(nextWorkspace, true);
+      syncParameterDocuments(nextWorkspace);
+      parameters.setState(reduceParameterState(parameters.getState(), {
+        kind: "clear-overrides",
+        documentId: document.id,
+      }), true);
+      record(command, makeId(), `Write parameter values into ${document.path}`, true);
+      cancelActiveRender();
+      scheduleAutoRender("preview", command.documentId);
+      return;
+    }
+
     if (command.kind !== "render-active") {
       throw new Error(`Unhandled workbench command: ${command.kind}`);
     }
@@ -549,14 +716,16 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     const commandId = makeId();
     const workspace = documents.getState();
     const document = activeDocument(workspace);
+    pendingAutoRenders.delete(document.id);
     const projectRevision = project.getState().revision;
     const sourceFiles = buildRuntimeRenderFileMap(project.getState(), workspace);
+    const parameterValues = engineParameterSnapshot(document.id);
     const rendering = settings.getState();
     const startedMs = nowMs();
     const job = engine.render({
       entryFile: document.path,
       files: sourceFiles,
-      parameters: {},
+      parameters: parameterValues,
       quality: command.quality,
       timeoutMs: command.quality === "preview"
         ? rendering.previewTimeoutMs
@@ -590,6 +759,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       sourceRevision: document.revision,
       sourceFiles,
       projectRevision,
+      parameterValues,
     }, true);
     record(
       command,
@@ -618,6 +788,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       sourceRevision: document.revision,
       sourceFiles,
       projectRevision,
+      parameterValues,
       result,
     }, true);
     const currentWorkspace = documents.getState();
@@ -626,7 +797,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       !currentTarget
       || currentTarget.path !== document.path
       || currentTarget.revision !== document.revision
-      || !sourceSnapshotIsCurrent(sourceFiles, projectRevision)
+      || !sourceSnapshotIsCurrent(sourceFiles, parameterValues, document.id, projectRevision)
     ) {
       return;
     }
@@ -656,12 +827,14 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     settings: readonlyStore(settings),
     layout: readonlyStore(layout),
     viewer: readonlyStore(viewer),
+    parameters: readonlyStore(parameters),
     project: readonlyStore(project),
     history: readonlyStore(history),
     dispatch,
     dispose() {
       if (disposed) return;
       disposed = true;
+      pendingAutoRenders.clear();
       autoRenderTimer.clear();
       cancelActiveRender();
     },

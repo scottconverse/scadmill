@@ -1,40 +1,35 @@
 import { lazy, Suspense, useCallback, useRef, useState } from "react";
-import {
-  activeDocument,
-  canCloseDocument,
-  canReopenDocument,
-} from "../application/documents/document-workspace";
+import { activeDocument, canCloseDocument, canReopenDocument } from "../application/documents/document-workspace";
 import type { WorkspaceLayoutAction } from "../application/layout/workspace-layout";
+import { parameterDocument } from "../application/parameters/parameter-state";
 import { EPHEMERAL_SECRET_STORE } from "../application/settings/secret-store";
 import { viewerDocument } from "../application/viewer/viewer-state";
 import { messages } from "../messages/en";
+import { DiagnosticConsole } from "./diagnostics/DiagnosticConsole";
+import { useDiagnosticNavigation } from "./diagnostics/use-diagnostic-navigation";
+import type { CodeEditorSession, CursorPosition } from "./editor/CodeEditor";
+import { DocumentTabBar, documentTabId } from "./editor/DocumentTabBar";
+import { useDocumentKeybindings } from "./editor/use-document-keybindings";
+import { useEditorCommandCoordinator } from "./editor/use-editor-command-coordinator";
+import { type EngineRecoveryState, EngineUnavailableBanner } from "./engine/EngineUnavailableBanner";
+import { FilesActivity } from "./files/FilesActivity";
+import type { ProjectOpenRequest } from "./files/ProjectLifecycleControls";
+import { ProjectSessionHost } from "./files/ProjectSessionHost";
+import { useFileCommands } from "./files/use-file-commands";
+import { useLayoutKeybindings } from "./layout/use-layout-keybindings";
+import { useNarrowLayout } from "./layout/use-narrow-layout";
 import { WebMenuBar } from "./layout/WebMenuBar";
 import { WorkbenchStatusBar } from "./layout/WorkbenchStatusBar";
 import { WorkspaceFrame } from "./layout/WorkspaceFrame";
-import { useLayoutKeybindings } from "./layout/use-layout-keybindings";
-import { useNarrowLayout } from "./layout/use-narrow-layout";
-import { useReadonlyStore } from "./use-readonly-store";
-import { diagnosticStatusLabel, renderStatusLabel } from "./workbench-status";
-import type { CodeEditorSession, CursorPosition } from "./editor/CodeEditor";
-import { useEditorCommandCoordinator } from "./editor/use-editor-command-coordinator";
-import { DocumentTabBar, documentTabId } from "./editor/DocumentTabBar";
-import { useDocumentKeybindings } from "./editor/use-document-keybindings";
-import { DiagnosticConsole } from "./diagnostics/DiagnosticConsole";
-import { useDiagnosticNavigation } from "./diagnostics/use-diagnostic-navigation";
-import {
-  EngineUnavailableBanner,
-  type EngineRecoveryState,
-} from "./engine/EngineUnavailableBanner";
+import { ParameterPanelConnector } from "./parameters/ParameterPanelConnector";
 import { RenderControls } from "./render/RenderControls";
 import { useWorkbenchRenderCommands } from "./render/use-workbench-render-commands";
-import { FilesActivity } from "./files/FilesActivity";
-import { ProjectSessionHost } from "./files/ProjectSessionHost";
-import type { ProjectOpenRequest } from "./files/ProjectLifecycleControls";
-import { useFileCommands } from "./files/use-file-commands";
-import type { WorkbenchProps } from "./workbench-props";
-import { ViewerPaneConnector } from "./viewer/ViewerPaneConnector";
-import { resolveActiveViewerPresentation } from "./viewer/active-viewer-presentation";
 import { SettingsLauncher } from "./settings/SettingsLauncher";
+import { useReadonlyStore } from "./use-readonly-store";
+import { resolveActiveViewerPresentation } from "./viewer/active-viewer-presentation";
+import { ViewerPaneConnector } from "./viewer/ViewerPaneConnector";
+import type { WorkbenchProps } from "./workbench-props";
+import { diagnosticStatusLabel, renderStatusLabel } from "./workbench-status";
 import "./workbench.css";
 
 const CodeEditor = lazy(() => import("./editor/CodeEditor").then((module) => ({ default: module.CodeEditor })));
@@ -69,12 +64,14 @@ export function Workbench({
   const keybindings = useReadonlyStore(runtime.settings, (state) => state.keybindings);
   const layout = useReadonlyStore(runtime.layout, (state) => state);
   const viewerState = useReadonlyStore(runtime.viewer, (state) => state);
+  const parameterState = useReadonlyStore(runtime.parameters, (state) => state);
   const projectState = useReadonlyStore(runtime.project, (state) => state);
   const narrow = useNarrowLayout(undefined, forceNarrowLayout);
   const activeViewer = viewerDocument(viewerState, document.id);
   const presentation = resolveActiveViewerPresentation({
     activeDocumentId: document.id,
     documents,
+    parameters: parameterState,
     render,
     viewer: activeViewer,
   });
@@ -384,6 +381,8 @@ export function Workbench({
         narrow={narrow}
         consoleContent={consoleContent}
         editor={editor}
+        parameterContent={<ParameterPanelConnector documentId={document.id} runtime={runtime}
+          state={parameterDocument(parameterState, document.id)} />}
         viewer={viewer}
         onLayoutAction={dispatchLayout}
       />

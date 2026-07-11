@@ -65,6 +65,28 @@ button:focus-visible, select:focus-visible, [tabindex]:focus-visible { outline: 
 .workspace-viewer-surface { grid-row: 1; min-width: 0; min-height: 0; }
 .workspace-viewer-column > .panel-splitter-horizontal { grid-row: 2; }
 .workspace-parameter-panel { position: relative; grid-row: 3; min-width: 0; min-height: 0; overflow: auto; border-top: 1px solid var(--chrome-border); background: var(--chrome-surface); }
+.parameter-panel-content { display: grid; gap: 8px; padding: 10px; color: var(--chrome-text); font-size: 12px; }
+.parameter-panel-content details { border: 1px solid var(--chrome-border); border-radius: 5px; background: var(--chrome-surface-raised); }
+.parameter-panel-content summary { padding: 7px 9px; cursor: pointer; font-weight: 600; }
+.parameter-group { display: grid; gap: 7px; padding: 0 9px 9px; }
+.parameter-control { display: grid; grid-template-columns: minmax(72px, .7fr) minmax(110px, 1fr) auto; align-items: center; gap: 7px; }
+.parameter-control input:not([type="checkbox"]), .parameter-control select { min-width: 0; width: 100%; border: 1px solid var(--chrome-border); border-radius: 4px; background: var(--chrome-surface); color: var(--chrome-text); }
+.parameter-control input[type="checkbox"], .parameter-control input[type="range"] { accent-color: var(--chrome-accent); }
+.parameter-label { display: grid; min-width: 0; }
+.parameter-label span { overflow: hidden; color: var(--chrome-text-muted); text-overflow: ellipsis; white-space: nowrap; }
+.parameter-slider { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 5px; }
+.parameter-vector { display: grid; grid-template-columns: repeat(auto-fit, minmax(48px, 1fr)); gap: 4px; }
+.parameter-control button, .parameter-panel-actions button, .parameter-set-actions button, .parameter-set-exchange button { border: 1px solid var(--chrome-border); border-radius: 4px; background: var(--chrome-surface); color: var(--chrome-text); cursor: pointer; }
+.parameter-control button:disabled, .parameter-panel-actions button:disabled, .parameter-set-actions button:disabled, .parameter-set-exchange button:disabled { color: var(--chrome-text-disabled); cursor: not-allowed; }
+.parameter-set-controls { display: grid; gap: 6px; padding-bottom: 2px; }
+.parameter-set-controls label { display: grid; grid-template-columns: minmax(84px, auto) minmax(0, 1fr); align-items: center; gap: 7px; }
+.parameter-set-controls input, .parameter-set-controls select { min-width: 0; border: 1px solid var(--chrome-border); border-radius: 4px; background: var(--chrome-surface); color: var(--chrome-text); }
+.parameter-set-actions, .parameter-panel-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.parameter-set-exchange { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.parameter-set-exchange label { display: inline-flex; grid-template-columns: none; padding: 2px 6px; border: 1px solid var(--chrome-border); border-radius: 4px; cursor: pointer; }
+.parameter-set-exchange label[aria-disabled="true"] { color: var(--chrome-text-disabled); cursor: not-allowed; }
+.parameter-set-exchange input[type="file"] { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; clip-path: inset(50%); }
+.parameter-set-exchange p { flex-basis: 100%; margin: 0; }
 .workspace-frame > .panel-splitter-horizontal { grid-row: 2; }
 .workspace-console { position: relative; grid-row: 3; min-width: 0; min-height: 0; overflow: auto; border-top: 1px solid var(--chrome-border); background: var(--console-background); color: var(--console-text); }
 .workspace-console .layout-panel-heading { color: var(--console-text); }

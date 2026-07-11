@@ -41,6 +41,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Explicit checking, unavailable, invalid-config, and ready engine-health states with deduplicated retry progress and actionable rejected-path feedback.
 - A keyboard-navigable Edit menu for the implemented find, replace, go-to-line, comment-toggle, undo, and redo commands, showing each active runtime binding.
 - Native integration coverage for real multi-file includes, imported binary STL assets, cross-file parser errors, parameter overrides, 2D bounds, ASCII STL/SVG/PNG exports, and post-timeout render recovery.
+- A complete M2 Customizer surface with structural top-level parameter extraction, stock annotation controls, grouped and hidden sections, debounced overrides, exact source rewriting, named sets, and stock OpenSCAD JSON interchange.
 - A demand-driven 3D viewer with controlled cameras, axis views, fit and projection controls, configurable mouse mapping and scene furniture, off-thread STL decoding, large-mesh degradation, point measurements, bounded per-project/file annotation persistence, last-good error presentation, and scene PNG capture.
 - An exact 2D SVG pane with an allowlist sanitizer, engine-bounds normalization, automatic or pinned 2D/3D routing, cursor-centered pan/zoom, fit, dimensions, and millimeters-per-pixel scale.
 - Real Chromium WebGL acceptance evidence that viewport capture produces a decodable PNG dominated by the active theme background.
@@ -69,6 +70,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Web startup now degrades to the scratch editor when IndexedDB is absent or access is blocked instead of failing the application module.
 - Made the persisted settings profile authoritative for editor, rendering, engine path, theme, AI, keybinding, and privacy preferences, including compatibility migration from the earlier engine-path slot.
 - Pinned the desktop keychain boundary to `keyring` 4.1.4 and kept ordinary settings in a separate platform-config JSON file.
+- Used the A-8-approved scoped `@openscad/tree-sitter-openscad` 0.6.1 source as an attributed MIT structural reference while retaining the independently authored generated Lezer runtime grammar and adding no second parser dependency.
 
 ### Known policy block
 

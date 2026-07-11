@@ -474,6 +474,43 @@ describe("Workbench", () => {
     });
   });
 
+  it("reports rejected parameter commands without an unhandled promise", async () => {
+    const engine: EngineService = {
+      render: vi.fn(),
+      export: vi.fn(),
+      version: vi.fn(),
+      cancel: vi.fn(),
+    };
+    const runtime = createWorkbenchRuntime(engine, { makeId: () => "parameter-command" });
+    for (const name of ["existing", "selected"]) {
+      await runtime.dispatch({
+        kind: "update-parameters",
+        origin: "user",
+        action: { kind: "save-set", documentId: "document-main", name },
+      });
+    }
+    const view = render(
+      <Workbench
+        runtime={runtime}
+        engineLabel="OpenSCAD 2026.06.12"
+        activeTheme={SHIPPED_THEMES[0]}
+        themePreference="system"
+        onThemePreferenceChange={vi.fn()}
+      />,
+    );
+    const workbench = within(view.container);
+
+    fireEvent.change(workbench.getByLabelText(messages.parameterSetName), {
+      target: { value: "existing" },
+    });
+    fireEvent.click(workbench.getByRole("button", { name: messages.renameParameterSet }));
+
+    expect(await workbench.findByText(/parameter command.*already exists/i))
+      .toHaveAttribute("role", "alert");
+    expect(runtime.parameters.getState().documents.get("document-main")?.sets.map(({ name }) => name))
+      .toEqual(["existing", "selected"]);
+  });
+
   it("routes global C0 shortcuts and visible collapse controls through the command bus", async () => {
     const engine: EngineService = {
       render: vi.fn(),

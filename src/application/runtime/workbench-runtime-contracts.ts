@@ -2,13 +2,14 @@ import type { ConsoleState } from "../diagnostics/console-state";
 import type { EditorCommandOutcome } from "../commands/editor-commands";
 import type { KeybindingSettings } from "../commands/default-keybindings";
 import type { DocumentSeed, DocumentWorkspaceState } from "../documents/document-workspace";
-import type { Quality, RenderResult } from "../engine/contracts";
+import type { ParamValue, Quality, RenderResult } from "../engine/contracts";
 import type {
   WorkspaceLayoutAction,
   WorkspaceLayoutState,
 } from "../layout/workspace-layout";
 import type { ThemePreference } from "../theme/theme-runtime";
 import type { ViewerAction, ViewerState } from "../viewer/viewer-state";
+import type { ParameterAction, ParameterState } from "../parameters/parameter-state";
 import type { WorkspaceLayoutPersistence } from "./layout-persistence";
 import type { RenderingSettings, SettingsState } from "./render-settings";
 import type { SettingsPersistence } from "../settings/settings-persistence";
@@ -31,6 +32,7 @@ export interface RenderState {
   sourceRevision?: number;
   sourceFiles?: ReadonlyMap<string, ProjectFileContent>;
   projectRevision?: number;
+  parameterValues?: Readonly<Record<string, ParamValue>>;
   result?: RenderResult;
 }
 
@@ -66,6 +68,8 @@ export type WorkbenchCommand =
   | { kind: "clear-console"; origin: CommandOrigin }
   | { kind: "update-layout"; origin: CommandOrigin; action: WorkspaceLayoutAction }
   | { kind: "update-viewer"; origin: CommandOrigin; action: ViewerAction }
+  | { kind: "update-parameters"; origin: CommandOrigin; action: ParameterAction }
+  | { kind: "write-parameter-values"; origin: CommandOrigin; documentId: string }
   | { kind: "render-active"; origin: CommandOrigin; quality: Quality };
 
 export interface HistoryEntry {
@@ -91,6 +95,7 @@ export interface WorkbenchRuntime {
   settings: ReadonlyStore<SettingsState>;
   layout: ReadonlyStore<WorkspaceLayoutState>;
   viewer: ReadonlyStore<ViewerState>;
+  parameters: ReadonlyStore<ParameterState>;
   project: ReadonlyStore<ProjectSessionState>;
   history: ReadonlyStore<readonly HistoryEntry[]>;
   dispatch(command: WorkbenchCommand): Promise<void>;

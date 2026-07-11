@@ -13,6 +13,7 @@ export interface WorkspaceFrameProps {
   activityBadges?: Readonly<Partial<Record<ActivityPanel, boolean>>>;
   activityContent?: Readonly<Partial<Record<ActivityPanel, ReactNode>>>;
   consoleContent?: ReactNode;
+  parameterContent?: ReactNode;
   layout: WorkspaceLayoutState;
   narrow: boolean;
   editor: ReactNode;
@@ -32,6 +33,7 @@ export function WorkspaceFrame({
   activityBadges = {},
   activityContent = {},
   consoleContent,
+  parameterContent,
   layout,
   narrow,
   editor,
@@ -298,7 +300,7 @@ export function WorkspaceFrame({
                 ×
               </button>
             </header>
-            <p>{messages.noParametersDetected}</p>
+            {parameterContent ?? <p>{messages.noParametersDetected}</p>}
           </section>
         </div>
       </div>

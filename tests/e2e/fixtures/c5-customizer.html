@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ScadMill Customizer browser fixture</title>
+    <style>
+      html, body, #root { width: 100%; height: 100%; margin: 0; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module">
+      import { createElement } from "react";
+      import { createRoot } from "react-dom/client";
+      import { createWorkbenchRuntime } from "/src/application/runtime/workbench-runtime.ts";
+      import { SHIPPED_THEMES } from "/src/application/theme/shipped-themes.ts";
+      import { Workbench } from "/src/ui/Workbench.tsx";
+
+      const source = `// Overall width
+width = 10; // [1:1:100]
+square([width, 10]);`;
+      const requests = [];
+      let nextJob = 0;
+      const engine = {
+        render(request) {
+          const parameters = Object.fromEntries(Object.entries(request.parameters).map(
+            ([name, value]) => [name, Array.isArray(value) ? [...value] : value],
+          ));
+          requests.push({
+            entryFile: request.entryFile,
+            parameters,
+            quality: request.quality,
+            timeoutMs: request.timeoutMs,
+          });
+          const width = typeof parameters.width === "number" ? parameters.width : 10;
+          const svg = `<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0 L${width} 0 L${width} -10 L0 -10 Z"/></svg>`;
+          return {
+            jobId: `c5-browser-${++nextJob}`,
+            done: Promise.resolve({
+              kind: "2d",
+              svg,
+              boundingBox: { min: [0, 0], max: [width, 10] },
+              diagnostics: [],
+              rawLog: "",
+            }),
+            subscribeOutput: () => () => undefined,
+          };
+        },
+        export() { throw new Error("Export is outside the C5 browser fixture."); },
+        version: async () => ({ version: "2026.06.12", path: "native", features: [] }),
+        cancel() {},
+      };
+      let command = 0;
+      const runtime = createWorkbenchRuntime(engine, { makeId: () => `c5-command-${++command}` });
+      await runtime.dispatch({
+        kind: "edit-document",
+        origin: "system",
+        documentId: "document-main",
+        source,
+      });
+      await runtime.dispatch({
+        kind: "engine-availability-changed",
+        origin: "system",
+        available: true,
+      });
+      await runtime.dispatch({ kind: "render-active", origin: "system", quality: "preview" });
+
+      window.c5CustomizerHarness = {
+        requests,
+        renderState: () => runtime.render.getState(),
+        source: () => runtime.documents.getState().documents[0]?.source,
+      };
+      createRoot(document.getElementById("root")).render(createElement(Workbench, {
+        runtime,
+        engine,
+        engineLabel: "OpenSCAD 2026.06.12",
+        engineAvailable: true,
+        activeTheme: SHIPPED_THEMES[0],
+        themePreference: "system",
+        showWebMenu: false,
+        onThemePreferenceChange: () => {},
+      }));
+    </script>
+  </body>
+</html>

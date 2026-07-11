@@ -24,6 +24,22 @@ afterAll(() => {
 });
 
 describe("WorkspaceFrame", () => {
+  it("renders supplied Customizer content inside the existing parameter region", () => {
+    const view = render(
+      <WorkspaceFrame
+        layout={DEFAULT_WORKSPACE_LAYOUT}
+        narrow={false}
+        editor={editor}
+        parameterContent={<p>Width Customizer control</p>}
+        viewer={viewer}
+        onLayoutAction={vi.fn()}
+      />,
+    );
+
+    expect(within(view.container).queryByText("Width Customizer control")).toBeVisible();
+    expect(within(view.container).queryByText("No parameters were detected.")).not.toBeInTheDocument();
+  });
+
   it("renders the exact wide layout landmarks and four splitters", () => {
     const view = render(
       <WorkspaceFrame

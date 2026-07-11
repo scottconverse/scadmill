@@ -327,6 +327,7 @@ describe("createWorkbenchRuntime", () => {
       entryFile: "parts/wheel.scad",
       sourceRevision: 0,
       projectRevision: 0,
+      parameterValues: {},
       sourceFiles: new Map([
         ["main.scad", "cube(10);"],
         ["parts/wheel.scad", "cylinder(r = 4, h = 2);"],
