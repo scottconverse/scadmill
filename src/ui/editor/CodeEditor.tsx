@@ -219,6 +219,11 @@ export function CodeEditor({
   onSessionChangeRef.current = onSessionChange;
   onCommandRef.current = onCommand;
 
+  useEffect(() => () => {
+    completionSourceRef.current?.dispose();
+    completionSourceRef.current = null;
+  }, []);
+
   useEffect(() => {
     if (!host.current) {
       return;

@@ -1,4 +1,9 @@
-import type { Completion, CompletionContext, CompletionSource } from "@codemirror/autocomplete";
+import type {
+  Completion,
+  CompletionContext,
+  CompletionResult,
+  CompletionSource,
+} from "@codemirror/autocomplete";
 import { syntaxTree } from "@codemirror/language";
 
 import openScadSignatures from "../../language/openscad-signatures.json";
@@ -11,10 +16,14 @@ import {
 } from "./openscad-builtins";
 import {
   currentFileCompletions,
-  OpenScadProjectCompletionCache,
   type OpenScadUserCompletion,
-  projectFileCompletions,
+  projectSymbolCompletion,
+  rootProjectReferences,
 } from "./openscad-symbols";
+import {
+  OpenScadProjectIndexClient,
+  type ProjectIndexWorkerFactory,
+} from "./openscad-project-index-client";
 
 type OpenScadCompletionName = keyof typeof openScadCompletionDescriptions;
 
@@ -26,6 +35,8 @@ export interface OpenScadProjectCompletionContext {
 
 export type OpenScadProjectCompletionProvider =
   () => OpenScadProjectCompletionContext | undefined;
+
+export type DisposableCompletionSource = CompletionSource & { dispose(): void };
 
 export interface OpenScadCompletion extends Completion {
   label: OpenScadCompletionName;
@@ -203,11 +214,16 @@ function builtinCompletionKey(label: string, expressionContext: boolean): string
   return `${symbolKind}:${label}`;
 }
 
-function completeOpenScad(
+interface PreparedCompletion {
+  readonly from: number;
+  readonly options: Map<string, Completion>;
+  readonly specialVariableContext: boolean;
+  readonly expressionContext: boolean;
+}
+
+function prepareOpenScadCompletion(
   context: CompletionContext,
-  project?: OpenScadProjectCompletionContext,
-  projectCache?: OpenScadProjectCompletionCache,
-) {
+): PreparedCompletion | null {
   if (isInsideExcludedNode(context)) return null;
 
   const word = context.matchBefore(/[$A-Za-z_][A-Za-z0-9_$]*$/);
@@ -235,31 +251,82 @@ function completeOpenScad(
       completion,
     ]),
   );
-  if (project) {
-    for (const completion of projectFileCompletions(context.state, project, projectCache)) {
-      if (userCompletionMatchesContext(completion, specialVariableContext, expressionContext)) {
-        options.set(`${completion.symbolKind}:${completion.label}`, completion);
-      }
+  return { from, options, specialVariableContext, expressionContext };
+}
+
+function finishOpenScadCompletion(
+  context: CompletionContext,
+  prepared: PreparedCompletion,
+  projectCompletions: readonly OpenScadUserCompletion[],
+): CompletionResult {
+  const options = new Map(prepared.options);
+  for (const completion of projectCompletions) {
+    if (userCompletionMatchesContext(
+      completion,
+      prepared.specialVariableContext,
+      prepared.expressionContext,
+    )) {
+      options.set(`${completion.symbolKind}:${completion.label}`, completion);
     }
   }
   for (const completion of currentFileCompletions(context.state, context.pos)) {
-    if (userCompletionMatchesContext(completion, specialVariableContext, expressionContext)) {
+    if (userCompletionMatchesContext(
+      completion,
+      prepared.specialVariableContext,
+      prepared.expressionContext,
+    )) {
       options.set(`${completion.symbolKind}:${completion.label}`, completion);
     }
   }
 
   return {
-    from,
+    from: prepared.from,
     options: [...options.values()],
     validFor: /[$A-Za-z_][A-Za-z0-9_$]*/,
   };
 }
 
-export const openScadCompletionSource: CompletionSource = (context) => completeOpenScad(context);
+function completeOpenScad(context: CompletionContext): CompletionResult | null {
+  const prepared = prepareOpenScadCompletion(context);
+  return prepared ? finishOpenScadCompletion(context, prepared, []) : null;
+}
+
+export const openScadCompletionSource: CompletionSource = completeOpenScad;
 
 export function createOpenScadCompletionSource(
   project: OpenScadProjectCompletionProvider,
-): CompletionSource {
-  const cache = new OpenScadProjectCompletionCache();
-  return (context) => completeOpenScad(context, project(), cache);
+  workerFactory?: ProjectIndexWorkerFactory,
+): DisposableCompletionSource {
+  const index = new OpenScadProjectIndexClient(workerFactory);
+  const source: CompletionSource = async (context) => {
+    const prepared = prepareOpenScadCompletion(context);
+    if (!prepared) return null;
+    const projectContext = project();
+    if (!projectContext) return finishOpenScadCompletion(context, prepared, []);
+    const references = rootProjectReferences(context.state);
+    if (references.length === 0) return finishOpenScadCompletion(context, prepared, []);
+
+    const controller = new AbortController();
+    context.addEventListener("abort", () => controller.abort(), { onDocChange: true });
+    try {
+      const symbols = await index.index({
+        documentPath: projectContext.documentPath,
+        references,
+        sources: projectContext.sources,
+      }, controller.signal);
+      if (context.aborted || controller.signal.aborted) return null;
+      return finishOpenScadCompletion(
+        context,
+        prepared,
+        symbols.map(projectSymbolCompletion),
+      );
+    } catch (error) {
+      return context.aborted
+        || controller.signal.aborted
+        || (error instanceof Error && error.name === "AbortError")
+        ? null
+        : finishOpenScadCompletion(context, prepared, []);
+    }
+  };
+  return Object.assign(source, { dispose: () => index.dispose() });
 }

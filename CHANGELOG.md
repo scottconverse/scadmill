@@ -92,7 +92,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Removed the Customizer's arbitrary four-component ceiling so every finite numeric vector component remains editable and round-trippable.
 - Routed keybinding rejection and rendered-mesh fallback copy through the English message catalog instead of displaying implementation-layer error strings.
 - Routed the ready-engine version status through the English message catalog, closing the remaining N-4 inline status construction found by the final M2 preflight.
-- Made cross-file completion renderer-safe: referenced sources are read lazily, unchanged files reuse a bounded path-and-source cache, aggregate files/code/references/symbols have hard budgets, textual include order determines duplicate signatures, and an open completion list closes when dependency context changes.
+- Moved uncached structural cross-file completion indexing into a dedicated Vite worker with an asynchronous CodeMirror source, cooperative workerless fallback, safe cancellation/disposal/error recovery, a 2.1-million-code-unit per-file limit, an 8-million-code-unit traversal budget, and a bounded exact-source cache. Repeated textual includes now replay cached structural events, so `include A; include B; include A` correctly restores A's authority while recursion-stack and global work budgets still stop cycles and expansion.
 - Kept WebView2 automation test-only: the packaged lane passes Microsoft's documented host-app remote-debugging switch through official `tauri-driver` and bridges EdgeDriver's `DevToolsActivePort` path mismatch without changing normal ScadMill launches.
 
 ### Known policy block

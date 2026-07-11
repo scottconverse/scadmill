@@ -286,6 +286,29 @@ thickness = 3;`;
     });
   });
 
+  it("replays cached files when a later textual include makes them authoritative again", async () => {
+    const project: OpenScadProjectCompletionContext = {
+      documentPath: "main.scad",
+      sources: new Map([
+        ["main.scad", "include <a.scad>\ninclude <b.scad>\ninclude <a.scad>\ndu"],
+        ["a.scad", "module duplicate(from_a = true) {}"],
+        ["b.scad", "module duplicate(from_b = true) {}"],
+      ]),
+    };
+
+    const result = await complete(
+      "include <a.scad>\ninclude <b.scad>\ninclude <a.scad>\ndu",
+      undefined,
+      false,
+      project,
+    );
+
+    expect(result?.options.find(({ label }) => label === "duplicate")).toMatchObject({
+      detail: "duplicate(from_a = true)",
+      info: "Module defined in project file a.scad.",
+    });
+  });
+
   it("caches unchanged referenced files and invalidates only changed source", async () => {
     let project: OpenScadProjectCompletionContext = {
       documentPath: "main.scad",
@@ -300,7 +323,7 @@ thickness = 3;`;
       "include <lib.scad>\npa".length,
       false,
     );
-    const parse = vi.spyOn(parser, "parse");
+    const parse = vi.spyOn(parser, "startParse");
 
     await source(context());
     await source(context());
@@ -320,7 +343,7 @@ thickness = 3;`;
     parse.mockRestore();
   });
 
-  it("bounds aggregate referenced source before parsing an unbounded project graph", async () => {
+  it("indexes ordinary project symbols beyond the former 100,000-code-unit cutoff", async () => {
     const padding = `${"// padding\n".repeat(2_000)}`;
     const sources = new Map<string, string>();
     const fileCount = 6;
@@ -340,7 +363,7 @@ thickness = 3;`;
     );
 
     expect(result?.options.map(({ label }) => label)).toContain("bounded_0");
-    expect(result?.options.map(({ label }) => label)).not.toContain("bounded_5");
+    expect(result?.options.map(({ label }) => label)).toContain("bounded_5");
   });
 
   it("bounds reference traversal even when most injected paths are absent", async () => {
@@ -362,7 +385,7 @@ thickness = 3;`;
     expect(result?.options.map(({ label }) => label)).not.toContain("late_symbol");
   });
 
-  it("rejects an oversized adversarial fanout before it can block completion", async () => {
+  it("bounds an adversarial 60,000-reference fanout without starving the event loop", async () => {
     const fanout = Array.from(
       { length: 60_000 },
       (_, index) => `include <missing-${index}.scad>`,
@@ -370,16 +393,88 @@ thickness = 3;`;
     const project: OpenScadProjectCompletionContext = {
       documentPath: "main.scad",
       sources: new Map([
-        ["main.scad", "include <fanout.scad>\nmi"],
-        ["fanout.scad", fanout],
+        ["main.scad", "include <fanout.scad>\nla"],
+        ["fanout.scad", `${fanout}\ninclude <late.scad>`],
+        ["late.scad", "module late_symbol() {}"],
       ]),
     };
-    const startedAt = performance.now();
+    let heartbeat = false;
+    setTimeout(() => {
+      heartbeat = true;
+    }, 0);
 
-    const result = await complete("include <fanout.scad>\nmi", undefined, false, project);
+    const result = await complete("include <fanout.scad>\nla", undefined, false, project);
 
-    expect(performance.now() - startedAt).toBeLessThan(100);
-    expect(result?.options.map(({ label }) => label)).not.toContain("missing-59999");
+    expect(heartbeat).toBe(true);
+    expect(result?.options.map(({ label }) => label)).not.toContain("late_symbol");
+  });
+
+  it("cooperatively indexes a two-million-code-unit file without starving the event loop", async () => {
+    const declaration = "module million_scale_symbol(size = 3) {}";
+    const source = `${" ".repeat(2_000_000 - declaration.length)}${declaration}`;
+    const project: OpenScadProjectCompletionContext = {
+      documentPath: "main.scad",
+      sources: new Map([
+        ["main.scad", "include <large.scad>\nmi"],
+        ["large.scad", source],
+      ]),
+    };
+    let heartbeat = false;
+    setTimeout(() => {
+      heartbeat = true;
+    }, 0);
+
+    const result = await complete("include <large.scad>\nmi", undefined, false, project);
+
+    expect(heartbeat).toBe(true);
+    expect(result?.options.map(({ label }) => label)).toContain("million_scale_symbol");
+  });
+
+  it("owns and disposes a dedicated project-index worker", async () => {
+    const terminate = vi.fn();
+    const postMessage = vi.fn();
+    const construction = vi.fn();
+    class TestWorker {
+      onmessage: ((event: MessageEvent<unknown>) => void) | null = null;
+      onerror: ((event: ErrorEvent) => void) | null = null;
+
+      constructor() {
+        construction();
+      }
+
+      postMessage(message: unknown) {
+        postMessage(message);
+      }
+
+      terminate() {
+        terminate();
+      }
+    }
+    vi.stubGlobal("Worker", TestWorker);
+    const project: OpenScadProjectCompletionContext = {
+      documentPath: "main.scad",
+      sources: new Map([
+        ["main.scad", "include <lib.scad>\npa"],
+        ["lib.scad", "module part() {}"],
+      ]),
+    };
+    const source = createOpenScadCompletionSource(() => project) as CompletionSource & {
+      dispose?: () => void;
+    };
+    const state = EditorState.create({
+      doc: "include <lib.scad>\npa",
+      extensions: [openScad()],
+    });
+
+    const pending = source(new CompletionContext(state, state.doc.length, false));
+
+    expect(construction).toHaveBeenCalledOnce();
+    expect(postMessage).toHaveBeenCalled();
+    expect(typeof source.dispose).toBe("function");
+    source.dispose?.();
+    expect(terminate).toHaveBeenCalledOnce();
+    await expect(Promise.resolve(pending)).resolves.toBeNull();
+    vi.unstubAllGlobals();
   });
 
   it("lets current-file declarations shadow same-named project declarations", async () => {

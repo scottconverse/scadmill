@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-fr1-completion-worker-bounds",
+  "createdAt": "2026-07-11T17:08:57-06:00",
+  "summary": "Move uncached structural project-symbol indexing off the renderer thread, expand ordinary-file coverage, preserve bounded exact-source reuse, and replay repeated textual includes without weakening cycle or work limits.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 test-first evidence and milestone gates",
+    "FR-1.4 cross-file completion",
+    "A-4/N-1 responsive long work"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-11-fr1-completion-worker-bounds.json", "status": "added" },
+    { "path": "src/ui/editor/CodeEditor.tsx", "status": "modified" },
+    { "path": "src/ui/editor/openscad-completion.ts", "status": "modified" },
+    { "path": "src/ui/editor/openscad-project-index-client.ts", "status": "added" },
+    { "path": "src/ui/editor/openscad-project-index.ts", "status": "added" },
+    { "path": "src/ui/editor/openscad-project-index.worker.ts", "status": "added" },
+    { "path": "src/ui/editor/openscad-symbols.ts", "status": "modified" },
+    { "path": "tests/ui/editor/openscad-completion.test.ts", "status": "modified" },
+    { "path": "tests/ui/editor/openscad-project-index-client.test.ts", "status": "added" },
+    { "path": "tests/ui/editor/openscad-project-index.test.ts", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0199",
+      "topic": "Dedicated off-renderer project-symbol indexing",
+      "decision": "Run uncached structural project-file indexing in a dedicated Vite Web Worker behind an asynchronous CodeMirror CompletionSource. Keep lazy path-by-path source requests and a bounded normalized-path-plus-exact-source cache; allow 2,100,000 code units per file and 8,000,000 per traversal, with hard file, reference, event, symbol, depth, and 16,000,000-code-unit cache budgets. When Worker is unavailable or fails, use the same structural grammar through a cooperatively yielding fallback, and make abort, worker error, and editor disposal settle safely.",
+      "rationale": "The earlier synchronous 50,000-per-file and 100,000-aggregate limits protected the renderer by silently excluding ordinary valid project symbols. Off-renderer parsing preserves responsiveness while materially expanding useful coverage; the cooperative fallback and explicit lifecycle bounds keep unsupported or failed Worker environments safe.",
+      "specBasis": [
+        "FR-1.4 cross-file completion",
+        "A-4/N-1 responsive long work",
+        "Section 2.7 test-first evidence and milestone gates"
+      ]
+    },
+    {
+      "id": "D-0200",
+      "topic": "Repeated textual include authority",
+      "decision": "Replay cached structural events for every textual include/use occurrence in depth-first source order, using only the active recursion stack for cycle prevention while global source, reference, event, symbol, file, and depth budgets bound repetition and expansion.",
+      "rationale": "A global visited set incorrectly made the first occurrence permanent: include A; include B; include A left B authoritative. Replaying already-parsed events restores textual last-occurrence authority without reparsing unchanged source, while stack-local cycle detection and global budgets prevent recursive or repeated graphs from looping or exploding.",
+      "specBasis": [
+        "FR-1.4 cross-file completion",
+        "A-4/N-1 responsive long work",
+        "Section 2.7 test-first evidence and milestone gates"
+      ]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Previously omitted ordinary files, renderer responsiveness, repeated-include authority, and Worker ownership reproduce before implementation",
+      "test": "Require A/B/A to restore A, index the final symbol after more than 100,000 aggregate code units, index a two-million-code-unit file after an event-loop heartbeat, and construct/dispose a dedicated project-index Worker.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-completion.test.ts --reporter=verbose -t \"replays cached|former 100,000|two-million|owns and disposes\"",
+        "observedAt": "2026-07-11T16:58:32-06:00",
+        "outcome": "ASSERTION-LEVEL RED: Test Files 1 failed; Tests 4 failed and 19 skipped. A/B/A returned B, the sixth ordinary file was absent, the heartbeat had not run, and no Worker was constructed."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-completion.test.ts --reporter=verbose -t \"replays cached|former 100,000|two-million|owns and disposes\"",
+        "observedAt": "2026-07-11T17:04:01-06:00",
+        "outcome": "GREEN: Test Files 1 passed; Tests 4 passed and 19 skipped. The two-million-code-unit fallback case completed in 36 ms with the scheduled heartbeat observed."
+      }
+    },
+    {
+      "criterion": "Worker result, lazy lookup, error fallback, cancellation, disposal, and aggregate bounds are load-bearing",
+      "test": "Drive the worker message protocol directly, force a worker error into cooperative structural fallback, abort an unfinished request, and traverse one million-code-unit files until the eight-million aggregate ceiling.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-project-index-client.test.ts tests/ui/editor/openscad-project-index.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T17:07:23-06:00",
+        "outcome": "ASSERTION-LEVEL RED: Test Files 1 failed and 1 passed; Tests 3 failed and 1 passed. The injected Worker was bypassed, so result, error-termination, and cancel-message assertions failed while the aggregate ceiling already held."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-project-index-client.test.ts tests/ui/editor/openscad-project-index.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T17:07:43-06:00",
+        "outcome": "GREEN: Test Files 2 passed; Tests 4 passed. Worker result/lazy lookup, error fallback/termination, cancellation, disposal, and the eight-file aggregate boundary passed together."
+      }
+    },
+    {
+      "criterion": "Rejected sources cannot bypass a hard budget by being referenced twice, and worker-declared errors retire the failed worker",
+      "test": "Reference the first over-budget file twice after exactly eight million accepted code units, and return the worker's explicit project-index-error protocol response before structural fallback.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-project-index-client.test.ts tests/ui/editor/openscad-project-index.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T17:11:01-06:00",
+        "outcome": "ASSERTION-LEVEL RED: Test Files 2 failed; Tests 2 failed and 2 passed. The second reference parsed the previously rejected ninth file, and an explicit worker error fell back without terminating the failed worker."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-project-index-client.test.ts tests/ui/editor/openscad-project-index.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T17:11:20-06:00",
+        "outcome": "GREEN: Test Files 2 passed; Tests 4 passed. Rejected paths remain rejected for the request, the exact aggregate ceiling holds under replay, and both worker error channels retire the worker before cooperative fallback."
+      }
+    },
+    {
+      "criterion": "Worker posting failures settle all concurrent requests and over-limit files never cross the renderer-to-worker clone boundary",
+      "test": "Leave one Worker request pending, throw while posting the next request, and separately request a 2,100,001-code-unit source through the Worker protocol.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-project-index-client.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T17:12:53-06:00",
+        "outcome": "ASSERTION-LEVEL RED: Test Files 1 failed; Tests 2 failed and 3 passed. The oversized string was posted into the Worker and the earlier pending request remained unsettled after the later post failure."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-project-index-client.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T17:13:08-06:00",
+        "outcome": "GREEN: Test Files 1 passed; Tests 5 passed. The client substitutes undefined before cloning an over-limit source and retires the worker into cooperative fallback for every outstanding request after a post failure."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "D-0199 supersedes D-0194's implementation limits; D-0194 remains immutable historical evidence of the prior synchronous safety response.",
+    "The hard limits affect only supplemental cross-file suggestions; editing, saving, rendering, exports, current-file completion, and project content remain unchanged.",
+    "No owner similarity gate, comparison repository, workflow content, or prohibited source was opened or executed."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
