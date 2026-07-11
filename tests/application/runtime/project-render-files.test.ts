@@ -4,10 +4,10 @@ import { createDocumentWorkspace } from "../../../src/application/documents/docu
 import { parseProjectPath } from "../../../src/application/files/project-path";
 import { createProjectSessionState } from "../../../src/application/files/project-session";
 import { createProjectSnapshot } from "../../../src/application/files/project-snapshot";
-import { buildRuntimeTextFileMap } from "../../../src/application/runtime/project-render-files";
+import { createRuntimeTextFileLookup } from "../../../src/application/runtime/project-render-files";
 
 describe("runtime project file maps", () => {
-  it("builds a text-only project map with open buffers as the authority", () => {
+  it("reads text lazily with open buffers as the authority", () => {
     const snapshot = createProjectSnapshot(
       "completion-project",
       new Map<string, string | Uint8Array>([
@@ -22,11 +22,13 @@ describe("runtime project file maps", () => {
       { id: "notes", path: "notes.scad", source: "echo(\"open\");" },
     ]);
 
-    expect(buildRuntimeTextFileMap(project, workspace)).toEqual(new Map([
-      ["main.scad", "cube(2);"],
-      ["lib/part.scad", "module part() {}"],
-      ["notes.scad", "echo(\"open\");"],
-    ]));
+    const sources = createRuntimeTextFileLookup(project.snapshot);
+    sources.update(workspace);
+
+    expect(sources.get("main.scad")).toBe("cube(2);");
+    expect(sources.get("lib/part.scad")).toBe("module part() {}");
+    expect(sources.get("notes.scad")).toBe("echo(\"open\");");
+    expect(sources.get("assets/mesh.stl")).toBeUndefined();
     expect(snapshot.files.get(parseProjectPath("main.scad"))).toBe("cube(1);");
   });
 });

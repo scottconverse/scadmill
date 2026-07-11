@@ -1,6 +1,5 @@
 // @vitest-environment happy-dom
 import {
-  closeCompletion,
   completionStatus,
   currentCompletions,
   startCompletion,
@@ -58,7 +57,6 @@ describe("CodeEditor OpenSCAD language support", () => {
       detail: "bracket(size = 8)",
     }));
 
-    expect(closeCompletion(editor)).toBe(true);
     rendered.rerender(
       <CodeEditor
         projectCompletion={{
@@ -73,6 +71,7 @@ describe("CodeEditor OpenSCAD language support", () => {
         label="Editor"
       />,
     );
+    await waitFor(() => expect(completionStatus(editor.state)).toBeNull());
     expect(startCompletion(editor)).toBe(true);
     await waitFor(() => expect(completionStatus(editor.state)).toBe("active"));
     expect(currentCompletions(editor.state).map(({ label }) => label)).toContain("brace");

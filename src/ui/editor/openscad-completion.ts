@@ -11,15 +11,17 @@ import {
 } from "./openscad-builtins";
 import {
   currentFileCompletions,
-  projectFileCompletions,
+  OpenScadProjectCompletionCache,
   type OpenScadUserCompletion,
+  projectFileCompletions,
 } from "./openscad-symbols";
 
 type OpenScadCompletionName = keyof typeof openScadCompletionDescriptions;
 
 export interface OpenScadProjectCompletionContext {
   readonly documentPath: string;
-  readonly sources: ReadonlyMap<string, string>;
+  readonly revision?: string;
+  readonly sources: Pick<ReadonlyMap<string, string>, "get">;
 }
 
 export type OpenScadProjectCompletionProvider =
@@ -204,6 +206,7 @@ function builtinCompletionKey(label: string, expressionContext: boolean): string
 function completeOpenScad(
   context: CompletionContext,
   project?: OpenScadProjectCompletionContext,
+  projectCache?: OpenScadProjectCompletionCache,
 ) {
   if (isInsideExcludedNode(context)) return null;
 
@@ -233,7 +236,7 @@ function completeOpenScad(
     ]),
   );
   if (project) {
-    for (const completion of projectFileCompletions(context.state, project)) {
+    for (const completion of projectFileCompletions(context.state, project, projectCache)) {
       if (userCompletionMatchesContext(completion, specialVariableContext, expressionContext)) {
         options.set(`${completion.symbolKind}:${completion.label}`, completion);
       }
@@ -257,5 +260,6 @@ export const openScadCompletionSource: CompletionSource = (context) => completeO
 export function createOpenScadCompletionSource(
   project: OpenScadProjectCompletionProvider,
 ): CompletionSource {
-  return (context) => completeOpenScad(context, project());
+  const cache = new OpenScadProjectCompletionCache();
+  return (context) => completeOpenScad(context, project(), cache);
 }

@@ -10,10 +10,11 @@ import {
 } from "@codemirror/autocomplete";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { basicSetup } from "codemirror";
 import { fireEvent } from "@testing-library/dom";
+import { basicSetup } from "codemirror";
 import { describe, expect, it, vi } from "vitest";
-
+import { codeEditorTheme } from "../../../src/ui/editor/code-editor-theme";
+import { parser } from "../../../src/ui/editor/generated/openscad-parser";
 import {
   OPENSCAD_BUILTIN_FUNCTIONS,
   OPENSCAD_BUILTIN_MODULES,
@@ -23,10 +24,9 @@ import {
 import {
   createOpenScadCompletionSource,
   OPENSCAD_COMPLETIONS,
-  openScadCompletionSource,
   type OpenScadProjectCompletionContext,
+  openScadCompletionSource,
 } from "../../../src/ui/editor/openscad-completion";
-import { codeEditorTheme } from "../../../src/ui/editor/code-editor-theme";
 import { openScad } from "../../../src/ui/editor/openscad-language";
 
 async function complete(
@@ -265,6 +265,121 @@ thickness = 3;`;
     expect(statement?.options.map(({ label }) => label)).toContain("shared_part");
     expect(expression?.options.map(({ label }) => label)).toContain("shared_value");
     expect(expression?.options.map(({ label }) => label)).not.toContain("secret_value");
+  });
+
+  it("preserves textual include order when duplicate declarations are nested", async () => {
+    const project: OpenScadProjectCompletionContext = {
+      documentPath: "main.scad",
+      sources: new Map([
+        ["main.scad", "include <a.scad>\ninclude <b.scad>\ndu"],
+        ["a.scad", "include <x.scad>\nmodule dup(a = 1) {}"],
+        ["b.scad", "module dup(b = 2) {}"],
+        ["x.scad", "module dup(x = 3) {}"],
+      ]),
+    };
+
+    const result = await complete("include <a.scad>\ninclude <b.scad>\ndu", undefined, false, project);
+
+    expect(result?.options.find(({ label }) => label === "dup")).toMatchObject({
+      detail: "dup(b = 2)",
+      info: "Module defined in project file b.scad.",
+    });
+  });
+
+  it("caches unchanged referenced files and invalidates only changed source", async () => {
+    let project: OpenScadProjectCompletionContext = {
+      documentPath: "main.scad",
+      sources: new Map([
+        ["main.scad", "include <lib.scad>\npa"],
+        ["lib.scad", "module part(size = 1) {}"],
+      ]),
+    };
+    const source = createOpenScadCompletionSource(() => project);
+    const context = () => new CompletionContext(
+      EditorState.create({ doc: "include <lib.scad>\npa", extensions: [openScad()] }),
+      "include <lib.scad>\npa".length,
+      false,
+    );
+    const parse = vi.spyOn(parser, "parse");
+
+    await source(context());
+    await source(context());
+    expect(parse).toHaveBeenCalledTimes(1);
+
+    project = {
+      ...project,
+      sources: new Map([
+        ["main.scad", "include <lib.scad>\npa"],
+        ["lib.scad", "module panel(size = 2) {}"],
+      ]),
+    };
+    const changed = await source(context());
+
+    expect(parse).toHaveBeenCalledTimes(2);
+    expect(changed?.options.map(({ label }) => label)).toContain("panel");
+    parse.mockRestore();
+  });
+
+  it("bounds aggregate referenced source before parsing an unbounded project graph", async () => {
+    const padding = `${"// padding\n".repeat(2_000)}`;
+    const sources = new Map<string, string>();
+    const fileCount = 6;
+    for (let index = 0; index < fileCount; index += 1) {
+      const next = index + 1 < fileCount ? `include <file-${index + 1}.scad>\n` : "";
+      sources.set(
+        `file-${index}.scad`,
+        `${next}${padding}module bounded_${index}() {}`,
+      );
+    }
+    sources.set("main.scad", "include <file-0.scad>\nbou");
+    const result = await complete(
+      "include <file-0.scad>\nbou",
+      undefined,
+      false,
+      { documentPath: "main.scad", sources },
+    );
+
+    expect(result?.options.map(({ label }) => label)).toContain("bounded_0");
+    expect(result?.options.map(({ label }) => label)).not.toContain("bounded_5");
+  });
+
+  it("bounds reference traversal even when most injected paths are absent", async () => {
+    const missing = Array.from(
+      { length: 600 },
+      (_, index) => `include <missing-${index}.scad>`,
+    ).join("\n");
+    const project: OpenScadProjectCompletionContext = {
+      documentPath: "main.scad",
+      sources: new Map([
+        ["main.scad", "include <fanout.scad>\nla"],
+        ["fanout.scad", `${missing}\ninclude <late.scad>`],
+        ["late.scad", "module late_symbol() {}"],
+      ]),
+    };
+
+    const result = await complete("include <fanout.scad>\nla", undefined, false, project);
+
+    expect(result?.options.map(({ label }) => label)).not.toContain("late_symbol");
+  });
+
+  it("rejects an oversized adversarial fanout before it can block completion", async () => {
+    const fanout = Array.from(
+      { length: 60_000 },
+      (_, index) => `include <missing-${index}.scad>`,
+    ).join("\n");
+    const project: OpenScadProjectCompletionContext = {
+      documentPath: "main.scad",
+      sources: new Map([
+        ["main.scad", "include <fanout.scad>\nmi"],
+        ["fanout.scad", fanout],
+      ]),
+    };
+    const startedAt = performance.now();
+
+    const result = await complete("include <fanout.scad>\nmi", undefined, false, project);
+
+    expect(performance.now() - startedAt).toBeLessThan(100);
+    expect(result?.options.map(({ label }) => label)).not.toContain("missing-59999");
   });
 
   it("lets current-file declarations shadow same-named project declarations", async () => {

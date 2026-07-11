@@ -1,7 +1,8 @@
+import { closeCompletion } from "@codemirror/autocomplete";
 import {
+  type Diagnostic as CodeMirrorDiagnostic,
   lintGutter,
   setDiagnostics,
-  type Diagnostic as CodeMirrorDiagnostic,
 } from "@codemirror/lint";
 import {
   Annotation,
@@ -14,24 +15,23 @@ import {
 import { EditorView, ViewPlugin, type ViewUpdate } from "@codemirror/view";
 import { basicSetup } from "codemirror";
 import { useEffect, useRef } from "react";
-
-import type { Diagnostic } from "../../application/engine/contracts";
-import type { EditorCommandOutcome } from "../../application/commands/editor-commands";
 import {
   DEFAULT_KEYBINDINGS,
   type KeybindingSettings,
   matchesPointerBinding,
   primaryModifierForPlatform,
 } from "../../application/commands/default-keybindings";
+import type { EditorCommandOutcome } from "../../application/commands/editor-commands";
+import type { Diagnostic } from "../../application/engine/contracts";
 import {
   DEFAULT_EDITOR_SETTINGS,
   type EditorSettings,
 } from "../../application/runtime/render-settings";
 import { codeEditorTheme } from "./code-editor-theme";
 import {
+  type EditorCommandRequest,
   editorCommandExtension,
   executeEditorCommand,
-  type EditorCommandRequest,
 } from "./editor-command-execution";
 import {
   createOpenScadCompletionSource,
@@ -196,6 +196,7 @@ export function CodeEditor({
   const projectCompletionContextRef = useRef<OpenScadProjectCompletionContext | undefined>(
     undefined,
   );
+  const previousProjectCompletionRef = useRef(projectCompletion);
   const completionSourceRef = useRef<ReturnType<typeof createOpenScadCompletionSource> | null>(
     null,
   );
@@ -278,6 +279,14 @@ export function CodeEditor({
       editor.destroy();
     };
   }, [label, languageMode]);
+
+  useEffect(() => {
+    if (previousProjectCompletionRef.current !== projectCompletion) {
+      previousProjectCompletionRef.current = projectCompletion;
+      const editor = view.current;
+      if (editor) closeCompletion(editor);
+    }
+  }, [projectCompletion]);
 
   useEffect(() => {
     const editor = view.current;

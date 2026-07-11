@@ -25,7 +25,7 @@ type SourceReader = (from: number, to: number) => string;
 
 export interface OpenScadProjectSources {
   readonly documentPath: string;
-  readonly sources: ReadonlyMap<string, string>;
+  readonly sources: Pick<ReadonlyMap<string, string>, "get">;
 }
 
 function addCompletion(completions: CompletionMap, completion: OpenScadUserCompletion | null) {
@@ -192,93 +192,188 @@ interface ProjectReference {
 }
 
 type ProjectVisibility = "all" | "callable";
-const MAX_PROJECT_COMPLETION_FILES = 256;
-const MAX_PROJECT_COMPLETION_SOURCE_CODE_UNITS = 2_000_000;
+const MAX_PROJECT_COMPLETION_FILES = 64;
+const MAX_PROJECT_COMPLETION_FILE_CODE_UNITS = 50_000;
+const MAX_PROJECT_COMPLETION_TOTAL_CODE_UNITS = 100_000;
+const MAX_PROJECT_COMPLETION_REFERENCES = 512;
+const MAX_PROJECT_COMPLETION_SYMBOLS = 1_024;
 
-function projectReferences(read: SourceReader, container: OpenScadSyntaxNode): ProjectReference[] {
-  const references: ProjectReference[] = [];
-  const visit = (node: OpenScadSyntaxNode) => {
-    if (node.name === "IncludeStatement" || node.name === "UseStatement") {
-      const pathNode = node.getChild("Path");
-      if (pathNode) {
-        const literal = read(pathNode.from, pathNode.to);
-        if (literal.startsWith("<") && literal.endsWith(">")) {
-          try {
-            references.push({
-              kind: node.name === "IncludeStatement" ? "include" : "use",
-              path: parseProjectPath(literal.slice(1, -1)),
-            });
-          } catch {
-            // Completion never follows a path outside the injected project map.
-          }
-        }
+type ProjectFileEvent =
+  | { readonly kind: "reference"; readonly reference: ProjectReference }
+  | { readonly kind: "symbol"; readonly completion: OpenScadUserCompletion };
+
+interface CachedProjectFile {
+  readonly source: string;
+  readonly events: readonly ProjectFileEvent[];
+}
+
+function projectReference(
+  read: SourceReader,
+  node: OpenScadSyntaxNode,
+): ProjectReference | null {
+  if (node.name !== "IncludeStatement" && node.name !== "UseStatement") return null;
+  const pathNode = node.getChild("Path");
+  if (!pathNode) return null;
+  const literal = read(pathNode.from, pathNode.to);
+  if (!literal.startsWith("<") || !literal.endsWith(">")) return null;
+  try {
+    return {
+      kind: node.name === "IncludeStatement" ? "include" : "use",
+      path: parseProjectPath(literal.slice(1, -1)),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function projectFileEvents(source: string, projectPath: string): readonly ProjectFileEvent[] {
+  const tree = parser.parse(source);
+  const read = (from: number, to: number) => source.slice(from, to);
+  const events: ProjectFileEvent[] = [];
+  let references = 0;
+  let symbols = 0;
+  let node = tree.topNode.firstChild;
+  while (node && references < MAX_PROJECT_COMPLETION_REFERENCES && symbols < MAX_PROJECT_COMPLETION_SYMBOLS) {
+    const reference = projectReference(read, node);
+    if (reference) {
+      events.push({ kind: "reference", reference });
+      references += 1;
+    } else {
+      const completion = node.name === "ModuleDeclaration"
+        ? callableCompletion(read, node, "module", projectPath)
+        : node.name === "FunctionDeclaration"
+          ? callableCompletion(read, node, "function", projectPath)
+          : node.name === "AssignmentStatement"
+            ? variableCompletion(read, node, projectPath)
+            : null;
+      if (completion) {
+        events.push({ kind: "symbol", completion });
+        symbols += 1;
       }
     }
-    let child = node.firstChild;
-    while (child) {
-      visit(child);
-      child = child.nextSibling;
+    node = node.nextSibling;
+  }
+  return events;
+}
+
+export class OpenScadProjectCompletionCache {
+  private readonly entries = new Map<string, CachedProjectFile>();
+  private codeUnits = 0;
+
+  read(path: string, source: string): CachedProjectFile | null {
+    const existing = this.entries.get(path);
+    if (existing?.source === source) {
+      this.entries.delete(path);
+      this.entries.set(path, existing);
+      return existing;
     }
-  };
-  visit(container);
+    if (existing) {
+      this.entries.delete(path);
+      this.codeUnits -= existing.source.length;
+    }
+    if (source.length > MAX_PROJECT_COMPLETION_FILE_CODE_UNITS) return null;
+    while (
+      this.entries.size > 0
+      && (
+        this.entries.size >= MAX_PROJECT_COMPLETION_FILES
+        || this.codeUnits + source.length > MAX_PROJECT_COMPLETION_TOTAL_CODE_UNITS
+      )
+    ) {
+      const oldestPath = this.entries.keys().next().value as string | undefined;
+      if (oldestPath === undefined) break;
+      const oldest = this.entries.get(oldestPath);
+      this.entries.delete(oldestPath);
+      this.codeUnits -= oldest?.source.length ?? 0;
+    }
+    const parsed = { source, events: projectFileEvents(source, path) };
+    this.entries.set(path, parsed);
+    this.codeUnits += source.length;
+    return parsed;
+  }
+}
+
+function rootProjectReferences(
+  state: EditorState,
+): readonly ProjectReference[] {
+  const read = (from: number, to: number) => state.sliceDoc(from, to);
+  const references: ProjectReference[] = [];
+  let node = syntaxTree(state).topNode.firstChild;
+  while (node && references.length < MAX_PROJECT_COMPLETION_REFERENCES) {
+    const reference = projectReference(read, node);
+    if (reference) references.push(reference);
+    node = node.nextSibling;
+  }
   return references;
 }
 
 export function projectFileCompletions(
   state: EditorState,
   project: OpenScadProjectSources,
+  cache = new OpenScadProjectCompletionCache(),
 ): readonly OpenScadUserCompletion[] {
   const completions: CompletionMap = new Map();
-  const currentRead = (from: number, to: number) => state.sliceDoc(from, to);
-  const queue = projectReferences(currentRead, syntaxTree(state).topNode).map((reference) => ({
-    path: reference.path,
-    visibility: reference.kind === "include" ? "all" as const : "callable" as const,
-  }));
   const visited = new Map<string, ProjectVisibility>();
+  const visiting = new Set<string>();
   try {
     visited.set(parseProjectPath(project.documentPath), "all");
   } catch {
-    // An invalid active path cannot authorize access to any additional source.
     return [];
   }
 
   let parsedFiles = 0;
-  while (queue.length > 0 && parsedFiles < MAX_PROJECT_COMPLETION_FILES) {
-    const next = queue.shift();
-    if (!next) break;
-    const previousVisibility = visited.get(next.path);
-    if (previousVisibility === "all" || previousVisibility === next.visibility) continue;
-    visited.set(next.path, next.visibility);
-    const source = project.sources.get(next.path);
+  let parsedCodeUnits = 0;
+  let followedReferences = 0;
+  let collectedSymbols = 0;
+  let exhausted = false;
+
+  const visit = (path: string, visibility: ProjectVisibility): void => {
+    if (exhausted || visiting.has(path)) return;
+    const previousVisibility = visited.get(path);
+    if (previousVisibility === "all" || previousVisibility === visibility) return;
+    visited.set(path, visibility);
+    const source = project.sources.get(path);
+    if (source === undefined || source.length > MAX_PROJECT_COMPLETION_FILE_CODE_UNITS) return;
     if (
-      source === undefined
-      || source.length > MAX_PROJECT_COMPLETION_SOURCE_CODE_UNITS
-    ) continue;
+      parsedFiles >= MAX_PROJECT_COMPLETION_FILES
+      || parsedCodeUnits + source.length > MAX_PROJECT_COMPLETION_TOTAL_CODE_UNITS
+    ) return;
+    const parsed = cache.read(path, source);
+    if (!parsed) return;
     parsedFiles += 1;
-    const tree = parser.parse(source);
-    const fileCompletions: CompletionMap = new Map();
-    collectDeclarations(
-      (from, to) => source.slice(from, to),
-      tree.topNode,
-      fileCompletions,
-      next.path,
-    );
-    for (const [key, completion] of fileCompletions) {
-      if (next.visibility === "all" || completion.symbolKind !== "variable") {
-        completions.set(key, completion);
+    parsedCodeUnits += source.length;
+    visiting.add(path);
+    for (const event of parsed.events) {
+      if (event.kind === "symbol") {
+        if (visibility === "all" || event.completion.symbolKind !== "variable") {
+          if (collectedSymbols >= MAX_PROJECT_COMPLETION_SYMBOLS) {
+            exhausted = true;
+            break;
+          }
+          completions.set(
+            `${event.completion.symbolKind}:${event.completion.label}`,
+            event.completion,
+          );
+          collectedSymbols += 1;
+        }
+        continue;
       }
+      if (followedReferences >= MAX_PROJECT_COMPLETION_REFERENCES) {
+        exhausted = true;
+        break;
+      }
+      followedReferences += 1;
+      visit(
+        event.reference.path,
+        visibility === "all" && event.reference.kind === "include" ? "all" : "callable",
+      );
     }
-    for (const reference of projectReferences(
-      (from, to) => source.slice(from, to),
-      tree.topNode,
-    )) {
-      queue.push({
-        path: reference.path,
-        visibility: next.visibility === "all" && reference.kind === "include"
-          ? "all"
-          : "callable",
-      });
-    }
+    visiting.delete(path);
+  };
+
+  for (const reference of rootProjectReferences(state)) {
+    if (followedReferences >= MAX_PROJECT_COMPLETION_REFERENCES) break;
+    followedReferences += 1;
+    visit(reference.path, reference.kind === "include" ? "all" : "callable");
   }
   return [...completions.values()];
 }
