@@ -154,6 +154,19 @@ fn checked_destination(root: &Path, path: &str) -> Result<PathBuf, String> {
     Ok(destination)
 }
 
+fn portable_project_path(relative: &Path) -> Result<String, String> {
+    relative
+        .components()
+        .map(|component| {
+            component.as_os_str().to_str().ok_or_else(|| {
+                "Project entry path contains a file or folder name that is not valid Unicode."
+                    .to_string()
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()
+        .map(|components| components.join("/"))
+}
+
 fn collect_project_files(
     root: &Path,
     directory: &Path,
@@ -167,6 +180,10 @@ fn collect_project_files(
     entries.sort_by_key(|entry| entry.file_name());
     for entry in entries {
         let path = entry.path();
+        let relative = path
+            .strip_prefix(root)
+            .map_err(|_| "Project file escaped the selected root.".to_string())?;
+        let portable = portable_project_path(relative)?;
         let metadata = fs::symlink_metadata(&path)
             .map_err(|error| format!("Could not inspect project entry: {error}"))?;
         if metadata.file_type().is_symlink() {
@@ -196,14 +213,6 @@ fn collect_project_files(
         }
         let bytes = fs::read(&path)
             .map_err(|error| format!("Could not read project file {}: {error}", path.display()))?;
-        let relative = path
-            .strip_prefix(root)
-            .map_err(|_| "Project file escaped the selected root.".to_string())?;
-        let portable = relative
-            .components()
-            .map(|component| component.as_os_str().to_string_lossy())
-            .collect::<Vec<_>>()
-            .join("/");
         files.push(project_file_wire(portable, &path, bytes));
     }
     Ok(())
@@ -539,8 +548,9 @@ pub(crate) async fn project_reveal(project_id: String, path: String) -> Result<(
 #[cfg(test)]
 mod tests {
     use super::{
-        move_project_file, read_project_file, snapshot_project, trash_project_file_with,
-        unicode_project_id, write_project_file, write_project_file_with_installer,
+        move_project_file, portable_project_path, read_project_file, snapshot_project,
+        trash_project_file_with, unicode_project_id, write_project_file,
+        write_project_file_with_installer,
     };
     use base64::Engine as _;
     use std::fs;
@@ -605,6 +615,69 @@ mod tests {
             b"cube(10);"
         );
         fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn converts_valid_child_components_to_portable_paths() {
+        let relative = PathBuf::from("parts").join("模型").join("wheel.scad");
+
+        assert_eq!(
+            portable_project_path(&relative),
+            Ok("parts/模型/wheel.scad".to_string())
+        );
+    }
+
+    #[cfg(any(unix, windows))]
+    #[test]
+    fn rejects_non_unicode_child_components_without_lossy_substitution() {
+        #[cfg(unix)]
+        let unsupported_component = {
+            use std::ffi::OsString;
+            use std::os::unix::ffi::OsStringExt;
+            OsString::from_vec(vec![0xff])
+        };
+        #[cfg(windows)]
+        let unsupported_component = {
+            use std::ffi::OsString;
+            use std::os::windows::ffi::OsStringExt;
+            OsString::from_wide(&[0xd800])
+        };
+        let relative = PathBuf::from("parts")
+            .join(unsupported_component)
+            .join("wheel.scad");
+
+        assert_eq!(
+            portable_project_path(&relative),
+            Err(
+                "Project entry path contains a file or folder name that is not valid Unicode."
+                    .to_string()
+            )
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn snapshot_rejects_a_non_unicode_child_without_returning_partial_files() {
+        use std::ffi::OsString;
+        use std::os::unix::ffi::OsStringExt;
+
+        let root = temp_project();
+        write_project_file(&root, "main.scad", b"cube(10);").expect("write valid child");
+        let unsupported = root.join(OsString::from_vec(vec![
+            b'x', 0xff, b'.', b's', b'c', b'a', b'd',
+        ]));
+        fs::write(unsupported, b"sphere(5);").expect("write non-Unicode child");
+
+        let snapshot = snapshot_project(&root);
+        fs::remove_dir_all(root).expect("cleanup");
+
+        assert_eq!(
+            snapshot,
+            Err(
+                "Project entry path contains a file or folder name that is not valid Unicode."
+                    .to_string()
+            )
+        );
     }
 
     #[test]
