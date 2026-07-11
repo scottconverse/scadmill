@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { encodeParameterSets } from "../../../src/application/parameters/parameter-set-codec";
 import {
   createParameterState,
   parameterDocument,
@@ -134,6 +135,42 @@ describe("per-document customizer state", () => {
       name: "Imported",
     });
     expect(parameterDocument(state, "doc-a").overrides).toEqual({ width: 25, secret: 99 });
+  });
+
+  it("owns replaced-set vector values after the caller mutates its imported records", () => {
+    const values = JSON.parse(
+      '{"pose":[6,7,8,9,10,11],"width":12,"__proto__":[1,2,3,4,5,6]}',
+    ) as Record<string, number | number[]>;
+    let state = createParameterState([{
+      documentId: "doc-a",
+      revision: 0,
+      source: "pose = [0, 1, 2, 3, 4, 5]; width = 1; __proto__ = [0, 1, 2, 3, 4, 5]; cube(1);",
+    }]);
+    state = reduceParameterState(state, {
+      kind: "replace-sets",
+      documentId: "doc-a",
+      sets: [{ name: "Imported", values }],
+    });
+
+    const callerPose = values.pose;
+    const callerPrototype = Reflect.get(values, "__proto__");
+    if (!Array.isArray(callerPose) || !Array.isArray(callerPrototype)) {
+      throw new TypeError("Test fixture vectors are missing.");
+    }
+    callerPose[5] = 99;
+    callerPrototype[0] = 99;
+    values.width = 99;
+
+    const stored = parameterDocument(state, "doc-a").sets[0]?.values;
+    expect(stored).toEqual(JSON.parse(
+      '{"pose":[6,7,8,9,10,11],"width":12,"__proto__":[1,2,3,4,5,6]}',
+    ));
+    expect(Object.getPrototypeOf(stored)).toBe(Object.prototype);
+    expect(Object.hasOwn(stored ?? {}, "__proto__")).toBe(true);
+    expect(JSON.parse(encodeParameterSets(parameterDocument(state, "doc-a").sets)))
+      .toEqual(JSON.parse(
+        '{"parameterSets":{"Imported":{"pose":"[6, 7, 8, 9, 10, 11]","width":"12","__proto__":"[1, 2, 3, 4, 5, 6]"}},"fileFormatVersion":"1"}',
+      ));
   });
 
   it("keeps forward-compatible set data and safely ignores stale members after a source edit", () => {

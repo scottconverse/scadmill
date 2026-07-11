@@ -65,6 +65,16 @@ function defineValue(
   });
 }
 
+function cloneParameterValues(
+  values: Readonly<Record<string, ParameterValue>>,
+): Readonly<Record<string, ParameterValue>> {
+  const cloned: Record<string, ParameterValue> = {};
+  for (const name of Object.keys(values)) {
+    defineValue(cloned, name, values[name] as ParameterValue);
+  }
+  return cloned;
+}
+
 function valuesEqual(left: ParameterValue, right: ParameterValue): boolean {
   if (Array.isArray(left) && Array.isArray(right)) {
     return left.length === right.length && left.every((value, index) => Object.is(value, right[index]));
@@ -256,7 +266,10 @@ export function reduceParameterState(state: ParameterState, action: ParameterAct
     case "replace-sets":
       return setDocument(state, action.documentId, {
         ...document,
-        sets: action.sets.map((set) => ({ name: set.name, values: { ...set.values } })),
+        sets: action.sets.map((set) => ({
+          name: set.name,
+          values: cloneParameterValues(set.values),
+        })),
         selectedSet: undefined,
       });
   }

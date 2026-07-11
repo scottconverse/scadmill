@@ -25,4 +25,31 @@ describe("customizer parameter schema", () => {
       /non-empty finite numbers/i,
     );
   });
+
+  it("rejects a fully sparse same-length vector for compatibility and serialization", () => {
+    const reference = [0, 1, 2, 3, 4, 5] as const;
+    const sparse = new Array<number>(reference.length);
+
+    expect.soft(isParameterValueCompatible(sparse, reference)).toBe(false);
+    expect(() => parameterValueToSource(sparse)).toThrow(/non-empty finite numbers/i);
+  });
+
+  it("rejects a partially sparse same-length vector for compatibility and serialization", () => {
+    const reference = [0, 1, 2, 3, 4, 5] as const;
+    const sparse = [6, 7, 8, 9, 10, 11];
+    delete sparse[2];
+    const inherited = Object.create(Array.prototype) as Record<number, number>;
+    inherited[2] = 8;
+    Object.setPrototypeOf(sparse, inherited);
+
+    expect(Object.hasOwn(sparse, 2)).toBe(false);
+    expect.soft(isParameterValueCompatible(sparse, reference)).toBe(false);
+    expect(() => parameterValueToSource(sparse)).toThrow(/non-empty finite numbers/i);
+  });
+
+  it("rejects a sparse vector reference even when the candidate is dense and same-length", () => {
+    const sparseReference = new Array<number>(6);
+
+    expect(isParameterValueCompatible([6, 7, 8, 9, 10, 11], sparseReference)).toBe(false);
+  });
 });

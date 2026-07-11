@@ -33,6 +33,18 @@ export interface CustomizerParameter {
   readonly componentRanges?: readonly SourceRange[];
 }
 
+function isDenseFiniteNumberVector(value: readonly number[]): boolean {
+  if (value.length === 0) return false;
+  for (let index = 0; index < value.length; index += 1) {
+    if (
+      !Object.hasOwn(value, index)
+      || typeof value[index] !== "number"
+      || !Number.isFinite(value[index])
+    ) return false;
+  }
+  return true;
+}
+
 export function isParameterValueCompatible(
   value: ParameterValue,
   reference: ParameterValue,
@@ -41,8 +53,8 @@ export function isParameterValueCompatible(
     return (
       Array.isArray(value)
       && value.length === reference.length
-      && value.length > 0
-      && value.every((component) => typeof component === "number" && Number.isFinite(component))
+      && isDenseFiniteNumberVector(reference)
+      && isDenseFiniteNumberVector(value)
     );
   }
   if (Array.isArray(value) || typeof value !== typeof reference) return false;
@@ -60,11 +72,13 @@ export function parameterValueToSource(value: ParameterValue): string {
   }
   if (typeof value === "boolean") return value ? "true" : "false";
   if (typeof value === "string") return JSON.stringify(value);
-  if (
-    value.length < 1
-    || value.some((component) => !Number.isFinite(component))
-  ) {
+  if (!isDenseFiniteNumberVector(value)) {
     throw new TypeError("Parameter vectors must contain non-empty finite numbers.");
   }
-  return `[${value.map((component) => (Object.is(component, -0) ? "0" : String(component))).join(", ")}]`;
+  const components: string[] = [];
+  for (let index = 0; index < value.length; index += 1) {
+    const component = value[index] as number;
+    components.push(Object.is(component, -0) ? "0" : String(component));
+  }
+  return `[${components.join(", ")}]`;
 }
