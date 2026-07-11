@@ -78,10 +78,10 @@ jobs:
             patchelf \
             wget \
             xvfb
-      - name: Install checksummed OpenSCAD release
+      - name: Install checksummed OpenSCAD snapshot
         env:
-          OPENSCAD_SHA256: f758528f2cd213f773c7a105fb63bf3b45bf754b0f586fbb7c9cd653ffcd0882
-          OPENSCAD_URL: https://files.openscad.org/OpenSCAD-2021.01-x86_64.AppImage
+          OPENSCAD_SHA256: 4e1739b3ec6314506ff6c5d34158143a2fc3ef857c9367b53d5e49ea2957e2bd
+          OPENSCAD_URL: https://files.openscad.org/snapshots/OpenSCAD-2026.06.12-x86_64.AppImage
         run: |
           install -d "$RUNNER_TEMP/openscad"
           cd "$RUNNER_TEMP/openscad"
@@ -92,7 +92,7 @@ jobs:
           OPENSCAD_BIN="$RUNNER_TEMP/openscad/squashfs-root/AppRun"
           test -x "$OPENSCAD_BIN"
           echo "SCADMILL_OPENSCAD=$OPENSCAD_BIN" >> "$GITHUB_ENV"
-          xvfb-run -a "$OPENSCAD_BIN" --version 2>&1 | grep '2021.01'
+          xvfb-run -a "$OPENSCAD_BIN" --version 2>&1 | grep '2026.06.12'
       - name: Rust lint
         run: |
           cargo clippy --locked --manifest-path src/native-engine/Cargo.toml --all-targets -- -D warnings

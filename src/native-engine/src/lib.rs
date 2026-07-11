@@ -50,8 +50,8 @@ pub enum EngineError {
     InvalidParameter { name: String, detail: &'static str },
     #[error("invalid project path {path:?}: {detail}")]
     InvalidProject { path: String, detail: &'static str },
-    #[error("OpenSCAD returned an unreadable SVG: {0}")]
-    InvalidSvg(String),
+    #[error("OpenSCAD returned an unreadable geometry summary: {0}")]
+    InvalidGeometrySummary(String),
     #[error("could not {operation}: {detail}")]
     Artifact {
         operation: &'static str,

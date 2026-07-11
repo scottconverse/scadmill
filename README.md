@@ -2,7 +2,7 @@
 
 ScadMill is a source-first OpenSCAD workbench for desktop and web. It combines an OpenSCAD code editor with a live, interactive model viewer while keeping the unmodified OpenSCAD engine out of process.
 
-The project is being delivered milestone by milestone from the clean-room functional specification in [`spec/scadmill-spec-v0.4.md`](spec/scadmill-spec-v0.4.md). The M0 walking skeleton is implemented and the M1 candidate has reached its formal boundary gate; M1 has **not** advanced while the owner decisions and acceptance gaps in [`spec/QUESTIONS.md`](spec/QUESTIONS.md) remain open.
+The project is being delivered milestone by milestone from the clean-room functional specification in [`spec/scadmill-spec-v0.6.md`](spec/scadmill-spec-v0.6.md). M0 and M1 are accepted; M2 is in progress. Open decisions remain isolated in [`spec/QUESTIONS.md`](spec/QUESTIONS.md) without retroactively invalidating accepted milestones.
 
 ## Current capabilities
 
@@ -19,9 +19,9 @@ The project is being delivered milestone by milestone from the clean-room functi
 - Follow the OS Light/Dark preference or switch among Light, Dark, and High Contrast themes without reloading the editor or viewer.
 - Validate complete Appendix C custom-theme JSON files and register them for the later settings import flow.
 
-## M1 boundary status
+## Accepted M1 boundary record
 
-| Slice | Verified boundary | Parked or blocking |
+| Slice | Verified boundary | Still parked beyond accepted M1 |
 |---|---|---|
 | C0 layout | Default/narrow layouts, splitters, keyboard access, web-profile persistence, and console auto-open have automated coverage. | Final desktop per-project storage ownership is Q-0008. |
 | C1 editor | Tabs, dirty tracking, language support, completion infrastructure, diagnostics, editor settings, and C1-owned commands are implemented. | Save/retention blocks AC-1.d and AC-4.d under Q-0012; final command, corpus, and cross-file completion claims remain Q-0010/Q-0013/Q-0014. |
@@ -35,7 +35,7 @@ The project is being delivered milestone by milestone from the clean-room functi
 - Node.js 24 or newer
 - pnpm 11.7.0
 - Rust 1.96.0 (pinned by `rust-toolchain.toml`) for the desktop shell
-- OpenSCAD 2021.01 for the current official-stable engine pin
+- OpenSCAD development snapshot 2026.06.12 for the A-7 engine pin
 
 ## Quick start
 

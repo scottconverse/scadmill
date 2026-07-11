@@ -1,0 +1,146 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-10-v06-engine-pin",
+  "createdAt": "2026-07-10T22:18:31.6513259-06:00",
+  "summary": "Adopt the owner-provided v0.6 specification without reopening accepted M1 work, replace the superseded stable-engine decision with A-7's official OpenSCAD 2026.06.12 snapshot and checksummed cross-platform artifacts, rebaseline native CI, and derive exact 2D model bounds from the snapshot's geometry summary instead of its presentation-margined SVG viewBox.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.2 permitted inputs as amended by A-8",
+    "Section 2.4 provenance ledger",
+    "Section 2.7 engine pin and questions as amended by A-7",
+    "Section 4.3 C3 SVG viewer",
+    "Section 4.4 C4 native engine path",
+    "Section 6 approved dependencies as amended by A-8",
+    "Section 7 V-1 test-first verification",
+    "Section 8 M2 milestone",
+    "Appendix A EngineService contracts",
+    "Amendments A-7 and A-8"
+  ],
+  "filesTouched": [
+    { "path": ".github/workflows/ci.yml", "status": "modified" },
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "ENGINE_VERSION", "status": "modified" },
+    { "path": "provenance/entries/2026-07-10-v06-engine-pin.json", "status": "added" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "spec/QUESTIONS.md", "status": "modified" },
+    { "path": "spec/scadmill-spec-v0.4.md", "status": "deleted" },
+    { "path": "spec/scadmill-spec-v0.6.md", "status": "added" },
+    { "path": "src/desktop-shell/src-tauri/Cargo.lock", "status": "modified" },
+    { "path": "src/native-engine/Cargo.lock", "status": "modified" },
+    { "path": "src/native-engine/Cargo.toml", "status": "modified" },
+    { "path": "src/native-engine/src/lib.rs", "status": "modified" },
+    { "path": "src/native-engine/src/project.rs", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://files.openscad.org/snapshots/",
+      "accessedOn": "2026-07-10",
+      "purpose": "Verify the exact-date Windows, Linux, macOS, and WebAssembly artifacts in the official snapshot manifest before recording the A-7 pin and isolating the conflicting WASM instruction in Q-0023."
+    },
+    {
+      "url": "https://files.openscad.org/snapshots/OpenSCAD-2026.06.12-x86-64.zip.sha256",
+      "accessedOn": "2026-07-10",
+      "purpose": "Verify the downloaded official Windows snapshot archive before executing it for version, commit, feature, export, and geometry characterization."
+    },
+    {
+      "url": "https://files.openscad.org/snapshots/OpenSCAD-2026.06.12-x86_64.AppImage.sha256",
+      "accessedOn": "2026-07-10",
+      "purpose": "Pin the same-date official Linux artifact used by native CI."
+    },
+    {
+      "url": "https://files.openscad.org/snapshots/OpenSCAD-2026.06.12.dmg.sha256",
+      "accessedOn": "2026-07-10",
+      "purpose": "Record the same-date official macOS artifact required by A-7."
+    },
+    {
+      "url": "https://api.github.com/repos/openscad/openscad/commits/0a66508c",
+      "accessedOn": "2026-07-10",
+      "purpose": "Expand the snapshot binary's embedded abbreviated git identifier to the exact official openscad/openscad source commit."
+    },
+    {
+      "url": "https://crates.io/crates/serde_json/1.0.150",
+      "accessedOn": "2026-07-10",
+      "purpose": "Parse the pinned engine's machine-readable geometry summary using the exact permissive crate version already present in the desktop dependency graph."
+    }
+  ],
+  "providedInputs": [
+    {
+      "label": "Owner-provided ScadMill functional specification v0.6",
+      "destination": "spec/scadmill-spec-v0.6.md",
+      "sha256": "01681EEE122FAE2EF93A8CCCFA483D3DE82E9EC3B8177BBE24EAEDC2A8CC6146"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D-0084",
+      "topic": "A-7 native engine pin",
+      "decision": "Supersede D-0083 prospectively and pin every native platform to the official OpenSCAD 2026.06.12 development snapshot at source commit 0a66508c67374febcfc814a73b5b948dd84a1ca3, with official archive checksums recorded in ENGINE_VERSION and Linux CI using the exact-date AppImage.",
+      "rationale": "A-7 deletes the earlier stable-by-default rule and mandates the first cross-platform snapshot after the multi-mesh 3MF color fix; historical M1 decisions remain immutable evidence but no longer govern work under v0.6.",
+      "specBasis": ["Section 2.7", "A-7", "ENGINE_VERSION"]
+    },
+    {
+      "id": "D-0085",
+      "topic": "Exact 2D model bounds under the snapshot exporter",
+      "decision": "Return the engine-produced SVG unchanged as rendered geometry, but obtain typed 2D model bounds from the same invocation's JSON geometry and bounding-box summary rather than from SVG viewBox coordinates.",
+      "rationale": "The snapshot adds a one-unit presentation margin to the SVG viewBox; treating that frame as geometry fails AC-3.b, while the engine summary reports the exact model-space bounds without reimplementing OpenSCAD geometry.",
+      "specBasis": ["FR-3.1", "FR-3.2", "AC-3.b", "Appendix A RenderSuccess2D", "N-7"]
+    },
+    {
+      "id": "D-0086",
+      "topic": "Exact-date official WebAssembly archives",
+      "decision": "Do not silently adopt the exact-date prebuilt WebAssembly archive despite its official provenance; retain v0.6's same-commit source-build requirement and record the discovered manifest contradiction as nonblocking Q-0023 for the M3 parity boundary.",
+      "rationale": "The specification explicitly mandates a source build while making a now-falsified claim about artifact availability. Choosing the artifact without an amendment would change a pinned provenance requirement, whereas deferring the choice does not block any M2 capability.",
+      "specBasis": ["Section 2.7", "A-7", "Q-0023"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "A-7 snapshot compatibility and AC-3.b exact 2D geometry bounds",
+      "test": "Run the complete native unit/export/project suite against the checksummed Windows 2026.06.12 binary, including a translated 10 by 20 square whose exact model bounds are independent of the SVG presentation frame.",
+      "red": {
+        "command": "$env:SCADMILL_OPENSCAD='<OpenSCAD-2026.06.12>/openscad.exe'; cargo test --locked --manifest-path src/native-engine/Cargo.toml",
+        "observedAt": "2026-07-10T22:09:00-06:00",
+        "outcome": "RED: 35 native tests passed and decides_two_dimensions_from_engine_output_and_returns_svg_bounds failed; expected min [2.0, 3.0] but the snapshot SVG viewBox produced [1.0, 2.0] because it includes a one-unit frame margin."
+      },
+      "green": {
+        "command": "$env:SCADMILL_OPENSCAD='<OpenSCAD-2026.06.12>/openscad.exe'; cargo test --locked --manifest-path src/native-engine/Cargo.toml",
+        "observedAt": "2026-07-10T22:14:00-06:00",
+        "outcome": "GREEN: all 24 unit, 2 export-integration, and 10 project-integration tests passed (36 total), including exact translated 2D bounds and real SVG, STL, PNG, include, binary-asset, parameter, cancellation, and error paths."
+      }
+    },
+    {
+      "criterion": "Focused geometry-summary decoder regression",
+      "test": "Parse the snapshot's JSON geometry summary into finite ordered two-dimensional bounds before wiring it to the render invocation.",
+      "red": {
+        "command": "cargo test --locked --manifest-path src/native-engine/Cargo.toml reads_exact_model_bounds_from_the_openscad_geometry_summary",
+        "observedAt": "2026-07-10T22:12:00-06:00",
+        "outcome": "RED: compilation failed with unresolved import parse_geometry_summary after the focused test was added before production code."
+      },
+      "green": {
+        "command": "cargo test --manifest-path src/native-engine/Cargo.toml reads_exact_model_bounds_from_the_openscad_geometry_summary",
+        "observedAt": "2026-07-10T22:13:00-06:00",
+        "outcome": "GREEN: the focused decoder test passed after the strict serde_json-backed summary parser was implemented."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "urn:scadmill:local-search-scope:m2-c5-analysis",
+      "sought": "Inspect ordinary package metadata and existing C5 parser seams without consulting prohibited projects or the owner-only similarity system.",
+      "confirmation": "A malformed PowerShell quoting expression broadened one read-only rg search across ordinary repository files. It printed no owner-gate path or content, no prohibited source was accessed, and no result from the broadened search was used to derive implementation behavior."
+    }
+  ],
+  "questions": [
+    "Q-0001 remains open for the Rust Unicode-3.0 license-policy allowlist and does not block M2 product implementation.",
+    "Q-0003 remains open for the exact preview facet-cap algorithm; the existing disclosed preview-only seam is not claimed as a true cap.",
+    "Q-0013 remains open for the normative snapshot-era built-in corpus and final completion skeleton while the accepted M1 provisional corpus remains labeled.",
+    "Q-0021 remains open because the 2026.06.12 CLI still cannot represent CameraPose.up; only explicit-camera engine PNG is parked.",
+    "Q-0023 parks only the M3 WebAssembly artifact choice; M2 proceeds on the validated native snapshot."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

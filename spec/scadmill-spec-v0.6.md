@@ -2,7 +2,7 @@
 
 **Product name:** **ScadMill** (owner-selected 2026-07-09; scadmill.com/.org/.dev, GitHub org,
 npm, PyPI, and crates.io all verified free at registry level that day)
-**Version:** v0.4 · 2026-07-09
+**Version:** v0.6 · 2026-07-10
 **Status:** Implementer handoff — this document is the complete brief. No other project
 context should accompany it; if you received anything else alongside it, do not read it.
 **Author role:** This specification was written by an author who knows existing OpenSCAD editor
@@ -29,6 +29,27 @@ accepts binary assets (A-3); the similarity-gate harness is owner-supplied and n
 `owner-gate/similarity_gate.py` + CI job, delivered with this spec (A-4); engine pin may be a
 vetted official-repo commit/nightly when parity or color support requires it, and building the
 engine/WASM artifact from official source is a permitted activity (A-5).
+**Changes from v0.4 (amendment A-7 — the engine pin is now a named snapshot, and multi-material
+export is a first-class requirement):** the "official stable release by default" default in §2.7
+is **deleted** — it contradicted FR-6.4 and FR-15.14, because the 2021.01 stable cannot export
+color or multiple objects in 3MF at all; the pin is now the **2026.06.12 development snapshot**
+with recorded rationale and checksums (§2.7); FR-15.14 gains explicit engine-mode requirements;
+new FR-15.15 (multi-object colored 3MF export) with machine-checkable AC-15.k and honesty rules
+about what slicers actually do with color metadata (they do not auto-map filaments — the UI must
+never claim otherwise); FR-15.10's slicer handoff copy requirement updated to match.
+**Changes from v0.5 (amendment A-8 — verified open-source leverage, from an owner-run
+120-candidate scan with every license read from primary sources):** the approved dependency
+list (§6) gains the OpenSCAD organization's official tree-sitter grammar (MIT) — usable
+directly for structural features and as a licensed reference for the fresh CodeMirror grammar
+the spec already requires; the Leathong openscad-LSP language server (effectively Apache-2.0 —
+see the license caution in §6) with a one-formatter-authority rule; and, optionally, the
+Kiri:Moto slicing engine (MIT) powering a new design-time manufacturing-estimates capability
+(FR-15.16). New FR-15.17 adds library-aware editor completions. §2.2's reading whitelist gains
+a safety-classified reference list (permissive projects implementers may read; GPL-family
+projects that remain strictly off-limits). Scan-confirmed gaps are recorded so implementers
+don't burn search time: no CodeMirror-6 OpenSCAD mode, no permissively-licensed highlighting
+grammar, and no OpenSCAD grammar file for constrained AI decoding exist anywhere — those
+remain original work as the spec already assumed.
 
 ---
 
@@ -118,8 +139,23 @@ by amendment.
 2. Public documentation of the OpenSCAD **language and CLI** (openscad.org manual, wiki, cheat
    sheet) — these document the engine being consumed, not any editor. Running the engine and
    observing its inputs/outputs is likewise permitted.
-3. Public documentation and APIs of the approved dependencies in §6.
+3. Public documentation and APIs of the approved dependencies in §6 — *(A-8)* including the
+   **source code** of the approved permissively-licensed dependencies themselves (they are MIT/
+   Apache; reading them is normal dependency use, recorded like any input).
 4. General programming knowledge and public standards (W3C, MDN, MCP spec, file-format specs).
+5. *(A-8)* **Named safe references** (permissively licensed; may be read for prior art, each
+   read recorded in the ledger): the `thijsdaniels/vscode-openscad-preview` VS Code extension
+   (MIT — customizer/preview/error-panel behavior reference; it is a preview plugin, not an
+   editor reimplementation); OpenJSCAD's `getParameterDefinitions()` documentation and code
+   (MIT — parameter-schema prior art); `scadm` and the OpenSCAD org's `openscad-library-manager`
+   (both MIT — library-manager format alignment for FR-15.5); `alufers/openscad-parser` (MIT,
+   unmaintained — parser reference only).
+   **Explicitly still prohibited despite appearing related** (GPL family or unclear provenance;
+   §2.3 applies in full): every OpenSCAD editor/GUI/IDE and its forks, the openscad-LSP **VS
+   Code companion extension**, all GPL-licensed OpenSCAD formatters and linters (one linter's
+   *documented rule list* may be transcribed as behavior requirements — its code may not be
+   opened), and any unscoped/unofficial npm packages claiming OpenSCAD editor functionality
+   (a family of such packages has unverifiable provenance — a recorded supply-chain risk).
 
 **Web-access rule for autonomous implementers:** browse or search only in service of items 2–4
 (the engine's docs, approved-dependency docs, public standards). Never search for, open, or
@@ -202,15 +238,30 @@ reachable only through the repository. The loop:
 - **Unit of work:** one PR per coherent FR cluster (a capability slice, not a milestone).
   Every PR carries: the ledger entry (§2.4), tests written and observed failing first (V-1),
   and green CI. No PR mixes two capabilities.
-- **Engine pin** *(amended A-5)*: at M0, record the chosen engine build in an `ENGINE_VERSION`
-  file at the repo root — an official stable OpenSCAD release by default, **or a pinned
-  commit/nightly of the official `openscad/openscad` repository when native/WASM parity,
-  color-preserving export, or a confirmed engine defect requires it**, with the rationale and
-  artifact checksums recorded alongside. Building the engine — including producing and
-  validating the WASM artifact — from official source at the pinned commit is a permitted
-  activity under §2.2 item 2; modifying engine source is not (§1.2). All golden-geometry
-  hashes (V-3) pin to it. Changing the pin is a spec-author-approved amendment, never a
-  drive-by.
+- **Engine pin** *(amended A-5, A-7)*: at M0, record the chosen engine build in an
+  `ENGINE_VERSION` file at the repo root. **The pinned engine is the official OpenSCAD
+  development snapshot `2026.06.12`** (downloads at
+  `https://files.openscad.org/snapshots/OpenSCAD-2026.06.12-x86-64.zip` for Windows; the
+  same-date macOS artifact exists — the openscad.org snapshot manifest pointed at it as of
+  2026-07-10; use the nearest same-week build where a platform lacks an exact-date artifact,
+  recording the substitution). At M0, run `openscad --version` on the pinned binary — snapshot
+  builds embed their exact source commit — and record that commit hash plus the SHA-256 of
+  every platform artifact in `ENGINE_VERSION`.
+  **Why this build (record this rationale in the file):** (1) the capabilities this spec
+  requires — color-preserving render via the Manifold backend (upstream PR #5185), 3MF color
+  export (PR #5527), the 3MF export options CLI/dialog (PR #5577) — exist **only** in the
+  snapshot line; the last stable release (2021.01) has none of them, which is why no "stable
+  by default" rule can exist in this spec. (2) `2026.06.12` is the first cross-platform
+  snapshot after upstream PR #6857 (merged 2026-06-06) fixed multi-mesh 3MF color export
+  against lib3mf 1.x (issue #6813: every object after the first took the first object's
+  color) — earlier 2026 snapshots may carry that defect.
+  The WASM artifact for the web target is **built from the recorded source commit** (the
+  `openscad/openscad-wasm` build tooling — Emscripten 4.0.10, `-DEXPERIMENTAL=ON
+  -DSNAPSHOT=ON` — is the reference path; note that officially published prebuilt WASM
+  snapshots stalled in August 2025, so building from source is the reliable route). Building
+  the engine/WASM from official source at the pinned commit is a permitted activity under
+  §2.2 item 2; modifying engine source is not (§1.2). All golden-geometry hashes (V-3) pin to
+  this build. Changing the pin is a spec-author-approved amendment, never a drive-by.
 - **Escalation:** external blockers the implementer cannot clear (signing certificates, repo
   permissions, a broken upstream engine release) go in `spec/QUESTIONS.md` flagged `BLOCKER`,
   with everything not dependent on them continuing meanwhile.
@@ -514,7 +565,9 @@ Parameter extraction follows the **public OpenSCAD customizer specification** (t
 - FR-6.4 Export dialog: format picker (STL binary/ASCII, 3MF, OFF, AMF, SVG, DXF, PNG per
   engine support), destination, and for meshes a post-export summary (triangles, bounding box,
   file size). Export uses a *full* render. **3MF is the default mesh format** (it is the ISO
-  standard and preserves units/color; STL remains one click away).
+  standard and preserves units/color; STL remains one click away). *(A-7)* Color and
+  multi-object fidelity in 3MF is real only on the pinned snapshot engine and under the
+  engine-mode rules of FR-15.14/FR-15.15 — those FRs govern; this dialog just picks formats.
 - FR-6.5 Recent files/projects list on the welcome screen (§4.14) and in the file menu.
 - FR-6.6 External-change detection: if a file open in a tab changes on disk, offer
   reload/keep/diff (uses FR-1.9).
@@ -780,10 +833,12 @@ M0–M3.
   what was not checked (e.g., "Manifold: PASS (mesh topology check) · Overhangs: NOT CHECKED").
   The report never displays an aggregate "print-ready ✓" badge — a lesson from a prior
   product's audit where a mock-verified claim looked identical to a proven one.
-- FR-15.10 **(M6) Slicer handoff.** "Open in slicer": export 3MF to a temp path and launch a
-  detected installed slicer (PrusaSlicer, OrcaSlicer, Cura, Bambu Studio) or a user-configured
-  executable. Detection is passive (well-known install paths); nothing is bundled. Desktop
-  only.
+- FR-15.10 **(M6) Slicer handoff** *(amended A-7)*. "Open in slicer": export 3MF to a temp
+  path and launch a detected installed slicer (PrusaSlicer, OrcaSlicer, Cura, Bambu Studio) or
+  a user-configured executable. Detection is passive (well-known install paths); nothing is
+  bundled. Desktop only. When the exported model is multi-object (FR-15.15), the handoff
+  toast/dialog carries the honesty copy from FR-15.15 ("assign filaments per object in your
+  slicer").
 - FR-15.11 **(M6) Engine version manager.** Settings-level management of multiple OpenSCAD
   versions: list installed, download an official release build (user-initiated, checksum
   displayed), and **pin an engine version per project** (recorded in the project file) so a
@@ -797,10 +852,43 @@ M0–M3.
   small thumbnail shown in the welcome screen's recent list, the file tree (hover), and the
   history timeline. Thumbnails live in workspace state, never inside the project's source
   files unless the user exports them.
-- FR-15.14 **(M6) Color and multi-part preview.** When the source uses `color()`, the viewer
-  shows those colors (via the engine's color-preserving output path, e.g. colored 3MF/OFF);
-  a parts list panel enumerates top-level parts with per-part visibility toggles when the
-  engine output distinguishes them.
+- FR-15.14 **(M6) Color and multi-part preview** *(amended A-7)*. When the source uses
+  `color()`, the viewer shows those colors (via the engine's color-preserving output path,
+  e.g. colored 3MF/OFF; on the pinned engine this requires the Manifold backend and, for
+  multiple objects, the lazy-union option); a parts list panel enumerates top-level parts
+  with per-part visibility toggles when the engine output distinguishes them.
+  **Engine-mode requirements (normative):** color export uses the engine's "Color" encoding,
+  **never** "Base Material" (upstream bug #6060: under lazy-union, Base Material assigns every
+  object the first object's color; open as of 2026-07-10). Upstream has warned lazy-union "is
+  not expected to survive in its current form" — therefore every engine flag involved in the
+  color/multi-object path is set in exactly one place (the `EngineService` adapter, Appendix
+  A), so an upstream rename is a one-file change.
+- FR-15.15 **(M6) Multi-object colored 3MF export** *(new, A-7)*. Exporting a model whose
+  source contains multiple top-level `color()`-tagged solids produces a single 3MF in which
+  **each solid is a separate object with its own correct color** (standard 3MF
+  `<basematerials>` displaycolor entries referenced per-object/per-triangle).
+  **Slicer honesty rule (normative):** mainstream slicers (PrusaSlicer, OrcaSlicer, Bambu
+  Studio) do **not** read standard 3MF color metadata for filament assignment — they use their
+  own proprietary extensions (confirmed by the OpenSCAD maintainers, upstream issue #5849).
+  What this export guarantees is that the slicer receives *separate, correctly-colored,
+  correctly-positioned objects* the user assigns filaments to in the slicer. Every UI surface
+  that touches this feature says so plainly (e.g. "Exports each color as a separate object —
+  assign filaments per object in your slicer"). The product never claims automatic filament
+  mapping, automatic AMS/multi-tool setup, or "multi-color print-ready" output.
+- FR-15.16 **(M6) Design-time manufacturing estimates** *(new, A-8)*. On explicit user request
+  (a panel or status-bar affordance — never automatically on every render), the app slices the
+  last full render with the embedded Kiri:Moto engine (§6) against a user-selected generic
+  machine profile and reports estimated print time and estimated filament use.
+  **Honesty rules (normative, same family as FR-15.9/15.15):** every figure is labeled as an
+  estimate from an embedded community slicer against a generic profile; the copy never implies
+  a match to the user's real slicer settings or printer tuning; no aggregate "print-ready"
+  badge; the panel names the engine and profile used. The estimate runs fully offline. FR-15.10
+  (handoff to the user's real slicer) remains the manufacturing path — this feature is
+  in-editor feedback only.
+- FR-15.17 **(M5) Library-aware editor intelligence** *(new, A-8)*. Completions and signature
+  help for the modules and functions of libraries installed via FR-15.5 (BOSL2 first),
+  extending the existing cross-file navigation (FR-15.6/AC-15.f). Parsing the installed
+  library's files for module/function signatures is sufficient; no semantic engine required.
 
 **AC**
 
@@ -824,6 +912,21 @@ M0–M3.
   assertion).
 - AC-15.j Per-project engine pin: fixture pinned to version X renders with X even when Y is
   the default engine (version() spy).
+- AC-15.k *(A-7)* A fixture with two top-level solids, `color("red")` and `color("blue")`,
+  exports a 3MF whose XML (unzip `3D/3dmodel.model`) contains **two** `<object>` meshes and
+  a `<basematerials>` group with two distinct `displaycolor` values, each object's triangles
+  referencing its own material — machine-parsed assertion, no slicer required.
+- AC-15.l *(A-7)* The same exported 3MF re-imported through the engine (or a 3MF library)
+  reads back two meshes whose vertex counts match the originals — round-trip integrity, no
+  object silently merged or dropped.
+- AC-15.m *(A-7)* Every UI string attached to multi-object export matches the FR-15.15
+  honesty rule (snapshot test on the strings; the phrase "assign filaments" present, the
+  words "print-ready" absent).
+- AC-15.n *(A-8)* The estimates panel for a fixture model shows a time figure, a filament
+  figure, and the mandated labeling copy (string snapshot: "estimate" present, engine and
+  profile named, "print-ready" absent); the run completes with network access disabled.
+- AC-15.o *(A-8)* With BOSL2 installed via the library manager, typing a known BOSL2 module
+  name offers a completion carrying its parameter list; with the library removed, it does not.
 
 ---
 
@@ -873,14 +976,37 @@ impossible here, in either direction.)
 | MCP server | @modelcontextprotocol/sdk | MIT |
 | Markdown render (AI panel) | marked or micromark + sanitizer | MIT |
 | Zip (web project export, library vendoring) | fflate | MIT |
+| OpenSCAD structural parsing *(A-8)* | `@openscad/tree-sitter-openscad` (the OpenSCAD organization's official grammar; npm 0.6.1) + `web-tree-sitter` | MIT |
+| Language server *(A-8, optional)* | Leathong/openscad-LSP — completion, hover, go-to-definition, symbols, rename | Apache-2.0 (see caution below) |
+| Embedded slicing engine *(A-8, for FR-15.16 only)* | Kiri:Moto engine (GridSpace `grid-apps`) | MIT |
+| Constrained AI decoding *(A-8, optional, FR-14.x lane)* | llguidance | MIT |
 | Engine (out-of-process only) | OpenSCAD binary / WASM build | GPL-2.0-or-later (aggregated, never linked) |
 
 **Notes:** The OpenSCAD **language grammar for CodeMirror must be written fresh** for this
 project (a Lezer grammar authored from the public language reference) — do not import a grammar
-from any editor project whose license or provenance is unknown. AI providers are reached with
-the platform's native `fetch`; **no provider SDK packages**. Libraries installed via FR-15.5
-are *user content in user projects*, not application dependencies — their licenses are
-displayed, not restricted.
+from any editor project whose license or provenance is unknown. *(Amended A-8:)* the OpenSCAD
+organization's own tree-sitter grammar is MIT-licensed and full-coverage — implementers **may
+read and translate it** as a licensed reference for the fresh CodeMirror grammar (record the
+attribution in the ledger), and **may use it directly** (via `web-tree-sitter`) for structural
+features — formatting, customizer-parameter extraction, symbol indexing, go-to-definition.
+Provenance note to record once at adoption: the npm package is published by a verified
+organization collaborator, not the org account itself — verify the repository field once, then
+pin an exact version. A predecessor npm package with the *unscoped* name `tree-sitter-openscad`
+is superseded — use only the `@openscad/`-scoped package.
+*(A-8)* **openscad-LSP license caution:** its Cargo.toml claims "MIT OR Apache-2.0" but only
+the Apache license file actually exists in the repository — treat it as Apache-2.0, which is
+fully acceptable here. **Its VS Code companion extension is GPL-3.0: never open or read it.**
+**One-formatter-authority rule (normative):** the product has exactly one formatter. If the
+LSP is adopted, either its formatting capability is disabled in favor of this spec's formatter
+FRs (Appendix E fixtures govern), or its formatter becomes the implementation behind those FRs
+and must pass the Appendix E golden fixtures unchanged. Never two formatters.
+*(A-8)* **Scan-confirmed gaps (do not search — build):** no CodeMirror-6 OpenSCAD language
+mode, no permissively-licensed TextMate/highlighting grammar, and no OpenSCAD error-diagnostics
+mapping library exist anywhere; the only published OpenSCAD linter is GPL-licensed (its
+documented *rule list* may be transcribed as behavior requirements; its code may not be read).
+AI providers are reached with the platform's native `fetch`; **no provider SDK packages**.
+Libraries installed via FR-15.5 are *user content in user projects*, not application
+dependencies — their licenses are displayed, not restricted.
 
 ---
 
@@ -916,8 +1042,8 @@ displayed, not restricted.
 | M2 | C5 customizer · C6 files/projects/export · C2 viewer complete (measurements, screenshots) · C3 SVG pane · C9 settings | Their ACs |
 | M3 | C4 web/WASM path · C13 web target + installers · C7 formatter · C14 welcome | AC-4.a both paths |
 | M4 | C10 AI panel · C11 command bus/MCP · FR-4.10 animation · FR-15.1 render cache · FR-15.2 geometry delta · FR-15.13 thumbnails · N-2 soak · **first public release** through V-5 | Full gate |
-| M5 | FR-15.3 history timeline · FR-15.4 batch export · FR-15.5 library manager · FR-15.6 navigation · FR-15.7 split editor · FR-15.8 section view/bookmarks | Their ACs + V-5 |
-| M6 | FR-15.9 printability report · FR-15.10 slicer handoff · FR-15.11 engine version manager · FR-15.12 headless CLI · FR-15.14 color preview | Their ACs + V-5 |
+| M5 | FR-15.3 history timeline · FR-15.4 batch export · FR-15.5 library manager · FR-15.6 navigation · FR-15.7 split editor · FR-15.8 section view/bookmarks · FR-15.17 library-aware completions *(A-8)* | Their ACs + V-5 |
+| M6 | FR-15.9 printability report · FR-15.10 slicer handoff · FR-15.11 engine version manager · FR-15.12 headless CLI · FR-15.14 color preview · FR-15.15 multi-object colored 3MF *(A-7)* · FR-15.16 design-time estimates *(A-8)* | Their ACs + V-5 |
 
 Sequencing rationale: the engine boundary and provenance rig come first because everything
 else depends on them; the AI/MCP layer composes verbs the earlier milestones define; the
@@ -1607,3 +1733,5 @@ difference() {
 | A-4 | 2026-07-09 | §2.5, M0 | Similarity-gate harness delivered owner-side (`owner-gate/`); implementers wire verbatim, never author/run; signing + counsel enumerated as owner-side dependencies |
 | A-5 | 2026-07-09 | §2.7 | Engine pin may be a vetted official-repo commit/nightly (rationale + checksums recorded); building engine/WASM from official source is a permitted activity |
 | A-6 | 2026-07-09 | §8 | Owner decision: commitment scope = the complete product, M0–M6, architected for from day one |
+| A-7 | 2026-07-10 | §2.7, FR-6.4, FR-15.10, FR-15.14, FR-15.15 (new), AC-15.k/l/m (new) | Engine pin is the **2026.06.12 development snapshot** (first cross-platform build after upstream PR #6857 fixed multi-mesh 3MF color export; the 2021.01 stable has no color/multi-object 3MF export at all — the "stable by default" sentence is deleted as self-contradictory). Multi-object colored 3MF export is a first-class requirement with machine-checkable ACs; "Color" encoding mandated over "Base Material" (open upstream bug #6060); all engine color/multi-object flags isolated behind the EngineService adapter; UI must state plainly that slicers require per-object filament assignment (slicers ignore standard 3MF color metadata — upstream #5849) and never claim automatic filament mapping |
+| A-8 | 2026-07-10 | §2.2 (items 3/5 new), §6 (approved list + notes), FR-15.16 (new), FR-15.17 (new), AC-15.n/o (new), milestones M5/M6 | Verified open-source leverage from an owner-run 120-candidate scan (every license read from primary sources). Approved: the OpenSCAD org's official tree-sitter grammar (MIT — direct structural use permitted and licensed reference for the fresh CodeMirror grammar; use only the `@openscad/`-scoped npm package), Leathong openscad-LSP (treat as Apache-2.0 — its MIT license file is missing upstream; its GPL-3 VS Code companion stays prohibited; one-formatter-authority rule), Kiri:Moto engine (MIT) for new FR-15.16 design-time estimates with strict estimate-labeling honesty rules, llguidance (MIT, optional constrained-decode lane). New FR-15.17 library-aware completions. §2.2 gains a safety-classified reference reading list; scan-confirmed gaps recorded (no CodeMirror-6 mode, no permissive highlighting grammar, no OpenSCAD constrained-decode grammar file exists anywhere — original work as assumed). Decisions already recorded under §2.7 for M0–M1 stand; nothing in A-8 retroactively invalidates merged work |

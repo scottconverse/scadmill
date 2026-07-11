@@ -138,34 +138,49 @@ fn configure_command(
     Ok(command)
 }
 
-fn parse_svg_bounds(svg: &str) -> Result<Bounds2D, EngineError> {
-    let start = svg
-        .find("viewBox=\"")
-        .map(|index| index + "viewBox=\"".len())
-        .ok_or_else(|| EngineError::InvalidSvg("missing viewBox".to_string()))?;
-    let end = svg[start..]
-        .find('"')
-        .map(|index| start + index)
-        .ok_or_else(|| EngineError::InvalidSvg("unterminated viewBox".to_string()))?;
-    let values = svg[start..end]
-        .split_ascii_whitespace()
-        .map(str::parse::<f32>)
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|_| EngineError::InvalidSvg("non-numeric viewBox".to_string()))?;
-    let [x, y, width, height] = values.as_slice() else {
-        return Err(EngineError::InvalidSvg(
-            "viewBox must contain four numbers".to_string(),
-        ));
+#[derive(Deserialize)]
+struct GeometrySummary {
+    geometry: SummaryGeometry,
+}
+
+#[derive(Deserialize)]
+struct SummaryGeometry {
+    dimensions: u8,
+    bounding_box: SummaryBoundingBox,
+}
+
+#[derive(Deserialize)]
+struct SummaryBoundingBox {
+    min: [f32; 2],
+    max: [f32; 2],
+}
+
+fn parse_geometry_summary(summary: &str) -> Result<Bounds2D, EngineError> {
+    let parsed: GeometrySummary = serde_json::from_str(summary)
+        .map_err(|source| EngineError::InvalidGeometrySummary(source.to_string()))?;
+    if parsed.geometry.dimensions != 2 {
+        return Err(EngineError::InvalidGeometrySummary(format!(
+            "expected two dimensions, got {}",
+            parsed.geometry.dimensions
+        )));
+    }
+    let bounds = Bounds2D {
+        min: parsed.geometry.bounding_box.min,
+        max: parsed.geometry.bounding_box.max,
     };
-    if !values.iter().all(|value| value.is_finite()) || *width < 0.0 || *height < 0.0 {
-        return Err(EngineError::InvalidSvg(
-            "invalid viewBox extent".to_string(),
+    if !bounds
+        .min
+        .iter()
+        .chain(bounds.max.iter())
+        .all(|value| value.is_finite())
+        || bounds.min[0] > bounds.max[0]
+        || bounds.min[1] > bounds.max[1]
+    {
+        return Err(EngineError::InvalidGeometrySummary(
+            "invalid bounding-box extent".to_string(),
         ));
     }
-    Ok(Bounds2D {
-        min: [*x, -(*y + *height)],
-        max: [*x + *width, -*y],
-    })
+    Ok(bounds)
 }
 
 fn process_failure(capture: crate::process::ProcessCapture) -> EngineError {
@@ -262,6 +277,7 @@ pub fn render_project(
     }
 
     let svg_path = output_root.join("model.svg");
+    let summary_path = output_root.join("model-summary.json");
     let mut svg_command = configure_command(
         engine,
         &project_root,
@@ -272,6 +288,13 @@ pub fn render_project(
         parameters,
         preview_facet_limit,
     )?;
+    svg_command
+        .arg("--summary")
+        .arg("geometry")
+        .arg("--summary")
+        .arg("bounding-box")
+        .arg("--summary-file")
+        .arg(&summary_path);
     let svg_capture = run_command(
         &mut svg_command,
         timeout,
@@ -293,9 +316,25 @@ pub fn render_project(
             return Err(artifact_failure("read the rendered SVG", source, raw_log));
         }
     };
-    let bounds = match parse_svg_bounds(&svg) {
+    let summary = match fs::read_to_string(summary_path) {
+        Ok(summary) => summary,
+        Err(source) => {
+            return Err(artifact_failure(
+                "read the geometry summary",
+                source,
+                raw_log,
+            ));
+        }
+    };
+    let bounds = match parse_geometry_summary(&summary) {
         Ok(bounds) => bounds,
-        Err(source) => return Err(artifact_failure("parse the rendered SVG", source, raw_log)),
+        Err(source) => {
+            return Err(artifact_failure(
+                "parse the geometry summary",
+                source,
+                raw_log,
+            ));
+        }
     };
     Ok(ProjectRenderOutput {
         geometry: NativeGeometry::TwoD { svg, bounds },
@@ -396,7 +435,9 @@ pub fn export_project(
 
 #[cfg(test)]
 mod tests {
-    use super::{CameraPose, ExportImage, NativeExportFormat, export_project, parse_svg_bounds};
+    use super::{
+        CameraPose, ExportImage, NativeExportFormat, export_project, parse_geometry_summary,
+    };
     use crate::{EngineError, ParamValue};
     use std::collections::BTreeMap;
     use std::path::Path;
@@ -404,9 +445,11 @@ mod tests {
     use std::time::Duration;
 
     #[test]
-    fn converts_the_openscad_svg_viewbox_back_to_model_coordinates() {
-        let bounds =
-            parse_svg_bounds("<svg viewBox=\"2 -23 10 20\">").expect("viewBox should parse");
+    fn reads_exact_model_bounds_from_the_openscad_geometry_summary() {
+        let bounds = parse_geometry_summary(
+            r#"{"geometry":{"bounding_box":{"max":[12.0,23.0],"min":[2.0,3.0],"size":[10.0,20.0]},"dimensions":2}}"#,
+        )
+        .expect("geometry summary should parse");
         assert_eq!(bounds.min, [2.0, 3.0]);
         assert_eq!(bounds.max, [12.0, 23.0]);
     }

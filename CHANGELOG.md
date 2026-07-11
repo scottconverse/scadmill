@@ -10,7 +10,8 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Owner-supplied isolated independence-gate workflow.
 - Strict provenance schema, immutable per-pull-request ledger enforcement, and split npm/Rust license-policy checks.
 - Reproducible Rust 1.96.0 toolchain with rustfmt and warning-free clippy gates for both native crates.
-- Pinned OpenSCAD 2021.01 native subprocess integration behind the typed engine boundary.
+- Pinned OpenSCAD 2026.06.12 development-snapshot subprocess integration behind the typed engine boundary, including checksummed Windows, Linux, and macOS artifacts and the embedded upstream commit.
+- The owner-provided v0.6 specification, including amendments A-7 and A-8 and the accepted M1 boundary.
 - Tauri walking skeleton with a CodeMirror editor, real STL model viewer, and measured cube bounds.
 - Single command bus and typed document, render, and history stores prepared for all M0–M6 consumers.
 - Editor-only fallback when the native engine is absent or its version probe fails.
@@ -43,6 +44,8 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Changed
 
+- Replaced SVG-viewBox-derived 2D bounds with the pinned engine's machine-readable geometry summary because the 2026.06.12 SVG exporter adds presentation margins around exact model geometry.
+- Updated the native CI lane from the 2021.01 stable AppImage to the checksummed 2026.06.12 snapshot required by A-7.
 - Editor commands now report typed handled/unavailable outcomes; F12 visibly explains that go-to-definition is parked instead of recording a silent success.
 - Rebindable shortcuts now share one platform-aware Control/Command policy, and handled editor shortcuts no longer fall through to global layout or render actions.
 - Appendix D Alt+Click now adds a real CodeMirror cursor alongside the editor's native Control/Command-click behavior; allowed viewer/global rebinds fall through when the viewer command is inactive.
@@ -56,5 +59,6 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 - Q-0001 asks the owner to decide how Unicode-3.0 transitive Rust dependencies fit the §6 license allowlist; the Rust license-policy CI job remains deliberately failing until amended.
 - Q-0003 leaves the final preview facet-cap algorithm open; the preview-only configuration seam is implemented without claiming that a global `$fn` override is a true cap.
-- Q-0021 parks only explicit-camera PNG exports because the pinned stable CLI cannot preserve Appendix A's `CameraPose.up`; default-camera PNG and all non-PNG exports continue.
+- Q-0021 parks only explicit-camera PNG exports because the pinned snapshot CLI cannot preserve Appendix A's `CameraPose.up`; default-camera PNG and all non-PNG exports continue.
+- Q-0023 asks whether the exact-date official WebAssembly archives now visible in the snapshot manifest may replace v0.6's mandated same-commit source build; M2 native work is unaffected.
 - Q-0022 asks whether Appendix A may replace its complete in-memory `rawLog: string` with a bounded/file-backed contract; live capture is bounded without truncating the normative result, but final string materialization and spill-file growth remain size-proportional.
