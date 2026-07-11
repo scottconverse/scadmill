@@ -159,7 +159,7 @@ export function ProjectLifecycleControls({
   }, [inspectProject, requestedProject, run, transitionsBlocked]);
 
   useEffect(() => {
-    if (!monitor) return;
+    if (!monitor || busy) return;
     if (!recovery && !workspace.documents.some(isDocumentDirty)) {
       try {
         coordinator.capture(project.snapshot.projectId, workspace);
@@ -181,7 +181,7 @@ export function ProjectLifecycleControls({
       }
     }, RECOVERY_CAPTURE_DELAY_MS);
     return () => globalThis.clearTimeout(capture);
-  }, [coordinator, monitor, project.snapshot.projectId, recovery, workspace]);
+  }, [busy, coordinator, monitor, project.snapshot.projectId, recovery, workspace]);
 
   const openProject = (event: FormEvent) => {
     event.preventDefault();
@@ -217,10 +217,14 @@ export function ProjectLifecycleControls({
   const restoreRecovery = () => {
     if (!recovery) return;
     void run(async () => {
-      if (recovery.projectId !== "scratch") {
+      const restoration = coordinator.captureAlongside(
+        recovery,
+        runtime.documents.getState(),
+      );
+      if (restoration.projectId !== "scratch") {
         if (!storage) throw new Error(messages.recoveryProjectStorageUnavailable);
-        const snapshot = await storage.snapshot(recovery.projectId);
-        const entry = recovery.buffers.find(({ path }) =>
+        const snapshot = await storage.snapshot(restoration.projectId);
+        const entry = restoration.buffers.find(({ path }) =>
           path.toLowerCase().endsWith(".scad") && typeof snapshot.files.get(path as never) === "string"
         )?.path ?? scadEntries(snapshot)[0];
         if (!entry) throw new Error(messages.projectRequiresScadEntry);
@@ -232,9 +236,9 @@ export function ProjectLifecycleControls({
           entryFile: entry,
         });
       }
-      for (const buffer of recovery.buffers) {
+      for (const buffer of restoration.buffers) {
         let target = runtime.documents.getState().documents.find(({ path }) => path === buffer.path);
-        if (!target && recovery.projectId === "scratch") {
+        if (!target && restoration.projectId === "scratch") {
           const usedIds = new Set(runtime.documents.getState().documents.map(({ id }) => id));
           const documentId = usedIds.has(buffer.documentId)
             ? `recovery-${usedIds.size}-${buffer.documentId}`

@@ -402,6 +402,117 @@ describe("ProjectLifecycleControls", () => {
     restarted.dispose();
   });
 
+  it("restores pending and newer dirty work in the same session after alongside durability", async () => {
+    const persisted = recovery(JSON.stringify({
+      version: 1,
+      projectId: "scratch",
+      capturedAt: "2026-07-10T00:00:00.000Z",
+      buffers: [{
+        documentId: "document-main",
+        path: "main.scad",
+        source: "cube(77);",
+        savedSource: "cube(12);",
+      }],
+    }));
+    const runtime = createWorkbenchRuntime(engine());
+    const view = render(
+      <ProjectLifecycleControls recoveryPersistence={persisted} runtime={runtime} />,
+    );
+    await act(async () => {
+      await runtime.dispatch({
+        kind: "edit-document",
+        origin: "user",
+        documentId: "document-main",
+        source: "sphere(99);",
+      });
+    });
+    await waitFor(() => expect(JSON.parse(persisted.value ?? "null").buffers).toHaveLength(2));
+
+    fireEvent.click(view.getByRole("button", { name: "Restore unsaved work" }));
+
+    await waitFor(() => expect(runtime.documents.getState().documents.map(
+      ({ path, source }) => ({ path, source }),
+    )).toEqual([
+      { path: "main.scad", source: "cube(77);" },
+      { path: "main (recovery 2).scad", source: "sphere(99);" },
+    ]));
+    expect(persisted.value).toBeNull();
+    runtime.dispose();
+  });
+
+  it("combines the latest dirty work when Restore is clicked before the debounce", async () => {
+    const persisted = recovery(JSON.stringify({
+      version: 1,
+      projectId: "scratch",
+      capturedAt: "2026-07-10T00:00:00.000Z",
+      buffers: [{
+        documentId: "document-main",
+        path: "main.scad",
+        source: "cube(77);",
+        savedSource: "cube(12);",
+      }],
+    }));
+    const runtime = createWorkbenchRuntime(engine());
+    const view = render(
+      <ProjectLifecycleControls recoveryPersistence={persisted} runtime={runtime} />,
+    );
+    await act(async () => {
+      await runtime.dispatch({
+        kind: "edit-document",
+        origin: "user",
+        documentId: "document-main",
+        source: "sphere(101);",
+      });
+    });
+
+    fireEvent.click(view.getByRole("button", { name: "Restore unsaved work" }));
+
+    await waitFor(() => expect(runtime.documents.getState().documents.map(
+      ({ path, source }) => ({ path, source }),
+    )).toEqual([
+      { path: "main.scad", source: "cube(77);" },
+      { path: "main (recovery 2).scad", source: "sphere(101);" },
+    ]));
+    expect(persisted.value).toBeNull();
+    runtime.dispose();
+  });
+
+  it("keeps durable recovery and live work when click-time combination exceeds the limit", async () => {
+    const durable = JSON.stringify({
+      version: 1,
+      projectId: "scratch",
+      capturedAt: "2026-07-10T00:00:00.000Z",
+      buffers: [{
+        documentId: "document-main",
+        path: "main.scad",
+        source: "cube(77);",
+        savedSource: "cube(12);",
+      }],
+    });
+    const persisted = recovery(durable);
+    const runtime = createWorkbenchRuntime(engine());
+    const view = render(
+      <ProjectLifecycleControls recoveryPersistence={persisted} runtime={runtime} />,
+    );
+    const latestSource = "x".repeat(4 * 1024 * 1024 + 1);
+    await act(async () => {
+      await runtime.dispatch({
+        kind: "edit-document",
+        origin: "user",
+        documentId: "document-main",
+        source: latestSource,
+      });
+    });
+
+    fireEvent.click(view.getByRole("button", { name: "Restore unsaved work" }));
+
+    expect(await view.findByText(/4 MiB recovery limit/u)).toBeVisible();
+    expect(view.getByRole("alertdialog", { name: "Unsaved work recovery" })).toBeVisible();
+    expect(runtime.documents.getState().documents[0]?.source).toBe(latestSource);
+    expect(persisted.value).toBe(durable);
+    runtime.dispose();
+  });
+
   it("coalesces rapid recovery captures and persists only the latest source", async () => {
     vi.useFakeTimers();
     try {

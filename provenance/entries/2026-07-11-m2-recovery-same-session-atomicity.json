@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-m2-recovery-same-session-atomicity",
+  "createdAt": "2026-07-11T17:47:04-06:00",
+  "summary": "Close the FR-6.7 same-session recovery data-loss finding by durably combining pending crash recovery with the latest live dirty workspace at Restore click time and restoring only from that exact local snapshot before clearing it.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 test-first evidence and milestone gates",
+    "FR-6.7 crash recovery",
+    "AC-6.d abnormal-exit recovery",
+    "N-2 reliability",
+    "N-7 UI honesty"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-11-m2-recovery-same-session-atomicity.json", "status": "added" },
+    { "path": "src/application/files/recovery-state.ts", "status": "modified" },
+    { "path": "src/ui/files/ProjectLifecycleControls.tsx", "status": "modified" },
+    { "path": "tests/application/files/recovery-state.test.ts", "status": "modified" },
+    { "path": "tests/ui/files/ProjectLifecycleControls.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0207",
+      "topic": "Atomic same-session recovery snapshot",
+      "decision": "Have RecoveryCoordinator.captureAlongside return the exact pending-plus-current snapshot it successfully persists, return the unchanged pending snapshot when no distinct live dirty buffer exists, and make Restore synchronously combine the pending snapshot with the current runtime workspace before any restore mutation. Use only that returned local snapshot through the complete restore and clear durable recovery only after every buffer succeeds.",
+      "rationale": "The debounced alongside save previously protected newer work only after process restart because the live Restore handler still iterated its stale pending-state object. Combining again at click time closes both the post-debounce and pre-debounce windows. Deterministic collision reservation preserves both versions without feeding the combined snapshot back into component state, while exact-buffer deduplication and paused background capture prevent duplicate accumulation or intermediate-state persistence during the restore transaction.",
+      "specBasis": ["FR-6.7", "AC-6.d", "N-2", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Same-session Restore preserves both pending recovery and the newest live dirty buffer before or after debounce",
+      "test": "Require captureAlongside to return the exact JSON snapshot it saves, then edit a path/id-colliding scratch buffer and click Restore both after durable debounce capture and immediately before the 300 ms timer. Both paths must restore the older pending buffer plus the newer live buffer at its deterministic recovery-suffixed path.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/files/recovery-state.test.ts tests/ui/files/ProjectLifecycleControls.test.tsx",
+        "observedAt": "2026-07-11T17:45:24-06:00",
+        "outcome": "ASSERTION-LEVEL RED: Test Files 2 failed (2); Tests 4 failed and 25 passed. captureAlongside returned undefined; both same-session Restore cases retained only main.scad with cube(77;) and omitted the newer sphere(99;)/sphere(101;) recovery buffer; the oversize click path showed no limit error because Restore never combined current work."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/files/recovery-state.test.ts tests/ui/files/ProjectLifecycleControls.test.tsx",
+        "observedAt": "2026-07-11T17:46:07-06:00",
+        "outcome": "GREEN: Test Files 2 passed (2); Tests 29 passed (29); Duration 2.78s."
+      }
+    },
+    {
+      "criterion": "Failed click-time combination preserves both durable and live recovery state",
+      "test": "Exceed the 4 MiB recovery bound with the current live edit while an older durable recovery prompt is pending, click Restore before debounce, and require the limit error, original durable bytes, live source, and recovery prompt all to remain. Widen across runtime project transitions and Workbench recovery integration.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/files/recovery-state.test.ts tests/ui/files/ProjectLifecycleControls.test.tsx",
+        "observedAt": "2026-07-11T17:45:24-06:00",
+        "outcome": "ASSERTION-LEVEL RED within the four failures above: no 4 MiB error appeared because stale-state Restore discarded the pending snapshot without evaluating the live oversized edit."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/files/recovery-state.test.ts tests/ui/files/ProjectLifecycleControls.test.tsx tests/ui/files/WorkbenchRecoveryIntegration.test.tsx tests/application/runtime/workbench-runtime.test.ts tests/application/runtime/workbench-runtime-projects.test.ts tests/ui/Workbench.test.tsx\npnpm.cmd typecheck\npnpm.cmd lint\npnpm.cmd build\npnpm.cmd check:provenance",
+        "observedAt": "2026-07-11T17:47:30-06:00",
+        "outcome": "GREEN: Test Files 6 passed (6); Tests 80 passed (80); Duration 4.90s. The oversize path retained the original durable JSON and latest live source while keeping Restore available. TypeScript no-emit exited 0. Biome reported `Checked 302 files in 187ms. No fixes applied.` and source policy passed with UI files within 400 lines and platform boundaries intact. The production build transformed 183 modules and completed in 337ms. The provenance ledger passed validation in baseline mode. No failures or warnings were emitted."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "This correction does not change the owner-governed autosave preference and multi-untitled semantics in Q-0030.",
+    "No owner similarity gate, comparison repository, similarity workflow content, M3 work, installer work, or prohibited source was opened, executed, or modified."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

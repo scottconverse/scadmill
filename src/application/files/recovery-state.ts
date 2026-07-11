@@ -63,6 +63,13 @@ function reserveDistinctBuffer(
   return { ...buffer, documentId, path };
 }
 
+function sameBuffer(left: RecoveryBuffer, right: RecoveryBuffer): boolean {
+  return left.documentId === right.documentId
+    && left.path === right.path
+    && left.source === right.source
+    && left.savedSource === right.savedSource;
+}
+
 function object(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -147,21 +154,28 @@ export class RecoveryCoordinator {
     }));
   }
 
-  captureAlongside(pending: RecoverySnapshot, workspace: DocumentWorkspaceState): void {
-    const current = dirtyBuffers(workspace);
-    if (current.length === 0) return;
+  captureAlongside(
+    pending: RecoverySnapshot,
+    workspace: DocumentWorkspaceState,
+  ): RecoverySnapshot {
+    const current = dirtyBuffers(workspace).filter((buffer) =>
+      !pending.buffers.some((saved) => sameBuffer(saved, buffer))
+    );
+    if (current.length === 0) return pending;
     const documentIds = new Set(pending.buffers.map(({ documentId }) => documentId));
     const paths = new Set(pending.buffers.map(({ path }) => path.toLowerCase()));
     const buffers = [
       ...pending.buffers,
       ...current.map((buffer) => reserveDistinctBuffer(buffer, documentIds, paths)),
     ];
-    this.persistence.save(serializeRecoverySnapshot({
+    const combined: RecoverySnapshot = {
       version: 1,
       projectId: "scratch",
       capturedAt: this.now(),
       buffers,
-    }));
+    };
+    this.persistence.save(serializeRecoverySnapshot(combined));
+    return combined;
   }
 
   load(): RecoverySnapshot | null {

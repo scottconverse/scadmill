@@ -74,4 +74,36 @@ describe("crash recovery", () => {
     );
     expect(memory.value()).toBeNull();
   });
+
+  it("returns the exact pending-plus-current snapshot that it saves", () => {
+    const pending = {
+      version: 1 as const,
+      projectId: "scratch",
+      capturedAt: "2026-07-10T12:00:00.000Z",
+      buffers: [{
+        documentId: "main",
+        path: "main.scad",
+        source: "cube(77);",
+        savedSource: "cube(12);",
+      }],
+    };
+    const memory = memoryPersistence();
+    const coordinator = new RecoveryCoordinator(
+      memory.persistence,
+      () => "2026-07-10T12:01:00.000Z",
+    );
+    const current = reduceDocumentWorkspace(createDocumentWorkspace(), {
+      kind: "edit",
+      documentId: "document-main",
+      source: "sphere(99);",
+    });
+
+    const combined = coordinator.captureAlongside(pending, current);
+
+    expect(combined).toEqual(JSON.parse(memory.value() ?? "null"));
+    expect(combined.buffers.map(({ source }) => source)).toEqual([
+      "cube(77);",
+      "sphere(99);",
+    ]);
+  });
 });
