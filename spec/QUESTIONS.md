@@ -165,6 +165,13 @@ Numbered questions are appended here under §2.7. Only the affected work item is
 - **Evidence:** Section 2.7 says published prebuilt WASM snapshots stalled in August 2025 and mandates a source build. The official snapshot index accessed on 2026-07-10 lists exact-date web and node archives. The web archive SHA-256 is `509879dd6813f2c4e5cf2ce1da6420928ce9bb212cd08491ca5ec9d5bffc700b`; the node archive SHA-256 is `07c978bd06dd75a3baa8daff77483b4e9559351f11a6bc4e324e7bb34248a605`.
 - **Blocked:** Only the M3 choice of WASM artifact provenance. The native 2026.06.12 pin, all M2 work, and source-build preparation continue.
 
+## Q-0024 — Open — 2026-07-10
+
+- **Section:** FR-3.2 pinned 2D/3D viewer mode
+- **Question:** When the user pins a mode that is incompatible with the engine's current result, should ScadMill show an empty pinned pane with a mismatch notice, retain the last compatible result with a stale notice, or override the pin and show the current result?
+- **Evidence:** Automatic switching is unambiguous, but a render result contains only one geometry kind. Reusing or substituting geometry without a specified disclosure would conflict with N-7.
+- **Blocked:** Only the final incompatible pinned-mode presentation. Automatic switching, explicit mode selection, and the 2D/3D viewers continue; the current conservative behavior is an empty pane with a mismatch notice.
+
 ## Q-0025 — Open — 2026-07-10
 
 - **Section:** FR-2.6 edge-length and face-to-face measurements

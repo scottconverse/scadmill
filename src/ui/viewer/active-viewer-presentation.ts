@@ -25,7 +25,7 @@ export function resolveActiveViewerPresentation(input: ActiveViewerPresentationI
   const activeOperation = render.documentId === activeDocumentId;
   const operationResult = activeOperation ? currentResult : undefined;
   const failure = operationResult?.kind === "failure" ? operationResult : undefined;
-  const result = operationResult?.kind === "3d"
+  const result = operationResult && operationResult.kind !== "failure"
     ? operationResult
     : viewer.presentation?.result;
   const status = activeOperation

@@ -3,7 +3,7 @@ import { useCallback, useMemo } from "react";
 import type {
   Quality,
   RenderFailure,
-  RenderSuccess3D,
+  RenderResult,
 } from "../../application/engine/contracts";
 import type { WorkspaceLayoutAction } from "../../application/layout/workspace-layout";
 import type { WorkbenchRuntime } from "../../application/runtime/workbench-runtime";
@@ -24,7 +24,7 @@ export interface ViewerPaneConnectorProps {
   readonly narrow: boolean;
   readonly quality?: Quality;
   readonly renderStatus: "idle" | "rendering" | "success" | "failure";
-  readonly result?: RenderSuccess3D;
+  readonly result?: RenderResult;
   readonly runtime: WorkbenchRuntime;
   readonly viewer: ViewerDocumentState;
   readonly onLayoutAction: (action: WorkspaceLayoutAction) => void;

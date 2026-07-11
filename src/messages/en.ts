@@ -127,6 +127,18 @@ export const messages = {
   viewerRegion: "Model viewer",
   webglViewerUnavailable:
     "3D model display is unavailable because WebGL could not start. Editing and exports remain available.",
+  svgViewerRegion: "2D drawing viewer",
+  svgDrawingAlt: "2D OpenSCAD drawing",
+  fitDrawing: "Fit drawing",
+  unsafeSvg: "The 2D engine output could not be displayed safely.",
+  drawingDimensions: (width: number, height: number) => `${width} × ${height} mm`,
+  drawingScale: (mmPerPixel: number) => `${Number(mmPerPixel.toPrecision(4))} mm/px`,
+  viewerMode: "Viewer mode",
+  viewerModeAuto: "Automatic",
+  viewerMode2d: "Pin 2D",
+  viewerMode3d: "Pin 3D",
+  viewerModeMismatch: (mode: "2d" | "3d") =>
+    `The latest engine result is incompatible with pinned ${mode.toUpperCase()} mode.`,
   viewerControls: "3D view controls",
   resetView: "Reset view",
   fitModel: "Fit model",

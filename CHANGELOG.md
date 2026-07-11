@@ -42,6 +42,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - A keyboard-navigable Edit menu for the implemented find, replace, go-to-line, comment-toggle, undo, and redo commands, showing each active runtime binding.
 - Native integration coverage for real multi-file includes, imported binary STL assets, cross-file parser errors, parameter overrides, 2D bounds, ASCII STL/SVG/PNG exports, and post-timeout render recovery.
 - A demand-driven 3D viewer with controlled cameras, axis views, fit and projection controls, configurable mouse mapping and scene furniture, off-thread STL decoding, large-mesh degradation, point measurements, bounded per-project/file annotation persistence, last-good error presentation, and scene PNG capture.
+- An exact 2D SVG pane with an allowlist sanitizer, engine-bounds normalization, automatic or pinned 2D/3D routing, cursor-centered pan/zoom, fit, dimensions, and millimeters-per-pixel scale.
 - Real Chromium WebGL acceptance evidence that viewport capture produces a decodable PNG dominated by the active theme background.
 - Folder-backed desktop and IndexedDB-backed web project storage with text/binary fidelity, a functional file tree, durable saves, create/rename/move/trash/reveal operations, unloaded-file navigation, external-change handling, crash recovery, and durable recent projects.
 - Full-quality 3MF, binary/ASCII STL, OFF, AMF, SVG, DXF, and PNG export with awaited artifact destinations, cancellation, and exact mesh file-size/triangle/bounds summaries.
@@ -53,6 +54,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Changed
 
+- Replaced SVG-exporter-margin dimensions with the pinned engine's exact geometry-summary bounds for 2D presentation.
 - Replaced SVG-viewBox-derived 2D bounds with the pinned engine's machine-readable geometry summary because the 2026.06.12 SVG exporter adds presentation margins around exact model geometry.
 - Updated the native CI lane from the 2021.01 stable AppImage to the checksummed 2026.06.12 snapshot required by A-7.
 - Editor commands now report typed handled/unavailable outcomes; F12 visibly explains that go-to-definition is parked instead of recording a silent success.
@@ -75,7 +77,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Q-0021 parks only explicit-camera PNG exports because the pinned snapshot CLI cannot preserve Appendix A's `CameraPose.up`; default-camera PNG and all non-PNG exports continue.
 - Q-0023 asks whether the exact-date official WebAssembly archives now visible in the snapshot manifest may replace v0.6's mandated same-commit source build; M2 native work is unaffected.
 - Q-0022 asks whether Appendix A may replace its complete in-memory `rawLog: string` with a bounded/file-backed contract; live capture is bounded without truncating the normative result, but final string materialization and spill-file growth remain size-proportional.
-- Q-0025/Q-0026/Q-0028 isolate edge/face measurement topology, screenshot overlay composition, and keyboard geometry-picking semantics; the independent 3D viewer behavior continues conservatively.
+- Q-0024/Q-0025/Q-0026/Q-0028 isolate incompatible pinned-mode presentation, edge/face measurement topology, screenshot overlay composition, and keyboard geometry-picking semantics; the independent 2D/3D viewer behavior continues conservatively.
 - Q-0029 parks only recent-project duplication on the M3 welcome screen.
 - Q-0030 parks only the autosave-control and multi-untitled store semantics; default-on original-scratch autosave and multi-buffer recovery remain active without overwriting additional tabs.
 - Q-0031 parks only an application-owned cross-platform destination picker; the dialog names the real browser or desktop destination and reports the saved location.

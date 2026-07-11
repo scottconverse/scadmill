@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type {
   EngineService,
   RenderFailure,
+  RenderSuccess2D,
   RenderSuccess3D,
 } from "../../../src/application/engine/contracts";
 import { createWorkbenchRuntime } from "../../../src/application/runtime/workbench-runtime";
@@ -95,6 +96,31 @@ describe("createWorkbenchRuntime", () => {
         undoable: false,
       },
     ]);
+  });
+
+  it("presents a successful two-dimensional render in the active document viewer", async () => {
+    const drawing: RenderSuccess2D = {
+      kind: "2d",
+      svg: '<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0 L30 0 L30 -20 Z"/></svg>',
+      boundingBox: { min: [0, 0], max: [30, 20] },
+      diagnostics: [],
+      rawLog: "rendered 2D",
+    };
+    const engine = successfulEngine();
+    vi.mocked(engine.render).mockReturnValue({
+      jobId: "render-2d",
+      subscribeOutput: () => () => undefined,
+      done: Promise.resolve(drawing),
+    });
+    const runtime = createWorkbenchRuntime(engine, { makeId: () => "render-2d-command" });
+
+    await runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
+
+    expect(runtime.viewer.getState().documents.get("document-main")?.presentation).toMatchObject({
+      modelIdentity: "render-2d",
+      quality: "preview",
+      result: drawing,
+    });
   });
 
   it("routes real tab lifecycle mutations once and ignores blocked or stale operations", async () => {

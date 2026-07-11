@@ -3,6 +3,7 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
 import type {
   Quality,
   RenderFailure,
+  RenderResult,
   RenderSuccess3D,
 } from "../../application/engine/contracts";
 import {
@@ -18,6 +19,7 @@ import {
   createDefaultViewerCamera,
   type ViewerAction,
   type ViewerDocumentState,
+  type ViewerMode,
 } from "../../application/viewer/viewer-state";
 import { messages } from "../../messages/en";
 import { ViewerDetailsPanel } from "./ViewerDetailsPanel";
@@ -28,9 +30,13 @@ import type { ViewerDegradation } from "./viewer-furniture";
 const ModelViewer = lazy(() =>
   import("./ModelViewer").then((module) => ({ default: module.ModelViewer })),
 );
+const SvgViewer = lazy(() =>
+  import("./SvgViewer").then((module) => ({ default: module.SvgViewer })),
+);
 
 const EMPTY_VIEWER: ViewerDocumentState = {
   camera: createDefaultViewerCamera(),
+  mode: "auto",
   furniture: { grid: true, axes: true, edges: false, shadow: false },
   measurements: [],
   annotations: [],
@@ -47,10 +53,11 @@ export interface ViewerPaneProps {
   readonly narrow: boolean;
   readonly quality?: Quality;
   readonly renderStatus: "idle" | "rendering" | "success" | "failure";
-  readonly result?: RenderSuccess3D;
+  readonly result?: RenderResult;
   readonly failure?: RenderFailure;
   readonly dimmed?: boolean;
   readonly documentId?: string;
+  readonly mode?: ViewerMode;
   readonly viewer?: ViewerDocumentState;
   readonly meshColor?: string | null;
   readonly keybindings?: KeybindingSettings;
@@ -60,6 +67,7 @@ export interface ViewerPaneProps {
   };
   readonly onCancel?: () => void;
   readonly onLayoutAction: (action: WorkspaceLayoutAction) => void;
+  readonly onModeChange?: (mode: ViewerMode) => void;
   readonly onScreenshot?: (bytes: Uint8Array) => void | Promise<void>;
   readonly onShowConsole?: () => void;
   readonly onViewerAction?: (action: ViewerAction) => void;
@@ -82,18 +90,21 @@ export function ViewerPane({
   failure,
   dimmed = false,
   documentId = "active-document",
+  mode,
   viewer = EMPTY_VIEWER,
   meshColor = null,
   keybindings,
   mouseMapping,
   onCancel,
   onLayoutAction,
+  onModeChange,
   onScreenshot,
   onShowConsole,
   onViewerAction,
 }: ViewerPaneProps) {
   const modelViewer = useRef<ModelViewerHandle>(null);
   const firstPoint = useRef<Point3 | null>(null);
+  const viewerMode = mode ?? viewer.mode;
   const [tool, setTool] = useState<ViewerTool>("navigate");
   const [annotationDraft, setAnnotationDraft] = useState("");
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -102,11 +113,19 @@ export function ViewerPane({
     edges: false,
     shadow: false,
   });
-  const measuredBounds = result ? boundsLabel(result) : null;
-  const bounds = result
-    ? result.stats.boundingBox as Bounds3 | undefined
+  const geometry = result?.kind === "2d" || result?.kind === "3d" ? result : undefined;
+  const visibleGeometry = viewerMode === "auto" || geometry?.kind === viewerMode
+    ? geometry
+    : undefined;
+  const mismatch = viewerMode !== "auto" && geometry && geometry.kind !== viewerMode
+    ? viewerMode
+    : null;
+  const measuredBounds = visibleGeometry?.kind === "3d" ? boundsLabel(visibleGeometry) : null;
+  const bounds = visibleGeometry?.kind === "3d"
+    ? visibleGeometry.stats.boundingBox as Bounds3 | undefined
     : undefined;
   const modelIdentity = viewer.modelIdentity ?? "";
+  const visibleKind = visibleGeometry?.kind;
 
   useEffect(() => {
     if (renderStatus !== "rendering") {
@@ -136,6 +155,10 @@ export function ViewerPane({
     (action: ViewerAction) => onViewerAction?.(action),
     [onViewerAction],
   );
+  const changeMode = (next: ViewerMode) => {
+    if (onModeChange) onModeChange(next);
+    else dispatchViewer({ kind: "set-mode", documentId, mode: next });
+  };
   const chooseTool = (next: ViewerTool) => {
     firstPoint.current = null;
     setNotice(null);
@@ -196,7 +219,7 @@ export function ViewerPane({
   };
 
   useEffect(() => {
-    if (!keybindings || !result) return;
+    if (!keybindings || visibleKind !== "3d") return;
     const modifier = primaryModifierForPlatform();
     const handleKeyDown = (event: KeyboardEvent) => {
       if (
@@ -228,21 +251,33 @@ export function ViewerPane({
     };
     globalThis.addEventListener?.("keydown", handleKeyDown);
     return () => globalThis.removeEventListener?.("keydown", handleKeyDown);
-  }, [bounds, captureScreenshot, dispatchViewer, documentId, keybindings, result, viewer.camera]);
+  }, [bounds, captureScreenshot, dispatchViewer, documentId, keybindings, viewer.camera, visibleKind]);
 
   return (
     <section className="viewer-panel" aria-label={messages.viewerRegion}>
       <div className="panel-heading viewer-heading">
         <span>{messages.viewerRegion}</span>
         <div className="viewer-heading-actions">
-          {result && quality === "preview" && renderStatus === "success" && (
+          <label className="viewer-mode-picker">
+            <span>{messages.viewerMode}</span>
+            <select
+              aria-label={messages.viewerMode}
+              value={viewerMode}
+              onChange={(event) => changeMode(event.currentTarget.value as ViewerMode)}
+            >
+              <option value="auto">{messages.viewerModeAuto}</option>
+              <option value="2d">{messages.viewerMode2d}</option>
+              <option value="3d">{messages.viewerMode3d}</option>
+            </select>
+          </label>
+          {visibleGeometry && quality === "preview" && renderStatus === "success" && (
             <span className="quality-badge">{messages.previewQuality}</span>
           )}
           {!narrow && <button aria-label={messages.collapseViewer} className="panel-action" onClick={() => onLayoutAction({ kind: "toggle-panel", panel: "viewer" })} type="button"><span aria-hidden="true">−</span></button>}
           {!narrow && <button aria-label={maximized ? messages.restoreViewer : messages.maximizeViewer} className="panel-action" onClick={() => onLayoutAction({ kind: "toggle-maximize", region: "viewer" })} type="button"><span aria-hidden="true">{maximized ? "↙" : "↗"}</span></button>}
         </div>
       </div>
-      {result && (
+      {visibleGeometry?.kind === "3d" && (
         <ViewerToolbar
           bounds={bounds}
           camera={viewer.camera}
@@ -256,7 +291,9 @@ export function ViewerPane({
       )}
       <div className="viewer-content">
         <Suspense fallback={<div className="surface-loading" role="status">{messages.loadingViewer}</div>}>
-          {result ? (
+          {visibleGeometry?.kind === "2d" ? (
+            <SvgViewer result={visibleGeometry} />
+          ) : visibleGeometry?.kind === "3d" ? (
             <ModelViewer
               annotations={viewer.annotations}
               camera={viewer.camera}
@@ -270,12 +307,12 @@ export function ViewerPane({
               onDegradationChange={updateDegradation}
               onPointPick={pickPoint}
               ref={modelViewer}
-              result={result}
+              result={visibleGeometry}
               tool={tool}
             />
-          ) : <ModelViewer colors={colors} ref={modelViewer} />}
+          ) : !mismatch ? <ModelViewer colors={colors} ref={modelViewer} /> : null}
         </Suspense>
-        {result && (
+        {visibleGeometry?.kind === "3d" && (
           <ViewerDetailsPanel
             annotations={viewer.annotations}
             annotationDraft={annotationDraft}
@@ -286,6 +323,7 @@ export function ViewerPane({
           />
         )}
       </div>
+      {mismatch && <p className="viewer-empty" role="status">{messages.viewerModeMismatch(mismatch)}</p>}
       {measuredBounds && <output className="bounds-readout">{measuredBounds}</output>}
       {renderStatus === "rendering" && (
         <div aria-label={messages.renderProgress} className="viewer-render-overlay" role="status">

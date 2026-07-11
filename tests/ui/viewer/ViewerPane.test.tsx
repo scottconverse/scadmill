@@ -2,7 +2,8 @@
 import { forwardRef, useImperativeHandle } from "react";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { RenderSuccess3D } from "../../../src/application/engine/contracts";
+import type { RenderResult } from "../../../src/application/engine/contracts";
+import type { ViewerMode } from "../../../src/application/viewer/viewer-state";
 import { DEFAULT_KEYBINDINGS } from "../../../src/application/commands/default-keybindings";
 import { ViewerPane } from "../../../src/ui/viewer/ViewerPane";
 
@@ -25,6 +26,10 @@ vi.mock("../../../src/ui/viewer/ModelViewer", () => ({
   }),
 }));
 
+vi.mock("../../../src/ui/viewer/SvgViewer", () => ({
+  SvgViewer: () => <div data-testid="svg-viewer">2D</div>,
+}));
+
 const colors = {
   background: "#000000",
   mesh: "#ffffff",
@@ -40,7 +45,15 @@ const colors = {
   clippingCap: "#ffffff",
 };
 
-const threeD: RenderSuccess3D = {
+const twoD: RenderResult = {
+  kind: "2d",
+  svg: `<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0"/></svg>`,
+  boundingBox: { min: [0, 0], max: [10, 10] },
+  diagnostics: [],
+  rawLog: "",
+};
+
+const threeD: RenderResult = {
   kind: "3d",
   mesh: { format: "stl-binary", bytes: new Uint8Array(84) },
   stats: { boundingBox: { min: [0, 0, 0], max: [10, 10, 10] }, engineTimeMs: 1 },
@@ -48,7 +61,55 @@ const threeD: RenderSuccess3D = {
   rawLog: "",
 };
 
+function Harness({ result }: { result?: RenderResult }) {
+  let mode: ViewerMode = "auto";
+  return (
+    <ViewerPane
+      colors={colors}
+      maximized={false}
+      mode={mode}
+      narrow={false}
+      renderStatus="success"
+      result={result}
+      onLayoutAction={vi.fn()}
+      onModeChange={(next) => { mode = next; }}
+    />
+  );
+}
+
 describe("ViewerPane result routing", () => {
+  it("switches automatically between 2D and 3D from the engine discriminator", async () => {
+    const view = render(<Harness result={twoD} />);
+    expect(await view.findByTestId("svg-viewer")).toBeVisible();
+    expect(view.queryByTestId("model-viewer")).not.toBeInTheDocument();
+
+    view.rerender(<Harness result={threeD} />);
+    expect(await view.findByTestId("model-viewer")).toBeVisible();
+    expect(view.queryByTestId("svg-viewer")).not.toBeInTheDocument();
+  });
+
+  it("reports an incompatible pinned mode without showing stale geometry", () => {
+    const onModeChange = vi.fn();
+    const view = render(
+      <ViewerPane
+        colors={colors}
+        maximized={false}
+        mode="3d"
+        narrow={false}
+        renderStatus="success"
+        result={twoD}
+        onLayoutAction={vi.fn()}
+        onModeChange={onModeChange}
+      />,
+    );
+
+    expect(view.queryByTestId("svg-viewer")).not.toBeInTheDocument();
+    expect(view.queryByTestId("model-viewer")).not.toBeInTheDocument();
+    expect(view.getByRole("status")).toHaveTextContent(/pinned 3D mode/i);
+    fireEvent.change(view.getByLabelText("Viewer mode"), { target: { value: "auto" } });
+    expect(onModeChange).toHaveBeenCalledWith("auto");
+  });
+
   it("keeps last-good geometry dimmed while rendering and exposes cancel", async () => {
     const onCancel = vi.fn();
     const view = render(
@@ -56,11 +117,13 @@ describe("ViewerPane result routing", () => {
         colors={colors}
         dimmed
         maximized={false}
+        mode="auto"
         narrow={false}
         renderStatus="rendering"
         result={threeD}
         onCancel={onCancel}
         onLayoutAction={vi.fn()}
+        onModeChange={vi.fn()}
       />,
     );
 
@@ -83,10 +146,12 @@ describe("ViewerPane result routing", () => {
           rawLog: "ERROR: Parser error",
         }}
         maximized={false}
+        mode="auto"
         narrow={false}
         renderStatus="failure"
         result={threeD}
         onLayoutAction={vi.fn()}
+        onModeChange={vi.fn()}
         onShowConsole={showConsole}
       />,
     );
@@ -103,6 +168,7 @@ describe("ViewerPane result routing", () => {
       <ViewerPane
         colors={colors}
         maximized={false}
+        mode="auto"
         narrow={false}
         renderStatus="success"
         result={threeD}
@@ -114,11 +180,13 @@ describe("ViewerPane result routing", () => {
             up: [0, 0, 1],
             zoom: 1,
           },
+          mode: "auto",
           furniture: { grid: true, axes: true, edges: false, shadow: false },
           measurements: [],
           annotations: [],
         }}
         onLayoutAction={vi.fn()}
+        onModeChange={vi.fn()}
         onViewerAction={onViewerAction}
       />,
     );
@@ -138,6 +206,7 @@ describe("ViewerPane result routing", () => {
     const common = {
       colors,
       maximized: false,
+      mode: "auto" as const,
       narrow: false,
       renderStatus: "success" as const,
       result: threeD,
@@ -149,12 +218,14 @@ describe("ViewerPane result routing", () => {
           up: [0, 0, 1] as const,
           zoom: 1,
         },
+        mode: "auto" as const,
         modelIdentity: "shared-model-identity",
         furniture: { grid: true, axes: true, edges: false, shadow: false },
         measurements: [],
         annotations: [],
       },
       onLayoutAction: vi.fn(),
+      onModeChange: vi.fn(),
       onViewerAction,
     };
     const view = render(<ViewerPane {...common} documentId="document-a" />);
@@ -182,6 +253,7 @@ describe("ViewerPane result routing", () => {
       <ViewerPane
         colors={colors}
         maximized={false}
+        mode="auto"
         narrow={false}
         renderStatus="success"
         result={threeD}
@@ -193,11 +265,13 @@ describe("ViewerPane result routing", () => {
             up: [0, 0, 1],
             zoom: 1,
           },
+          mode: "auto",
           furniture: { grid: true, axes: true, edges: false, shadow: false },
           measurements: [],
           annotations: [],
         }}
         onLayoutAction={vi.fn()}
+        onModeChange={vi.fn()}
         onScreenshot={onScreenshot}
         onViewerAction={vi.fn()}
       />,
@@ -218,6 +292,7 @@ describe("ViewerPane result routing", () => {
         colors={colors}
         keybindings={DEFAULT_KEYBINDINGS}
         maximized={false}
+        mode="auto"
         narrow={false}
         renderStatus="success"
         result={threeD}
@@ -229,11 +304,13 @@ describe("ViewerPane result routing", () => {
             up: [0, 0, 1],
             zoom: 1,
           },
+          mode: "auto",
           furniture: { grid: true, axes: true, edges: false, shadow: false },
           measurements: [],
           annotations: [],
         }}
         onLayoutAction={vi.fn()}
+        onModeChange={vi.fn()}
         onViewerAction={onViewerAction}
       />,
     );

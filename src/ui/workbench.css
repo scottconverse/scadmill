@@ -112,6 +112,9 @@ button.console-diagnostic:hover, button.console-diagnostic:focus-visible { backg
 .file-command-notice { margin: 0; padding: 8px 12px; border-bottom: 1px solid var(--chrome-badge-error); background: var(--chrome-surface-raised); color: var(--chrome-text); }
 .viewer-heading { justify-content: space-between; }
 .viewer-heading-actions { display: flex; align-items: center; gap: 8px; }
+.viewer-mode-picker { display: flex; align-items: center; gap: 5px; }
+.viewer-mode-picker > span { font-size: 11px; }
+.viewer-mode-picker select { max-width: 104px; border: 1px solid var(--chrome-border); border-radius: 4px; background: var(--chrome-surface-raised); color: var(--chrome-text); }
 .viewer-toolbar { display: flex; min-width: 0; align-items: center; gap: 5px; padding: 5px 7px; overflow-x: auto; border-bottom: 1px solid var(--chrome-border); background: var(--chrome-surface); scrollbar-width: thin; }
 .viewer-toolbar button, .viewer-toggle { flex: 0 0 auto; min-height: 28px; border: 1px solid var(--chrome-border); border-radius: 4px; background: var(--chrome-surface-raised); color: var(--chrome-text); }
 .viewer-toolbar button { padding: 2px 7px; cursor: pointer; }
@@ -147,7 +150,13 @@ button.console-diagnostic:hover, button.console-diagnostic:focus-visible { backg
 .model-viewer canvas { display: block; width: 100%; height: 100%; }
 .model-viewer canvas[data-viewer-tool="measure"], .model-viewer canvas[data-viewer-tool="annotate"] { cursor: crosshair; }
 .viewer-spatial-label { position: absolute; z-index: 4; max-width: 180px; padding: 3px 5px; border: 1px solid currentcolor; border-radius: 4px; background: var(--chrome-surface-raised); font-size: 11px; font-weight: 700; pointer-events: none; transform: translate(-50%, -50%); }
-.viewer-content > .model-viewer { min-width: 0; min-height: 0; }
+.svg-viewer-shell { position: relative; display: grid; min-width: 0; min-height: 0; grid-template-rows: minmax(0, 1fr) auto; background: var(--viewer-background); }
+.viewer-content > .model-viewer, .viewer-content > .svg-viewer-shell { min-width: 0; min-height: 0; }
+.svg-viewer { position: relative; min-width: 0; min-height: 0; overflow: hidden; padding: 0; border: 0; background: var(--viewer-background); color: var(--chrome-text); cursor: grab; touch-action: none; }
+.svg-viewer:active { cursor: grabbing; }
+.svg-viewer img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; transform-origin: center; user-select: none; }
+.svg-viewer-controls { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 7px 10px; border-top: 1px solid var(--chrome-border); background: var(--chrome-surface); color: var(--chrome-text); font-size: 12px; font-variant-numeric: tabular-nums; }
+.svg-viewer-controls button { border: 1px solid var(--chrome-border); border-radius: 4px; background: var(--chrome-surface-raised); color: var(--chrome-text); cursor: pointer; }
 .viewer-empty { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; color: var(--chrome-text-muted); pointer-events: none; }
 .bounds-readout { position: absolute; right: 14px; bottom: 14px; padding: 7px 10px; border: 1px solid var(--chrome-border); border-radius: 6px; background: var(--chrome-surface); color: var(--chrome-text); font-variant-numeric: tabular-nums; }
 .render-error { position: absolute; inset: auto 14px 14px 14px; padding: 10px; border: 1px solid var(--chrome-badge-error); border-radius: 6px; background: var(--chrome-surface); color: var(--chrome-badge-error); white-space: pre-wrap; }

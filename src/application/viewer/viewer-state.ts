@@ -1,6 +1,7 @@
 import type { Point3 } from "./measurements";
-import type { Quality, RenderSuccess3D } from "../engine/contracts";
+import type { Quality, RenderSuccess2D, RenderSuccess3D } from "../engine/contracts";
 
+export type ViewerMode = "auto" | "2d" | "3d";
 export type ProjectionMode = "perspective" | "orthographic";
 
 export interface ViewerCameraState {
@@ -35,11 +36,12 @@ export interface ViewerFurnitureState {
 export interface ViewerPresentation {
   readonly modelIdentity: string;
   readonly quality: Quality;
-  readonly result: RenderSuccess3D;
+  readonly result: RenderSuccess2D | RenderSuccess3D;
 }
 
 export interface ViewerDocumentState {
   readonly camera: ViewerCameraState;
+  readonly mode: ViewerMode;
   readonly modelIdentity?: string;
   readonly furniture: ViewerFurnitureState;
   readonly presentation?: ViewerPresentation;
@@ -53,6 +55,7 @@ export interface ViewerState {
 
 export type ViewerAction =
   | { readonly kind: "set-camera"; readonly documentId: string; readonly camera: ViewerCameraState }
+  | { readonly kind: "set-mode"; readonly documentId: string; readonly mode: ViewerMode }
   | {
       readonly kind: "set-furniture";
       readonly documentId: string;
@@ -65,7 +68,7 @@ export type ViewerAction =
       readonly documentId: string;
       readonly modelIdentity: string;
       readonly quality: Quality;
-      readonly result: RenderSuccess3D;
+      readonly result: RenderSuccess2D | RenderSuccess3D;
     }
   | {
       readonly kind: "add-point-measurement";
@@ -119,6 +122,7 @@ function cloneCamera(camera: ViewerCameraState): ViewerCameraState {
 function emptyDocument(): ViewerDocumentState {
   return {
     camera: createDefaultViewerCamera(),
+    mode: "auto",
     furniture: { grid: true, axes: true, edges: false, shadow: false },
     measurements: [],
     annotations: [],
@@ -140,17 +144,26 @@ function cloneAnnotation(annotation: ViewerAnnotation): ViewerAnnotation {
 }
 
 function sameGeometry(
-  left: RenderSuccess3D,
-  right: RenderSuccess3D,
+  left: RenderSuccess2D | RenderSuccess3D,
+  right: RenderSuccess2D | RenderSuccess3D,
 ): boolean {
-  return left.mesh.format === right.mesh.format
-    && (
-      left.mesh.bytes === right.mesh.bytes
-      || (
-        left.mesh.geometryIdentity !== undefined
-        && left.mesh.geometryIdentity === right.mesh.geometryIdentity
-      )
-    );
+  if (left.kind !== right.kind) return false;
+  if (left.kind === "3d" && right.kind === "3d") {
+    return left.mesh.format === right.mesh.format
+      && (
+        left.mesh.bytes === right.mesh.bytes
+        || (
+          left.mesh.geometryIdentity !== undefined
+          && left.mesh.geometryIdentity === right.mesh.geometryIdentity
+        )
+      );
+  }
+  if (left.kind === "2d" && right.kind === "2d") {
+    return left.svg === right.svg
+      && left.boundingBox.min.every((value, axis) => value === right.boundingBox.min[axis])
+      && left.boundingBox.max.every((value, axis) => value === right.boundingBox.max[axis]);
+  }
+  return false;
 }
 
 function setDocument(
@@ -178,6 +191,8 @@ export function reduceViewerState(state: ViewerState, action: ViewerAction): Vie
   switch (action.kind) {
     case "set-camera":
       return setDocument(state, action.documentId, { ...current, camera: cloneCamera(action.camera) });
+    case "set-mode":
+      return setDocument(state, action.documentId, { ...current, mode: action.mode });
     case "set-furniture":
       return setDocument(state, action.documentId, {
         ...current,

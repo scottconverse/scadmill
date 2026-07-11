@@ -15,6 +15,22 @@ const cubeResult: RenderSuccess3D = {
 };
 
 describe("per-document viewer state", () => {
+  it("defaults each document to automatic mode and isolates pinned modes", () => {
+    let state = createViewerState();
+
+    expect(viewerDocument(state, "doc-a").mode).toBe("auto");
+
+    state = reduceViewerState(state, {
+      kind: "set-mode",
+      documentId: "doc-a",
+      mode: "2d",
+    });
+
+    expect(state).toBeDefined();
+    expect(viewerDocument(state, "doc-a").mode).toBe("2d");
+    expect(viewerDocument(state, "doc-b").mode).toBe("auto");
+  });
+
   it("preserves bit-identical camera state across same-document model changes", () => {
     let state = createViewerState();
     const camera = {

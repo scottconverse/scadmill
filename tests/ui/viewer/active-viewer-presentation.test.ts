@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { createDocumentWorkspace, reduceDocumentWorkspace } from "../../../src/application/documents/document-workspace";
-import type { RenderFailure, RenderSuccess3D } from "../../../src/application/engine/contracts";
+import type {
+  RenderFailure,
+  RenderSuccess2D,
+  RenderSuccess3D,
+} from "../../../src/application/engine/contracts";
 import type { RenderState } from "../../../src/application/runtime/workbench-runtime";
 import { createViewerState, reduceViewerState, viewerDocument } from "../../../src/application/viewer/viewer-state";
 import { resolveActiveViewerPresentation } from "../../../src/ui/viewer/active-viewer-presentation";
@@ -18,8 +22,37 @@ const failure: RenderFailure = {
   diagnostics: [],
   rawLog: "failed",
 };
+const drawing: RenderSuccess2D = {
+  kind: "2d",
+  svg: '<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0 L30 0 L30 -20 Z"/></svg>',
+  boundingBox: { min: [0, 0], max: [30, 20] },
+  diagnostics: [],
+  rawLog: "",
+};
 
 describe("active viewer presentation", () => {
+  it("routes a current two-dimensional engine result to the active viewer", () => {
+    const documents = reduceDocumentWorkspace(createDocumentWorkspace(), {
+      kind: "edit",
+      documentId: "document-main",
+      source: "square([30,20]);",
+    });
+    const render: RenderState = {
+      status: "success",
+      documentId: "document-main",
+      sourceRevision: 1,
+      sourceFiles: new Map([["main.scad", "square([30,20]);"]]),
+      result: drawing,
+    };
+
+    expect(resolveActiveViewerPresentation({
+      activeDocumentId: "document-main",
+      documents,
+      render,
+      viewer: viewerDocument(createViewerState(), "document-main"),
+    })).toMatchObject({ currentResult: drawing, result: drawing, stale: false, dimmed: false });
+  });
+
   it("keeps the last good geometry dimmed while a current render fails", () => {
     const documents = createDocumentWorkspace();
     let viewer = createViewerState();

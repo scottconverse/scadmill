@@ -15,6 +15,7 @@ The project is being delivered milestone by milestone from the clean-room functi
 - Stream interleaved, timestamped native stdout/stderr into per-run console history with quality, duration, exit state, geometry statistics, severity filtering, search, copy-all, clear, and a global 10,000-line cap. Parsed diagnostics are clickable, appear as themed editor squiggles and gutter markers, and can open an unloaded project file through the C6 project source port.
 - Debounce automatic preview renders, cancel superseded or timed-out process trees, retain cancelled runs in console history, and keep the UI responsive while native work runs off the UI thread.
 - Inspect real STL geometry in a demand-driven Three.js viewer with orbit/pan/zoom, axis views, fit, perspective/orthographic projection, themed scene furniture, large-mesh degradation, point-to-point measurement, durable per-project/file pinned annotations, exact bounds, last-good error presentation, and PNG capture. STL decoding runs off the UI thread in the browser.
+- Switch automatically between the 3D viewer and a safely isolated engine-produced SVG pane with exact model-space dimensions, cursor-centered pan/zoom, fit, and scale readout. An incompatible pinned mode shows an empty pane and notice while Q-0024 remains open.
 - Start in a blank scratch document, or open folder-backed desktop projects and IndexedDB-backed web projects with byte-preserving assets, functional file-tree operations, external-change prompts, crash recovery, and recent projects.
 - Export full-quality 3MF, STL, OFF, AMF, SVG, DXF, or PNG artifacts with exact mesh summaries; web projects can also import/export byte-preserving ZIP archives and create serverless single-file share links.
 - Search and change all nine settings sections through one keyboard-operable dialog. Preferences apply immediately, persist per user, restore by section, and import/export through a bounded versioned JSON profile that excludes secrets.
@@ -39,7 +40,7 @@ The project is being delivered milestone by milestone from the clean-room functi
 
 | Slice | Delivered candidate | Conservatively parked |
 |---|---|---|
-| C2 3D viewer | Native-backed STL presentation, controlled camera, point measurement, per-project/file durable annotations, exact bounds, last-good presentation, and scene-only PNG capture. | Edge/face semantics, screenshot overlay composition, and final keyboard geometry picking remain Q-0025/Q-0026/Q-0028. FR-2.5's device-class frame-rate target remains unmeasured. |
+| C2/C3 viewers | Native-backed STL and safely isolated SVG presentation, automatic or pinned routing, controlled 3D camera, point measurement, per-project/file durable annotations, exact bounds, last-good presentation, scene-only PNG capture, and 2D pan/zoom/fit/scale. | Incompatible pinned-mode presentation, edge/face semantics, screenshot overlay composition, and final keyboard geometry picking remain Q-0024/Q-0025/Q-0026/Q-0028. FR-2.5's device-class frame-rate target remains unmeasured. |
 
 ## Requirements
 

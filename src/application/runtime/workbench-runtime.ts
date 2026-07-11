@@ -630,7 +630,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     ) {
       return;
     }
-    if (result.kind === "3d") {
+    if (result.kind !== "failure") {
       viewer.setState(reduceViewerState(viewer.getState(), {
         kind: "present-result",
         documentId: document.id,
