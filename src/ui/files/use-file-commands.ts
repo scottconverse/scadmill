@@ -7,7 +7,10 @@ import {
 } from "../../application/documents/document-workspace";
 import type { ProjectSessionState } from "../../application/files/project-session";
 import type { ScratchAutosavePersistence } from "../../application/files/scratch-autosave";
-import type { WorkspaceLayoutAction } from "../../application/layout/workspace-layout";
+import type {
+  WorkspaceLayoutAction,
+  WorkspaceLayoutState,
+} from "../../application/layout/workspace-layout";
 import type { WorkbenchRuntime } from "../../application/runtime/workbench-runtime";
 import { messages } from "../../messages/en";
 
@@ -31,6 +34,7 @@ export interface FileCommandOptions {
   readonly workspace: DocumentWorkspaceState;
   readonly projectMode: ProjectSessionState["mode"];
   readonly scratchPersistence?: ScratchAutosavePersistence;
+  readonly layout: WorkspaceLayoutState;
   readonly narrow: boolean;
   readonly onLayoutAction: (action: WorkspaceLayoutAction) => void;
 }
@@ -44,8 +48,22 @@ export function useFileCommands(options: FileCommandOptions): FileCommandCoordin
   );
   const openFiles = useCallback(() => {
     setNotice(null);
-    options.onLayoutAction({ kind: "activate-rail", panel: "files", narrow: options.narrow });
-  }, [options.narrow, options.onLayoutAction]);
+    if (options.narrow) {
+      if (options.layout.narrowSheet !== null) {
+        options.onLayoutAction({ kind: "set-narrow-sheet", sheet: null });
+      }
+      if (options.layout.activeRail !== "files" || !options.layout.narrowDockOpen) {
+        options.onLayoutAction({ kind: "activate-rail", panel: "files", narrow: true });
+      }
+      return;
+    }
+    if (options.layout.maximized !== null) {
+      options.onLayoutAction({ kind: "toggle-maximize", region: options.layout.maximized });
+    }
+    if (options.layout.activeRail !== "files" || !options.layout.dockOpen) {
+      options.onLayoutAction({ kind: "activate-rail", panel: "files", narrow: options.narrow });
+    }
+  }, [options.layout, options.narrow, options.onLayoutAction]);
   const saveDocument = useCallback(async (documentId: string) => {
     const document = options.runtime.documents.getState().documents.find(({ id }) => id === documentId);
     if (!document || !isDocumentDirty(document)) return;

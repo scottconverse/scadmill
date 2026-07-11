@@ -129,8 +129,7 @@ export function Workbench({
     keybindings,
   );
   const fileCommands = useFileCommands({
-    runtime,
-    workspace: documents,
+    runtime, workspace: documents, layout,
     projectMode: projectState.mode,
     scratchPersistence: scratchAutosavePersistence,
     narrow,
@@ -181,11 +180,11 @@ export function Workbench({
     keybindings,
   });
   useDocumentKeybindings({
-    workspace: documents,
-    keybindings,
-    onActivate: activateDocument,
-    onClose: closeDocument,
-    onReopen: reopenDocument,
+    workspace: documents, keybindings,
+    onActivate: activateDocument, onClose: closeDocument, onReopen: reopenDocument,
+    onSave: fileCommands.save, onSaveAll: fileCommands.saveAll,
+    onNewFile: fileCommands.newFile, onOpenProject: fileCommands.openProject,
+    onExport: fileCommands.exportModel,
   });
   const cachedEditorSession = editorSessions.current.get(document.id);
   const initialEditorSession = cachedEditorSession?.state.doc.toString() === document.source

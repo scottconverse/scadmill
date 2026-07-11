@@ -3,6 +3,7 @@ import { EditorView } from "@codemirror/view";
 import { act, fireEvent, render, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import { isDocumentDirty } from "../../src/application/documents/document-workspace";
 import type { EngineService, RenderSuccess3D } from "../../src/application/engine/contracts";
 import { createWorkbenchRuntime } from "../../src/application/runtime/workbench-runtime";
 import { SHIPPED_THEMES } from "../../src/application/theme/shipped-themes";
@@ -79,6 +80,73 @@ describe("Workbench", () => {
         summary: "Editor command: toggle-comment",
       }),
     ));
+  });
+
+  it("routes every global File shortcut through the Workbench coordinator", async () => {
+    const engine: EngineService = {
+      render: vi.fn(),
+      export: vi.fn(),
+      version: vi.fn(),
+      cancel: vi.fn(),
+    };
+    const scratchPersistence = {
+      load: vi.fn(() => null),
+      save: vi.fn(),
+    };
+    let nextId = 0;
+    const runtime = createWorkbenchRuntime(engine, {
+      initialScratchPath: "Untitled.scad",
+      initialScratchSource: "cube(10);",
+      makeId: () => {
+        nextId += 1;
+        return `file-shortcut-${nextId}`;
+      },
+    });
+    const view = render(
+      <Workbench
+        engine={engine}
+        runtime={runtime}
+        scratchAutosavePersistence={scratchPersistence}
+        engineLabel="OpenSCAD 2026.06.12"
+        activeTheme={SHIPPED_THEMES[0]}
+        themePreference="system"
+        onThemePreferenceChange={vi.fn()}
+      />,
+    );
+    const workbench = within(view.container);
+
+    await act(async () => runtime.dispatch({
+      kind: "edit-document",
+      origin: "user",
+      documentId: "document-main",
+      source: "cube(11);",
+    }));
+    fireEvent.keyDown(window, { key: "s", ctrlKey: true });
+    expect(scratchPersistence.save).toHaveBeenLastCalledWith("cube(11);");
+    await waitFor(() => expect(isDocumentDirty(runtime.documents.getState().documents[0])).toBe(false));
+
+    await act(async () => runtime.dispatch({
+      kind: "edit-document",
+      origin: "user",
+      documentId: "document-main",
+      source: "cube(12);",
+    }));
+    fireEvent.keyDown(window, { key: "s", ctrlKey: true, altKey: true });
+    expect(scratchPersistence.save).toHaveBeenCalledTimes(2);
+    expect(scratchPersistence.save).toHaveBeenLastCalledWith("cube(12);");
+    await waitFor(() => expect(isDocumentDirty(runtime.documents.getState().documents[0])).toBe(false));
+
+    fireEvent.keyDown(window, { key: "n", ctrlKey: true });
+    await waitFor(() => expect(runtime.documents.getState().documents).toHaveLength(2));
+
+    fireEvent.click(workbench.getByRole("button", { name: "Search" }));
+    await workbench.findByRole("region", { name: "Search panel" });
+    fireEvent.keyDown(window, { key: "o", ctrlKey: true });
+    await waitFor(() => expect(runtime.layout.getState().activeRail).toBe("files"));
+    expect(await workbench.findByRole("region", { name: messages.projectFiles })).toBeVisible();
+
+    fireEvent.keyDown(window, { key: "e", ctrlKey: true });
+    expect(await workbench.findByRole("dialog", { name: /^Export /u })).toBeVisible();
   });
 
   it("switches document tabs without dirtying them and targets the first real editor change", async () => {

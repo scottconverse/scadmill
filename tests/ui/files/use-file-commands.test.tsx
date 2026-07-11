@@ -6,6 +6,10 @@ import { isDocumentDirty } from "../../../src/application/documents/document-wor
 import type { EngineService } from "../../../src/application/engine/contracts";
 import type { ProjectStorage } from "../../../src/application/files/project-file-service";
 import { createProjectSnapshot } from "../../../src/application/files/project-snapshot";
+import {
+  DEFAULT_WORKSPACE_LAYOUT,
+  type WorkspaceLayoutState,
+} from "../../../src/application/layout/workspace-layout";
 import { createWorkbenchRuntime } from "../../../src/application/runtime/workbench-runtime";
 import { messages } from "../../../src/messages/en";
 import { useFileCommands } from "../../../src/ui/files/use-file-commands";
@@ -15,6 +19,55 @@ function engine(): EngineService {
 }
 
 describe("useFileCommands", () => {
+  it("keeps an already visible Files panel open for Open and Export commands", () => {
+    const runtime = createWorkbenchRuntime(engine());
+    const onLayoutAction = vi.fn();
+    const view = renderHook(
+      ({ layout, narrow }: { layout: WorkspaceLayoutState; narrow: boolean }) =>
+        useFileCommands({
+          runtime,
+          workspace: runtime.documents.getState(),
+          projectMode: runtime.project.getState().mode,
+          layout,
+          narrow,
+          onLayoutAction,
+        }),
+      { initialProps: { layout: DEFAULT_WORKSPACE_LAYOUT, narrow: false } },
+    );
+
+    act(() => view.result.current.openProject());
+    act(() => view.result.current.exportModel());
+
+    expect(onLayoutAction).not.toHaveBeenCalled();
+    expect(view.result.current.requestedExport).toBe(1);
+
+    view.rerender({
+      layout: { ...DEFAULT_WORKSPACE_LAYOUT, maximized: "viewer" },
+      narrow: false,
+    });
+    act(() => view.result.current.openProject());
+    expect(onLayoutAction).toHaveBeenLastCalledWith({
+      kind: "toggle-maximize",
+      region: "viewer",
+    });
+
+    onLayoutAction.mockClear();
+    view.rerender({
+      layout: {
+        ...DEFAULT_WORKSPACE_LAYOUT,
+        narrowDockOpen: false,
+        narrowSheet: "console",
+      },
+      narrow: true,
+    });
+    act(() => view.result.current.exportModel());
+    expect(onLayoutAction.mock.calls).toEqual([
+      [{ kind: "set-narrow-sheet", sheet: null }],
+      [{ kind: "activate-rail", panel: "files", narrow: true }],
+    ]);
+    expect(view.result.current.requestedExport).toBe(2);
+  });
+
   it("surfaces an asynchronous project save rejection and leaves the document dirty", async () => {
     const files = new Map([["main.scad", "cube(10);"]]);
     const storage: ProjectStorage = {
@@ -38,6 +91,7 @@ describe("useFileCommands", () => {
       runtime,
       workspace: runtime.documents.getState(),
       projectMode: runtime.project.getState().mode,
+      layout: DEFAULT_WORKSPACE_LAYOUT,
       narrow: false,
       onLayoutAction: vi.fn(),
     }));
@@ -79,6 +133,7 @@ describe("useFileCommands", () => {
       workspace: runtime.documents.getState(),
       projectMode: runtime.project.getState().mode,
       scratchPersistence: persistence,
+      layout: DEFAULT_WORKSPACE_LAYOUT,
       narrow: false,
       onLayoutAction: vi.fn(),
     }));
