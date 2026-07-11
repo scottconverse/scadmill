@@ -83,6 +83,8 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Moved project-ZIP compression and expansion into a dedicated worker with cooperative 1 MiB transferable copies, streamed import reads, progress and cancellation; a retained Chromium profile round-trips a 92 MiB asset in a 96,489,071-byte archive with no long task, a 18.7 ms maximum heartbeat gap, 13.2 ms cancellation, and a 192,395,630-byte peak main-heap delta.
 - Bounded crash-recovery snapshots at 4 MiB of UTF-8 JSON and coalesced rapid edits into the latest durable capture after 300 ms, with visible persistence errors when the bound is exceeded.
 - Replaced silent annotation metadata failures with a workspace-level saved/unsaved/load-error state. Failed add, delete, file move, Save As copy, and trash metadata updates now remain retryable in memory; the warning clears only after a successful durable load or save.
+- Added a hardware-disclosing production-viewer profile for exactly two million triangles, real trusted orbit input, automatic edge/shadow degradation, frame pacing, long-task capture, and a strict hardware-renderer check. The current AMD Radeon 780M diagnostic records 59.95 fps, but does not qualify the newer GPU as the required 2020-class acceptance target.
+- Reduced the binary-STL parser hot loop to scalar bounds and normal arithmetic while preserving exact validation and normalized geometry output.
 
 ### Known policy block
 
@@ -100,6 +102,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 ### Known verification gaps
 
 - A live packaged-desktop first-run, render, export, and restart journey is not yet preserved as a milestone-gate artifact.
-- FR-2.5's two-million-triangle, at-least-30-fps claim on disclosed 2020-class integrated graphics remains unverified.
+- FR-2.5 now has a retained, reproducible two-million-triangle hardware profile and passes at 59.95 fps on this host's AMD Radeon 780M, but the claim remains unverified because that GPU is newer than the required 2020-class integrated target.
 - AC-6.d has automated recovery-boundary coverage but not a retained live process-kill and relaunch artifact.
 - AC-9.c has recursive app-file exclusion and an isolated keychain abstraction test, but no retained packaged-desktop round trip against a production operating-system credential store.
+- `cargo audit` reports zero vulnerability failures but 17 pre-existing informational warnings in the current Tauri dependency graph, including the GTK3/glib unsoundness advisory and unmaintained GTK3, proc-macro-error, and UNIC families; current compatible upstream releases do not remove them.

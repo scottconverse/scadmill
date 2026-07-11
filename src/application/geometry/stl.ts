@@ -41,24 +41,22 @@ export function parseBinaryStl(bytes: Uint8Array): ParsedBinaryStl {
 
   for (let triangle = 0; triangle < triangleCount; triangle += 1) {
     const vertexBytes = HEADER_BYTES + triangle * TRIANGLE_BYTES + NORMAL_BYTES;
+    const positionOffset = triangle * COORDINATES_PER_TRIANGLE;
     for (let coordinate = 0; coordinate < COORDINATES_PER_TRIANGLE; coordinate += 1) {
       const value = view.getFloat32(vertexBytes + coordinate * 4, true);
       if (!Number.isFinite(value)) {
         throw new Error(`Binary STL triangle ${triangle + 1} contains a non-finite coordinate.`);
       }
 
-      positions[triangle * COORDINATES_PER_TRIANGLE + coordinate] = value;
+      positions[positionOffset + coordinate] = value;
       const axis = coordinate % 3;
-      min[axis] = Math.min(min[axis], value);
-      max[axis] = Math.max(max[axis], value);
+      if (value < min[axis]) min[axis] = value;
+      if (value > max[axis]) max[axis] = value;
     }
-    const positionOffset = triangle * COORDINATES_PER_TRIANGLE;
-    let normal: [number, number, number] = [
-      view.getFloat32(vertexBytes - NORMAL_BYTES, true),
-      view.getFloat32(vertexBytes - NORMAL_BYTES + 4, true),
-      view.getFloat32(vertexBytes - NORMAL_BYTES + 8, true),
-    ];
-    let magnitude = Math.hypot(...normal);
+    let normalX = view.getFloat32(vertexBytes - NORMAL_BYTES, true);
+    let normalY = view.getFloat32(vertexBytes - NORMAL_BYTES + 4, true);
+    let normalZ = view.getFloat32(vertexBytes - NORMAL_BYTES + 8, true);
+    let magnitude = Math.sqrt(normalX * normalX + normalY * normalY + normalZ * normalZ);
     if (!Number.isFinite(magnitude) || magnitude === 0) {
       const ax = positions[positionOffset];
       const ay = positions[positionOffset + 1];
@@ -69,18 +67,26 @@ export function parseBinaryStl(bytes: Uint8Array): ParsedBinaryStl {
       const acx = positions[positionOffset + 6] - ax;
       const acy = positions[positionOffset + 7] - ay;
       const acz = positions[positionOffset + 8] - az;
-      normal = [aby * acz - abz * acy, abz * acx - abx * acz, abx * acy - aby * acx];
-      magnitude = Math.hypot(...normal);
+      normalX = aby * acz - abz * acy;
+      normalY = abz * acx - abx * acz;
+      normalZ = abx * acy - aby * acx;
+      magnitude = Math.sqrt(normalX * normalX + normalY * normalY + normalZ * normalZ);
     }
     if (!Number.isFinite(magnitude) || magnitude === 0) {
-      normal = [0, 0, 1];
+      normalX = 0;
+      normalY = 0;
+      normalZ = 1;
       magnitude = 1;
     }
+    const inverseMagnitude = 1 / magnitude;
+    normalX *= inverseMagnitude;
+    normalY *= inverseMagnitude;
+    normalZ *= inverseMagnitude;
     for (let vertex = 0; vertex < 3; vertex += 1) {
       const normalOffset = positionOffset + vertex * 3;
-      normals[normalOffset] = normal[0] / magnitude;
-      normals[normalOffset + 1] = normal[1] / magnitude;
-      normals[normalOffset + 2] = normal[2] / magnitude;
+      normals[normalOffset] = normalX;
+      normals[normalOffset + 1] = normalY;
+      normals[normalOffset + 2] = normalZ;
     }
   }
 

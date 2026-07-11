@@ -21,14 +21,12 @@ import {
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
 import type { RenderSuccess3D } from "../../application/engine/contracts";
-import { parseBinaryStlOffThread } from "../../application/geometry/stl-parser-worker-client";
 import type { Point3 } from "../../application/viewer/measurements";
-import {
-  createDefaultViewerCamera,
-  type PointMeasurement,
-  type ViewerAnnotation,
-  type ViewerCameraState,
-  type ViewerFurnitureState,
+import type {
+  PointMeasurement,
+  ViewerAnnotation,
+  ViewerCameraState,
+  ViewerFurnitureState,
 } from "../../application/viewer/viewer-state";
 import { messages } from "../../messages/en";
 import type { ViewerTool } from "./ViewerToolbar";
@@ -48,8 +46,16 @@ import {
   type ViewerResources,
 } from "./model-viewer-runtime";
 import { ModelViewerOverlays, type SpatialOverlays } from "./model-viewer-overlays";
+import {
+  DEFAULT_CAMERA,
+  DEFAULT_FURNITURE,
+  DEFAULT_MESH_PARSER,
+  DEFAULT_MOUSE_MAPPING,
+  type ModelMeshParser,
+} from "./model-viewer-defaults";
 
 export interface ModelViewerHandle { capturePng(): Promise<Uint8Array>; }
+export type { ModelMeshParser } from "./model-viewer-defaults";
 
 export interface ModelViewerProps {
   readonly result?: RenderSuccess3D;
@@ -63,19 +69,11 @@ export interface ModelViewerProps {
   readonly dimmed?: boolean;
   readonly meshColor?: string | null;
   readonly mouseMapping?: { readonly orbit: MouseButton; readonly pan: MouseButton };
+  readonly meshParser?: ModelMeshParser;
   readonly onCameraChange?: (camera: ViewerCameraState) => void;
   readonly onPointPick?: (point: Point3) => void;
   readonly onDegradationChange?: (degradation: ViewerDegradation) => void;
 }
-
-const DEFAULT_CAMERA = createDefaultViewerCamera();
-const DEFAULT_FURNITURE: ViewerFurnitureState = {
-  grid: true,
-  axes: true,
-  edges: false,
-  shadow: false,
-};
-const DEFAULT_MOUSE_MAPPING = { orbit: "left", pan: "right" } as const;
 
 export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(function ModelViewer({
   result,
@@ -89,6 +87,7 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
   dimmed = false,
   meshColor = null,
   mouseMapping = DEFAULT_MOUSE_MAPPING,
+  meshParser = DEFAULT_MESH_PARSER,
   onCameraChange,
   onPointPick,
   onDegradationChange,
@@ -312,7 +311,7 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
       return;
     }
     const parser = new AbortController();
-    void parseBinaryStlOffThread(result.mesh.bytes, undefined, parser.signal).then((parsed) => {
+    void meshParser(result.mesh.bytes, parser.signal).then((parsed) => {
       if (!active || resources.current !== viewer) return;
       const geometry = new BufferGeometry();
       geometry.setAttribute("position", new BufferAttribute(parsed.positions, 3));
@@ -329,7 +328,7 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
       setGeometryError(error instanceof Error ? error.message : messages.renderedMeshDisplayFailed);
     });
     return () => { active = false; parser.abort(); };
-  }, [result]);
+  }, [meshParser, result]);
   useEffect(() => {
     if (appearanceKey.length > 0) resources.current?.refreshAppearance();
   }, [appearanceKey]);

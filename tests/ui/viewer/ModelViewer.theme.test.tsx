@@ -15,6 +15,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { RenderSuccess3D } from "../../../src/application/engine/contracts";
+import type { ParsedBinaryStl } from "../../../src/application/geometry/stl";
 import {
   ModelViewer,
   type ModelViewerHandle,
@@ -203,6 +204,22 @@ describe("ModelViewer theme", () => {
     const view = render(<ModelViewer colors={darkColors} />);
 
     expect(observed).toEqual([view.container.querySelector(".model-viewer")]);
+  });
+
+  it("accepts a pre-parsed geometry seam for isolated production-render profiling", async () => {
+    const parsed: ParsedBinaryStl = {
+      triangleCount: 1,
+      positions: new Float32Array([0, 0, 0, 10, 0, 0, 10, 10, 10]),
+      normals: new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1]),
+      bounds: { min: [0, 0, 0], max: [10, 10, 10], size: [10, 10, 10] },
+    };
+    const meshParser = vi.fn(async () => parsed);
+    const result = oneTriangleResult();
+
+    render(<ModelViewer colors={darkColors} meshParser={meshParser} result={result} />);
+
+    await waitFor(() => expect(modelMesh(threeHarness.scenes[0])).toBeInstanceOf(Mesh));
+    expect(meshParser).toHaveBeenCalledWith(result.mesh.bytes, expect.any(AbortSignal));
   });
 
   it("hot-applies viewer colors without reconstructing Three resources", async () => {

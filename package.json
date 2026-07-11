@@ -15,6 +15,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "profile:viewer": "playwright test --config tests/performance/viewer-performance.playwright.config.ts",
     "test:watch": "vitest",
     "lint": "biome lint src tests scripts vite.config.ts playwright.config.ts && node scripts/check-source-policy.mjs",
     "check:provenance": "node scripts/check-provenance.mjs",
