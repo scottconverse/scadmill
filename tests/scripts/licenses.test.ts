@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import { findDisallowedPackages, isAllowedLicenseExpression } from "../../scripts/lib/licenses.mjs";
@@ -16,6 +18,14 @@ describe("isAllowedLicenseExpression", () => {
     expect(isAllowedLicenseExpression("MIT OR Apache-2.0 OR LGPL-2.1-or-later")).toBe(true);
     expect(isAllowedLicenseExpression("Apache-2.0 WITH LLVM-exception")).toBe(true);
     expect(isAllowedLicenseExpression("MIT/Apache-2.0")).toBe(true);
+  });
+});
+
+describe("dependency-license command policy", () => {
+  it("does not retain blocker copy for resolved Q-0001", () => {
+    const source = readFileSync(new URL("../../scripts/check-licenses.mjs", import.meta.url), "utf8");
+
+    expect(source).not.toContain("Blocked by spec/QUESTIONS.md Q-0001");
   });
 });
 

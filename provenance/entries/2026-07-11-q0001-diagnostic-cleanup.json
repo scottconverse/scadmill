@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-q0001-diagnostic-cleanup",
+  "createdAt": "2026-07-11T16:19:33-06:00",
+  "summary": "Remove the obsolete Q-0001 blocker diagnostic after Unicode-3.0 became an allowed license, and prevent the resolved policy copy from silently returning.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 test-first evidence and milestone gates",
+    "Section 6 dependency policy",
+    "Q-0001 owner resolution"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-11-q0001-diagnostic-cleanup.json", "status": "added" },
+    { "path": "scripts/check-licenses.mjs", "status": "modified" },
+    { "path": "tests/scripts/licenses.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0187",
+      "topic": "Resolved license-policy diagnostics",
+      "decision": "Delete the special-case message that called Unicode-3.0 blocked by Q-0001 and guard the license command source against reintroducing that resolved blocker copy.",
+      "rationale": "Unicode-3.0 is now deliberately permitted. An unknown required term must still fail through the general unapproved-license path, but the command must not falsely attribute that failure to the allowed Unicode license or an already-resolved question.",
+      "specBasis": ["Section 6 dependency policy", "Q-0001 owner resolution"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The resolved Q-0001 blocker cannot silently return in license command output",
+      "test": "A focused policy regression reads the executable license command and rejects the exact obsolete blocker diagnostic while retaining the expression-policy tests.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/licenses.test.ts",
+        "observedAt": "2026-07-11T16:19:21-06:00",
+        "outcome": "ASSERTION-LEVEL RED: Test Files 1 failed; Tests 1 failed and 4 passed because scripts/check-licenses.mjs still contained the resolved Q-0001 blocker copy."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/licenses.test.ts",
+        "observedAt": "2026-07-11T16:19:33-06:00",
+        "outcome": "GREEN: Test Files 1 passed; Tests 5 passed. The stale diagnostic is absent and compound-expression behavior remains covered."
+      }
+    },
+    {
+      "criterion": "Exact Rust and combined dependency-license gates",
+      "test": "Run both owner-requested commands after removing the stale diagnostic.",
+      "red": {
+        "command": "The retained Q-0001 baseline policy run in provenance/entries/2026-07-11-q0001-unicode-license.json",
+        "observedAt": "2026-07-11T08:05:58-06:00",
+        "outcome": "BASELINE POLICY RED: Rust and combined modes each rejected the 19 then-unapproved Unicode-3.0 records before the owner resolution was implemented."
+      },
+      "green": {
+        "command": "pnpm.cmd check:licenses rust; pnpm.cmd check:licenses all",
+        "observedAt": "2026-07-11T16:19:35-06:00",
+        "outcome": "GREEN: Rust mode passed 492 packages; combined mode passed 119 npm packages and 492 Rust packages. Every command exited 0."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "Q-0001 remains resolved by the owner's explicit policy decision; this cleanup changes no allowed-license semantics.",
+    "No owner similarity gate, comparison repository, workflow content, or prohibited source was opened or executed."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
