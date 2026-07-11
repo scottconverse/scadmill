@@ -51,6 +51,31 @@ fn exports_svg_and_ascii_stl_at_full_quality() {
 }
 
 #[test]
+fn exports_a_binary_stl_cube_with_twelve_triangles() {
+    let engine = find_engine(None).expect("the pinned engine should be installed");
+    let exported = export_project(
+        &engine,
+        "cube.scad",
+        &BTreeMap::from([("cube.scad".to_string(), b"cube(10);".to_vec())]),
+        &BTreeMap::<String, ParamValue>::new(),
+        NativeExportFormat::StlBinary,
+        None,
+        Duration::from_secs(30),
+        &AtomicBool::new(false),
+        &|_| {},
+    )
+    .expect("binary STL export should succeed");
+
+    assert_eq!(exported.file_extension, "stl");
+    assert!(exported.bytes.len() >= 84, "binary STL header is missing");
+    assert_eq!(
+        u32::from_le_bytes(exported.bytes[80..84].try_into().unwrap()),
+        12
+    );
+    assert_eq!(exported.bytes.len(), 84 + 12 * 50);
+}
+
+#[test]
 fn exports_a_real_png_without_an_explicit_camera() {
     let engine = find_engine(None).expect("the pinned engine should be installed");
     let png = export_project(

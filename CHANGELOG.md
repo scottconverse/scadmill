@@ -41,6 +41,10 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Explicit checking, unavailable, invalid-config, and ready engine-health states with deduplicated retry progress and actionable rejected-path feedback.
 - A keyboard-navigable Edit menu for the implemented find, replace, go-to-line, comment-toggle, undo, and redo commands, showing each active runtime binding.
 - Native integration coverage for real multi-file includes, imported binary STL assets, cross-file parser errors, parameter overrides, 2D bounds, ASCII STL/SVG/PNG exports, and post-timeout render recovery.
+- Folder-backed desktop and IndexedDB-backed web project storage with text/binary fidelity, a functional file tree, durable saves, create/rename/move/trash/reveal operations, unloaded-file navigation, external-change handling, crash recovery, and durable recent projects.
+- Full-quality 3MF, binary/ASCII STL, OFF, AMF, SVG, DXF, and PNG export with awaited artifact destinations, cancellation, and exact mesh file-size/triangle/bounds summaries.
+- Byte-preserving web project ZIP import/export and compressed URL-fragment share links that keep source out of server requests and identify the shared-source origin.
+- Functional File menu Save, Save All, New, Open Project, and Export commands, including caught failures and conservative multi-scratch persistence behavior.
 
 ### Changed
 
@@ -54,6 +58,8 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Strengthened the component color-literal CI gate across product source to catch CSS functions and fallbacks, gradients, numeric and named colors, SVG/canvas attributes, and Three.js color forms while ignoring comments, fragments, and token references.
 - Removed the legacy CSS palette and enforced an exact repository-wide allowlist of the 64 generated Appendix C custom properties.
 - Replaced the latest-run-only console with retained streaming run history while keeping current-snapshot diagnostics as the sole source of status counts and inline editor markers.
+- Replaced the stale M0 engine-unavailable save claim with C6-accurate editing, persistence, rendering, and export status copy.
+- Web startup now degrades to the scratch editor when IndexedDB is absent or access is blocked instead of failing the application module.
 
 ### Known policy block
 
@@ -62,3 +68,10 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Q-0021 parks only explicit-camera PNG exports because the pinned snapshot CLI cannot preserve Appendix A's `CameraPose.up`; default-camera PNG and all non-PNG exports continue.
 - Q-0023 asks whether the exact-date official WebAssembly archives now visible in the snapshot manifest may replace v0.6's mandated same-commit source build; M2 native work is unaffected.
 - Q-0022 asks whether Appendix A may replace its complete in-memory `rawLog: string` with a bounded/file-backed contract; live capture is bounded without truncating the normative result, but final string materialization and spill-file growth remain size-proportional.
+- Q-0029 parks only recent-project duplication on the M3 welcome screen.
+- Q-0030 parks only the autosave-control and multi-untitled store semantics; default-on original-scratch autosave and multi-buffer recovery remain active without overwriting additional tabs.
+- Q-0031 parks only an application-owned cross-platform destination picker; the dialog names the real browser or desktop destination and reports the saved location.
+
+### Known verification gaps
+
+- AC-6.d has automated recovery-boundary coverage but not a retained live process-kill and relaunch artifact.

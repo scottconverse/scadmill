@@ -142,7 +142,7 @@ describe("App", () => {
     await waitFor(() => expect(app.queryByText("Checking OpenSCADâ€¦")).not.toBeInTheDocument());
     expect(app.getAllByText(messages.engineUnavailable)).toHaveLength(2);
     expect(app.getAllByText(
-      "OpenSCAD is unavailable. This temporary buffer remains editable, but it cannot be saved yet.",
+      "OpenSCAD is unavailable. Editing and local project features remain available; rendering and model export are disabled.",
     )).toHaveLength(2);
     expect(app.getByRole("button", { name: messages.renderPreview })).toBeDisabled();
     expect(app.getByRole("button", { name: messages.renderFull })).toBeDisabled();
@@ -162,7 +162,7 @@ describe("App", () => {
 
     expect(editor.state.doc.toString()).toBe("sphere(8);");
     expect(
-      await app.findByRole("tab", { name: messages.documentTabUnsaved("main.scad") }),
+      await app.findByRole("tab", { name: messages.documentTabUnsaved("Untitled") }),
     ).toBeVisible();
     await act(async () => {
       await new Promise((resolve) => globalThis.setTimeout(resolve, 900));
@@ -319,7 +319,7 @@ describe("App", () => {
     });
     const editor = EditorView.findFromDOM(content);
     if (!editor) throw new Error("CodeMirror view could not be recovered.");
-    editor.dispatch({ selection: { anchor: 0, head: 4 } });
+    editor.dispatch({ selection: { anchor: 0, head: 0 } });
 
     await waitFor(() => expect(themeRoot.dataset.theme).toBe("light"));
     expect(picker).toHaveValue("system");
@@ -330,8 +330,8 @@ describe("App", () => {
     expect(view.container.querySelector("main")).toBe(workbench);
     expect(view.container.querySelector(".cm-content")).toBe(content);
     expect(EditorView.findFromDOM(content)).toBe(editor);
-    expect(editor.state.doc.toString()).toBe("cube(10);");
-    expect(editor.state.selection.main).toMatchObject({ from: 0, to: 4 });
+    expect(editor.state.doc.toString()).toBe("");
+    expect(editor.state.selection.main).toMatchObject({ from: 0, to: 0 });
 
     act(() => darkMode.setMatches(true));
     expect(themeRoot.dataset.theme).toBe("high-contrast");

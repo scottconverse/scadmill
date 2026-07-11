@@ -49,6 +49,39 @@ describe("useDocumentKeybindings", () => {
     expect(onReopen).toHaveBeenCalledTimes(1);
   });
 
+  it("routes every global File command binding", () => {
+    const onSave = vi.fn();
+    const onSaveAll = vi.fn();
+    const onNewFile = vi.fn();
+    const onOpenProject = vi.fn();
+    const onExport = vi.fn();
+    renderHook(() => useDocumentKeybindings({
+      workspace,
+      onActivate: vi.fn(),
+      onClose: vi.fn(),
+      onReopen: vi.fn(),
+      onSave,
+      onSaveAll,
+      onNewFile,
+      onOpenProject,
+      onExport,
+    }));
+
+    for (const event of [
+      new KeyboardEvent("keydown", { key: "s", ctrlKey: true, cancelable: true }),
+      new KeyboardEvent("keydown", { key: "s", ctrlKey: true, altKey: true, cancelable: true }),
+      new KeyboardEvent("keydown", { key: "n", ctrlKey: true, cancelable: true }),
+      new KeyboardEvent("keydown", { key: "o", ctrlKey: true, cancelable: true }),
+      new KeyboardEvent("keydown", { key: "e", ctrlKey: true, cancelable: true }),
+    ]) window.dispatchEvent(event);
+
+    expect(onSave).toHaveBeenCalledOnce();
+    expect(onSaveAll).toHaveBeenCalledOnce();
+    expect(onNewFile).toHaveBeenCalledOnce();
+    expect(onOpenProject).toHaveBeenCalledOnce();
+    expect(onExport).toHaveBeenCalledOnce();
+  });
+
   it("ignores unrelated or already-handled key events", () => {
     const onActivate = vi.fn();
     const onClose = vi.fn();

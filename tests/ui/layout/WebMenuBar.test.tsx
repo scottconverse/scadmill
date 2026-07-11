@@ -13,6 +13,12 @@ describe("WebMenuBar", () => {
     const onCloseDocument = vi.fn();
     const onReopenDocument = vi.fn();
     const onEditorCommand = vi.fn();
+    const onOpenRecentProject = vi.fn();
+    const onSaveDocument = vi.fn();
+    const onSaveAllDocuments = vi.fn();
+    const onNewFile = vi.fn();
+    const onOpenProject = vi.fn();
+    const onExport = vi.fn();
     const view = render(
       <WebMenuBar
         layout={DEFAULT_WORKSPACE_LAYOUT}
@@ -26,6 +32,17 @@ describe("WebMenuBar", () => {
         onCloseDocument={onCloseDocument}
         onReopenDocument={onReopenDocument}
         onEditorCommand={onEditorCommand}
+        onOpenRecentProject={onOpenRecentProject}
+        recentProjects={[{
+          projectId: "project-a",
+          displayName: "Cube project",
+          openedAt: "2026-07-10T00:00:00.000Z",
+        }]}
+        onSaveDocument={onSaveDocument}
+        onSaveAllDocuments={onSaveAllDocuments}
+        onNewFile={onNewFile}
+        onOpenProject={onOpenProject}
+        onExport={onExport}
       />,
     );
     const menu = within(view.container);
@@ -37,10 +54,19 @@ describe("WebMenuBar", () => {
 
     const openFile = () => fireEvent.click(menu.getByText("File"));
     openFile();
-    expect(menu.getByRole("button", { name: "Save" })).toBeDisabled();
-    expect(menu.getByRole("button", { name: "Save all" })).toBeDisabled();
-    expect(menu.getByRole("button", { name: "New file" })).toBeDisabled();
-    expect(menu.getByRole("button", { name: "Open project/folder" })).toBeDisabled();
+    for (const [name, callback] of [
+      ["Save", onSaveDocument],
+      ["Save all", onSaveAllDocuments],
+      ["New file", onNewFile],
+      ["Open project", onOpenProject],
+      ["Export…", onExport],
+    ] as const) {
+      const command = menu.getByRole("button", { name });
+      expect(command).toBeEnabled();
+      fireEvent.click(command);
+      expect(callback).toHaveBeenCalledOnce();
+      openFile();
+    }
     expect(menu.getByText(DEFAULT_KEYBINDINGS.saveDocument)).toBeVisible();
     expect(menu.getByText(DEFAULT_KEYBINDINGS.closeTab)).toBeVisible();
     fireEvent.click(menu.getByRole("button", { name: "Close tab" }));
@@ -48,6 +74,9 @@ describe("WebMenuBar", () => {
     openFile();
     fireEvent.click(menu.getByRole("button", { name: "Reopen closed tab" }));
     expect(onReopenDocument).toHaveBeenCalledTimes(1);
+    openFile();
+    fireEvent.click(menu.getByRole("button", { name: "Reopen Cube project" }));
+    expect(onOpenRecentProject).toHaveBeenCalledWith("project-a", "Cube project");
 
     for (const [label, command] of [
       ["Find", "find"],
@@ -82,6 +111,33 @@ describe("WebMenuBar", () => {
     fireEvent.click(menu.getByText("Render"));
     fireEvent.click(menu.getByRole("button", { name: "Render preview" }));
     expect(onRenderPreview).toHaveBeenCalledTimes(1);
+  });
+
+  it("disables save commands only with a truthful unavailability reason", () => {
+    const view = render(
+      <WebMenuBar
+        layout={DEFAULT_WORKSPACE_LAYOUT}
+        narrow={false}
+        renderDisabled={false}
+        saveDocumentDisabled
+        saveAllDocumentsDisabled
+        saveDocumentUnavailableReason="No durable destination"
+        saveAllDocumentsUnavailableReason="Additional scratch tabs are not durable"
+        onLayoutAction={vi.fn()}
+        onRenderFull={vi.fn()}
+        onRenderPreview={vi.fn()}
+      />,
+    );
+    fireEvent.click(within(view.container).getByRole("button", { name: "File" }));
+
+    expect(within(view.container).getByRole("button", { name: "Save" })).toHaveAttribute(
+      "title",
+      "No durable destination",
+    );
+    expect(within(view.container).getByRole("button", { name: "Save all" })).toHaveAttribute(
+      "title",
+      "Additional scratch tabs are not durable",
+    );
   });
 
   it("shows active editor bindings and supports arrow-key command traversal", async () => {

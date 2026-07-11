@@ -10,6 +10,11 @@ import type {
 import type { ThemePreference } from "../theme/theme-runtime";
 import type { WorkspaceLayoutPersistence } from "./layout-persistence";
 import type { RenderingSettings, SettingsState } from "./render-settings";
+import type { ArtifactDestination } from "../files/artifact-destination";
+import type { ProjectStorage } from "../files/project-file-service";
+import type { RecentProjectsPersistence } from "../files/recent-projects";
+import type { ProjectCommand, ProjectSessionState } from "../files/project-session";
+import type { ProjectFileContent, ProjectSnapshot } from "../files/project-snapshot";
 
 export type CommandOrigin = "user" | "ai-panel" | "external-agent" | "system";
 
@@ -20,14 +25,30 @@ export interface RenderState {
   documentId?: string;
   entryFile?: string;
   sourceRevision?: number;
-  sourceFiles?: ReadonlyMap<string, string>;
+  sourceFiles?: ReadonlyMap<string, ProjectFileContent>;
+  projectRevision?: number;
   result?: RenderResult;
 }
 
 export type WorkbenchCommand =
+  | (ProjectCommand & { readonly origin: CommandOrigin })
   | { kind: "open-document"; origin: CommandOrigin; document: DocumentSeed }
   | { kind: "activate-document"; origin: CommandOrigin; documentId: string }
   | { kind: "edit-document"; origin: CommandOrigin; documentId: string; source: string }
+  | {
+      kind: "mark-document-autosaved";
+      origin: CommandOrigin;
+      documentId: string;
+      revision: number;
+      source: string;
+    }
+  | {
+      kind: "resolve-external-change";
+      origin: CommandOrigin;
+      documentId: string;
+      diskSource: string;
+      choice: "reload" | "keep";
+    }
   | { kind: "move-document"; origin: CommandOrigin; documentId: string; toIndex: number }
   | { kind: "close-document"; origin: CommandOrigin; documentId: string }
   | { kind: "reopen-document"; origin: CommandOrigin }
@@ -56,21 +77,29 @@ export interface ReadonlyStore<T> {
 }
 
 export interface WorkbenchRuntime {
+  artifacts: ArtifactDestination;
   documents: ReadonlyStore<DocumentWorkspaceState>;
   render: ReadonlyStore<RenderState>;
   console: ReadonlyStore<ConsoleState>;
   settings: ReadonlyStore<SettingsState>;
   layout: ReadonlyStore<WorkspaceLayoutState>;
+  project: ReadonlyStore<ProjectSessionState>;
   history: ReadonlyStore<readonly HistoryEntry[]>;
   dispatch(command: WorkbenchCommand): Promise<void>;
   dispose(): void;
 }
 
 export interface RuntimeOptions {
+  artifactDestination?: ArtifactDestination;
   makeId?: () => string;
   now?: () => Date;
   nowMs?: () => number;
   layoutPersistence?: WorkspaceLayoutPersistence;
   rendering?: Partial<RenderingSettings>;
   keybindings?: Partial<KeybindingSettings>;
+  projectStorage?: ProjectStorage;
+  initialProject?: ProjectSnapshot;
+  recentProjectsPersistence?: RecentProjectsPersistence;
+  initialScratchSource?: string;
+  initialScratchPath?: string;
 }

@@ -13,6 +13,15 @@ import {
   type DocumentWorkspaceState,
 } from "../documents/document-workspace";
 import type { EngineService } from "../engine/contracts";
+import { UNAVAILABLE_ARTIFACT_DESTINATION } from "../files/artifact-destination";
+import { EPHEMERAL_RECENT_PROJECTS_PERSISTENCE } from "../files/recent-projects";
+import {
+  createProjectSessionState,
+  executeProjectCommand,
+  isProjectCommand,
+  type ProjectSessionState,
+} from "../files/project-session";
+import { createProjectSnapshot, type ProjectFileContent } from "../files/project-snapshot";
 import {
   parseWorkspaceLayout,
   reduceWorkspaceLayout,
@@ -21,6 +30,7 @@ import {
   type WorkspaceLayoutState,
 } from "../layout/workspace-layout";
 import { createDeferredAction } from "./deferred-action";
+import { summarizeLayoutAction } from "./layout-action-summary";
 import { sameLayout } from "./same-layout";
 import {
   createSettingsState,
@@ -29,6 +39,8 @@ import {
 import {
   EPHEMERAL_WORKSPACE_LAYOUT_PERSISTENCE,
 } from "./layout-persistence";
+import { buildRuntimeRenderFileMap } from "./project-render-files";
+import { applyProjectTransition } from "./project-transition";
 import type {
   HistoryEntry,
   ReadonlyStore,
@@ -57,34 +69,36 @@ function readonlyStore<T>(store: StoreApi<T>): ReadonlyStore<T> {
   };
 }
 
-function summarizeLayoutAction(action: WorkspaceLayoutAction): string {
-  switch (action.kind) {
-    case "activate-rail":
-      return `Activate ${action.panel} rail`;
-    case "resize-panel":
-      return `Resize ${action.panel}`;
-    case "toggle-panel":
-      return `Toggle ${action.panel}`;
-    case "toggle-maximize":
-      return `Toggle ${action.region} maximize`;
-    case "set-narrow-view":
-      return `Show ${action.view} view`;
-    case "set-narrow-sheet":
-      return action.sheet === null ? "Close narrow sheet" : `Show ${action.sheet} sheet`;
-    case "close-narrow-dock":
-      return "Close narrow dock";
-    case "render-failed":
-      return "Open console for render failure";
-    case "render-succeeded":
-      return "Keep layout after render success";
-    case "reset-layout":
-      return "Reset workspace layout";
-  }
-}
-
 export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOptions = {}): WorkbenchRuntime {
   const layoutPersistence = options.layoutPersistence ?? EPHEMERAL_WORKSPACE_LAYOUT_PERSISTENCE;
-  const documents = createStore<DocumentWorkspaceState>(() => createDocumentWorkspace());
+  const recentProjectsPersistence = options.recentProjectsPersistence
+    ?? EPHEMERAL_RECENT_PROJECTS_PERSISTENCE;
+  const initialWorkspace = options.initialScratchSource === undefined
+    ? createDocumentWorkspace()
+    : createDocumentWorkspace([{
+        id: "document-main",
+        path: options.initialScratchPath ?? "main.scad",
+        source: options.initialScratchSource,
+      }]);
+  const initialProject = options.initialProject ?? createProjectSnapshot(
+    "scratch",
+    new Map(initialWorkspace.documents.map(({ path, source }) => [path, source])),
+  );
+  const documents = createStore<DocumentWorkspaceState>(() => initialWorkspace);
+  let recentProjects = [] as ReturnType<typeof recentProjectsPersistence.load>;
+  try {
+    recentProjects = recentProjectsPersistence.load();
+  } catch {
+    recentProjects = [];
+  }
+  const project = createStore<ProjectSessionState>(() =>
+    createProjectSessionState(
+      initialProject,
+      options.initialProject ? "project" : "scratch",
+      undefined,
+      recentProjects,
+    )
+  );
   const render = createStore<RenderState>(() => ({ status: "idle" }));
   const settings = createStore<SettingsState>(() =>
     createSettingsState(options.rendering, options.keybindings)
@@ -144,9 +158,12 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     return true;
   }
 
-  function sourceSnapshotIsCurrent(snapshot: ReadonlyMap<string, string>): boolean {
+  function sourceSnapshotIsCurrent(
+    snapshot: ReadonlyMap<string, ProjectFileContent>,
+    projectRevision: number,
+  ): boolean {
     const current = documents.getState().documents;
-    return current.length === snapshot.size
+    return project.getState().revision === projectRevision
       && current.every(({ path, source }) => snapshot.get(path) === source);
   }
 
@@ -158,6 +175,31 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
         return { kind: "activate", documentId: command.documentId };
       case "edit-document":
         return { kind: "edit", documentId: command.documentId, source: command.source };
+      case "mark-document-autosaved":
+        return {
+          kind: "mark-saved",
+          documentId: command.documentId,
+          revision: command.revision,
+          source: command.source,
+        };
+      case "resolve-external-change": {
+        if (command.choice === "reload") {
+          return {
+            kind: "replace-from-disk",
+            documentId: command.documentId,
+            source: command.diskSource,
+          };
+        }
+        const target = documents.getState().documents.find(({ id }) => id === command.documentId);
+        return target
+          ? {
+              kind: "mark-saved",
+              documentId: command.documentId,
+              revision: target.revision,
+              source: command.diskSource,
+            }
+          : null;
+      }
       case "move-document":
         return { kind: "move", documentId: command.documentId, toIndex: command.toIndex };
       case "close-document":
@@ -180,6 +222,12 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
         return `Activate ${before.documents.find(({ id }) => id === command.documentId)?.path ?? command.documentId}`;
       case "edit-document":
         return `Edit ${before.documents.find(({ id }) => id === command.documentId)?.path ?? command.documentId}`;
+      case "mark-document-autosaved":
+        return `Autosave ${before.documents.find(({ id }) => id === command.documentId)?.path ?? command.documentId}`;
+      case "resolve-external-change":
+        return `${command.choice === "reload" ? "Reload" : "Keep local changes to"} ${
+          before.documents.find(({ id }) => id === command.documentId)?.path ?? command.documentId
+        }`;
       case "move-document":
         return `Move ${before.documents.find(({ id }) => id === command.documentId)?.path ?? command.documentId} to tab ${command.toIndex + 1}`;
       case "close-document":
@@ -192,6 +240,42 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
   }
 
   async function dispatch(command: WorkbenchCommand): Promise<void> {
+    if (isProjectCommand(command)) {
+      const beforeProject = project.getState();
+      const beforeWorkspace = documents.getState();
+      const transition = await executeProjectCommand(
+        beforeProject,
+        beforeWorkspace,
+        command,
+        { storage: options.projectStorage, makeDocumentId: makeId, now },
+      );
+      if (!transition) return;
+      const currentProject = project.getState();
+      if (
+        currentProject !== beforeProject
+        || currentProject.snapshot.projectId !== beforeProject.snapshot.projectId
+        || currentProject.revision !== beforeProject.revision
+      ) return;
+      applyProjectTransition(transition, {
+        documents,
+        project,
+        render,
+        cancelActiveRender,
+      });
+      if (transition.project.recentProjects !== beforeProject.recentProjects) {
+        try {
+          recentProjectsPersistence.save(transition.project.recentProjects);
+        } catch {
+          // A metadata failure must not prevent an explicitly confirmed project open.
+        }
+      }
+      record(command, makeId(), transition.summary, false);
+      if (transition.project.revision !== beforeProject.revision) {
+        cancelActiveRender();
+        scheduleAutoRender();
+      }
+      return;
+    }
     const action = documentAction(command);
     if (action) {
       const before = documents.getState();
@@ -285,7 +369,8 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     const commandId = makeId();
     const workspace = documents.getState();
     const document = activeDocument(workspace);
-    const sourceFiles = new Map(workspace.documents.map(({ path, source }) => [path, source]));
+    const projectRevision = project.getState().revision;
+    const sourceFiles = buildRuntimeRenderFileMap(project.getState(), workspace);
     const rendering = settings.getState();
     const startedMs = nowMs();
     const job = engine.render({
@@ -324,6 +409,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       entryFile: document.path,
       sourceRevision: document.revision,
       sourceFiles,
+      projectRevision,
     }, true);
     record(
       command,
@@ -351,6 +437,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       entryFile: document.path,
       sourceRevision: document.revision,
       sourceFiles,
+      projectRevision,
       result,
     }, true);
     const currentWorkspace = documents.getState();
@@ -360,7 +447,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       || currentTarget.path !== document.path
       || currentTarget.revision !== document.revision
       || currentWorkspace.activeDocumentId !== document.id
-      || !sourceSnapshotIsCurrent(sourceFiles)
+      || !sourceSnapshotIsCurrent(sourceFiles, projectRevision)
     ) {
       return;
     }
@@ -373,11 +460,13 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
   }
 
   return {
+    artifacts: options.artifactDestination ?? UNAVAILABLE_ARTIFACT_DESTINATION,
     documents: readonlyStore(documents),
     render: readonlyStore(render),
     console: readonlyStore(runConsole),
     settings: readonlyStore(settings),
     layout: readonlyStore(layout),
+    project: readonlyStore(project),
     history: readonlyStore(history),
     dispatch,
     dispose() {

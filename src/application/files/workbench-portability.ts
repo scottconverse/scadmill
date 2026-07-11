@@ -1,0 +1,87 @@
+import { activeDocument, isDocumentDirty } from "../documents/document-workspace";
+import type { WorkbenchRuntime } from "../runtime/workbench-runtime";
+import { messages } from "../../messages/en";
+import {
+  createProjectPortabilityController,
+  type ProjectPortabilityController,
+} from "./project-portability";
+import {
+  createProjectSnapshot,
+  type ProjectFileContent,
+  type ProjectSnapshot,
+} from "./project-snapshot";
+
+export interface ImportedProjectStorage {
+  replace(snapshot: ProjectSnapshot): Promise<void>;
+}
+
+export interface WorkbenchPortabilityEnvironment {
+  copyText(value: string): Promise<void>;
+  currentHref(): string;
+  makeProjectId(): string;
+}
+
+function browserEnvironment(): WorkbenchPortabilityEnvironment {
+  return {
+    copyText: async (value) => {
+      if (!globalThis.navigator?.clipboard?.writeText) {
+        throw new Error("Clipboard access is unavailable. Copying the share link requires browser clipboard permission.");
+      }
+      await globalThis.navigator.clipboard.writeText(value);
+    },
+    currentHref: () => globalThis.location.href,
+    makeProjectId: () => `web-import-${globalThis.crypto.randomUUID()}`,
+  };
+}
+
+export function portableWorkbenchSnapshot(runtime: WorkbenchRuntime): ProjectSnapshot {
+  const project = runtime.project.getState().snapshot;
+  const files = new Map<string, ProjectFileContent>(project.files);
+  for (const document of runtime.documents.getState().documents) {
+    if (typeof files.get(document.path) === "string") files.set(document.path, document.source);
+  }
+  return createProjectSnapshot(project.projectId, files);
+}
+
+export function createWorkbenchProjectPortabilityController(
+  runtime: WorkbenchRuntime,
+  storage: ImportedProjectStorage,
+  environment: WorkbenchPortabilityEnvironment = browserEnvironment(),
+): ProjectPortabilityController {
+  return createProjectPortabilityController({
+    artifacts: runtime.artifacts,
+    copyText: environment.copyText,
+    currentHref: environment.currentHref,
+    currentProject: () => ({
+      displayName: runtime.project.getState().displayName,
+      snapshot: portableWorkbenchSnapshot(runtime),
+    }),
+    currentSource: () => activeDocument(runtime.documents.getState()).source,
+    installImportedProject: async (project) => {
+      if (runtime.documents.getState().documents.some(isDocumentDirty)) {
+        throw new Error(messages.projectReplacementBlockedDirty);
+      }
+      await storage.replace(project.snapshot);
+      await runtime.dispatch({
+        kind: "replace-project-confirmed",
+        origin: "user",
+        snapshot: project.snapshot,
+        displayName: project.displayName,
+        entryFile: project.entryFile,
+      });
+    },
+    makeProjectId: environment.makeProjectId,
+    openSharedScratch: async (source) => {
+      if (runtime.project.getState().mode !== "scratch") {
+        throw new Error(messages.sharedSourceRequiresFreshScratch);
+      }
+      await runtime.dispatch({ kind: "new-scratch-document", origin: "system" });
+      await runtime.dispatch({
+        kind: "edit-document",
+        origin: "system",
+        documentId: activeDocument(runtime.documents.getState()).id,
+        source,
+      });
+    },
+  });
+}

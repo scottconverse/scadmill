@@ -11,6 +11,9 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tauri::{AppHandle, Manager, State, ipc::Channel};
 
+mod artifact_storage;
+mod project_storage;
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct NativeProjectFile {
@@ -378,7 +381,14 @@ pub fn run() {
             render_native,
             export_native,
             cancel_native,
-            native_engine_version
+            native_engine_version,
+            project_storage::project_snapshot,
+            project_storage::project_read,
+            project_storage::project_write,
+            project_storage::project_move,
+            project_storage::project_trash,
+            project_storage::project_reveal,
+            artifact_storage::save_artifact
         ])
         .run(tauri::generate_context!())
         .expect("ScadMill desktop runtime failed");

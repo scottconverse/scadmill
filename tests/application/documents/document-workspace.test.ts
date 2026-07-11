@@ -179,4 +179,63 @@ describe("document workspace", () => {
     expect(canReopenDocument(opened)).toBe(false);
     expect(reduceDocumentWorkspace(opened, { kind: "reopen" })).toBe(opened);
   });
+
+  it("marks only the persisted revision saved and preserves edits made during an async save", () => {
+    const initial = createDocumentWorkspace([seeds[0]]);
+    const saving = reduceDocumentWorkspace(initial, {
+      kind: "edit",
+      documentId: "document-main",
+      source: "cube(11);",
+    });
+    const editedAgain = reduceDocumentWorkspace(saving, {
+      kind: "edit",
+      documentId: "document-main",
+      source: "cube(12);",
+    });
+    const completed = reduceDocumentWorkspace(editedAgain, {
+      kind: "mark-saved",
+      documentId: "document-main",
+      revision: saving.documents[0].revision,
+      source: saving.documents[0].source,
+    });
+
+    expect(completed.documents[0]).toMatchObject({
+      source: "cube(12);",
+      savedSource: "cube(11);",
+      revision: 2,
+      savedRevision: 1,
+    });
+    expect(isDocumentDirty(completed.documents[0])).toBe(true);
+  });
+
+  it("reloads from disk, renames paths, and supports an explicit confirmed close", () => {
+    let state = createDocumentWorkspace(seeds, "document-main");
+    state = reduceDocumentWorkspace(state, {
+      kind: "edit",
+      documentId: "document-main",
+      source: "cube(11);",
+    });
+    state = reduceDocumentWorkspace(state, {
+      kind: "replace-from-disk",
+      documentId: "document-main",
+      source: "cube(20);",
+    });
+    state = reduceDocumentWorkspace(state, {
+      kind: "rename-path",
+      documentId: "document-main",
+      path: "renamed.scad",
+    });
+
+    expect(state.documents[0]).toMatchObject({
+      path: "renamed.scad",
+      source: "cube(20);",
+      savedSource: "cube(20);",
+    });
+    expect(isDocumentDirty(state.documents[0])).toBe(false);
+    const closed = reduceDocumentWorkspace(state, {
+      kind: "confirm-close",
+      documentId: "document-main",
+    });
+    expect(closed.documents.map(({ id }) => id)).toEqual(["document-wheel"]);
+  });
 });

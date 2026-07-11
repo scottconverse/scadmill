@@ -7,62 +7,58 @@ import {
   type KeybindingSettings,
 } from "../../application/commands/default-keybindings";
 import type { DirectEditorCommandId } from "../../application/commands/editor-commands";
+import type { RecentProject } from "../../application/files/recent-projects";
 import { messages } from "../../messages/en";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
+import { FileMenuCommands } from "./FileMenuCommands";
+import { MenuCommand } from "./MenuCommand";
 import { moveMenuFocus } from "./web-menu-keyboard";
-
 export interface WebMenuBarProps {
   layout: WorkspaceLayoutState;
   narrow: boolean;
   renderDisabled: boolean;
   closeDocumentDisabled?: boolean;
   reopenDocumentDisabled?: boolean;
+  saveDocumentDisabled?: boolean;
+  saveAllDocumentsDisabled?: boolean;
+  saveDocumentUnavailableReason?: string;
+  saveAllDocumentsUnavailableReason?: string;
   keybindings?: KeybindingSettings;
   onLayoutAction(action: WorkspaceLayoutAction): void;
   onRenderPreview(): void;
   onRenderFull(): void;
   onCloseDocument?(): void;
   onReopenDocument?(): void;
+  onSaveDocument?(): void;
+  onSaveAllDocuments?(): void;
+  onNewFile?(): void;
+  onOpenProject?(): void;
+  onExport?(): void;
+  recentProjects?: readonly RecentProject[]; onOpenRecentProject?(projectId: string, displayName: string): void;
   onEditorCommand?(command: DirectEditorCommandId): void;
 }
-
-interface MenuCommandProps {
-  active?: boolean;
-  disabled?: boolean;
-  label: string;
-  shortcut?: string;
-  title?: string;
-  onClick(): void;
-}
-
-function MenuCommand({ active, disabled, label, shortcut, title, onClick }: MenuCommandProps) {
-  return (
-    <button
-      aria-label={label}
-      aria-pressed={active}
-      disabled={disabled}
-      onClick={onClick}
-      title={title}
-      type="button"
-    >
-      <span>{label}</span>
-      {shortcut && <kbd>{shortcut}</kbd>}
-    </button>
-  );
-}
-
 export function WebMenuBar({
   layout,
   narrow,
   renderDisabled,
   closeDocumentDisabled = true,
   reopenDocumentDisabled = true,
+  saveDocumentDisabled = false,
+  saveAllDocumentsDisabled = false,
+  saveDocumentUnavailableReason,
+  saveAllDocumentsUnavailableReason,
   keybindings = DEFAULT_KEYBINDINGS,
   onLayoutAction,
   onRenderPreview,
   onRenderFull,
   onCloseDocument = () => undefined,
   onReopenDocument = () => undefined,
+  onSaveDocument = () => undefined,
+  onSaveAllDocuments = () => undefined,
+  onNewFile = () => undefined,
+  onOpenProject = () => undefined,
+  onExport = () => undefined,
+  recentProjects = [], onOpenRecentProject = () => undefined,
   onEditorCommand = () => undefined,
 }: WebMenuBarProps) {
   const [openMenu, setOpenMenu] = useState<"file" | "edit" | "view" | "render" | null>(null);
@@ -176,48 +172,24 @@ export function WebMenuBar({
         >
           {messages.fileMenu}
         </button>
-        {openMenu === "file" && <fieldset aria-label={messages.fileMenu} className="web-menu-popover" onKeyDown={moveMenuFocus}>
-          <MenuCommand
-            disabled
-            label={messages.saveDocument}
-            shortcut={keybindings.saveDocument}
-            title={messages.pendingFileCommand}
-            onClick={() => undefined}
-          />
-          <MenuCommand
-            disabled
-            label={messages.saveAllDocuments}
-            shortcut={keybindings.saveAllDocuments}
-            title={messages.pendingFileCommand}
-            onClick={() => undefined}
-          />
-          <MenuCommand
-            disabled
-            label={messages.newFile}
-            shortcut={keybindings.newFile}
-            title={messages.pendingFileCommand}
-            onClick={() => undefined}
-          />
-          <MenuCommand
-            disabled
-            label={messages.openProject}
-            shortcut={keybindings.openProject}
-            title={messages.pendingFileCommand}
-            onClick={() => undefined}
-          />
-          <MenuCommand
-            disabled={closeDocumentDisabled}
-            label={messages.closeTab}
-            shortcut={keybindings.closeTab}
-            onClick={() => runDocumentCommand(onCloseDocument)}
-          />
-          <MenuCommand
-            disabled={reopenDocumentDisabled}
-            label={messages.reopenClosedTab}
-            shortcut={keybindings.reopenClosedTab}
-            onClick={() => runDocumentCommand(onReopenDocument)}
-          />
-        </fieldset>}
+        {openMenu === "file" && <FileMenuCommands
+          closeDisabled={closeDocumentDisabled}
+          keybindings={keybindings}
+          recentProjects={recentProjects}
+          reopenDisabled={reopenDocumentDisabled}
+          saveDisabled={saveDocumentDisabled}
+          saveAllDisabled={saveAllDocumentsDisabled}
+          saveUnavailableReason={saveDocumentUnavailableReason}
+          saveAllUnavailableReason={saveAllDocumentsUnavailableReason}
+          onClose={() => runDocumentCommand(onCloseDocument)}
+          onExport={() => runDocumentCommand(onExport)}
+          onNewFile={() => runDocumentCommand(onNewFile)}
+          onOpenProject={() => runDocumentCommand(onOpenProject)}
+          onOpenRecentProject={(projectId, displayName) => runDocumentCommand(() => onOpenRecentProject(projectId, displayName))}
+          onReopen={() => runDocumentCommand(onReopenDocument)}
+          onSave={() => runDocumentCommand(onSaveDocument)}
+          onSaveAll={() => runDocumentCommand(onSaveAllDocuments)}
+        />}
       </div>
       <div className="web-menu-entry" data-menu-name="edit" data-menu-open={openMenu === "edit"}>
         <button

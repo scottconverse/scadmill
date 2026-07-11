@@ -43,6 +43,11 @@ button:focus-visible, select:focus-visible, [tabindex]:focus-visible { outline: 
 .activity-badge { position: absolute; top: 5px; right: 5px; width: 7px; height: 7px; border: 1px solid var(--chrome-surface); border-radius: 50%; background: var(--chrome-badge-info); }
 .workspace-dock { grid-row: 1; grid-column: 2; min-width: 0; min-height: 0; overflow: auto; border-right: 1px solid var(--chrome-border); background: var(--chrome-surface); color: var(--chrome-text-muted); }
 .workspace-dock > p, .workspace-parameter-panel > p, .workspace-console > p { margin: 0; padding: 16px; color: var(--chrome-text-muted); }
+.project-locator-form { display: grid; gap: 7px; padding: 8px 10px 10px; border-bottom: 1px solid var(--chrome-border); }
+.project-locator { display: grid; min-width: 0; gap: 4px; color: var(--chrome-text); }
+.project-locator input { width: 100%; min-width: 0; }
+.project-locator-help { color: var(--chrome-text-muted); font-size: 11px; line-height: 1.35; }
+.project-locator-form > button { justify-self: start; }
 .layout-panel-heading { display: flex; min-height: 36px; align-items: center; justify-content: space-between; padding: 0 8px 0 12px; border-bottom: 1px solid var(--chrome-border); color: var(--chrome-text); font-size: 13px; }
 .layout-panel-heading button, .panel-action { width: 28px; height: 28px; border-radius: 4px; }
 .panel-splitter { position: relative; z-index: 3; box-sizing: border-box; padding: 0; margin: 0; border: 0; background: none; touch-action: none; }
@@ -102,6 +107,7 @@ button.console-diagnostic:hover, button.console-diagnostic:focus-visible { backg
 .document-tab-close:disabled { color: var(--chrome-text-disabled); cursor: not-allowed; }
 .editor-document-panel { position: relative; min-width: 0; min-height: 0; }
 .editor-command-notice { position: absolute; z-index: 6; right: 12px; bottom: 12px; max-width: min(420px, calc(100% - 24px)); margin: 0; padding: 8px 10px; border: 1px solid var(--chrome-badge-info); border-radius: 6px; background: var(--chrome-surface-raised); color: var(--chrome-text); font-size: 12px; pointer-events: none; }
+.file-command-notice { margin: 0; padding: 8px 12px; border-bottom: 1px solid var(--chrome-badge-error); background: var(--chrome-surface-raised); color: var(--chrome-text); }
 .viewer-heading { justify-content: space-between; }
 .viewer-heading-actions { display: flex; align-items: center; gap: 8px; }
 .dirty-marker { color: var(--chrome-accent); font-size: 9px; }

@@ -1,0 +1,77 @@
+.project-portability {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border-top: 1px solid var(--chrome-border);
+  color: var(--chrome-text);
+}
+
+.project-portability-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.project-portability button,
+.project-portability-import {
+  min-height: 28px;
+  padding: 4px 7px;
+  border: 1px solid var(--chrome-border);
+  border-radius: 4px;
+  background: var(--chrome-surface-raised);
+  color: var(--chrome-text);
+  cursor: pointer;
+  font: inherit;
+}
+
+.project-portability button:disabled,
+.project-portability-import[aria-disabled="true"] {
+  color: var(--chrome-text-disabled);
+  cursor: not-allowed;
+}
+
+.project-portability-import {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.project-portability-import input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.project-portability p {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+
+.project-portability-share-link {
+  min-width: 0;
+  width: 100%;
+  border: 1px solid var(--chrome-border);
+  border-radius: 4px;
+  background: var(--chrome-surface);
+  color: var(--chrome-text);
+  font: inherit;
+}
+
+.shared-source-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border: 1px solid var(--chrome-badge-info);
+  border-radius: 5px;
+  background: var(--chrome-surface);
+}
+
+.shared-source-banner span {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow-wrap: anywhere;
+}

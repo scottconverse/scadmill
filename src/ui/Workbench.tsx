@@ -4,13 +4,10 @@ import {
   canCloseDocument,
   canReopenDocument,
 } from "../application/documents/document-workspace";
-import type { RenderSuccess3D } from "../application/engine/contracts";
 import type { WorkspaceLayoutAction } from "../application/layout/workspace-layout";
-import type { WorkbenchRuntime } from "../application/runtime/workbench-runtime";
-import type { ThemePreference } from "../application/theme/theme-runtime";
-import type { ThemeTokens } from "../application/theme/theme-schema";
 import { messages } from "../messages/en";
 import { WebMenuBar } from "./layout/WebMenuBar";
+import { LegacyWorkbenchStatusBar } from "./layout/LegacyWorkbenchStatusBar";
 import { WorkspaceFrame } from "./layout/WorkspaceFrame";
 import { useLayoutKeybindings } from "./layout/use-layout-keybindings";
 import { useNarrowLayout } from "./layout/use-narrow-layout";
@@ -28,34 +25,19 @@ import {
 } from "./engine/EngineUnavailableBanner";
 import { RenderControls } from "./render/RenderControls";
 import { useWorkbenchRenderCommands } from "./render/use-workbench-render-commands";
+import { FilesActivity } from "./files/FilesActivity";
+import { ProjectSessionHost } from "./files/ProjectSessionHost";
+import type { ProjectOpenRequest } from "./files/ProjectLifecycleControls";
+import { useFileCommands } from "./files/use-file-commands";
+import type { WorkbenchProps } from "./workbench-props";
+import { LegacyViewerPane } from "./viewer/LegacyViewerPane";
 import "./workbench.css";
 
 const CodeEditor = lazy(() => import("./editor/CodeEditor").then((module) => ({ default: module.CodeEditor })));
-const ModelViewer = lazy(() => import("./viewer/ModelViewer").then((module) => ({ default: module.ModelViewer })));
-
-export interface WorkbenchProps {
-  runtime: WorkbenchRuntime;
-  engineLabel: string;
-  engineAvailable?: boolean;
-  engineChecking?: boolean; engineRecovery?: EngineRecoveryState;
-  activeTheme: ThemeTokens;
-  themePreference: ThemePreference;
-  showWebMenu?: boolean;
-  forceNarrowLayout?: boolean;
-  onThemePreferenceChange(preference: ThemePreference): void;
-  configuredEnginePath?: string;
-  onConfigureEnginePath?(path: string): void;
-}
-
-function boundsLabel(result?: RenderSuccess3D): string | null {
-  const bounds = result?.stats.boundingBox;
-  if (!bounds) return null;
-  const size = bounds.max.map((maximum, axis) => maximum - bounds.min[axis]);
-  return `${size.map((value) => Number(value.toFixed(3))).join(" \u00d7 ")} mm`;
-}
 
 export function Workbench({
   runtime,
+  engine,
   engineLabel,
   engineAvailable = true,
   engineChecking = false,
@@ -64,6 +46,11 @@ export function Workbench({
   themePreference,
   showWebMenu = true,
   forceNarrowLayout = false,
+  canRevealProjectFiles,
+  projectStorage,
+  recoveryPersistence,
+  projectPortability,
+  scratchAutosavePersistence,
   onThemePreferenceChange,
   configuredEnginePath = "",
   onConfigureEnginePath,
@@ -76,15 +63,16 @@ export function Workbench({
   const editorSettings = useReadonlyStore(runtime.settings, (state) => state.editor);
   const keybindings = useReadonlyStore(runtime.settings, (state) => state.keybindings);
   const layout = useReadonlyStore(runtime.layout, (state) => state);
+  const projectState = useReadonlyStore(runtime.project, (state) => state);
   const narrow = useNarrowLayout(undefined, forceNarrowLayout);
   const renderedDocument = documents.documents.find(({ id }) => id === render.documentId);
   const renderStale = Boolean(
     render.documentId
     && (
-      !renderedDocument
+      render.projectRevision !== projectState.revision
+      || !renderedDocument
       || renderedDocument.revision !== render.sourceRevision
       || !render.sourceFiles
-      || render.sourceFiles.size !== documents.documents.length
       || documents.documents.some(({ path, source }) => render.sourceFiles?.get(path) !== source)
     ),
   );
@@ -99,13 +87,14 @@ export function Workbench({
     workspace: documents,
   });
   const result = activeRenderResult?.kind === "3d" ? activeRenderResult : undefined;
-  const measuredBounds = boundsLabel(result);
   const effectiveEngineRecovery: EngineRecoveryState | undefined = engineRecovery
     ?? (!engineChecking ? { kind: "unavailable" } : undefined);
   const workbenchRoot = useRef<HTMLElement>(null);
   const editorSessions = useRef(new Map<string, CodeEditorSession>());
   const statusConsoleButton = useRef<HTMLButtonElement>(null);
   const [cursor, setCursor] = useState<CursorPosition>({ line: 1, column: 1 });
+  const [requestedProject, setRequestedProject] = useState<ProjectOpenRequest>();
+  const [recoveryPending, setRecoveryPending] = useState(false);
   const diagnosticStatus = diagnosticStatusLabel(activeRenderResult, document.path);
   const renderStatus = renderStatusLabel(render, renderStale, document.path);
   const consoleVisible = narrow
@@ -143,6 +132,14 @@ export function Workbench({
     render.status,
     keybindings,
   );
+  const fileCommands = useFileCommands({
+    runtime,
+    workspace: documents,
+    projectMode: projectState.mode,
+    scratchPersistence: scratchAutosavePersistence,
+    narrow,
+    onLayoutAction: dispatchLayout,
+  });
   const focusConsole = useCallback(() => {
     if (!consoleVisible) {
       dispatchLayout(narrow
@@ -239,6 +236,9 @@ export function Workbench({
             diagnostics={diagnosticNavigation.editorDiagnostics}
             editorSettings={editorSettings}
             keybindings={keybindings}
+            language={projectState.mode === "scratch" || document.path.toLowerCase().endsWith(".scad")
+              ? "openscad"
+              : "plain"}
             initialSession={initialEditorSession}
             key={document.id}
             value={document.source}
@@ -272,39 +272,16 @@ export function Workbench({
   );
 
   const viewer = (
-    <section className="viewer-panel" aria-label={messages.viewerRegion}>
-      <div className="panel-heading viewer-heading">
-        <span>{messages.viewerRegion}</span>
-        <div className="viewer-heading-actions">
-          {activeRenderResult && render.quality === "preview" && render.status === "success" && (
-            <span className="quality-badge">{messages.previewQuality}</span>
-          )}
-          {!narrow && <button
-            aria-label={messages.collapseViewer}
-            className="panel-action"
-            onClick={() => dispatchLayout({ kind: "toggle-panel", panel: "viewer" })}
-            type="button"
-          >
-            <span aria-hidden="true">−</span>
-          </button>}
-          {!narrow && <button
-            aria-label={layout.maximized === "viewer" ? messages.restoreViewer : messages.maximizeViewer}
-            className="panel-action"
-            onClick={() => dispatchLayout({ kind: "toggle-maximize", region: "viewer" })}
-            type="button"
-          >
-            <span aria-hidden="true">{layout.maximized === "viewer" ? "↙" : "↗"}</span>
-          </button>}
-        </div>
-      </div>
-      <Suspense fallback={<div className="surface-loading" role="status">{messages.loadingViewer}</div>}>
-        <ModelViewer result={result} colors={activeTheme.viewer} />
-      </Suspense>
-      {measuredBounds && <output className="bounds-readout">{measuredBounds}</output>}
-      {activeRenderResult?.kind === "failure" && (
-        <div className="render-error" role="alert">{activeRenderResult.rawLog}</div>
-      )}
-    </section>
+    <LegacyViewerPane
+      activeResult={activeRenderResult}
+      colors={activeTheme.viewer}
+      maximized={layout.maximized === "viewer"}
+      narrow={narrow}
+      quality={render.quality}
+      renderStatus={render.status}
+      result={result}
+      onLayoutAction={dispatchLayout}
+    />
   );
 
   return (
@@ -312,6 +289,18 @@ export function Workbench({
       className={`workbench${showWebMenu ? " workbench-with-web-menu" : ""}`}
       ref={workbenchRoot}
     >
+      <ProjectSessionHost
+        portability={projectPortability}
+        recoveryPersistence={recoveryPersistence}
+        requestedProject={requestedProject}
+        runtime={runtime}
+        scratchAutosavePersistence={scratchAutosavePersistence}
+        storage={projectStorage}
+        onRecoveryPendingChange={setRecoveryPending}
+      />
+      {fileCommands.notice && (
+        <p className="file-command-notice" role="alert">{fileCommands.notice}</p>
+      )}
       {showWebMenu && (
         <WebMenuBar
           closeDocumentDisabled={!canCloseDocument(documents, document.id)}
@@ -320,10 +309,25 @@ export function Workbench({
           narrow={narrow}
           reopenDocumentDisabled={!canReopenDocument(documents)}
           renderDisabled={!engineAvailable || render.status === "rendering"}
+          saveDocumentDisabled={fileCommands.saveDisabled}
+          saveAllDocumentsDisabled={fileCommands.saveAllDisabled}
+          saveDocumentUnavailableReason={fileCommands.saveUnavailableReason}
+          saveAllDocumentsUnavailableReason={fileCommands.saveAllUnavailableReason}
           onCloseDocument={() => closeDocument(document.id)}
           onEditorCommand={editorCommands.requestCommand}
           onLayoutAction={dispatchLayout}
           onReopenDocument={reopenDocument}
+          onSaveDocument={fileCommands.save}
+          onSaveAllDocuments={fileCommands.saveAll}
+          onNewFile={fileCommands.newFile}
+          onOpenProject={fileCommands.openProject}
+          onExport={fileCommands.exportModel}
+          recentProjects={projectState.recentProjects}
+          onOpenRecentProject={(projectId, displayName) => setRequestedProject((current) => ({
+            sequence: (current?.sequence ?? 0) + 1,
+            projectId,
+            displayName,
+          }))}
           onRenderFull={renderFull}
           onRenderPreview={renderPreview}
         />
@@ -356,6 +360,21 @@ export function Workbench({
       )}
 
       <WorkspaceFrame
+        activityContent={{
+          files: (
+            <FilesActivity
+              canReveal={canRevealProjectFiles}
+              engine={engineAvailable ? engine : undefined}
+              portability={projectPortability}
+              recoveryPersistence={recoveryPersistence}
+              projectTransitionsBlocked={recoveryPending}
+              requestedExport={fileCommands.requestedExport}
+              requestedNewFile={fileCommands.requestedNewFile}
+              runtime={runtime}
+              storage={projectStorage}
+            />
+          ),
+        }}
         layout={layout}
         narrow={narrow}
         consoleContent={consoleContent}
@@ -364,37 +383,17 @@ export function Workbench({
         onLayoutAction={dispatchLayout}
       />
 
-      <footer className="statusbar">
-        <span className="status-engine">{engineLabel}</span>
-        <span className="status-render">{renderStatus}</span>
-        <button
-          aria-label={messages.focusConsoleStatus(diagnosticStatus)}
-          aria-pressed={consoleVisible}
-          className="status-chip status-diagnostics"
-          onClick={focusConsole}
-          ref={statusConsoleButton}
-          type="button"
-        >
-          {diagnosticStatus}
-        </button>
-        <span className="status-cursor">{messages.cursorPosition(cursor.line, cursor.column)}</span>
-        <span className="status-encoding">{messages.untitledStatus}</span>
-        <label className="theme-picker">
-          <span>{messages.themeLabel}</span>
-          <select
-            aria-label={messages.themeLabel}
-            value={themePreference}
-            onChange={(event) =>
-              onThemePreferenceChange(event.currentTarget.value as ThemePreference)
-            }
-          >
-            <option value="system">{messages.themeSystem}</option>
-            <option value="light">{messages.themeLight}</option>
-            <option value="dark">{messages.themeDark}</option>
-            <option value="high-contrast">{messages.themeHighContrast}</option>
-          </select>
-        </label>
-      </footer>
+      <LegacyWorkbenchStatusBar
+        consoleButtonRef={statusConsoleButton}
+        consoleVisible={consoleVisible}
+        cursor={cursor}
+        diagnosticStatus={diagnosticStatus}
+        engineLabel={engineLabel}
+        renderStatus={renderStatus}
+        themePreference={themePreference}
+        onFocusConsole={focusConsole}
+        onThemePreferenceChange={onThemePreferenceChange}
+      />
     </main>
   );
 }

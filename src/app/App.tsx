@@ -7,6 +7,15 @@ import {
   PINNED_OPENSCAD_VERSION,
 } from "../application/engine/engine-pin";
 import type { WorkspaceLayoutPersistence } from "../application/runtime/layout-persistence";
+import type { ArtifactDestination } from "../application/files/artifact-destination";
+import type { ProjectStorage } from "../application/files/project-file-service";
+import type { RecoveryPersistence } from "../application/files/recovery-state";
+import type { RecentProjectsPersistence } from "../application/files/recent-projects";
+import type { ScratchAutosavePersistence } from "../application/files/scratch-autosave";
+import {
+  createWorkbenchProjectPortabilityController,
+  type ImportedProjectStorage,
+} from "../application/files/workbench-portability";
 import { createWorkbenchRuntime } from "../application/runtime/workbench-runtime";
 import type { ThemeHost } from "../application/theme/theme-runtime";
 import { messages } from "../messages/en";
@@ -28,6 +37,13 @@ export interface AppProps {
   layoutPersistence?: WorkspaceLayoutPersistence;
   showWebMenu?: boolean;
   forceNarrowLayout?: boolean;
+  canRevealProjectFiles?: boolean;
+  projectStorage?: ProjectStorage;
+  artifactDestination?: ArtifactDestination;
+  recoveryPersistence?: RecoveryPersistence;
+  recentProjectsPersistence?: RecentProjectsPersistence;
+  projectPortabilityStorage?: ImportedProjectStorage;
+  scratchAutosavePersistence?: ScratchAutosavePersistence;
   enginePathConfiguration?: EnginePathConfiguration;
 }
 
@@ -37,11 +53,38 @@ export function App({
   layoutPersistence,
   showWebMenu,
   forceNarrowLayout,
+  canRevealProjectFiles,
+  projectStorage,
+  artifactDestination,
+  recoveryPersistence,
+  recentProjectsPersistence,
+  projectPortabilityStorage,
+  scratchAutosavePersistence,
   enginePathConfiguration,
 }: AppProps) {
   const runtime = useMemo(
-    () => createWorkbenchRuntime(engine, { layoutPersistence }),
-    [engine, layoutPersistence],
+    () => createWorkbenchRuntime(engine, {
+      artifactDestination,
+      layoutPersistence,
+      initialScratchPath: "Untitled",
+      initialScratchSource: scratchAutosavePersistence?.load() ?? "",
+      projectStorage,
+      recentProjectsPersistence,
+    }),
+    [
+      artifactDestination,
+      engine,
+      layoutPersistence,
+      projectStorage,
+      recentProjectsPersistence,
+      scratchAutosavePersistence,
+    ],
+  );
+  const projectPortability = useMemo(
+    () => projectPortabilityStorage
+      ? createWorkbenchProjectPortabilityController(runtime, projectPortabilityStorage)
+      : undefined,
+    [projectPortabilityStorage, runtime],
   );
   const themePreference = useReadonlyStore(runtime.settings, (settings) => settings.theme);
   const activeTheme = useThemeSelection(themePreference, themeHost);
@@ -149,6 +192,7 @@ export function App({
 
   return (
     <Workbench
+      engine={engine}
       runtime={runtime}
       engineLabel={engineLabel}
       engineAvailable={engineHealth.kind === "ready"}
@@ -158,6 +202,11 @@ export function App({
       themePreference={themePreference}
       showWebMenu={showWebMenu}
       forceNarrowLayout={forceNarrowLayout}
+      canRevealProjectFiles={canRevealProjectFiles}
+      projectStorage={projectStorage}
+      recoveryPersistence={recoveryPersistence}
+      scratchAutosavePersistence={scratchAutosavePersistence}
+      projectPortability={projectPortability}
       configuredEnginePath={engineHealth.kind === "checking" || engineHealth.kind === "invalid-config"
         ? engineHealth.configuredPath
         : enginePathConfiguration?.load() ?? ""}

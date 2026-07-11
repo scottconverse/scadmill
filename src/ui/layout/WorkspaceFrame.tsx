@@ -11,6 +11,7 @@ import { PanelSplitter } from "./PanelSplitter";
 
 export interface WorkspaceFrameProps {
   activityBadges?: Readonly<Partial<Record<ActivityPanel, boolean>>>;
+  activityContent?: Readonly<Partial<Record<ActivityPanel, ReactNode>>>;
   consoleContent?: ReactNode;
   layout: WorkspaceLayoutState;
   narrow: boolean;
@@ -29,6 +30,7 @@ const ACTIVITY_COPY: Readonly<Record<ActivityPanel, { label: string; empty: stri
 
 export function WorkspaceFrame({
   activityBadges = {},
+  activityContent = {},
   consoleContent,
   layout,
   narrow,
@@ -230,7 +232,7 @@ export function WorkspaceFrame({
               ×
             </button>
           </header>
-          <p>{activeCopy.empty}</p>
+          {activityContent[layout.activeRail] ?? <p>{activeCopy.empty}</p>}
         </section>
 
         {!narrow && !dockHidden && (

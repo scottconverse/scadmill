@@ -295,6 +295,7 @@ describe("createWorkbenchRuntime", () => {
       documentId: "document-wheel",
       entryFile: "parts/wheel.scad",
       sourceRevision: 0,
+      projectRevision: 0,
       sourceFiles: new Map([
         ["main.scad", "cube(10);"],
         ["parts/wheel.scad", "cylinder(r = 4, h = 2);"],

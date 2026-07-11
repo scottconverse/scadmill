@@ -101,6 +101,7 @@ export interface EditorNavigationRequest {
 
 export interface CodeEditorProps {
   value: string;
+  language?: "openscad" | "plain";
   onChange(value: string): void;
   diagnostics?: readonly Diagnostic[];
   navigation?: EditorNavigationRequest;
@@ -176,6 +177,7 @@ export function CodeEditor({
   commandRequest,
   keybindings = DEFAULT_KEYBINDINGS,
   editorSettings = DEFAULT_EDITOR_SETTINGS,
+  language: languageMode = "openscad",
   label,
 }: CodeEditorProps) {
   const primaryModifier = primaryModifierForPlatform();
@@ -210,7 +212,7 @@ export function CodeEditor({
     editorCommandsCompartment.current = commandsCompartment;
     const extensions = [
       basicSetup,
-      openScad(),
+      languageMode === "openscad" ? openScad() : [],
       lintGutter(),
       codeEditorTheme,
       commandsCompartment.of(editorCommandExtension(
@@ -259,7 +261,7 @@ export function CodeEditor({
       editorCommandsCompartment.current = null;
       editor.destroy();
     };
-  }, [label]);
+  }, [label, languageMode]);
 
   useEffect(() => {
     const editor = view.current;

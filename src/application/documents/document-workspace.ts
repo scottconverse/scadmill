@@ -25,8 +25,12 @@ export type DocumentWorkspaceAction =
   | { kind: "open"; document: DocumentSeed }
   | { kind: "activate"; documentId: string }
   | { kind: "edit"; documentId: string; source: string }
+  | { kind: "mark-saved"; documentId: string; revision: number; source: string }
+  | { kind: "replace-from-disk"; documentId: string; source: string }
+  | { kind: "rename-path"; documentId: string; path: string }
   | { kind: "move"; documentId: string; toIndex: number }
   | { kind: "close"; documentId: string }
+  | { kind: "confirm-close"; documentId: string }
   | { kind: "reopen" };
 
 function createBuffer(seed: DocumentSeed): DocumentBuffer {
@@ -168,6 +172,37 @@ function moveDocument(
   return { ...state, documents };
 }
 
+function updateDocument(
+  state: DocumentWorkspaceState,
+  documentId: string,
+  update: (document: DocumentBuffer) => DocumentBuffer | null,
+): DocumentWorkspaceState {
+  const index = state.documents.findIndex(({ id }) => id === documentId);
+  if (index < 0) return state;
+  const document = update(state.documents[index]);
+  if (!document || document === state.documents[index]) return state;
+  const documents = [...state.documents];
+  documents[index] = document;
+  return { ...state, documents };
+}
+
+function confirmCloseDocument(
+  state: DocumentWorkspaceState,
+  documentId: string,
+): DocumentWorkspaceState {
+  if (state.documents.length <= 1) return state;
+  const index = state.documents.findIndex(({ id }) => id === documentId);
+  if (index < 0) return state;
+  const documents = state.documents.filter(({ id }) => id !== documentId);
+  return {
+    ...state,
+    documents,
+    activeDocumentId: state.activeDocumentId === documentId
+      ? (documents[index] ?? documents[index - 1]).id
+      : state.activeDocumentId,
+  };
+}
+
 function closeDocument(
   state: DocumentWorkspaceState,
   documentId: string,
@@ -213,10 +248,40 @@ export function reduceDocumentWorkspace(
         : state;
     case "edit":
       return editDocument(state, action.documentId, action.source);
+    case "mark-saved":
+      return updateDocument(state, action.documentId, (document) => {
+        if (
+          !Number.isInteger(action.revision)
+          || action.revision < document.savedRevision
+          || action.revision > document.revision
+        ) return null;
+        return { ...document, savedRevision: action.revision, savedSource: action.source };
+      });
+    case "replace-from-disk":
+      return updateDocument(state, action.documentId, (document) => {
+        if (document.source === action.source && document.savedSource === action.source) return null;
+        const revision = document.revision + 1;
+        return {
+          ...document,
+          source: action.source,
+          savedSource: action.source,
+          revision,
+          savedRevision: revision,
+        };
+      });
+    case "rename-path":
+      if (
+        action.path.trim().length === 0
+        || state.documents.some(({ id, path }) => id !== action.documentId && path === action.path)
+      ) return state;
+      return updateDocument(state, action.documentId, (document) =>
+        document.path === action.path ? null : { ...document, path: action.path });
     case "move":
       return moveDocument(state, action.documentId, action.toIndex);
     case "close":
       return closeDocument(state, action.documentId);
+    case "confirm-close":
+      return confirmCloseDocument(state, action.documentId);
     case "reopen":
       return reopenDocument(state);
   }

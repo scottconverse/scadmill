@@ -15,8 +15,8 @@ interface PendingNavigation extends EditorNavigationRequest {
   documentId: string;
 }
 
-interface IndexedDocument {
-  document: DocumentBuffer;
+interface IndexedSource {
+  document?: DocumentBuffer;
   lineCount: number;
 }
 
@@ -36,18 +36,19 @@ function lineCount(source: string): number {
 }
 
 function navigationTarget(
-  documentsByPath: ReadonlyMap<string, IndexedDocument>,
+  sourcesByPath: ReadonlyMap<string, IndexedSource>,
   diagnostic: Diagnostic,
   entryFile?: string,
-): DocumentBuffer | undefined {
+): { readonly path: string; readonly document?: DocumentBuffer } | undefined {
   const path = diagnosticPath(diagnostic, entryFile);
-  const target = path ? documentsByPath.get(path) : undefined;
-  return target
+  const target = path ? sourcesByPath.get(path) : undefined;
+  return path
+    && target
     && diagnostic.line
     && Number.isInteger(diagnostic.line)
     && diagnostic.line > 0
     && diagnostic.line <= target.lineCount
-    ? target.document
+    ? { path, ...(target.document ? { document: target.document } : {}) }
     : undefined;
 }
 
@@ -60,13 +61,16 @@ export function useDiagnosticNavigation({
   const active = activeDocument(workspace);
   const sequence = useRef(0);
   const [pending, setPending] = useState<PendingNavigation | null>(null);
-  const documentsByPath = useMemo(
-    () => new Map(workspace.documents.map((document) => [
-      document.path,
-      { document, lineCount: lineCount(document.source) },
-    ])),
-    [workspace.documents],
-  );
+  const sourcesByPath = useMemo(() => {
+    const sources = new Map<string, IndexedSource>();
+    for (const [path, content] of runtime.project.getState().snapshot.files) {
+      if (typeof content === "string") sources.set(path, { lineCount: lineCount(content) });
+    }
+    for (const document of workspace.documents) {
+      sources.set(document.path, { document, lineCount: lineCount(document.source) });
+    }
+    return sources;
+  }, [runtime, workspace.documents]);
   const editorDiagnostics = useMemo(
     () => diagnostics.filter(
       (diagnostic) => diagnosticPath(diagnostic, entryFile) === active.path,
@@ -75,23 +79,26 @@ export function useDiagnosticNavigation({
   );
   const canNavigate = useCallback(
     (diagnostic: Diagnostic) => Boolean(
-      navigationTarget(documentsByPath, diagnostic, entryFile),
+      navigationTarget(sourcesByPath, diagnostic, entryFile),
     ),
-    [documentsByPath, entryFile],
+    [sourcesByPath, entryFile],
   );
   const navigate = useCallback((diagnostic: Diagnostic) => {
-    const target = navigationTarget(documentsByPath, diagnostic, entryFile);
+    const target = navigationTarget(sourcesByPath, diagnostic, entryFile);
     if (!target || !diagnostic.line) return;
     sequence.current += 1;
-    const request: PendingNavigation = {
-      requestId: sequence.current,
-      documentId: target.id,
-      line: diagnostic.line,
-    };
-    void runtime
-      .dispatch({ kind: "activate-document", origin: "user", documentId: target.id })
-      .then(() => setPending(request));
-  }, [documentsByPath, entryFile, runtime]);
+    const requestId = sequence.current;
+    void (async () => {
+      if (!target.document) {
+        await runtime.dispatch({ kind: "open-project-file", origin: "user", path: target.path });
+      }
+      const document = target.document
+        ?? runtime.documents.getState().documents.find(({ path }) => path === target.path);
+      if (!document) return;
+      await runtime.dispatch({ kind: "activate-document", origin: "user", documentId: document.id });
+      setPending({ requestId, documentId: document.id, line: diagnostic.line as number });
+    })();
+  }, [entryFile, runtime, sourcesByPath]);
   const completeNavigation = useCallback((requestId: number) => {
     setPending((current) => current?.requestId === requestId ? null : current);
   }, []);

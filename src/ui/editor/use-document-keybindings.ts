@@ -14,6 +14,11 @@ export interface DocumentKeybindingOptions {
   onActivate(documentId: string): void;
   onClose(documentId: string): void;
   onReopen(): void;
+  onSave?(): void;
+  onSaveAll?(): void;
+  onNewFile?(): void;
+  onOpenProject?(): void;
+  onExport?(): void;
 }
 
 export function useDocumentKeybindings({
@@ -22,6 +27,11 @@ export function useDocumentKeybindings({
   onActivate,
   onClose,
   onReopen,
+  onSave = () => undefined,
+  onSaveAll = () => undefined,
+  onNewFile = () => undefined,
+  onOpenProject = () => undefined,
+  onExport = () => undefined,
 }: DocumentKeybindingOptions): void {
   const primaryModifier = primaryModifierForPlatform();
   useEffect(() => {
@@ -47,9 +57,36 @@ export function useDocumentKeybindings({
       } else if (matchesKeybinding(event, keybindings.reopenClosedTab, primaryModifier)) {
         event.preventDefault();
         onReopen();
+      } else if (matchesKeybinding(event, keybindings.saveAllDocuments, primaryModifier)) {
+        event.preventDefault();
+        onSaveAll();
+      } else if (matchesKeybinding(event, keybindings.saveDocument, primaryModifier)) {
+        event.preventDefault();
+        onSave();
+      } else if (matchesKeybinding(event, keybindings.newFile, primaryModifier)) {
+        event.preventDefault();
+        onNewFile();
+      } else if (matchesKeybinding(event, keybindings.openProject, primaryModifier)) {
+        event.preventDefault();
+        onOpenProject();
+      } else if (matchesKeybinding(event, keybindings.exportModel, primaryModifier)) {
+        event.preventDefault();
+        onExport();
       }
     };
     globalThis.addEventListener("keydown", onKeyDown);
     return () => globalThis.removeEventListener("keydown", onKeyDown);
-  }, [keybindings, onActivate, onClose, onReopen, primaryModifier, workspace]);
+  }, [
+    keybindings,
+    onActivate,
+    onClose,
+    onExport,
+    onNewFile,
+    onOpenProject,
+    onReopen,
+    onSave,
+    onSaveAll,
+    primaryModifier,
+    workspace,
+  ]);
 }

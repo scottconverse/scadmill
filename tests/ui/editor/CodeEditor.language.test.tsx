@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { syntaxTree } from "@codemirror/language";
+import { language, syntaxTree } from "@codemirror/language";
 import { diagnosticCount } from "@codemirror/lint";
 import { EditorView } from "@codemirror/view";
 import { fireEvent, render, waitFor } from "@testing-library/react";
@@ -21,6 +21,18 @@ describe("CodeEditor OpenSCAD language support", () => {
     const tree = syntaxTree(editor.state);
     expect(tree.type.name).toBe("Document");
     expect(tree.toString()).not.toContain("⚠");
+  });
+
+  it("omits the OpenSCAD grammar for a plain-text project file", () => {
+    const rendered = render(
+      <CodeEditor language="plain" value="ordinary notes" onChange={vi.fn()} label="Editor" />,
+    );
+    const content = rendered.container.querySelector<HTMLElement>(".cm-content");
+    if (!content) throw new Error("CodeMirror content did not mount.");
+    const editor = EditorView.findFromDOM(content);
+    if (!editor) throw new Error("CodeMirror view could not be recovered from its DOM.");
+
+    expect(editor.state.facet(language)).toBeNull();
   });
 
   it("applies a controlled document switch without reporting it as a user edit", () => {
