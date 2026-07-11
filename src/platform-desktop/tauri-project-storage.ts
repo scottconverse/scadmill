@@ -8,25 +8,12 @@ import {
 } from "../application/files/project-snapshot";
 import type { Invoke } from "./tauri-bridge";
 
-interface ProjectFileWire {
-  readonly path: string;
-  readonly text: boolean;
-  readonly contentsBase64: string;
-}
-
 const EPHEMERAL_DESKTOP_WORKSPACE_IDENTITY = "desktop-ephemeral";
 
 async function opaqueWorkspaceIdentity(
-  invokeCommand: Invoke,
-  projectId: string,
+  material: string,
 ): Promise<string> {
   try {
-    const material = await invokeCommand<unknown>("project_workspace_identity_material", {
-      projectId,
-    });
-    if (typeof material !== "string" || material.length === 0) {
-      return EPHEMERAL_DESKTOP_WORKSPACE_IDENTITY;
-    }
     const bytes = new TextEncoder().encode(`scadmill-workspace-v1\0${material}`);
     const digest = new Uint8Array(await globalThis.crypto.subtle.digest("SHA-256", bytes));
     const hex = [...digest].map((byte) => byte.toString(16).padStart(2, "0")).join("");
@@ -52,10 +39,24 @@ function decodeBase64(value: string): Uint8Array {
   return Uint8Array.from(binary, (character) => character.charCodeAt(0));
 }
 
-function decodeFile(file: ProjectFileWire): readonly [string, ProjectFileContent] {
+function record(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function exactKeys(value: Record<string, unknown>, expected: readonly string[]): boolean {
+  const keys = Object.keys(value).sort();
+  return keys.length === expected.length
+    && keys.every((key, index) => key === expected[index]);
+}
+
+function validNativeIdentity(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0 && !value.includes("\0");
+}
+
+function decodeFile(file: unknown): readonly [string, ProjectFileContent] {
   if (
-    typeof file !== "object"
-    || file === null
+    !record(file)
+    || !exactKeys(file, ["contentsBase64", "path", "text"])
     || typeof file.path !== "string"
     || typeof file.text !== "boolean"
     || typeof file.contentsBase64 !== "string"
@@ -68,7 +69,8 @@ function decodeFile(file: ProjectFileWire): readonly [string, ProjectFileContent
   ];
 }
 
-function decodeFiles(files: readonly ProjectFileWire[]): ReadonlyMap<string, ProjectFileContent> {
+function decodeFiles(files: unknown): ReadonlyMap<string, ProjectFileContent> {
+  if (!Array.isArray(files)) throw new Error("Native project snapshot has an invalid shape.");
   const decoded = new Map<string, ProjectFileContent>();
   for (const file of files) {
     const [path, content] = decodeFile(file);
@@ -76,6 +78,24 @@ function decodeFiles(files: readonly ProjectFileWire[]): ReadonlyMap<string, Pro
     decoded.set(path, content);
   }
   return decoded;
+}
+
+function decodeSnapshot(value: unknown): {
+  readonly projectId: string;
+  readonly workspaceIdentityMaterial: string;
+  readonly files: ReadonlyMap<string, ProjectFileContent>;
+} {
+  if (
+    !record(value)
+    || !exactKeys(value, ["files", "projectId", "workspaceIdentityMaterial"])
+    || !validNativeIdentity(value.projectId)
+    || !validNativeIdentity(value.workspaceIdentityMaterial)
+  ) throw new Error("Native project snapshot has an invalid shape.");
+  return {
+    projectId: value.projectId,
+    workspaceIdentityMaterial: value.workspaceIdentityMaterial,
+    files: decodeFiles(value.files),
+  };
 }
 
 function wireContent(content: ProjectFileContent) {
@@ -87,15 +107,14 @@ function wireContent(content: ProjectFileContent) {
 export function createTauriProjectStorage(invokeCommand: Invoke = invoke): ProjectStorage {
   return {
     snapshot: async (projectId) => {
-      const files = await invokeCommand<ProjectFileWire[]>("project_snapshot", { projectId });
-      if (!Array.isArray(files)) throw new Error("Native project snapshot must be a file list.");
-      const decoded = decodeFiles(files);
-      const workspaceIdentity = await opaqueWorkspaceIdentity(invokeCommand, projectId);
-      return createProjectSnapshot(projectId, decoded, workspaceIdentity);
+      const wire = await invokeCommand<unknown>("project_snapshot", { projectId });
+      const snapshot = decodeSnapshot(wire);
+      const workspaceIdentity = await opaqueWorkspaceIdentity(snapshot.workspaceIdentityMaterial);
+      return createProjectSnapshot(snapshot.projectId, snapshot.files, workspaceIdentity);
     },
     read: async (projectId, requestedPath) => {
       const path = parseProjectPath(requestedPath);
-      const file = await invokeCommand<ProjectFileWire | null>("project_read", { projectId, path });
+      const file = await invokeCommand<unknown>("project_read", { projectId, path });
       if (file === null) return undefined;
       const [returnedPath, content] = decodeFile(file);
       if (returnedPath !== path) throw new Error("Native project read returned the wrong file.");

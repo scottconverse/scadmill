@@ -18,6 +18,14 @@ pub(crate) struct ProjectFileWire {
     contents_base64: String,
 }
 
+#[derive(Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ProjectSnapshotWire {
+    project_id: String,
+    workspace_identity_material: String,
+    files: Vec<ProjectFileWire>,
+}
+
 fn project_root(project_id: &Path) -> Result<PathBuf, String> {
     if project_id.as_os_str().is_empty() {
         return Err("Project id must be a non-empty folder path.".to_string());
@@ -234,20 +242,25 @@ fn read_project_file(root: &Path, path: &str) -> Result<Option<ProjectFileWire>,
     Ok(Some(project_file_wire(path.to_string(), &file, bytes)))
 }
 
-fn snapshot_project(root: &Path) -> Result<Vec<ProjectFileWire>, String> {
+fn unicode_project_id(root: &Path) -> Result<String, String> {
+    Ok(root
+        .to_str()
+        .ok_or_else(|| "Canonical project folder path is not valid Unicode.".to_string())?
+        .to_owned())
+}
+
+fn snapshot_project(root: &Path) -> Result<ProjectSnapshotWire, String> {
     let root = project_root(root)?;
+    let project_id = unicode_project_id(&root)?;
     let mut total_size = 0;
     let mut files = Vec::new();
     collect_project_files(&root, &root, &mut total_size, &mut files)?;
     files.sort_by(|left, right| left.path.cmp(&right.path));
-    Ok(files)
-}
-
-fn workspace_identity_material(root: &Path) -> Result<String, String> {
-    project_root(root)?
-        .into_os_string()
-        .into_string()
-        .map_err(|_| "Canonical project folder path is not valid Unicode.".to_string())
+    Ok(ProjectSnapshotWire {
+        workspace_identity_material: project_id.clone(),
+        project_id,
+        files,
+    })
 }
 
 #[cfg(target_os = "windows")]
@@ -457,18 +470,7 @@ fn reveal_project_file(root: &Path, path: &str) -> Result<(), String> {
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub(crate) async fn project_workspace_identity_material(
-    project_id: String,
-) -> Result<String, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        workspace_identity_material(Path::new(&project_id))
-    })
-    .await
-    .map_err(|error| format!("Project identity task failed: {error}"))?
-}
-
-#[tauri::command(rename_all = "camelCase")]
-pub(crate) async fn project_snapshot(project_id: String) -> Result<Vec<ProjectFileWire>, String> {
+pub(crate) async fn project_snapshot(project_id: String) -> Result<ProjectSnapshotWire, String> {
     tauri::async_runtime::spawn_blocking(move || snapshot_project(Path::new(&project_id)))
         .await
         .map_err(|error| format!("Project snapshot task failed: {error}"))?
@@ -538,7 +540,7 @@ pub(crate) async fn project_reveal(project_id: String, path: String) -> Result<(
 mod tests {
     use super::{
         move_project_file, read_project_file, snapshot_project, trash_project_file_with,
-        workspace_identity_material, write_project_file, write_project_file_with_installer,
+        unicode_project_id, write_project_file, write_project_file_with_installer,
     };
     use base64::Engine as _;
     use std::fs;
@@ -588,7 +590,7 @@ mod tests {
         write_project_file(&root, "main.scad", b"cube(10);").expect("write text");
         write_project_file(&root, "assets/reference.stl", &[0, 255, 1]).expect("write bytes");
 
-        let files = snapshot_project(&root).expect("snapshot");
+        let files = snapshot_project(&root).expect("snapshot").files;
 
         assert_eq!(files.len(), 2);
         assert_eq!(files[0].path, "assets/reference.stl");
@@ -606,7 +608,7 @@ mod tests {
     }
 
     #[test]
-    fn canonical_workspace_identity_material_collapses_alias_components() {
+    fn snapshot_binds_canonical_project_identity_and_files_from_one_root() {
         let root = temp_project();
         let child = root.join("child");
         fs::create_dir(&child).expect("create child");
@@ -618,11 +620,35 @@ mod tests {
             .into_string()
             .expect("unicode root");
 
-        assert_eq!(
-            workspace_identity_material(&alias).expect("canonical identity material"),
-            expected
-        );
+        let snapshot = serde_json::to_value(snapshot_project(&alias).expect("snapshot"))
+            .expect("serialize snapshot");
+
+        assert_eq!(snapshot["projectId"], expected);
+        assert_eq!(snapshot["workspaceIdentityMaterial"], expected);
+        assert_eq!(snapshot["files"].as_array().map(Vec::len), Some(0));
         fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[cfg(any(unix, windows))]
+    #[test]
+    fn rejects_non_unicode_project_identity_without_lossy_substitution() {
+        #[cfg(unix)]
+        let path = {
+            use std::ffi::OsString;
+            use std::os::unix::ffi::OsStringExt;
+            PathBuf::from(OsString::from_vec(vec![0xff]))
+        };
+        #[cfg(windows)]
+        let path = {
+            use std::ffi::OsString;
+            use std::os::windows::ffi::OsStringExt;
+            PathBuf::from(OsString::from_wide(&[0xd800]))
+        };
+
+        assert_eq!(
+            unicode_project_id(&path).expect_err("non-Unicode path must be rejected"),
+            "Canonical project folder path is not valid Unicode."
+        );
     }
 
     #[test]
@@ -662,7 +688,7 @@ mod tests {
         write_project_file(&root, "assets/profile.dxf", b"0\nSECTION\n2\nENTITIES\n")
             .expect("write DXF");
 
-        let files = snapshot_project(&root).expect("snapshot");
+        let files = snapshot_project(&root).expect("snapshot").files;
 
         assert!(
             files

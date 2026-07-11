@@ -390,7 +390,6 @@ pub fn run() {
             keychain::load_ai_secret,
             keychain::save_ai_secret,
             keychain::clear_ai_secret,
-            project_storage::project_workspace_identity_material,
             project_storage::project_snapshot,
             project_storage::project_read,
             project_storage::project_write,

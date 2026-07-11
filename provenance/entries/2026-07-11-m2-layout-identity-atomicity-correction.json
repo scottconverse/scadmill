@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-m2-layout-identity-atomicity-correction",
+  "createdAt": "2026-07-11T16:45:05-06:00",
+  "summary": "Correct the provisional M2 desktop-layout identity boundary after review: return files, canonical project ID, and identity material from one native snapshot over one canonicalized root; strictly validate that envelope in the desktop adapter; hash the returned material; and use the returned canonical ID for later project operations while Q-0008 remains open.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 questions, test-first evidence, and milestone gates",
+    "FR-0.7 panel-layout persistence",
+    "AC-0.b restart persistence",
+    "M2 C6 project identity",
+    "Q-0008 desktop layout storage ownership",
+    "N-2 reliability"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-11-m2-layout-identity-atomicity-correction.json", "status": "added" },
+    { "path": "spec/QUESTIONS.md", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/src/lib.rs", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/src/project_storage.rs", "status": "modified" },
+    { "path": "src/platform-desktop/tauri-project-storage.ts", "status": "modified" },
+    { "path": "tests/platform-desktop/tauri-project-storage.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0192",
+      "topic": "Atomic canonical native project snapshot",
+      "decision": "Canonicalize a requested native project root exactly once per snapshot, enumerate files from that root, and return those files together with the Unicode canonical project ID and workspace-identity material in one serialized response. Remove the separate identity command, validate the complete response as untrusted wire data in TypeScript, and place the returned canonical project ID in ProjectSnapshot so all later runtime project commands use it.",
+      "rationale": "The previous two-call boundary could bind files to the requested spelling while hashing identity material obtained from a later canonicalization. One response from one canonical root prevents alias drift between files, persistence identity, recent-project identity, and later read/write/move/trash/reveal operations. Exact envelope and file-key validation rejects malformed or partial native responses before application state changes.",
+      "specBasis": ["FR-0.7", "AC-0.b", "M2 C6", "N-2", "Section 2.7"]
+    },
+    {
+      "id": "D-0193",
+      "topic": "Canonical identity encoding and safe degradation",
+      "decision": "Hash UTF-8 bytes of the exact domain-separated string scadmill-workspace-v1 followed by NUL and the returned canonical identity material with SHA-256. Persist only the desktop-project digest key; use desktop-ephemeral if hashing is unavailable; and reject a canonicalization failure or non-Unicode canonical filesystem path instead of applying lossy conversion. This corrects D-0189's broader canonicalization-failure wording while keeping the storage-location decision explicitly provisional under Q-0008.",
+      "rationale": "A fixed encoding and domain separator make the opaque key reproducible and independently testable without storing a filesystem path. The golden Windows material \\\\?\\C:\\Models\\Gear hashes to 549f18b7074067c9438f1afe5f13cbd5bb3efe3f876285301dc7b68a6c92a8ba. The canonical ID is now required for every later project command, so canonicalization and Unicode conversion must fail the snapshot safely rather than return a potentially different or lossy ID; only local hashing failure degrades to the non-persistable identity so project access remains available without disclosing the path.",
+      "specBasis": ["FR-0.7", "AC-0.b", "Q-0008", "N-2"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "One native canonical root supplies files, project ID, and identity material",
+      "test": "Serialize a snapshot requested through an alias component and assert that projectId, workspaceIdentityMaterial, and files are present together; separately prove a non-Unicode path is rejected without lossy substitution.",
+      "red": {
+        "command": "cargo test --locked --manifest-path src/desktop-shell/src-tauri/Cargo.toml project_storage::tests::canonical_workspace_identity_material_collapses_alias_components -- --nocapture",
+        "observedAt": "2026-07-11T16:45:05-06:00",
+        "outcome": "ASSERTION-LEVEL RED retained from the earlier execution: 0 passed; 1 failed; 24 filtered out. The serialized snapshot returned Null for projectId instead of the canonical path. The test build also warned that workspace_identity_material was an unused import at src/project_storage.rs:541:9 after the test stopped calling the split helper."
+      },
+      "green": {
+        "command": "cargo test --locked --manifest-path src/desktop-shell/src-tauri/Cargo.toml project_storage -- --nocapture",
+        "observedAt": "2026-07-11T16:45:05-06:00",
+        "outcome": "GREEN retained from the focused execution: test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 0.05s. The non-Unicode rejection and one-root snapshot tests both passed."
+      }
+    },
+    {
+      "criterion": "Validated adapter envelope, canonical operation ID, and exact opaque digest",
+      "test": "Return the new envelope from the mocked native boundary, assert the exact golden SHA-256 identity, route a subsequent write through the returned canonical project ID, assert there was no identity command, reject malformed envelope material, and degrade only hashing failure to desktop-ephemeral.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/platform-desktop/tauri-project-storage.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T16:45:05-06:00",
+        "outcome": "ASSERTION-LEVEL RED: Test Files 1 failed (1); Tests 3 failed | 3 passed (6); Duration 533ms. The old adapter rejected the atomic object as 'Native project snapshot must be a file list'; the explicit malformed-envelope assertion expected 'Native project snapshot has an invalid shape.' but received the old file-list message."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/platform-desktop/tauri-project-storage.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T16:45:05-06:00",
+        "outcome": "GREEN retained from the focused execution: Test Files 1 passed (1); Tests 6 passed (6); Duration 565ms. The exact 549f18b7074067c9438f1afe5f13cbd5bb3efe3f876285301dc7b68a6c92a8ba vector, canonical follow-on write, malformed envelope, base64, text/binary, and hashing-failure cases passed."
+      }
+    },
+    {
+      "criterion": "Widened TypeScript, production-build, Rust, format, lint, and warning-denying static gates",
+      "test": "Run the complete unit suites and proportional static/build checks after the focused behavior is green.",
+      "red": {
+        "command": "pnpm.cmd typecheck",
+        "observedAt": "2026-07-11T16:45:05-06:00",
+        "outcome": "STATIC RED: tsc reported TS2304 at src/platform-desktop/tauri-project-storage.ts(117,40): Cannot find name 'ProjectFileWire'. The stale compile-only assertion on project_read was replaced with unknown so that single-file native responses also pass through runtime validation."
+      },
+      "green": {
+        "command": "pnpm.cmd typecheck\npnpm.cmd lint\npnpm.cmd test -- --reporter=dot\npnpm.cmd build\ncargo fmt --manifest-path src/desktop-shell/src-tauri/Cargo.toml -- --check\ncargo clippy --locked --manifest-path src/desktop-shell/src-tauri/Cargo.toml --all-targets -- -D warnings\ncargo test --locked --manifest-path src/desktop-shell/src-tauri/Cargo.toml",
+        "observedAt": "2026-07-11T16:45:05-06:00",
+        "outcome": "GREEN: typecheck emitted no diagnostics; lint checked 291 files with no fixes and source policy passed; Test Files 105 passed (105), Tests 780 passed (780), Duration 12.19s; production build transformed 181 modules and built in 292ms; rustfmt check emitted no diff; clippy finished with -D warnings and no warnings; desktop Rust test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "Q-0008 remains Open. This correction binds provisional identity to the native project snapshot but does not choose final per-user versus project-workspace storage ownership.",
+    "A canonical filesystem root that cannot be represented as Unicode is rejected explicitly instead of being converted lossily; supported Unicode paths retain their platform-native canonical form.",
+    "No packaged-evidence harness, M3 or installer work, owner-gate content, workflow, comparison repository, or prohibited source is included."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

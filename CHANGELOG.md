@@ -58,6 +58,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Changed
 
+- Bound native project files, canonical project ID, and desktop layout-identity material to one validated snapshot response, with the returned canonical ID driving later project operations and malformed responses rejected as a unit.
 - Replaced SVG-viewBox-derived 2D bounds with the pinned engine's machine-readable geometry summary because the 2026.06.12 SVG exporter adds presentation margins around exact model geometry.
 - Updated the native CI lane from the 2021.01 stable AppImage to the checksummed 2026.06.12 snapshot required by A-7.
 - Editor commands now report typed handled/unavailable outcomes; F12 visibly explains that go-to-definition is parked instead of recording a silent success.
