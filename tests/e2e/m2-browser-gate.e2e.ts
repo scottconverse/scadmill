@@ -14,6 +14,9 @@ const RUNNER_PATHS = [
   "tests/e2e/m2-browser-gate.e2e.ts",
   "tests/e2e/m2-storage-fallback.e2e.ts",
   "tests/e2e/m2-svg-viewer.e2e.ts",
+  "tests/e2e/m2-portability-profile.e2e.ts",
+  "tests/e2e/fixtures/m2-portability-profile.html",
+  "tests/e2e/fixtures/m2-portability-profile.ts",
   "tests/e2e/m2-gate.playwright.config.ts",
 ] as const;
 const REPRODUCTION_COMMAND =

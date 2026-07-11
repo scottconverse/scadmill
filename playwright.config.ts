@@ -13,6 +13,7 @@ export default defineConfig({
     baseURL: "http://127.0.0.1:4173",
     browserName: "chromium",
     headless: true,
+    launchOptions: { args: ["--enable-precise-memory-info"] },
     trace: "retain-on-failure",
   },
   webServer: {

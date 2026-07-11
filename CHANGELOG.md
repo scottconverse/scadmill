@@ -78,6 +78,8 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Made the empty model view name the available next step while OpenSCAD is checking or unavailable, grouped every rebindable command under localized Files/Editor/Render/Viewer/Layout labels, and replaced the unfocusable disabled Help control with a keyboard- and screen-reader-discoverable explanation.
 - Preserved share-link copy and exact project-ZIP export when browser project storage is unavailable, while disabling only ZIP import and explaining that storage-specific limitation at the action surface.
 - Corrected the production 2D viewer grid so the SVG canvas receives the flexible viewer row without a 3D toolbar, and moved wheel zoom to an explicitly non-passive listener so zoom no longer emits a browser console error or risks page scrolling.
+- Moved project-ZIP compression and expansion into a dedicated worker with cooperative 1 MiB transferable copies, streamed import reads, progress and cancellation; a retained Chromium profile round-trips a 92 MiB asset in a 96,489,071-byte archive with no long task, a 18.7 ms maximum heartbeat gap, 13.2 ms cancellation, and a 192,395,630-byte peak main-heap delta.
+- Bounded crash-recovery snapshots at 4 MiB of UTF-8 JSON and coalesced rapid edits into the latest durable capture after 300 ms, with visible persistence errors when the bound is exceeded.
 
 ### Known policy block
 

@@ -2,7 +2,7 @@
 
 ScadMill is a source-first OpenSCAD workbench for desktop and web. It combines an OpenSCAD code editor with a live, interactive model viewer while keeping the unmodified OpenSCAD engine out of process.
 
-The project is being delivered milestone by milestone from the clean-room functional specification in [`spec/scadmill-spec-v0.6.md`](spec/scadmill-spec-v0.6.md). M0 and M1 are accepted; the M2 implementation-complete candidate has cleared the repository-local milestone gate and is paused for the owner's boundary decision, with owner questions and manual-evidence gaps listed below. This is not owner acceptance or authorization to begin M3. Open decisions remain isolated in [`spec/QUESTIONS.md`](spec/QUESTIONS.md) without retroactively invalidating accepted milestones.
+The project is being delivered milestone by milestone from the clean-room functional specification in [`spec/scadmill-spec-v0.6.md`](spec/scadmill-spec-v0.6.md). M0 and M1 are accepted; M2 is undergoing residual closure and has not reached its advancement boundary. This is not owner acceptance or authorization to begin M3. Open decisions remain isolated in [`spec/QUESTIONS.md`](spec/QUESTIONS.md) without retroactively invalidating accepted milestones.
 
 ## Current capabilities
 
@@ -18,7 +18,7 @@ The project is being delivered milestone by milestone from the clean-room functi
 - Switch automatically between the 3D viewer and an allowlist-sanitized engine-produced SVG pane with exact model-space dimensions, cursor-centered pan/zoom, fit, and scale readout. An incompatible pinned mode shows an empty pane and notice while Q-0024 remains open.
 - Extract stock OpenSCAD Customizer parameters structurally into grouped controls, apply non-destructive render and export overrides, write explicit values back into the original assignments, and exchange named sets in the stock JSON format.
 - Open folder-backed desktop projects or IndexedDB-backed web projects, edit text and preserve binary assets, create/rename/move/trash/reveal files, detect external edits, recover unsaved buffers, and retain reopenable recent projects.
-- Export full-quality 3MF, STL, OFF, AMF, SVG, DXF, or PNG artifacts with exact mesh summaries; web projects also import/export byte-preserving ZIP archives and create serverless single-file share links.
+- Export full-quality 3MF, STL, OFF, AMF, SVG, DXF, or PNG artifacts with exact mesh summaries; web projects also import/export byte-preserving ZIP archives through a cancellable worker-backed path and create serverless single-file share links.
 - Configure and persist all editor, rendering, engine, viewer, formatter, theme, AI, keybinding, and privacy settings. Desktop secrets use the OS keychain; browser secrets remain session-only unless the warning-labeled persistence option is enabled.
 - Enforce the recorded OpenSCAD 2026.06.12 pin at runtime; an older PATH installation is left untouched and cannot enable rendering or export.
 - Arrange the editor, viewer, parameters, diagnostics, and activity destinations in a resizable, collapsible workspace with keyboard commands, web-profile persistence, and a single-column layout below 900 px or by default on mobile web.

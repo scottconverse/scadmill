@@ -373,6 +373,69 @@ describe("ProjectLifecycleControls", () => {
     restarted.dispose();
   });
 
+  it("coalesces rapid recovery captures and persists only the latest source", async () => {
+    vi.useFakeTimers();
+    try {
+      const save = vi.fn();
+      const persisted: RecoveryPersistence = {
+        load: () => null,
+        save,
+        clear: vi.fn(),
+      };
+      const runtime = createWorkbenchRuntime(engine());
+      const view = render(
+        <ProjectLifecycleControls recoveryPersistence={persisted} runtime={runtime} />,
+      );
+
+      await act(async () => {
+        await runtime.dispatch({
+          kind: "edit-document",
+          origin: "user",
+          documentId: "document-main",
+          source: "cube(11);",
+        });
+        await runtime.dispatch({
+          kind: "edit-document",
+          origin: "user",
+          documentId: "document-main",
+          source: "cube(12);",
+        });
+      });
+
+      expect(save).not.toHaveBeenCalled();
+      await act(async () => { vi.advanceTimersByTime(300); });
+      expect(save).toHaveBeenCalledOnce();
+      expect(save.mock.calls[0]?.[0]).toContain("cube(12);");
+      view.unmount();
+      runtime.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("clears stale recovery immediately once the workspace is clean", () => {
+    vi.useFakeTimers();
+    try {
+      const clear = vi.fn();
+      const persisted: RecoveryPersistence = {
+        load: () => null,
+        save: vi.fn(),
+        clear,
+      };
+      const runtime = createWorkbenchRuntime(engine());
+
+      const view = render(
+        <ProjectLifecycleControls recoveryPersistence={persisted} runtime={runtime} />,
+      );
+
+      expect(clear).toHaveBeenCalledOnce();
+      view.unmount();
+      runtime.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it.each(["form", "recent", "requested"] as const)(
     "blocks the %s project-open path while crash recovery is pending",
     async (openPath) => {

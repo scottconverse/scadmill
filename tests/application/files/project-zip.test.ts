@@ -4,7 +4,9 @@ import { strToU8, zipSync } from "fflate";
 import {
   ProjectZipError,
   decodeProjectZip,
+  decodeProjectZipAsync,
   encodeProjectZip,
+  encodeProjectZipAsync,
 } from "../../../src/application/files/project-zip";
 import {
   createProjectSnapshot,
@@ -78,5 +80,36 @@ describe("project ZIP interchange", () => {
       [".scadmill-project-v1.json", "user data"],
     ]));
     expect(() => encodeProjectZip(snapshot)).toThrow(ProjectZipError);
+  });
+
+  it("asynchronously round-trips deterministic bytes without detaching project assets", async () => {
+    const binary = new Uint8Array([0, 255, 12, 34]);
+    const snapshot = createProjectSnapshot("async", new Map<string, ProjectFileContent>([
+      ["main.scad", "cube(8);"],
+      ["asset.bin", binary],
+    ]));
+
+    const first = await encodeProjectZipAsync(snapshot);
+    const second = await encodeProjectZipAsync(snapshot);
+    const decoded = await decodeProjectZipAsync("decoded", first);
+
+    expect(first).toEqual(second);
+    expect(binary).toEqual(new Uint8Array([0, 255, 12, 34]));
+    expect(decoded.files.get("main.scad" as never)).toBe("cube(8);");
+    expect(decoded.files.get("asset.bin" as never)).toEqual(binary);
+  });
+
+  it("cancels asynchronous archive work and enforces the expanded-size bound", async () => {
+    const snapshot = createProjectSnapshot("cancel", new Map([
+      ["main.scad", "cube(1);".repeat(1_000)],
+    ]));
+    const cancelled = new AbortController();
+    cancelled.abort();
+
+    await expect(encodeProjectZipAsync(snapshot, { signal: cancelled.signal }))
+      .rejects.toMatchObject({ name: "AbortError" });
+    const archive = await encodeProjectZipAsync(snapshot);
+    await expect(decodeProjectZipAsync("target", archive, { decompressedByteLimit: 100 }))
+      .rejects.toThrow(/large/u);
   });
 });

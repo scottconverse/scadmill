@@ -12,6 +12,7 @@ export default defineConfig({
     "m2-browser-gate.e2e.ts",
     "m2-storage-fallback.e2e.ts",
     "m2-svg-viewer.e2e.ts",
+    "m2-portability-profile.e2e.ts",
   ],
   outputDir: resolve(artifactRoot, "playwright"),
   forbidOnly: true,
@@ -27,6 +28,7 @@ export default defineConfig({
     baseURL: "http://127.0.0.1:4173",
     browserName: "chromium",
     headless: true,
+    launchOptions: { args: ["--enable-precise-memory-info"] },
     trace: "on",
   },
   webServer: {

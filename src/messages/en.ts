@@ -396,6 +396,7 @@ export const messages = {
   discardRecovery: "Discard recovery",
   recoveryCouldNotBeSaved: "Unsaved-work recovery could not be saved.",
   recoveryCouldNotBeCleared: "Unsaved-work recovery could not be cleared.",
+  recoveryTooLarge: "Unsaved work exceeds the 4 MiB recovery limit.",
   recentProjectsCouldNotBeSaved: "Recent projects could not be saved.",
   scratchAutosaveFailed: "The scratch document could not be autosaved.",
   additionalScratchNotPersisted:
@@ -478,6 +479,12 @@ export const messages = {
   dismissSharedSourceBanner: "Dismiss shared-source notice",
   exportProjectZip: "Export project ZIP",
   importProjectZip: "Import project ZIP",
+  cancelProjectZipOperation: "Cancel project ZIP operation",
+  projectZipOperationCancelled: "Project ZIP operation cancelled.",
+  projectZipProgress: (
+    phase: "reading" | "encoding" | "decoding" | "saving" | "installing",
+    percent?: number,
+  ) => `Project ZIP ${phase}${percent === undefined ? "" : ` ${percent}%`}…`,
   projectZipExported: (location: string) => `Project ZIP saved to ${location}.`,
   projectZipImported: (name: string) => `Imported project ${name}.`,
   projectZipExportFailedPrefix: "Could not export the project ZIP:",

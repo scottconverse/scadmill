@@ -40,6 +40,66 @@ function port(overrides: Partial<ProjectPortabilityPort> = {}): ProjectPortabili
 }
 
 describe("project portability controller", () => {
+  it("delegates project ZIP encoding to the asynchronous archive codec", async () => {
+    const encoded = Uint8Array.of(80, 75, 3, 4);
+    const encode = vi.fn(async () => encoded);
+    let savedBytes: Uint8Array<ArrayBufferLike> = new Uint8Array();
+    const controller = createProjectPortabilityController(port({
+      artifacts: {
+        available: true,
+        save: async ({ bytes }) => {
+          savedBytes = bytes;
+          return { location: "async.zip" };
+        },
+      },
+    }), { codec: { encode } } as never);
+
+    await controller.exportProjectZip();
+
+    expect(encode).toHaveBeenCalledOnce();
+    expect(savedBytes).toEqual(encoded);
+  });
+
+  it("reads import files through their cancellable stream instead of arrayBuffer", async () => {
+    const archive = createProjectPortabilityController(port());
+    let exported: Uint8Array<ArrayBufferLike> = new Uint8Array();
+    const source = createProjectSnapshot("stream-source", new Map([["main.scad", "cube(6);"]]));
+    const exporting = createProjectPortabilityController(port({
+      currentProject: () => ({ displayName: "stream-source", snapshot: source }),
+      artifacts: {
+        available: true,
+        save: async ({ bytes }) => {
+          exported = bytes;
+          return { location: "stream-source.zip" };
+        },
+      },
+    }));
+    await exporting.exportProjectZip();
+    void archive;
+    const stream = vi.fn(() => new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(exported);
+        controller.close();
+      },
+    }));
+    const arrayBuffer = vi.fn(async () => exported.slice().buffer);
+    let installed = false;
+    const importing = createProjectPortabilityController(port({
+      installImportedProject: async () => { installed = true; },
+    }));
+
+    await importing.importProjectZip({
+      name: "stream-source.zip",
+      size: exported.byteLength,
+      stream,
+      arrayBuffer,
+    });
+
+    expect(stream).toHaveBeenCalledOnce();
+    expect(arrayBuffer).not.toHaveBeenCalled();
+    expect(installed).toBe(true);
+  });
+
   it("copies a fragment-only link and opens byte-identical Unicode source in a fresh session", async () => {
     const source = "// café ⚙\ntext(\"雪\");\n";
     let copied = "";
@@ -127,6 +187,19 @@ describe("project portability controller", () => {
       arrayBuffer: read,
     })).rejects.toThrow(/archive is too large/iu);
     expect(read).not.toHaveBeenCalled();
+  });
+
+  it("rejects an oversized encoded export before starting its destination save", async () => {
+    const save = vi.fn(async () => ({ location: "oversized.zip" }));
+    const controller = createProjectPortabilityController(port({
+      artifacts: { available: true, save },
+    }), {
+      archiveByteLimit: 4,
+      codec: { encode: async () => Uint8Array.of(1, 2, 3, 4, 5) },
+    });
+
+    await expect(controller.exportProjectZip()).rejects.toThrow(/archive is too large/iu);
+    expect(save).not.toHaveBeenCalled();
   });
 
   it("does nothing at startup when the URL has no ScadMill share fragment", async () => {

@@ -1,6 +1,7 @@
-import { type ChangeEvent, useEffect, useState } from "react";
+import { type ChangeEvent, useEffect, useRef, useState } from "react";
 
 import {
+  type ProjectArchiveProgress,
   type ProjectPortabilityController,
   ShareLinkCopyError,
 } from "../../application/files/project-portability";
@@ -23,10 +24,12 @@ export function ProjectPortabilityPanel({
   showActions = true,
 }: ProjectPortabilityPanelProps) {
   const [busy, setBusy] = useState<"share" | "export" | "import" | null>(null);
+  const [archiveCancellable, setArchiveCancellable] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [shareHref, setShareHref] = useState<string | null>(null);
   const [sharedOrigin, setSharedOrigin] = useState<string | null>(null);
+  const archiveOperation = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (!handleStartupShare) return undefined;
@@ -38,6 +41,21 @@ export function ProjectPortabilityPanel({
     });
     return () => { mounted = false; };
   }, [controller, handleStartupShare]);
+
+  useEffect(() => () => archiveOperation.current?.abort(), []);
+
+  const archiveProgress = ({
+    phase,
+    loadedBytes,
+    totalBytes,
+  }: ProjectArchiveProgress) => {
+    setArchiveCancellable(phase !== "saving" && phase !== "installing");
+    const percent = loadedBytes !== undefined && totalBytes !== undefined && totalBytes > 0
+      ? Math.min(100, Math.round((loadedBytes / totalBytes) * 100))
+      : undefined;
+    setStatus(messages.projectZipProgress(phase, percent));
+  };
+  const isCancelled = (reason: unknown) => reason instanceof Error && reason.name === "AbortError";
 
   const copyShareLink = async () => {
     if (busy) return;
@@ -61,14 +79,23 @@ export function ProjectPortabilityPanel({
   };
   const exportProjectZip = async () => {
     if (busy) return;
+    const operation = new AbortController();
+    archiveOperation.current = operation;
+    setArchiveCancellable(true);
     setBusy("export");
     setError(null);
     try {
-      const result = await controller.exportProjectZip();
+      const result = await controller.exportProjectZip({
+        signal: operation.signal,
+        onProgress: archiveProgress,
+      });
       setStatus(messages.projectZipExported(result.location));
     } catch (reason) {
-      setError(`${messages.projectZipExportFailedPrefix} ${detail(reason)}`);
+      if (isCancelled(reason)) setStatus(messages.projectZipOperationCancelled);
+      else setError(`${messages.projectZipExportFailedPrefix} ${detail(reason)}`);
     } finally {
+      if (archiveOperation.current === operation) archiveOperation.current = null;
+      setArchiveCancellable(false);
       setBusy(null);
     }
   };
@@ -76,14 +103,23 @@ export function ProjectPortabilityPanel({
     const file = event.currentTarget.files?.[0];
     event.currentTarget.value = "";
     if (!file || busy) return;
+    const operation = new AbortController();
+    archiveOperation.current = operation;
+    setArchiveCancellable(true);
     setBusy("import");
     setError(null);
     try {
-      const imported = await controller.importProjectZip(file);
+      const imported = await controller.importProjectZip(file, {
+        signal: operation.signal,
+        onProgress: archiveProgress,
+      });
       setStatus(messages.projectZipImported(imported.displayName));
     } catch (reason) {
-      setError(`${messages.projectZipImportFailedPrefix} ${detail(reason)}`);
+      if (isCancelled(reason)) setStatus(messages.projectZipOperationCancelled);
+      else setError(`${messages.projectZipImportFailedPrefix} ${detail(reason)}`);
     } finally {
+      if (archiveOperation.current === operation) archiveOperation.current = null;
+      setArchiveCancellable(false);
       setBusy(null);
     }
   };
@@ -130,6 +166,14 @@ export function ProjectPortabilityPanel({
             type="file"
           />
         </label>
+        {(busy === "export" || busy === "import") && archiveCancellable && (
+          <button
+            onClick={() => archiveOperation.current?.abort()}
+            type="button"
+          >
+            {messages.cancelProjectZipOperation}
+          </button>
+        )}
       </div>}
       {showActions && !controller.projectImportAvailable && (
         <p role="note">{messages.projectStorageUnavailableForPortability}</p>

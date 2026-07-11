@@ -2,6 +2,9 @@ import {
   isDocumentDirty,
   type DocumentWorkspaceState,
 } from "../documents/document-workspace";
+import { messages } from "../../messages/en";
+
+export const RECOVERY_BYTE_LIMIT = 4 * 1024 * 1024;
 
 export interface RecoveryBuffer {
   readonly documentId: string;
@@ -87,6 +90,9 @@ function parseBuffer(value: unknown): RecoveryBuffer | null {
 }
 
 export function parseRecoverySnapshot(serialized: string): RecoverySnapshot {
+  if (new TextEncoder().encode(serialized).byteLength > RECOVERY_BYTE_LIMIT) {
+    throw new Error(messages.recoveryTooLarge);
+  }
   const value: unknown = JSON.parse(serialized);
   if (!object(value) || Object.keys(value).sort().join(",") !== "buffers,capturedAt,projectId,version") {
     throw new Error("Recovery data has an invalid shape.");
@@ -112,6 +118,14 @@ export function parseRecoverySnapshot(serialized: string): RecoverySnapshot {
   };
 }
 
+function serializeRecoverySnapshot(snapshot: RecoverySnapshot): string {
+  const serialized = JSON.stringify(snapshot);
+  if (new TextEncoder().encode(serialized).byteLength > RECOVERY_BYTE_LIMIT) {
+    throw new Error(messages.recoveryTooLarge);
+  }
+  return serialized;
+}
+
 export class RecoveryCoordinator {
   constructor(
     private readonly persistence: RecoveryPersistence,
@@ -125,12 +139,12 @@ export class RecoveryCoordinator {
       return;
     }
     if (!projectId.trim()) throw new Error("Recovery project id must be non-empty.");
-    this.persistence.save(JSON.stringify({
+    this.persistence.save(serializeRecoverySnapshot({
       version: 1,
       projectId,
       capturedAt: this.now(),
       buffers,
-    } satisfies RecoverySnapshot));
+    }));
   }
 
   captureAlongside(pending: RecoverySnapshot, workspace: DocumentWorkspaceState): void {
@@ -142,12 +156,12 @@ export class RecoveryCoordinator {
       ...pending.buffers,
       ...current.map((buffer) => reserveDistinctBuffer(buffer, documentIds, paths)),
     ];
-    this.persistence.save(JSON.stringify({
+    this.persistence.save(serializeRecoverySnapshot({
       version: 1,
       projectId: "scratch",
       capturedAt: this.now(),
       buffers,
-    } satisfies RecoverySnapshot));
+    }));
   }
 
   load(): RecoverySnapshot | null {

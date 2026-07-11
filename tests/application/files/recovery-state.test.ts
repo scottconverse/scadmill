@@ -54,4 +54,24 @@ describe("crash recovery", () => {
     coordinator.capture("scratch", createDocumentWorkspace());
     expect(memory.value()).toBeNull();
   });
+
+  it("rejects recovery snapshots beyond the bounded durable payload", () => {
+    const memory = memoryPersistence();
+    const coordinator = new RecoveryCoordinator(memory.persistence);
+    const initial = createDocumentWorkspace([{
+      id: "main",
+      path: "main.scad",
+      source: "",
+    }]);
+    const edited = reduceDocumentWorkspace(initial, {
+      kind: "edit",
+      documentId: "main",
+      source: "x".repeat(4 * 1024 * 1024 + 1),
+    });
+
+    expect(() => coordinator.capture("scratch", edited)).toThrow(
+      "Unsaved work exceeds the 4 MiB recovery limit.",
+    );
+    expect(memory.value()).toBeNull();
+  });
 });

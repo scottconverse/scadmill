@@ -26,6 +26,7 @@ const EPHEMERAL_RECOVERY: RecoveryPersistence = {
   save: () => undefined,
   clear: () => undefined,
 };
+const RECOVERY_CAPTURE_DELAY_MS = 300;
 
 interface PendingProject {
   readonly snapshot: ProjectSnapshot;
@@ -150,14 +151,27 @@ export function ProjectLifecycleControls({
 
   useEffect(() => {
     if (!monitor) return;
-    try {
-      if (recovery) coordinator.captureAlongside(recovery, workspace);
-      else coordinator.capture(project.snapshot.projectId, workspace);
-    } catch (reason) {
-      setError(reason instanceof Error
-        ? `${messages.recoveryCouldNotBeSaved} ${reason.message}`
-        : messages.recoveryCouldNotBeSaved);
+    if (!recovery && !workspace.documents.some(isDocumentDirty)) {
+      try {
+        coordinator.capture(project.snapshot.projectId, workspace);
+      } catch (reason) {
+        setError(reason instanceof Error
+          ? `${messages.recoveryCouldNotBeSaved} ${reason.message}`
+          : messages.recoveryCouldNotBeSaved);
+      }
+      return;
     }
+    const capture = globalThis.setTimeout(() => {
+      try {
+        if (recovery) coordinator.captureAlongside(recovery, workspace);
+        else coordinator.capture(project.snapshot.projectId, workspace);
+      } catch (reason) {
+        setError(reason instanceof Error
+          ? `${messages.recoveryCouldNotBeSaved} ${reason.message}`
+          : messages.recoveryCouldNotBeSaved);
+      }
+    }, RECOVERY_CAPTURE_DELAY_MS);
+    return () => globalThis.clearTimeout(capture);
   }, [coordinator, monitor, project.snapshot.projectId, recovery, workspace]);
 
   const openProject = (event: FormEvent) => {

@@ -83,7 +83,10 @@ describe("ProjectPortabilityPanel", () => {
     fireEvent.change(panel.getByLabelText(messages.importProjectZip), {
       target: { files: [file] },
     });
-    await waitFor(() => expect(importProjectZip).toHaveBeenCalledWith(file));
+    await waitFor(() => expect(importProjectZip).toHaveBeenCalledWith(file, {
+      signal: expect.any(AbortSignal),
+      onProgress: expect.any(Function),
+    }));
     expect(panel.getByRole("status")).toHaveTextContent(messages.projectZipImported("assembly"));
   });
 
@@ -115,5 +118,51 @@ describe("ProjectPortabilityPanel", () => {
 
     expect(await panel.findByRole("alert")).toHaveTextContent("../escape.scad");
     expect(panel.getByRole("alert")).toHaveTextContent(messages.projectZipImportFailedPrefix);
+  });
+
+  it("cancels an in-flight project archive operation and returns to idle", async () => {
+    const importProjectZip = vi.fn((_file: File, options?: { readonly signal?: AbortSignal }) =>
+      new Promise<{ readonly displayName: string }>((_resolve, reject) => {
+        options?.signal?.addEventListener("abort", () => {
+          const error = new Error("Project ZIP operation was cancelled.");
+          error.name = "AbortError";
+          reject(error);
+        }, { once: true });
+      })
+    );
+    const view = render(<ProjectPortabilityPanel controller={controller({
+      importProjectZip,
+    } as Partial<ProjectPortabilityController>)} />);
+    const panel = within(view.container);
+    const file = new File([Uint8Array.of(1, 2, 3)], "slow.zip", {
+      type: "application/zip",
+    });
+
+    fireEvent.change(panel.getByLabelText(messages.importProjectZip), {
+      target: { files: [file] },
+    });
+    const cancel = await panel.findByRole("button", { name: "Cancel project ZIP operation" });
+    fireEvent.click(cancel);
+
+    expect(await panel.findByRole("status")).toHaveTextContent("Project ZIP operation cancelled.");
+    expect(panel.getByRole("button", { name: messages.copyShareLink })).toBeEnabled();
+  });
+
+  it("does not offer cancellation after an archive operation enters its commit phase", async () => {
+    let complete!: (value: { readonly location: string }) => void;
+    const exportProjectZip = vi.fn((options?: Parameters<ProjectPortabilityController["exportProjectZip"]>[0]) => {
+      options?.onProgress?.({ phase: "saving" });
+      return new Promise<{ readonly location: string }>((resolve) => { complete = resolve; });
+    });
+    const view = render(<ProjectPortabilityPanel controller={controller({ exportProjectZip })} />);
+    const panel = within(view.container);
+
+    fireEvent.click(panel.getByRole("button", { name: messages.exportProjectZip }));
+
+    await waitFor(() => expect(exportProjectZip).toHaveBeenCalledOnce());
+    expect(panel.queryByRole("button", { name: messages.cancelProjectZipOperation }))
+      .not.toBeInTheDocument();
+    complete({ location: "project.zip" });
+    await panel.findByText(messages.projectZipExported("project.zip"));
   });
 });
