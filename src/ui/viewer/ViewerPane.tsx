@@ -258,7 +258,10 @@ export function ViewerPane({
   }, [bounds, captureScreenshot, dispatchViewer, documentId, keybindings, viewer.camera, visibleKind]);
 
   return (
-    <section className="viewer-panel" aria-label={messages.viewerRegion}>
+    <section
+      className={`viewer-panel${visibleGeometry?.kind === "3d" ? " viewer-panel-with-toolbar" : ""}`}
+      aria-label={messages.viewerRegion}
+    >
       <div className="panel-heading viewer-heading">
         <span>{messages.viewerRegion}</span>
         <div className="viewer-heading-actions">

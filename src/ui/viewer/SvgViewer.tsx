@@ -5,7 +5,6 @@ import {
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
-  type WheelEvent as ReactWheelEvent,
 } from "react";
 
 import type { RenderSuccess2D } from "../../application/engine/contracts";
@@ -65,10 +64,11 @@ export function SvgViewer({ result }: SvgViewerProps) {
     if (size) setViewport(fitSvgViewport(bounds, size, 0));
   }, [bounds, size]);
 
-  const handleWheel = (event: ReactWheelEvent<HTMLButtonElement>) => {
-    if (!viewport || !size) return;
+  const handleWheel = useCallback((event: WheelEvent) => {
+    const element = container.current;
+    if (!viewport || !size || !element) return;
     event.preventDefault();
-    const rect = event.currentTarget.getBoundingClientRect();
+    const rect = element.getBoundingClientRect();
     const factor = event.deltaY < 0 ? 0.8 : 1.25;
     const localX = Number.isFinite(event.clientX - rect.left)
       ? event.clientX - rect.left
@@ -84,7 +84,13 @@ export function SvgViewer({ result }: SvgViewerProps) {
         factor,
       ),
     );
-  };
+  }, [size, viewport]);
+  useEffect(() => {
+    const element = container.current;
+    if (!element) return;
+    element.addEventListener("wheel", handleWheel, { passive: false });
+    return () => element.removeEventListener("wheel", handleWheel);
+  }, [handleWheel]);
   const handlePointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
     pointer.current = { id: event.pointerId, x: event.clientX, y: event.clientY };
     event.currentTarget.setPointerCapture?.(event.pointerId);
@@ -169,7 +175,6 @@ export function SvgViewer({ result }: SvgViewerProps) {
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerEnd}
-        onWheel={handleWheel}
         ref={container}
         type="button"
       >

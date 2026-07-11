@@ -77,6 +77,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Added `Unicode-3.0` to the dependency-license allowlist after the owner's Q-0001 decision: it is an OSI-approved permissive license, approved in November 2023, and is required transitively by the ICU4X family and `unicode-ident`. This is a deliberate addition of a real open-source license, not a policy bypass.
 - Made the empty model view name the available next step while OpenSCAD is checking or unavailable, grouped every rebindable command under localized Files/Editor/Render/Viewer/Layout labels, and replaced the unfocusable disabled Help control with a keyboard- and screen-reader-discoverable explanation.
 - Preserved share-link copy and exact project-ZIP export when browser project storage is unavailable, while disabling only ZIP import and explaining that storage-specific limitation at the action surface.
+- Corrected the production 2D viewer grid so the SVG canvas receives the flexible viewer row without a 3D toolbar, and moved wheel zoom to an explicitly non-passive listener so zoom no longer emits a browser console error or risks page scrolling.
 
 ### Known policy block
 
