@@ -219,22 +219,21 @@ export function CodeEditor({
   onSessionChangeRef.current = onSessionChange;
   onCommandRef.current = onCommand;
 
-  useEffect(() => () => {
-    completionSourceRef.current?.dispose();
-    completionSourceRef.current = null;
-  }, []);
-
   useEffect(() => {
     if (!host.current) {
       return;
     }
+    const completionSource = completionSourceRef.current ?? createOpenScadCompletionSource(
+      () => projectCompletionContextRef.current,
+    );
+    completionSourceRef.current = completionSource;
     const settingsCompartment = new Compartment();
     const commandsCompartment = new Compartment();
     editorSettingsCompartment.current = settingsCompartment;
     editorCommandsCompartment.current = commandsCompartment;
     const extensions = [
       basicSetup,
-      languageMode === "openscad" ? openScad(completionSourceRef.current ?? undefined) : [],
+      languageMode === "openscad" ? openScad(completionSource) : [],
       lintGutter(),
       codeEditorTheme,
       commandsCompartment.of(editorCommandExtension(
@@ -282,6 +281,8 @@ export function CodeEditor({
       editorSettingsCompartment.current = null;
       editorCommandsCompartment.current = null;
       editor.destroy();
+      completionSource.dispose();
+      if (completionSourceRef.current === completionSource) completionSourceRef.current = null;
     };
   }, [label, languageMode]);
 

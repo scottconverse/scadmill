@@ -303,7 +303,7 @@ export function createOpenScadCompletionSource(
     if (!prepared) return null;
     const projectContext = project();
     if (!projectContext) return finishOpenScadCompletion(context, prepared, []);
-    const references = rootProjectReferences(context.state);
+    const references = rootProjectReferences(context.state, projectContext.documentPath);
     if (references.length === 0) return finishOpenScadCompletion(context, prepared, []);
 
     const controller = new AbortController();

@@ -9,6 +9,35 @@ export interface ProjectReference {
   readonly path: string;
 }
 
+export function resolveProjectReferencePath(
+  declaringPath: string,
+  referencePath: string,
+): string {
+  const declaring = parseProjectPath(declaringPath);
+  if (
+    referencePath.length === 0
+    || referencePath.startsWith("/")
+    || referencePath.startsWith("\\")
+    || referencePath.includes("\\")
+    || referencePath.includes("\0")
+  ) throw new Error("Project references must be portable relative paths.");
+
+  const resolved = declaring.split("/").slice(0, -1);
+  for (const component of referencePath.split("/")) {
+    if (component.length === 0) {
+      throw new Error("Project references may not contain empty path components.");
+    }
+    if (component === ".") continue;
+    if (component === "..") {
+      if (resolved.length === 0) throw new Error("Project reference escapes the project root.");
+      resolved.pop();
+      continue;
+    }
+    resolved.push(component);
+  }
+  return parseProjectPath(resolved.join("/"));
+}
+
 export interface ProjectIndexedSymbol {
   readonly label: string;
   readonly symbolKind: ProjectSymbolKind;
@@ -38,9 +67,34 @@ const MAX_PROJECT_INDEX_DEPTH = 128;
 const MAX_PROJECT_INDEX_CACHE_CODE_UNITS = 16_000_000;
 const MAX_PROJECT_INDEX_CACHE_FILES = 256;
 
+export class ProjectIndexWorkerRequestRegistry {
+  private readonly requests = new Map<number, boolean>();
+
+  start(requestId: number): void {
+    this.requests.set(requestId, false);
+  }
+
+  cancel(requestId: number): void {
+    if (this.requests.has(requestId)) this.requests.set(requestId, true);
+  }
+
+  finish(requestId: number): void {
+    this.requests.delete(requestId);
+  }
+
+  isCancelled(requestId: number): boolean {
+    return this.requests.get(requestId) === true;
+  }
+
+  get retainedRequestCount(): number {
+    return this.requests.size;
+  }
+}
+
 function projectReference(
   source: string,
   node: OpenScadSyntaxNode,
+  projectPath: string,
 ): ProjectReference | null {
   if (node.name !== "IncludeStatement" && node.name !== "UseStatement") return null;
   const pathNode = node.getChild("Path");
@@ -50,7 +104,7 @@ function projectReference(
   try {
     return {
       kind: node.name === "IncludeStatement" ? "include" : "use",
-      path: parseProjectPath(literal.slice(1, -1)),
+      path: resolveProjectReferencePath(projectPath, literal.slice(1, -1)),
     };
   } catch {
     return null;
@@ -96,7 +150,7 @@ function eventFromNode(
   node: OpenScadSyntaxNode,
   projectPath: string,
 ): ProjectFileEvent | null {
-  const reference = projectReference(source, node);
+  const reference = projectReference(source, node, projectPath);
   if (reference) return { kind: "reference", reference };
   const symbol = node.name === "ModuleDeclaration"
     ? callableSymbol(source, node, "module", projectPath)
@@ -292,6 +346,7 @@ export async function indexOpenScadProject(
           }
           continue;
         }
+        if (visibility === "callable" && event.reference.kind === "use") continue;
         if (followedReferences >= MAX_PROJECT_INDEX_REFERENCES) {
           exhausted = true;
           break;

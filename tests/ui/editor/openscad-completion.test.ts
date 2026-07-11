@@ -227,10 +227,10 @@ thickness = 3;`;
         ["main.scad", "include <lib/root.scad>\nnes"],
         [
           "lib/root.scad",
-          "include <lib/nested.scad>\ninclude <../outside.scad>\nmodule root_part() {}",
+          "include <nested.scad>\ninclude <../../outside.scad>\nmodule root_part() {}",
         ],
-        ["lib/nested.scad", "include <main.scad>\nmodule nested_part(size = 4) {}"],
-        ["../outside.scad", "module escaped() {}"],
+        ["lib/nested.scad", "include <../main.scad>\nmodule nested_part(size = 4) {}"],
+        ["outside.scad", "module escaped() {}"],
       ]),
     };
 
@@ -265,6 +265,99 @@ thickness = 3;`;
     expect(statement?.options.map(({ label }) => label)).toContain("shared_part");
     expect(expression?.options.map(({ label }) => label)).toContain("shared_value");
     expect(expression?.options.map(({ label }) => label)).not.toContain("secret_value");
+  });
+
+  it("does not re-export a child use through a file reached by use", async () => {
+    const project: OpenScadProjectCompletionContext = {
+      documentPath: "main.scad",
+      sources: new Map([
+        ["main.scad", "use <a.scad>\nfrom_"],
+        ["a.scad", "use <b.scad>\nmodule from_a() {}"],
+        ["b.scad", "module from_b() {}"],
+      ]),
+    };
+
+    const result = await complete("use <a.scad>\nfrom_", undefined, false, project);
+
+    expect(result?.options.map(({ label }) => label)).toContain("from_a");
+    expect(result?.options.map(({ label }) => label)).not.toContain("from_b");
+  });
+
+  it("exports a child use reached through an include without leaking its variables", async () => {
+    const project: OpenScadProjectCompletionContext = {
+      documentPath: "main.scad",
+      sources: new Map([
+        ["main.scad", "include <a.scad>\nfrom_"],
+        ["a.scad", "use <b.scad>\nmodule from_a() {}\na_value = 1;"],
+        ["b.scad", "module from_b() {}\nb_value = 2;"],
+      ]),
+    };
+
+    const statement = await complete("include <a.scad>\nfrom_", undefined, false, project);
+    const expression = await complete("include <a.scad>\nvalue = b_", undefined, false, project);
+
+    expect(statement?.options.map(({ label }) => label)).toEqual(
+      expect.arrayContaining(["from_a", "from_b"]),
+    );
+    expect(expression?.options.map(({ label }) => label)).not.toContain("b_value");
+  });
+
+  it("exports callable declarations from a child include through a root use", async () => {
+    const project: OpenScadProjectCompletionContext = {
+      documentPath: "main.scad",
+      sources: new Map([
+        ["main.scad", "use <a.scad>\nfrom_"],
+        ["a.scad", "include <b.scad>\nmodule from_a() {}\na_value = 1;"],
+        ["b.scad", "module from_b() {}\nb_value = 2;"],
+      ]),
+    };
+
+    const statement = await complete("use <a.scad>\nfrom_", undefined, false, project);
+    const expression = await complete("use <a.scad>\nvalue = b_", undefined, false, project);
+
+    expect(statement?.options.map(({ label }) => label)).toEqual(
+      expect.arrayContaining(["from_a", "from_b"]),
+    );
+    expect(expression?.options.map(({ label }) => label)).not.toContain("b_value");
+  });
+
+  it("resolves root and nested references relative to the declaring file without escaping", async () => {
+    const project: OpenScadProjectCompletionContext = {
+      documentPath: "models/main.scad",
+      sources: new Map([
+        ["models/main.scad", "include <parts/root.scad>\nfrom_"],
+        [
+          "models/parts/root.scad",
+          [
+            "include <sibling.scad>",
+            "include <./dot.scad>",
+            "include <../common.scad>",
+            "include <../../../outside.scad>",
+            "module from_root() {}",
+          ].join("\n"),
+        ],
+        ["models/parts/sibling.scad", "module from_sibling() {}"],
+        ["models/parts/dot.scad", "module from_dot() {}"],
+        ["models/common.scad", "module from_common() {}"],
+        ["outside.scad", "module from_escape() {}"],
+      ]),
+    };
+
+    const result = await complete(
+      "include <parts/root.scad>\nfrom_",
+      undefined,
+      false,
+      project,
+    );
+    const labels = result?.options.map(({ label }) => label) ?? [];
+
+    expect(labels).toEqual(expect.arrayContaining([
+      "from_root",
+      "from_sibling",
+      "from_dot",
+      "from_common",
+    ]));
+    expect(labels).not.toContain("from_escape");
   });
 
   it("preserves textual include order when duplicate declarations are nested", async () => {

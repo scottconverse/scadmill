@@ -1,6 +1,7 @@
 import {
   indexOpenScadProject,
   OpenScadProjectIndexCache,
+  ProjectIndexWorkerRequestRegistry,
   parseProjectFileEventsInWorker,
   type ProjectReference,
 } from "./openscad-project-index";
@@ -16,7 +17,7 @@ interface SourceWaiter {
 
 const scope = globalThis as unknown as WorkerScope;
 const cache = new OpenScadProjectIndexCache();
-const cancelled = new Set<number>();
+const requests = new ProjectIndexWorkerRequestRegistry();
 const sourceWaiters = new Map<string, SourceWaiter>();
 
 function waiterKey(requestId: number, path: string): string {
@@ -24,7 +25,7 @@ function waiterKey(requestId: number, path: string): string {
 }
 
 function readSource(requestId: number, path: string): Promise<string | undefined> {
-  if (cancelled.has(requestId)) return Promise.resolve(undefined);
+  if (requests.isCancelled(requestId)) return Promise.resolve(undefined);
   return new Promise((resolve) => {
     sourceWaiters.set(waiterKey(requestId, path), { resolve });
     scope.postMessage({ type: "read-project-source", requestId, path });
@@ -32,7 +33,7 @@ function readSource(requestId: number, path: string): Promise<string | undefined
 }
 
 function cancelRequest(requestId: number): void {
-  cancelled.add(requestId);
+  requests.cancel(requestId);
   const prefix = `${requestId}:`;
   for (const [key, waiter] of sourceWaiters) {
     if (!key.startsWith(prefix)) continue;
@@ -82,26 +83,26 @@ scope.onmessage = (event) => {
     || !validReferences(message.references)
   ) return;
 
-  cancelled.delete(requestId);
+  requests.start(requestId);
   void indexOpenScadProject({
     documentPath: message.documentPath,
     references: message.references,
     readSource: (path) => readSource(requestId, path),
     parseFile: parseProjectFileEventsInWorker,
     cache,
-    isCancelled: () => cancelled.has(requestId),
+    isCancelled: () => requests.isCancelled(requestId),
   }).then(
     (symbols) => {
-      if (!cancelled.has(requestId)) {
+      if (!requests.isCancelled(requestId)) {
         scope.postMessage({ type: "project-index-result", requestId, symbols });
       }
-      cancelled.delete(requestId);
+      requests.finish(requestId);
     },
     () => {
-      if (!cancelled.has(requestId)) {
+      if (!requests.isCancelled(requestId)) {
         scope.postMessage({ type: "project-index-error", requestId });
       }
-      cancelled.delete(requestId);
+      requests.finish(requestId);
     },
   );
 };

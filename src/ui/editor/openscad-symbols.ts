@@ -2,7 +2,6 @@ import type { Completion } from "@codemirror/autocomplete";
 import { syntaxTree } from "@codemirror/language";
 import type { EditorState } from "@codemirror/state";
 
-import { parseProjectPath } from "../../application/files/project-path";
 import {
   openScadCurrentFileSymbolDescriptions,
   openScadCurrentFileSymbolDetails,
@@ -12,6 +11,7 @@ import type {
   ProjectIndexedSymbol,
   ProjectReference,
 } from "./openscad-project-index";
+import { resolveProjectReferencePath } from "./openscad-project-index";
 
 export type OpenScadUserSymbolKind = "function" | "module" | "variable";
 
@@ -187,6 +187,7 @@ export function currentFileCompletions(
 function projectReference(
   read: SourceReader,
   node: OpenScadSyntaxNode,
+  documentPath: string,
 ): ProjectReference | null {
   if (node.name !== "IncludeStatement" && node.name !== "UseStatement") return null;
   const pathNode = node.getChild("Path");
@@ -196,7 +197,7 @@ function projectReference(
   try {
     return {
       kind: node.name === "IncludeStatement" ? "include" : "use",
-      path: parseProjectPath(literal.slice(1, -1)),
+      path: resolveProjectReferencePath(documentPath, literal.slice(1, -1)),
     };
   } catch {
     return null;
@@ -205,12 +206,13 @@ function projectReference(
 
 export function rootProjectReferences(
   state: EditorState,
+  documentPath: string,
 ): readonly ProjectReference[] {
   const read = (from: number, to: number) => state.sliceDoc(from, to);
   const references: ProjectReference[] = [];
   let node = syntaxTree(state).topNode.firstChild;
   while (node && references.length < 512) {
-    const reference = projectReference(read, node);
+    const reference = projectReference(read, node, documentPath);
     if (reference) references.push(reference);
     node = node.nextSibling;
   }

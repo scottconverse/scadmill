@@ -8,6 +8,7 @@ import { language, syntaxTree } from "@codemirror/language";
 import { diagnosticCount } from "@codemirror/lint";
 import { EditorView } from "@codemirror/view";
 import { fireEvent, render, waitFor } from "@testing-library/react";
+import { StrictMode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { Diagnostic } from "../../../src/application/engine/contracts";
@@ -76,6 +77,38 @@ describe("CodeEditor OpenSCAD language support", () => {
     await waitFor(() => expect(completionStatus(editor.state)).toBe("active"));
     expect(currentCompletions(editor.state).map(({ label }) => label)).toContain("brace");
     expect(currentCompletions(editor.state).map(({ label }) => label)).not.toContain("bracket");
+  });
+
+  it("keeps cross-file completion live through StrictMode effect rehearsal", async () => {
+    const value = "include <lib.scad>\npa";
+    const rendered = render(
+      <StrictMode>
+        <CodeEditor
+          projectCompletion={{
+            documentPath: "main.scad",
+            sources: new Map([
+              ["main.scad", value],
+              ["lib.scad", "module part(size = 6) { cube(size); }"],
+            ]),
+          }}
+          value={value}
+          onChange={vi.fn()}
+          label="Editor"
+        />
+      </StrictMode>,
+    );
+    const content = rendered.container.querySelector<HTMLElement>(".cm-content");
+    if (!content) throw new Error("CodeMirror content did not mount.");
+    const editor = EditorView.findFromDOM(content);
+    if (!editor) throw new Error("CodeMirror view could not be recovered from its DOM.");
+    editor.dispatch({ selection: { anchor: editor.state.doc.length } });
+
+    expect(startCompletion(editor)).toBe(true);
+    await waitFor(() => expect(completionStatus(editor.state)).toBe("active"));
+    expect(currentCompletions(editor.state)).toContainEqual(expect.objectContaining({
+      label: "part",
+      detail: "part(size = 6)",
+    }));
   });
 
   it("omits the OpenSCAD grammar for a plain-text project file", () => {
