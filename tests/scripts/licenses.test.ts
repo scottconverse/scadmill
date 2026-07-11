@@ -3,9 +3,13 @@ import { describe, expect, it } from "vitest";
 import { findDisallowedPackages, isAllowedLicenseExpression } from "../../scripts/lib/licenses.mjs";
 
 describe("isAllowedLicenseExpression", () => {
-  it("rejects Unicode-3.0 when it is a required license term", () => {
-    expect(isAllowedLicenseExpression("Unicode-3.0")).toBe(false);
-    expect(isAllowedLicenseExpression("(MIT OR Apache-2.0) AND Unicode-3.0")).toBe(false);
+  it("permits Unicode-3.0 alone and in unicode-ident's compound expression", () => {
+    expect(isAllowedLicenseExpression("Unicode-3.0")).toBe(true);
+    expect(isAllowedLicenseExpression("(MIT OR Apache-2.0) AND Unicode-3.0")).toBe(true);
+  });
+
+  it("requires every AND term to be permitted", () => {
+    expect(isAllowedLicenseExpression("(MIT OR Apache-2.0) AND LicenseRef-Unknown")).toBe(false);
   });
 
   it("accepts expressions with a complete permitted choice", () => {
@@ -24,6 +28,6 @@ describe("findDisallowedPackages", () => {
       { name: "mystery", version: "1.0.0", license: null, source: "registry" },
     ];
 
-    expect(findDisallowedPackages(packages)).toEqual([packages[2], packages[3]]);
+    expect(findDisallowedPackages(packages)).toEqual([packages[3]]);
   });
 });

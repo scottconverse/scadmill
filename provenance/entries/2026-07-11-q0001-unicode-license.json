@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-q0001-unicode-license",
+  "createdAt": "2026-07-11T13:15:00-06:00",
+  "summary": "Resolve Q-0001 by deliberately permitting the OSI-approved permissive Unicode-3.0 license used transitively by ICU4X and unicode-ident, with assertion-level parser coverage and retained all-green Rust and combined dependency-policy evidence.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 test-first evidence and milestone gates",
+    "Section 6 dependency license policy",
+    "V-2 dependency-license scan"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "CONTRIBUTING.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-11-q0001-unicode-license.json", "status": "added" },
+    { "path": "scripts/lib/licenses.mjs", "status": "modified" },
+    { "path": "spec/QUESTIONS.md", "status": "modified" },
+    { "path": "tests/scripts/licenses.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0130",
+      "topic": "Unicode-3.0 dependency-license policy",
+      "decision": "Add Unicode-3.0 to ALLOWED_LICENSES as a real permitted open-source license; retain the existing expression parser because tests prove it accepts unicode-ident's (MIT OR Apache-2.0) AND Unicode-3.0 expression only when every required AND term is permitted.",
+      "rationale": "The owner resolved Q-0001 after identifying Unicode-3.0 as an OSI-approved permissive license, approved in November 2023, used transitively by the ICU4X family and unicode-ident. The policy change recognizes that license directly rather than waiving, suppressing, or bypassing dependency checks.",
+      "specBasis": [
+        "Owner resolution of Q-0001",
+        "Section 6 open-source-first dependency policy",
+        "V-2 dependency-license scan"
+      ]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Unicode-3.0 and unicode-ident compound-expression policy",
+      "test": "The focused license suite accepts Unicode-3.0, accepts (MIT OR Apache-2.0) AND Unicode-3.0, rejects an allowed OR group combined by AND with LicenseRef-Unknown, and removes a Unicode-3.0 package from the disallowed-package result.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/licenses.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T13:12:01-06:00",
+        "outcome": "ASSERTION-LEVEL RED: exit 1. Test Files 1 failed (1); Tests 2 failed | 2 passed (4); Duration 427ms. Unicode-3.0 returned false where true was expected, and findDisallowedPackages still returned tinystr plus mystery instead of only mystery."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/licenses.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T13:12:10-06:00",
+        "outcome": "GREEN: exit 0. Test Files 1 passed (1); Tests 4 passed (4); Duration 490ms. The allowed Unicode and unicode-ident expressions passed, while the unknown required AND term remained rejected."
+      }
+    },
+    {
+      "criterion": "Rust and combined dependency-license policy",
+      "test": "Run the exact Rust-only and combined npm-plus-Rust license commands to zero exit and retain their complete merged stdout/stderr output outside the product repository.",
+      "red": {
+        "command": "pnpm.cmd check:licenses rust; pnpm.cmd check:licenses all",
+        "observedAt": "2026-07-11T13:11:40-06:00",
+        "outcome": "BASELINE POLICY RED: each command exited 1. Rust reported exactly 19 rejected records: 18 Unicode-3.0 package records plus unicode-ident@1.0.24 as (MIT OR Apache-2.0) AND Unicode-3.0. The combined command first passed npm for 117 packages, then failed on the same 19 Rust records."
+      },
+      "green": {
+        "command": "cmd.exe /d /s /c \"pnpm.cmd check:licenses rust 2>&1\"; cmd.exe /d /s /c \"pnpm.cmd check:licenses all 2>&1\"",
+        "observedAt": "2026-07-11T13:13:20-06:00",
+        "outcome": "GREEN: both commands exited 0. Rust license policy passed: 478 packages checked. Combined output: npm license policy passed: 117 packages checked; Rust license policy passed: 478 packages checked. Exact output is retained at ../gate-scadmill-2026-07-10/artifacts/q-0001-unicode-license-20260711T191320Z; rust output SHA-256 CFEB497D84A79BCBE6FA81AD8D470C24C320636EF8374B71B05F8DE4FCCAD185 and all output SHA-256 52B88F99EF96FE851D01B33690C27E80F93782254E5E599383EAEFE5053696C8."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "Q-0001 is resolved by the owner's explicit Unicode-3.0 allow-list decision; no dependency-license policy question remains for these ICU4X and unicode-ident records."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

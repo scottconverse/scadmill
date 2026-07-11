@@ -74,10 +74,10 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Made the persisted settings profile authoritative for editor, rendering, engine path, theme, AI, keybinding, and privacy preferences, including compatibility migration from the earlier engine-path slot.
 - Pinned the desktop keychain boundary to `keyring` 4.1.4 and kept ordinary settings in a separate platform-config JSON file.
 - Added a common UTF-8 mojibake source-policy check and corrected the remaining malformed loading-copy assertion.
+- Added `Unicode-3.0` to the dependency-license allowlist after the owner's Q-0001 decision: it is an OSI-approved permissive license, approved in November 2023, and is required transitively by the ICU4X family and `unicode-ident`. This is a deliberate addition of a real open-source license, not a policy bypass.
 
 ### Known policy block
 
-- Q-0001 asks the owner to decide how Unicode-3.0 transitive Rust dependencies fit the §6 license allowlist; the Rust license-policy CI job remains deliberately failing until amended.
 - Q-0003 leaves the final preview facet-cap algorithm open; the preview-only configuration seam is implemented without claiming that a global `$fn` override is a true cap.
 - Q-0021 parks only explicit-camera PNG exports because the pinned snapshot CLI cannot preserve Appendix A's `CameraPose.up`; default-camera PNG and all non-PNG exports continue.
 - Q-0023 asks whether the exact-date official WebAssembly archives now visible in the snapshot manifest may replace v0.6's mandated same-commit source build; M2 native work is unaffected.
