@@ -91,6 +91,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Replaced the external-file raw text blocks with bounded CodeMirror side-by-side and inline merge views, including explicit per-hunk disk/local choices before a mixed reconciliation can be applied.
 - Removed the Customizer's arbitrary four-component ceiling so every finite numeric vector component remains editable and round-trippable.
 - Routed keybinding rejection and rendered-mesh fallback copy through the English message catalog instead of displaying implementation-layer error strings.
+- Routed the ready-engine version status through the English message catalog, closing the remaining N-4 inline status construction found by the final M2 preflight.
 - Made cross-file completion renderer-safe: referenced sources are read lazily, unchanged files reuse a bounded path-and-source cache, aggregate files/code/references/symbols have hard budgets, textual include order determines duplicate signatures, and an open completion list closes when dependency context changes.
 - Kept WebView2 automation test-only: the packaged lane passes Microsoft's documented host-app remote-debugging switch through official `tauri-driver` and bridges EdgeDriver's `DevToolsActivePort` path mismatch without changing normal ScadMill launches.
 

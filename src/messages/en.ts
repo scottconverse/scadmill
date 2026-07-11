@@ -622,6 +622,7 @@ export const messages = {
   checkingEngine: "Checking OpenSCAD…",
   checkingConfiguredEngine: "Checking the configured OpenSCAD executable…",
   checkingEngineAction: "Checking…",
+  engineReady: (version: string) => `OpenSCAD ${version}`,
   engineUnavailable:
     "OpenSCAD is unavailable. Editing and local project features remain available; rendering and model export are disabled.",
   engineVersionUnsupported: (found: string, expected: string) =>

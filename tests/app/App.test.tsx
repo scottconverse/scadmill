@@ -109,6 +109,32 @@ describe("App", () => {
     expect(engine.version).toHaveBeenCalledTimes(1);
   });
 
+  it("formats the ready engine status through the message catalog", async () => {
+    const engineReady = vi.spyOn(messages, "engineReady");
+    const result: RenderFailure = {
+      kind: "failure",
+      reason: "engine-error",
+      diagnostics: [],
+      rawLog: "test result",
+    };
+    const engine: EngineService = {
+      render: vi.fn().mockReturnValue({ jobId: "render-1", done: Promise.resolve(result) }),
+      export: vi.fn(),
+      version: vi.fn().mockResolvedValue({
+        version: PINNED_OPENSCAD_VERSION,
+        path: "native",
+        features: [],
+      }),
+      cancel: vi.fn(),
+    };
+
+    render(<App engine={engine} />);
+
+    await waitFor(() => expect(engineReady).toHaveBeenCalledWith(PINNED_OPENSCAD_VERSION));
+    expect(screen.getByText(messages.engineReady(PINNED_OPENSCAD_VERSION))).toBeVisible();
+    engineReady.mockRestore();
+  });
+
   it("refuses to enable rendering for an engine older than the recorded pin", async () => {
     const engine: EngineService = {
       render: vi.fn(),

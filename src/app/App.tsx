@@ -224,7 +224,7 @@ export function App({
   const engineLabel = engineHealth.kind === "checking"
     ? messages.checkingEngine
     : engineHealth.kind === "ready"
-      ? `OpenSCAD ${engineHealth.info.version}`
+      ? messages.engineReady(engineHealth.info.version)
       : engineHealth.kind === "unsupported-version"
         ? messages.engineVersionUnsupported(
             engineHealth.info.version,
