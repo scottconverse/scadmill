@@ -73,7 +73,7 @@ function literalFromNode(node: SyntaxNode, source: string): ParameterValue | nul
   const list = node.getChild("ListElements");
   if (list === null) return null;
   const elements = list.getChildren("ListElement");
-  if (elements.length < 1 || elements.length > 4) return null;
+  if (elements.length < 1) return null;
   const values: number[] = [];
   for (const element of elements) {
     const expression = element.firstChild;

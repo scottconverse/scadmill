@@ -10,6 +10,7 @@ import {
   type ProjectFileContent,
 } from "../../../src/application/files/project-snapshot";
 import { createWorkbenchRuntime } from "../../../src/application/runtime/workbench-runtime";
+import { ExternalChangeDiff } from "../../../src/ui/files/ExternalChangeDiff";
 import { ProjectLifecycleControls } from "../../../src/ui/files/ProjectLifecycleControls";
 
 function engine(): EngineService {
@@ -37,6 +38,30 @@ function recovery(initial: string | null = null): RecoveryPersistence & { value:
 }
 
 describe("ProjectLifecycleControls", () => {
+  it("accepts or rejects each separated external-change hunk before applying", async () => {
+    const unchanged = Array.from({ length: 12 }, (_, index) => `same ${index}`).join("\n");
+    const localSource = `start\nlocal one\n${unchanged}\nlocal two\nend`;
+    const diskSource = `start\ndisk one\n${unchanged}\ndisk two\nend`;
+    const applied = vi.fn();
+    const view = render(
+      <ExternalChangeDiff
+        diskSource={diskSource}
+        localSource={localSource}
+        onApply={applied}
+      />,
+    );
+
+    fireEvent.click(view.getByRole("radio", { name: "Inline" }));
+    expect(await view.findAllByRole("button", { name: "Use disk change" })).toHaveLength(2);
+    fireEvent.click(view.getAllByRole("button", { name: "Use disk change" })[0]);
+    fireEvent.click(view.getAllByRole("button", { name: "Keep my change" })[0]);
+    const apply = view.getByRole("button", { name: "Apply hunk choices" });
+    await waitFor(() => expect(apply).toBeEnabled());
+    fireEvent.click(apply);
+
+    expect(applied).toHaveBeenCalledWith(`start\ndisk one\n${unchanged}\nlocal two\nend`);
+  });
+
   it("inspects a folder, confirms its entry file, opens it, and exposes a reopenable recent item", async () => {
     const files = new Map<string, ProjectFileContent>([
       ["main.scad", "cube(10);"],
@@ -98,12 +123,16 @@ describe("ProjectLifecycleControls", () => {
     globalThis.dispatchEvent(new Event("focus"));
     expect(await view.findByRole("alertdialog", { name: "File changed outside ScadMill" })).toBeVisible();
     fireEvent.click(view.getByRole("button", { name: "Show diff" }));
-    expect(view.getByText("cube(20);")).toBeVisible();
-    expect(view.getByText("cube(30);")).toBeVisible();
-    fireEvent.click(view.getByRole("button", { name: "Keep my changes" }));
+    expect(view.getByRole("radio", { name: "Side by side" })).toBeChecked();
+    expect(view.getByRole("radio", { name: "Inline" })).not.toBeChecked();
+    expect(view.container.querySelectorAll(".cm-mergeView .cm-editor")).toHaveLength(2);
+
+    fireEvent.click(view.getByRole("radio", { name: "Inline" }));
+    fireEvent.click(await view.findByRole("button", { name: "Use disk change" }));
+    fireEvent.click(view.getByRole("button", { name: "Apply hunk choices" }));
 
     await waitFor(() => expect(runtime.documents.getState().documents[0]).toMatchObject({
-      source: "cube(20);",
+      source: "cube(30);",
       savedSource: "cube(30);",
     }));
   });

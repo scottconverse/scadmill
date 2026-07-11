@@ -319,7 +319,9 @@ describe("ModelViewer theme", () => {
     const worker = required(workers[0], "a replacement parser worker");
     worker.onerror?.({ message: "replacement parse failed" } as ErrorEvent);
 
-    expect(await view.findByRole("alert")).toHaveTextContent("replacement parse failed");
+    expect(await view.findByRole("alert")).toHaveTextContent(
+      "The rendered mesh could not be displayed.",
+    );
     expect(modelMesh(scene)).toBe(previous);
     expect(disposeGeometry).not.toHaveBeenCalled();
   });
@@ -472,7 +474,7 @@ describe("ModelViewer theme", () => {
     );
   });
 
-  it("shows a parser fallback when the STL worker cannot be constructed", async () => {
+  it("shows the catalogued mesh fallback when the STL worker cannot be constructed", async () => {
     class UnavailableParserWorker {
       constructor() {
         throw new Error("worker construction failed");
@@ -483,7 +485,7 @@ describe("ModelViewer theme", () => {
     const view = render(<ModelViewer colors={darkColors} result={oneTriangleResult()} />);
 
     expect(await view.findByRole("alert")).toHaveTextContent(
-      "The STL parser worker could not start.",
+      "The rendered mesh could not be displayed.",
     );
   });
 

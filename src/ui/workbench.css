@@ -226,6 +226,17 @@ button.console-diagnostic:hover, button.console-diagnostic:focus-visible { backg
 .settings-section > p { margin: 4px 10px 8px; color: var(--chrome-text-muted); }
 .settings-dialog button, .settings-portability > label { border: 1px solid var(--chrome-border); border-radius: 4px; background: var(--chrome-surface-raised); color: var(--chrome-text); cursor: pointer; }
 .settings-dialog button:disabled { color: var(--chrome-text-disabled); cursor: not-allowed; }
+.external-change-diff { display: grid; min-width: 0; gap: 8px; margin-block: 8px; }
+.external-change-diff-layout { display: flex; min-width: 0; align-items: center; gap: 12px; padding: 6px 8px; border: 1px solid var(--chrome-border); }
+.external-change-diff-layout legend { padding-inline: 4px; font-weight: 700; }
+.external-change-diff-layout label { display: inline-flex; align-items: center; gap: 4px; }
+.external-change-diff-headings { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1px; font-weight: 700; }
+.external-change-diff-headings span { padding: 4px 8px; background: var(--chrome-surface-raised); }
+.external-change-diff-editor { min-width: 0; max-height: min(50vh, 420px); overflow: auto; border: 1px solid var(--chrome-border); background: var(--editor-background); color: var(--editor-text); }
+.external-change-diff-editor .cm-mergeView { min-width: 560px; }
+.external-change-diff-editor .cm-editor { min-width: 0; background: var(--editor-background); color: var(--editor-text); }
+.external-change-diff-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.external-change-diff-actions p { margin: 0 auto 0 0; color: var(--chrome-text-muted); }
 .status-chip { flex: 0 0 auto; min-height: 21px; padding: 0 7px; border: 0; border-radius: 4px; background: var(--chrome-status-bar-background); color: var(--chrome-status-bar-text); cursor: pointer; }
 .status-chip:hover, .status-chip[aria-pressed="true"] { background: var(--chrome-hover); }
 

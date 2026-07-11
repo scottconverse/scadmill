@@ -216,7 +216,7 @@ export function ViewerPane({
     }
     try {
       const bytes = await modelViewer.current?.capturePng();
-      if (!bytes) throw new Error("The model viewport is unavailable.");
+      if (!bytes) throw new Error(messages.modelViewportUnavailable);
       await onScreenshot(bytes);
       setNotice(messages.screenshotCaptured);
     } catch {

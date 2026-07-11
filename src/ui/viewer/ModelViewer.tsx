@@ -323,9 +323,9 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
       viewer.parsed = parsed;
       viewer.scene.add(mesh);
       viewer.refreshAppearance();
-    }, (error: unknown) => {
+    }, () => {
       if (!active || resources.current !== viewer) return;
-      setGeometryError(error instanceof Error ? error.message : messages.renderedMeshDisplayFailed);
+      setGeometryError(messages.renderedMeshDisplayFailed);
     });
     return () => { active = false; parser.abort(); };
   }, [meshParser, result]);
@@ -351,7 +351,7 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
     async capturePng() {
       const viewer = resources.current;
       const element = canvas.current;
-      if (!viewer || !element) throw new Error("The model viewport is unavailable.");
+      if (!viewer || !element) throw new Error(messages.modelViewportUnavailable);
       viewer.renderer.render(viewer.scene, viewer.camera);
       return canvasPng(element);
     },

@@ -14,7 +14,7 @@ enabled = true;
 title = "Storage box"; // Display name
 fallback = 7; // [0:nope:10]
 computed = width / 2;
-too_long = [1, 2, 3, 4, 5];
+weights = [1, 2, 3, 4, 5];
 
 /* [Hidden] */
 $fn = 48;

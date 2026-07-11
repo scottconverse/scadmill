@@ -302,6 +302,7 @@ export const messages = {
   keybindingGroupRender: "Render",
   keybindingGroupViewer: "Viewer",
   keybindingGroupLayout: "Layout",
+  keybindingRejected: "That keybinding conflicts with another command.",
   nextTab: "Next tab",
   previousTab: "Previous tab",
   findInProject: "Find in project",
@@ -413,6 +414,16 @@ export const messages = {
   hideExternalDiff: "Hide diff",
   localVersion: "Your version",
   diskVersion: "Disk version",
+  diffLayout: "Diff layout",
+  sideBySideDiff: "Side by side",
+  inlineDiff: "Inline",
+  inlineDiffEditor: "Inline external file difference",
+  useDiskChange: "Use disk change",
+  keepLocalChange: "Keep my change",
+  applyHunkChoices: "Apply hunk choices",
+  unresolvedDiffChunks: (count: number) => count === 1
+    ? "1 change still needs a choice."
+    : `${count} changes still need choices.`,
   recoveryTitle: "Unsaved work recovery",
   recoveryMessage: "ScadMill found unsaved buffers from an earlier session.",
   restoreRecovery: "Restore unsaved work",
@@ -597,6 +608,7 @@ export const messages = {
     "OpenSCAD is unavailable. Keep editing, or configure the engine to render this model.",
   modelCheckingEngine: "Checking OpenSCAD before rendering this model.",
   renderedMeshDisplayFailed: "The rendered mesh could not be displayed.",
+  modelViewportUnavailable: "The model viewport is unavailable.",
   loadingEditor: "Loading editor…",
   loadingViewer: "Loading model viewer…",
   goToDefinitionUnavailable:

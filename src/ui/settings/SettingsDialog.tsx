@@ -170,8 +170,8 @@ export function SettingsDialog({
       const keybindings = createKeybindingSettings({ ...settings.keybindings, [command]: binding });
       setKeybindingError(null);
       onChange({ ...settings, keybindings });
-    } catch (error) {
-      setKeybindingError(error instanceof Error ? error.message : "Keybinding was rejected.");
+    } catch {
+      setKeybindingError(messages.keybindingRejected);
     }
   };
   const exportSettings = () => {

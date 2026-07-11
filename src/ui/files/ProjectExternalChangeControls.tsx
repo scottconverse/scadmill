@@ -3,12 +3,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { DocumentBuffer } from "../../application/documents/document-workspace";
 import {
   detectExternalChange,
-  resolveExternalChange,
   type ExternalChange,
 } from "../../application/files/external-change";
 import type { ProjectStorage } from "../../application/files/project-file-service";
 import type { WorkbenchRuntime } from "../../application/runtime/workbench-runtime";
 import { messages } from "../../messages/en";
+import { ExternalChangeDiff } from "./ExternalChangeDiff";
 
 interface PendingExternalChange {
   readonly projectId: string;
@@ -132,8 +132,39 @@ export function ProjectExternalChangeControls({
     });
   };
 
+  const applyExternalDiff = (source: string) => {
+    if (!currentExternal) return;
+    const change = currentExternal.change;
+    if (change.kind !== "modified") return;
+    const pending = currentExternal;
+    run(async () => {
+      const isCurrentProject = () =>
+        projectIdRef.current === pending.projectId
+        && runtime.project.getState().snapshot.projectId === pending.projectId;
+      if (!isCurrentProject()) return;
+      await runtime.dispatch({
+        kind: "edit-document",
+        origin: "user",
+        documentId: pending.documentId,
+        source,
+      });
+      if (!isCurrentProject()) return;
+      await runtime.dispatch({ kind: "refresh-project", origin: "system" });
+      if (!isCurrentProject()) return;
+      await runtime.dispatch({
+        kind: "resolve-external-change",
+        origin: "user",
+        documentId: pending.documentId,
+        diskSource: change.diskSource,
+        choice: "keep",
+      });
+      setExternal(null);
+      setShowDiff(false);
+    });
+  };
+
   const externalDiff = currentExternal?.change.kind === "modified" && showDiff
-    ? resolveExternalChange(currentExternal.change, "diff")
+    ? currentExternal.change
     : null;
   const message = currentExternal?.change.kind === "deleted"
     ? messages.externalDeletionMessage(currentExternal.path)
@@ -165,10 +196,11 @@ export function ProjectExternalChangeControls({
             </button>
           )}
           {externalDiff && (
-            <div className="external-change-diff">
-              <section><h4>{messages.localVersion}</h4><pre>{externalDiff.before}</pre></section>
-              <section><h4>{messages.diskVersion}</h4><pre>{externalDiff.after}</pre></section>
-            </div>
+            <ExternalChangeDiff
+              diskSource={externalDiff.diskSource}
+              localSource={externalDiff.localSource}
+              onApply={applyExternalDiff}
+            />
           )}
         </div>
       )}

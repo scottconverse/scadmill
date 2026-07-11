@@ -418,7 +418,9 @@ describe("SettingsDialog", () => {
     fireEvent.change(view.getByLabelText("Keybinding: Full render"), { target: { value: "F5" } });
 
     expect(onChange).not.toHaveBeenCalled();
-    expect(view.getByRole("alert")).toHaveTextContent("collision");
+    expect(view.getByRole("alert")).toHaveTextContent(
+      "That keybinding conflicts with another command.",
+    );
   });
 
   it("does not dispatch fractional values for integer-only engine settings", () => {

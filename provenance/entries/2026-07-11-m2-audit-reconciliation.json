@@ -1,0 +1,129 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-m2-audit-reconciliation",
+  "createdAt": "2026-07-11T16:09:28-06:00",
+  "summary": "Close three actionable M2 audit findings with a real per-hunk external-file merge, arbitrary-length numeric Customizer vectors, and catalog-owned fallback copy, each backed by assertion-level RED and focused GREEN evidence.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 test-first evidence and milestone gates",
+    "FR-5.1 Customizer parameter controls",
+    "FR-6.2 external file changes",
+    "N-3 accessibility",
+    "N-4 internationalization readiness"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "package.json", "status": "modified" },
+    { "path": "pnpm-lock.yaml", "status": "modified" },
+    { "path": "provenance/entries/2026-07-11-m2-audit-reconciliation.json", "status": "added" },
+    { "path": "src/application/parameters/customizer-parser.ts", "status": "modified" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/ui/files/ExternalChangeDiff.tsx", "status": "added" },
+    { "path": "src/ui/files/ProjectExternalChangeControls.tsx", "status": "modified" },
+    { "path": "src/ui/settings/SettingsDialog.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/ModelViewer.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/ViewerPane.tsx", "status": "modified" },
+    { "path": "src/ui/workbench.css", "status": "modified" },
+    { "path": "tests/application/parameters/customizer-parser.test.ts", "status": "modified" },
+    { "path": "tests/fixtures/customizer/all-annotations.scad", "status": "modified" },
+    { "path": "tests/ui/files/ProjectLifecycleControls.test.tsx", "status": "modified" },
+    { "path": "tests/ui/settings/SettingsDialog.test.tsx", "status": "modified" },
+    { "path": "tests/ui/viewer/ModelViewer.theme.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://codemirror.net/docs/ref/#merge.MergeView",
+      "accessedOn": "2026-07-11",
+      "purpose": "Confirm the official CodeMirror 6 merge API, unified merge controls, chunk inspection, and read-only editor configuration for external-file reconciliation."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0183",
+      "topic": "Approved merge-view dependency",
+      "decision": "Use the exact official CodeMirror-family @codemirror/merge 6.12.2 package for external-file comparison and hunk resolution.",
+      "rationale": "CodeMirror is already an approved MIT dependency family, and its maintained merge primitives avoid inventing an error-prone diff renderer while preserving the existing editor stack and supply-chain policy.",
+      "specBasis": ["Section 6 approved dependencies", "FR-6.2 external file changes"]
+    },
+    {
+      "id": "D-0184",
+      "topic": "External-change reconciliation model",
+      "decision": "Open external modifications side by side by default, offer a unified view with explicit disk/local controls for every chunk, and enable Apply only after every chunk has been resolved.",
+      "rationale": "Showing two raw files did not provide an actionable diff. Explicit per-chunk choices prevent an ambiguous mixed state and preserve the command-bus path when the selected result is applied.",
+      "specBasis": ["FR-6.2 external file changes", "N-3 accessibility"]
+    },
+    {
+      "id": "D-0185",
+      "topic": "Customizer vector length",
+      "decision": "Accept every non-empty numeric vector that the structural parser can validate rather than silently discarding vectors longer than four components.",
+      "rationale": "The specification places no four-component ceiling on numeric vectors. Retaining all validated component ranges makes parsing, editing, source writing, and JSON round trips consistent.",
+      "specBasis": ["FR-5.1 Customizer parameter controls"]
+    },
+    {
+      "id": "D-0186",
+      "topic": "Catalog-owned UI fallbacks",
+      "decision": "Display stable catalog messages for rejected keybindings and mesh-display failures, while keeping implementation-layer exception text out of user-visible component state.",
+      "rationale": "Raw exception messages are not a translation boundary and can change with implementation details. Stable catalog copy satisfies N-4 and keeps the failure state understandable.",
+      "specBasis": ["N-4 internationalization readiness"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Actionable per-hunk external-file reconciliation",
+      "test": "The focused lifecycle suite requires side-by-side and inline modes, two independently resolved chunks, a disabled Apply control until all choices are made, the exact mixed result, and command-bus application into the active project.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/files/ProjectLifecycleControls.test.tsx",
+        "observedAt": "2026-07-11T15:51:00-06:00",
+        "outcome": "ASSERTION-LEVEL RED: Test Files 1 failed; Tests 1 failed and 20 passed because the raw preformatted comparison had no Side by side control or hunk actions."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/files/ProjectLifecycleControls.test.tsx",
+        "observedAt": "2026-07-11T15:56:00-06:00",
+        "outcome": "GREEN: Test Files 1 passed; Tests 22 passed. The separated-hunk test produced the exact disk-first/local-second mixed source."
+      }
+    },
+    {
+      "criterion": "Numeric vectors are not silently truncated by an undocumented ceiling",
+      "test": "The parser fixture and focused extraction suite require a five-component stock parameter plus an eight-component source with exact values and component ranges.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/parameters/customizer-parser.test.ts",
+        "observedAt": "2026-07-11T15:58:00-06:00",
+        "outcome": "ASSERTION-LEVEL RED: Test Files 1 failed; Tests 1 failed and 3 passed because an eight-component vector was omitted."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/parameters/customizer-parser.test.ts",
+        "observedAt": "2026-07-11T15:59:00-06:00",
+        "outcome": "GREEN: Test Files 1 passed; Tests 4 passed with every vector component and source range retained."
+      }
+    },
+    {
+      "criterion": "User-visible error fallbacks remain inside the message catalog",
+      "test": "Focused settings and viewer tests require catalogued keybinding and rendered-mesh messages instead of raw implementation exceptions.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/settings/SettingsDialog.test.tsx tests/ui/viewer/ModelViewer.theme.test.tsx",
+        "observedAt": "2026-07-11T16:07:07-06:00",
+        "outcome": "ASSERTION-LEVEL RED: Test Files 2 failed; Tests 2 failed and 29 passed. The UI exposed the raw keybinding collision and replacement parser error strings."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/settings/SettingsDialog.test.tsx tests/ui/viewer/ModelViewer.theme.test.tsx",
+        "observedAt": "2026-07-11T16:07:55-06:00",
+        "outcome": "GREEN: Test Files 2 passed; Tests 31 passed. Both surfaces displayed stable catalog-owned fallbacks."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "The command-bus audit note was reviewed against call sites: settings and viewer shared-state mutations already dispatch replace-settings or update-viewer; project export and directory inspection are external effects or local transient UI state rather than bypasses of shared application stores.",
+    "Question-blocked preview-cap, final raw-log, measurement, screenshot, camera, tab-close, autosave, and keyboard-picking semantics remain parked exactly where their existing questions require owner direction.",
+    "No owner similarity gate, comparison repository, workflow content, or prohibited source was opened or executed."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

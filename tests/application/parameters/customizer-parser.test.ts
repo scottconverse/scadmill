@@ -109,6 +109,14 @@ describe("customizer parameter extraction", () => {
         control: { kind: "number", step: 1 },
       },
       {
+        name: "weights",
+        defaultValue: [1, 2, 3, 4, 5],
+        group: "Style",
+        hidden: false,
+        description: undefined,
+        control: { kind: "vector", length: 5 },
+      },
+      {
         name: "$fn",
         defaultValue: 48,
         group: "Hidden",
@@ -131,6 +139,20 @@ describe("customizer parameter extraction", () => {
     expect(source.slice(parameter?.valueRange.from, parameter?.valueRange.to)).toBe("-12.50e-1");
     expect(parameter?.defaultSource).toBe("-12.50e-1");
     expect(parameter?.defaultValue).toBe(-1.25);
+  });
+
+  it("keeps every numeric component in vectors longer than four values", () => {
+    const source = "weights = [1, 2, 3, 4, 5, 6, 7, 8];";
+    const [parameter] = extractCustomizerParameters(source);
+
+    expect(parameter).toMatchObject({
+      name: "weights",
+      defaultValue: [1, 2, 3, 4, 5, 6, 7, 8],
+      control: { kind: "vector", length: 8 },
+    });
+    expect(parameter?.componentRanges?.map(({ from, to }) => source.slice(from, to))).toEqual([
+      "1", "2", "3", "4", "5", "6", "7", "8",
+    ]);
   });
 
   it("ignores braces in strings/comments and stops at the first structural geometry boundary", () => {

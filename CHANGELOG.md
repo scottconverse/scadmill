@@ -85,6 +85,9 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Replaced silent annotation metadata failures with a workspace-level saved/unsaved/load-error state. Failed add, delete, file move, Save As copy, and trash metadata updates now remain retryable in memory; the warning clears only after a successful durable load or save.
 - Added a hardware-disclosing production-viewer profile for exactly two million triangles, real trusted orbit input, automatic edge/shadow degradation, frame pacing, long-task capture, and a strict hardware-renderer check. The current AMD Radeon 780M diagnostic records 59.95 fps, but does not qualify the newer GPU as the required 2020-class acceptance target.
 - Reduced the binary-STL parser hot loop to scalar bounds and normal arithmetic while preserving exact validation and normalized geometry output.
+- Replaced the external-file raw text blocks with bounded CodeMirror side-by-side and inline merge views, including explicit per-hunk disk/local choices before a mixed reconciliation can be applied.
+- Removed the Customizer's arbitrary four-component ceiling so every finite numeric vector component remains editable and round-trippable.
+- Routed keybinding rejection and rendered-mesh fallback copy through the English message catalog instead of displaying implementation-layer error strings.
 
 ### Known policy block
 
