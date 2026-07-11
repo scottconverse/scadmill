@@ -29,6 +29,7 @@ Numbered questions are appended here under §2.7. Only the affected work item is
 - **Question:** Does M1 include the user-facing control for importing a custom theme JSON file, or only the schema validator and runtime registration service, with the visible import control arriving in the M2 settings surface?
 - **Evidence:** The milestone table puts theming core in M1 and the settings capability in M2; FR-12.4 requires themes to be loadable from settings without pinning which side owns the initial control.
 - **Blocked:** Only the visible custom-theme import control. M1 theme schema validation, registration, shipped themes, OS/manual selection, and runtime switching continue.
+- **Implementation status (M2, 2026-07-10):** Visible custom-theme import is delivered under C9. This question remains open only for historical M1 ownership and blocks no current product work.
 
 ## Q-0005 — Open — 2026-07-09
 
@@ -78,6 +79,7 @@ Numbered questions are appended here under §2.7. Only the affected work item is
 - **Question:** Does M1 require only typed editor/keybinding defaults and runtime configuration seams, with the visible rebind/settings UI and durable preference storage arriving with C9 in M2?
 - **Evidence:** C1 requires rebindable commands and editor settings in M1, but C9 owns the settings surface and persistence in M2. A typed injected configuration boundary supports both without inventing a second settings owner.
 - **Blocked:** Only the visible editor-settings/rebinding UI and final durable adapter. Defaults, runtime application, the command bus, and unrelated editor work continue.
+- **Implementation status (M2, 2026-07-10):** The visible settings/rebinding UI and durable per-user adapters are delivered under C9. This question remains open only for historical M1 ownership.
 
 ## Q-0012 — Open — 2026-07-10
 

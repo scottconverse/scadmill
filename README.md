@@ -17,6 +17,9 @@ The project is being delivered milestone by milestone from the clean-room functi
 - Inspect real STL geometry in an orbitable Three.js viewer, with an editor-only fallback when the engine is unavailable.
 - Start in a blank scratch document, or open folder-backed desktop projects and IndexedDB-backed web projects with byte-preserving assets, functional file-tree operations, external-change prompts, crash recovery, and recent projects.
 - Export full-quality 3MF, STL, OFF, AMF, SVG, DXF, or PNG artifacts with exact mesh summaries; web projects can also import/export byte-preserving ZIP archives and create serverless single-file share links.
+- Search and change all nine settings sections through one keyboard-operable dialog. Preferences apply immediately, persist per user, restore by section, and import/export through a bounded versioned JSON profile that excludes secrets.
+- Import and select exact Appendix C custom themes without reloading. Custom values use the conservative opaque-sRGB and automated contrast policy while Q-0006 remains open.
+- Keep browser AI keys session-only unless the warning-labeled persistent-storage option is explicitly selected; desktop AI keys use the operating-system keychain boundary rather than the settings file.
 - Arrange the editor, viewer, parameters, diagnostics, and activity destinations in a resizable, collapsible workspace with keyboard commands, web-profile persistence, and a single-column layout below 900 px or by default on mobile web.
 - Follow the OS Light/Dark preference or switch among Light, Dark, and High Contrast themes without reloading the editor or viewer.
 - Validate complete Appendix C custom-theme JSON files and register them for the later settings import flow.

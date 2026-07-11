@@ -23,6 +23,13 @@ import {
 } from "../files/project-session";
 import { createProjectSnapshot, type ProjectFileContent } from "../files/project-snapshot";
 import {
+  createDefaultPersistedSettings,
+  parsePersistedSettings,
+  restoreSettingsSection,
+  serializePersistedSettings,
+} from "../settings/settings-codec";
+import { EPHEMERAL_SETTINGS_PERSISTENCE } from "../settings/settings-persistence";
+import {
   parseWorkspaceLayout,
   reduceWorkspaceLayout,
   serializeWorkspaceLayout,
@@ -35,6 +42,7 @@ import { sameLayout } from "./same-layout";
 import {
   createSettingsState,
   type SettingsState,
+  settingsStateFromProfile,
 } from "./render-settings";
 import {
   EPHEMERAL_WORKSPACE_LAYOUT_PERSISTENCE,
@@ -71,8 +79,20 @@ function readonlyStore<T>(store: StoreApi<T>): ReadonlyStore<T> {
 
 export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOptions = {}): WorkbenchRuntime {
   const layoutPersistence = options.layoutPersistence ?? EPHEMERAL_WORKSPACE_LAYOUT_PERSISTENCE;
+  const settingsPersistence = options.settingsPersistence ?? EPHEMERAL_SETTINGS_PERSISTENCE;
   const recentProjectsPersistence = options.recentProjectsPersistence
     ?? EPHEMERAL_RECENT_PROJECTS_PERSISTENCE;
+  let persistedSettings = createDefaultPersistedSettings();
+  const serializedSettings = settingsPersistence.load();
+  if (serializedSettings !== null) {
+    try {
+      persistedSettings = parsePersistedSettings(serializedSettings);
+    } catch {
+      persistedSettings = createDefaultPersistedSettings();
+    }
+  }
+  let durableSettingsProfile = persistedSettings;
+  let settingsSaveTail = Promise.resolve();
   const initialWorkspace = options.initialScratchSource === undefined
     ? createDocumentWorkspace()
     : createDocumentWorkspace([{
@@ -101,7 +121,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
   );
   const render = createStore<RenderState>(() => ({ status: "idle" }));
   const settings = createStore<SettingsState>(() =>
-    createSettingsState(options.rendering, options.keybindings)
+    createSettingsState(options.rendering, options.keybindings, persistedSettings)
   );
   const runConsole = createStore<ConsoleState>(() => createConsoleState());
   const layout = createStore<WorkspaceLayoutState>(() => parseWorkspaceLayout(layoutPersistence.load()));
@@ -112,7 +132,11 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
   let disposed = false;
   const autoRenderTimer = createDeferredAction(() => {
     if (!disposed) {
-      void dispatch({ kind: "render-active", origin: "system", quality: "preview" });
+      void dispatch({
+        kind: "render-active",
+        origin: "system",
+        quality: settings.getState().defaultQuality,
+      });
     }
   });
 
@@ -128,6 +152,30 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       return;
     }
     autoRenderTimer.schedule(current.renderDebounceMs);
+  }
+
+  async function replaceSettingsProfile(profile: SettingsState["profile"]): Promise<void> {
+    const serialized = serializePersistedSettings(profile);
+    const validated = parsePersistedSettings(serialized);
+    const current = settings.getState();
+    settings.setState(settingsStateFromProfile(validated, current.engineAvailable), true);
+    const save = settingsSaveTail.then(async () => {
+      await settingsPersistence.save(serialized);
+      durableSettingsProfile = validated;
+    });
+    settingsSaveTail = save.catch(() => undefined);
+    try {
+      await save;
+    } catch (error) {
+      const latest = settings.getState();
+      if (latest.profile === validated) {
+        settings.setState(
+          settingsStateFromProfile(durableSettingsProfile, latest.engineAvailable),
+          true,
+        );
+      }
+      throw error;
+    }
   }
 
   function record(command: WorkbenchCommand, commandId: string, summary: string, undoable: boolean): void {
@@ -300,7 +348,10 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
         return;
       }
       const commandId = makeId();
-      settings.setState({ theme: command.theme });
+      await replaceSettingsProfile({
+        ...settings.getState().profile,
+        theme: { ...settings.getState().profile.theme, preference: command.theme },
+      });
       const label = command.theme === "high-contrast"
         ? "High contrast"
         : `${command.theme[0].toUpperCase()}${command.theme.slice(1)}`;
@@ -319,7 +370,10 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
 
     if (command.kind === "set-auto-render") {
       if (settings.getState().autoRender === command.enabled) return;
-      settings.setState({ autoRender: command.enabled });
+      await replaceSettingsProfile({
+        ...settings.getState().profile,
+        rendering: { ...settings.getState().profile.rendering, autoRender: command.enabled },
+      });
       if (!command.enabled) autoRenderTimer.clear();
       record(
         command,
@@ -327,6 +381,22 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
         command.enabled ? "Enable auto-render" : "Disable auto-render",
         false,
       );
+      return;
+    }
+
+    if (command.kind === "replace-settings") {
+      await replaceSettingsProfile(command.settings);
+      record(command, makeId(), "Replace user settings", false);
+      scheduleAutoRender();
+      return;
+    }
+
+    if (command.kind === "restore-settings-section") {
+      await replaceSettingsProfile(
+        restoreSettingsSection(settings.getState().profile, command.section),
+      );
+      record(command, makeId(), `Restore ${command.section} settings`, false);
+      scheduleAutoRender();
       return;
     }
 

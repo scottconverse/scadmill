@@ -90,6 +90,34 @@ test.describe("FR-0.6 mobile-web default", () => {
   });
 });
 
+test.describe("AC-0.c compact mobile chrome", () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test("keeps primary chrome and the engine status inside compact viewports", async ({ page }) => {
+    for (const viewport of [
+      { width: 320, height: 568 },
+      { width: 390, height: 844 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await page.goto("/");
+
+      const settings = page.getByRole("button", { name: "Open settings" });
+      const engineStatus = page.locator(".engine-banner");
+      await expect(settings).toBeVisible();
+      await expect(engineStatus).toBeVisible();
+      const settingsBox = await settings.boundingBox();
+      const engineBox = await engineStatus.boundingBox();
+      if (!settingsBox || !engineBox) throw new Error("Compact chrome geometry is unavailable.");
+
+      expect(settingsBox.x + settingsBox.width).toBeLessThanOrEqual(viewport.width);
+      expect(engineBox.x + engineBox.width).toBeLessThanOrEqual(viewport.width);
+      await expect
+        .poll(() => page.evaluate(() => document.body.scrollWidth === document.body.clientWidth))
+        .toBe(true);
+    }
+  });
+});
+
 test.describe("Appendix D editor pointer bindings", () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 

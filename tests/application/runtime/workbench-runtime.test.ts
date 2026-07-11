@@ -502,6 +502,47 @@ describe("createWorkbenchRuntime", () => {
     }
   });
 
+  it("uses the configured default quality for automatic renders", async () => {
+    vi.useFakeTimers();
+    try {
+      const engine = successfulEngine();
+      const runtime = createWorkbenchRuntime(engine, { makeId: () => "auto-full-command" });
+      await runtime.dispatch({
+        kind: "engine-availability-changed",
+        origin: "system",
+        available: true,
+      });
+      await runtime.dispatch({
+        kind: "replace-settings",
+        origin: "user",
+        settings: {
+          ...runtime.settings.getState().profile,
+          rendering: {
+            ...runtime.settings.getState().profile.rendering,
+            defaultQuality: "full",
+          },
+        },
+      });
+      await runtime.dispatch({
+        kind: "edit-document",
+        origin: "user",
+        documentId: "document-main",
+        source: "cube(22);",
+      });
+
+      await vi.advanceTimersByTimeAsync(800);
+
+      expect(engine.render).toHaveBeenCalledTimes(1);
+      expect(engine.render).toHaveBeenCalledWith(expect.objectContaining({
+        quality: "full",
+        timeoutMs: 600_000,
+      }));
+      runtime.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("can turn automatic rendering off and disposes a pending timer", async () => {
     vi.useFakeTimers();
     try {

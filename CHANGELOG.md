@@ -45,6 +45,9 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Full-quality 3MF, binary/ASCII STL, OFF, AMF, SVG, DXF, and PNG export with awaited artifact destinations, cancellation, and exact mesh file-size/triangle/bounds summaries.
 - Byte-preserving web project ZIP import/export and compressed URL-fragment share links that keep source out of server requests and identify the shared-source origin.
 - Functional File menu Save, Save All, New, Open Project, and Export commands, including caught failures and conservative multi-scratch persistence behavior.
+- A searchable nine-section settings surface backed by one strict, versioned, secret-free profile with immediate application, ordered durable writes, per-section restore, bounded import/export, and rollback on persistence failure.
+- Visible custom-theme JSON import, Appendix C schema and conservative opaque-sRGB contrast validation, durable selection, and live application without reloading the workbench.
+- Browser AI-key storage that is session-only by default and moves to persistent browser storage only after an explicit warning-labeled opt-in; desktop AI keys cross only the OS-keychain command boundary.
 
 ### Changed
 
@@ -60,6 +63,8 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Replaced the latest-run-only console with retained streaming run history while keeping current-snapshot diagnostics as the sole source of status counts and inline editor markers.
 - Replaced the stale M0 engine-unavailable save claim with C6-accurate editing, persistence, rendering, and export status copy.
 - Web startup now degrades to the scratch editor when IndexedDB is absent or access is blocked instead of failing the application module.
+- Made the persisted settings profile authoritative for editor, rendering, engine path, theme, AI, keybinding, and privacy preferences, including compatibility migration from the earlier engine-path slot.
+- Pinned the desktop keychain boundary to `keyring` 4.1.4 and kept ordinary settings in a separate platform-config JSON file.
 
 ### Known policy block
 
@@ -71,7 +76,10 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Q-0029 parks only recent-project duplication on the M3 welcome screen.
 - Q-0030 parks only the autosave-control and multi-untitled store semantics; default-on original-scratch autosave and multi-buffer recovery remain active without overwriting additional tabs.
 - Q-0031 parks only an application-owned cross-platform destination picker; the dialog names the real browser or desktop destination and reports the saved location.
+- Q-0006 keeps custom-theme values conservatively limited to opaque six-digit sRGB colors until the owner defines normalization for the complete CSS color grammar.
+- Q-0027 keeps settings export aligned with the stronger AC-9.c rule: exported settings never contain the AI key.
 
 ### Known verification gaps
 
 - AC-6.d has automated recovery-boundary coverage but not a retained live process-kill and relaunch artifact.
+- AC-9.c has recursive app-file exclusion and an isolated keychain abstraction test, but no retained packaged-desktop round trip against a production OS credential store.

@@ -1,0 +1,62 @@
+import type { RefObject } from "react";
+
+import type { ThemePreference } from "../../application/theme/theme-runtime";
+import type { ThemeTokens } from "../../application/theme/theme-schema";
+import { messages } from "../../messages/en";
+import type { CursorPosition } from "../editor/CodeEditor";
+
+export interface WorkbenchStatusBarProps {
+  readonly customThemes: readonly ThemeTokens[];
+  readonly cursor: CursorPosition;
+  readonly diagnosticStatus: string;
+  readonly engineLabel: string;
+  readonly renderStatus: string;
+  readonly consoleVisible: boolean;
+  readonly consoleButtonRef: RefObject<HTMLButtonElement | null>;
+  readonly themePreference: ThemePreference;
+  readonly onFocusConsole: () => void;
+  readonly onThemePreferenceChange: (preference: ThemePreference) => void;
+}
+
+export function WorkbenchStatusBar(props: WorkbenchStatusBarProps) {
+  return (
+    <footer className="statusbar">
+      <span className="status-engine">{props.engineLabel}</span>
+      <span className="status-render">{props.renderStatus}</span>
+      <button
+        aria-label={messages.focusConsoleStatus(props.diagnosticStatus)}
+        aria-pressed={props.consoleVisible}
+        className="status-chip status-diagnostics"
+        onClick={props.onFocusConsole}
+        ref={props.consoleButtonRef}
+        type="button"
+      >
+        {props.diagnosticStatus}
+      </button>
+      <span className="status-cursor">
+        {messages.cursorPosition(props.cursor.line, props.cursor.column)}
+      </span>
+      <span className="status-encoding">{messages.untitledStatus}</span>
+      <label className="theme-picker">
+        <span>{messages.themeLabel}</span>
+        <select
+          aria-label={messages.themeLabel}
+          value={props.themePreference}
+          onChange={(event) => props.onThemePreferenceChange(
+            event.currentTarget.value as ThemePreference,
+          )}
+        >
+          <option value="system">{messages.themeSystem}</option>
+          <option value="light">{messages.themeLight}</option>
+          <option value="dark">{messages.themeDark}</option>
+          <option value="high-contrast">{messages.themeHighContrast}</option>
+          {props.customThemes.map((theme) => (
+            <option key={theme.meta.name} value={`custom:${encodeURIComponent(theme.meta.name)}`}>
+              {theme.meta.name}
+            </option>
+          ))}
+        </select>
+      </label>
+    </footer>
+  );
+}

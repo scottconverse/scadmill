@@ -12,6 +12,8 @@ use std::time::Duration;
 use tauri::{AppHandle, Manager, State, ipc::Channel};
 
 mod artifact_storage;
+mod desktop_settings;
+mod keychain;
 mod project_storage;
 
 #[derive(Debug, Deserialize)]
@@ -382,6 +384,11 @@ pub fn run() {
             export_native,
             cancel_native,
             native_engine_version,
+            desktop_settings::load_settings,
+            desktop_settings::save_settings,
+            keychain::load_ai_secret,
+            keychain::save_ai_secret,
+            keychain::clear_ai_secret,
             project_storage::project_snapshot,
             project_storage::project_read,
             project_storage::project_write,

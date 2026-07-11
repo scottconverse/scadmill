@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import type { EngineInfo, EngineService } from "../application/engine/contracts";
 import type { EnginePathConfiguration } from "../application/engine/engine-path-configuration";
@@ -7,6 +7,11 @@ import {
   PINNED_OPENSCAD_VERSION,
 } from "../application/engine/engine-pin";
 import type { WorkspaceLayoutPersistence } from "../application/runtime/layout-persistence";
+import type { SettingsPersistence } from "../application/settings/settings-persistence";
+import {
+  EPHEMERAL_SECRET_STORE,
+  type SecretStore,
+} from "../application/settings/secret-store";
 import type { ArtifactDestination } from "../application/files/artifact-destination";
 import type { ProjectStorage } from "../application/files/project-file-service";
 import type { RecoveryPersistence } from "../application/files/recovery-state";
@@ -35,6 +40,8 @@ export interface AppProps {
   engine: EngineService;
   themeHost?: ThemeHost;
   layoutPersistence?: WorkspaceLayoutPersistence;
+  settingsPersistence?: SettingsPersistence;
+  secretStore?: SecretStore;
   showWebMenu?: boolean;
   forceNarrowLayout?: boolean;
   canRevealProjectFiles?: boolean;
@@ -51,6 +58,8 @@ export function App({
   engine,
   themeHost,
   layoutPersistence,
+  settingsPersistence,
+  secretStore = EPHEMERAL_SECRET_STORE,
   showWebMenu,
   forceNarrowLayout,
   canRevealProjectFiles,
@@ -70,6 +79,7 @@ export function App({
       initialScratchSource: scratchAutosavePersistence?.load() ?? "",
       projectStorage,
       recentProjectsPersistence,
+      settingsPersistence,
     }),
     [
       artifactDestination,
@@ -78,6 +88,7 @@ export function App({
       projectStorage,
       recentProjectsPersistence,
       scratchAutosavePersistence,
+      settingsPersistence,
     ],
   );
   const projectPortability = useMemo(
@@ -87,14 +98,24 @@ export function App({
     [projectPortabilityStorage, runtime],
   );
   const themePreference = useReadonlyStore(runtime.settings, (settings) => settings.theme);
-  const activeTheme = useThemeSelection(themePreference, themeHost);
+  const customThemes = useReadonlyStore(
+    runtime.settings,
+    (settings) => settings.profile.theme.customThemes,
+  );
+  const configuredEnginePath = useReadonlyStore(
+    runtime.settings,
+    (settings) => settings.profile.engine.executablePath,
+  ).trim();
+  const activeTheme = useThemeSelection(themePreference, customThemes, themeHost);
+  const legacyEnginePath = useRef(enginePathConfiguration?.load().trim() ?? "");
+  const migrationPending = useRef(Boolean(!configuredEnginePath && legacyEnginePath.current));
+  const initialEnginePath = configuredEnginePath || legacyEnginePath.current;
   const [engineHealth, setEngineHealth] = useState<EngineHealth>(() => ({
     kind: "checking",
-    configuredPath: enginePathConfiguration?.load().trim() ?? "",
+    configuredPath: initialEnginePath,
   }));
-  const configuredPathForProbe = useRef(
-    engineHealth.kind === "checking" ? engineHealth.configuredPath : "",
-  );
+  const configuredPathForProbe = useRef(initialEnginePath);
+  const mirroredEnginePath = useRef(legacyEnginePath.current);
   const [engineProbeRevision, setEngineProbeRevision] = useState(0);
   const versionProbe = useRef<{
     engine: EngineService;
@@ -102,6 +123,30 @@ export function App({
     configuredPath: string;
     result: Promise<EngineInfo | null>;
   } | null>(null);
+
+  useLayoutEffect(() => {
+    if (!enginePathConfiguration) return;
+    if (migrationPending.current) {
+      migrationPending.current = false;
+      void runtime.dispatch({
+        kind: "replace-settings",
+        origin: "system",
+        settings: {
+          ...runtime.settings.getState().profile,
+          engine: { executablePath: legacyEnginePath.current },
+        },
+      });
+      return;
+    }
+    if (mirroredEnginePath.current !== configuredEnginePath) {
+      enginePathConfiguration.save(configuredEnginePath);
+      mirroredEnginePath.current = configuredEnginePath;
+    }
+    if (configuredPathForProbe.current === configuredEnginePath) return;
+    configuredPathForProbe.current = configuredEnginePath;
+    setEngineHealth({ kind: "checking", configuredPath: configuredEnginePath });
+    setEngineProbeRevision((revision) => revision + 1);
+  }, [configuredEnginePath, enginePathConfiguration, runtime]);
 
   useEffect(() => {
     if (
@@ -154,7 +199,11 @@ export function App({
       })
       .then(() => {
         if (available) {
-          return runtime.dispatch({ kind: "render-active", origin: "system", quality: "preview" });
+          return runtime.dispatch({
+            kind: "render-active",
+            origin: "system",
+            quality: runtime.settings.getState().defaultQuality,
+          });
         }
       });
   }, [engineHealth, runtime]);
@@ -194,11 +243,13 @@ export function App({
     <Workbench
       engine={engine}
       runtime={runtime}
+      secretStore={secretStore}
       engineLabel={engineLabel}
       engineAvailable={engineHealth.kind === "ready"}
       engineChecking={engineHealth.kind === "checking"}
       engineRecovery={engineRecovery}
       activeTheme={activeTheme}
+      customThemes={customThemes}
       themePreference={themePreference}
       showWebMenu={showWebMenu}
       forceNarrowLayout={forceNarrowLayout}
@@ -209,13 +260,17 @@ export function App({
       projectPortability={projectPortability}
       configuredEnginePath={engineHealth.kind === "checking" || engineHealth.kind === "invalid-config"
         ? engineHealth.configuredPath
-        : enginePathConfiguration?.load() ?? ""}
+        : configuredEnginePath}
       onConfigureEnginePath={enginePathConfiguration
         ? (path) => {
-            enginePathConfiguration.save(path);
-            configuredPathForProbe.current = path;
-            setEngineHealth({ kind: "checking", configuredPath: path });
-            setEngineProbeRevision((revision) => revision + 1);
+            void runtime.dispatch({
+              kind: "replace-settings",
+              origin: "user",
+              settings: {
+                ...runtime.settings.getState().profile,
+                engine: { executablePath: path },
+              },
+            });
           }
         : undefined}
       onThemePreferenceChange={(theme) =>

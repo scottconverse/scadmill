@@ -10,6 +10,8 @@ import type {
 import type { ThemePreference } from "../theme/theme-runtime";
 import type { WorkspaceLayoutPersistence } from "./layout-persistence";
 import type { RenderingSettings, SettingsState } from "./render-settings";
+import type { SettingsPersistence } from "../settings/settings-persistence";
+import type { PersistedSettings, SettingsSection } from "../settings/settings-schema";
 import type { ArtifactDestination } from "../files/artifact-destination";
 import type { ProjectStorage } from "../files/project-file-service";
 import type { RecentProjectsPersistence } from "../files/recent-projects";
@@ -54,6 +56,8 @@ export type WorkbenchCommand =
   | { kind: "reopen-document"; origin: CommandOrigin }
   | { kind: "set-theme"; origin: CommandOrigin; theme: ThemePreference }
   | { kind: "set-auto-render"; origin: CommandOrigin; enabled: boolean }
+  | { kind: "replace-settings"; origin: CommandOrigin; settings: PersistedSettings }
+  | { kind: "restore-settings-section"; origin: CommandOrigin; section: SettingsSection }
   | { kind: "engine-availability-changed"; origin: CommandOrigin; available: boolean }
   | { kind: "editor-command"; origin: CommandOrigin; outcome: EditorCommandOutcome }
   | { kind: "cancel-render"; origin: CommandOrigin }
@@ -95,6 +99,7 @@ export interface RuntimeOptions {
   now?: () => Date;
   nowMs?: () => number;
   layoutPersistence?: WorkspaceLayoutPersistence;
+  settingsPersistence?: SettingsPersistence;
   rendering?: Partial<RenderingSettings>;
   keybindings?: Partial<KeybindingSettings>;
   projectStorage?: ProjectStorage;

@@ -4,7 +4,7 @@ body { overflow: hidden; background: var(--chrome-background); color: var(--chro
 button, input, select { font: inherit; }
 button:focus-visible, select:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--chrome-focus-ring); outline-offset: 2px; }
 
-.workbench { display: grid; grid-template-rows: 56px auto minmax(0, 1fr) 26px; height: 100%; background: var(--chrome-background); }
+.workbench { display: grid; width: 100%; min-width: 0; grid-template-rows: 56px auto minmax(0, 1fr) 26px; height: 100%; background: var(--chrome-background); }
 .workbench-with-web-menu { grid-template-rows: 30px 56px auto minmax(0, 1fr) 26px; }
 .web-menu-bar { position: relative; z-index: 40; grid-row: 1; display: flex; align-items: stretch; gap: 2px; padding: 2px 8px; border-bottom: 1px solid var(--chrome-border); background: var(--chrome-surface); }
 .web-menu-bar > button, .web-menu-trigger, .web-menu-popover button { min-height: 25px; border: 0; border-radius: 4px; background: var(--chrome-surface); color: var(--chrome-text); cursor: pointer; }
@@ -17,8 +17,8 @@ button:focus-visible, select:focus-visible, [tabindex]:focus-visible { outline: 
 .web-menu-popover button:hover { background: var(--chrome-hover); }
 .web-menu-popover button[aria-pressed="true"] { box-shadow: inset 3px 0 var(--chrome-accent); }
 .web-menu-popover kbd { color: var(--chrome-text-muted); font-family: inherit; font-size: 11px; }
-.titlebar { grid-row: 1; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; border-bottom: 1px solid var(--chrome-border); background: var(--chrome-surface); }
-.titlebar > div { display: flex; align-items: center; gap: 10px; }
+.titlebar { grid-row: 1; display: flex; min-width: 0; align-items: center; justify-content: space-between; padding: 0 18px; overflow: hidden; border-bottom: 1px solid var(--chrome-border); background: var(--chrome-surface); }
+.titlebar > div:not(.settings-dialog) { display: flex; align-items: center; gap: 10px; }
 .titlebar-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
 .auto-render-toggle { display: inline-flex; align-items: center; gap: 6px; color: var(--chrome-text-muted); font-size: 12px; cursor: pointer; }
 .theme-picker { display: flex; align-items: center; gap: 7px; color: var(--chrome-text-muted); font-size: 12px; }
@@ -27,7 +27,7 @@ button:focus-visible, select:focus-visible, [tabindex]:focus-visible { outline: 
 .brand-mark { display: grid; place-items: center; width: 30px; height: 30px; border: 2px solid var(--chrome-accent); border-radius: 8px; color: var(--chrome-accent); font-weight: 800; }
 .render-button { min-height: 34px; padding: 0 16px; border: 0; border-radius: 7px; background: var(--chrome-accent); color: var(--chrome-accent-text); font-weight: 700; cursor: pointer; }
 .render-button:disabled { cursor: not-allowed; background: var(--chrome-surface-raised); color: var(--chrome-text-disabled); }
-.engine-banner { grid-row: 2; display: flex; align-items: center; gap: 12px; padding: 9px 16px; border-bottom: 1px solid var(--chrome-border); color: var(--chrome-text-muted); background: var(--chrome-surface-raised); }
+.engine-banner { grid-row: 2; display: flex; min-width: 0; align-items: center; gap: 12px; padding: 9px 16px; overflow-wrap: anywhere; border-bottom: 1px solid var(--chrome-border); color: var(--chrome-text-muted); background: var(--chrome-surface-raised); }
 .engine-banner form, .engine-banner label { display: flex; align-items: center; gap: 8px; }
 .engine-banner input { min-width: min(360px, 48vw); }
 .engine-rejected-path { color: var(--console-error); overflow-wrap: anywhere; }
@@ -134,6 +134,26 @@ button.console-diagnostic:hover, button.console-diagnostic:focus-visible { backg
 .status-render { min-width: 0; margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .status-cursor, .status-encoding { flex: 0 0 auto; white-space: nowrap; }
 .statusbar .theme-picker { color: var(--chrome-status-bar-text); }
+.settings-launcher { margin-left: auto; border: 1px solid var(--chrome-border); border-radius: 5px; background: var(--chrome-surface); color: var(--chrome-text); cursor: pointer; }
+.settings-dialog { position: fixed; z-index: 100; inset: 5vh max(4vw, calc((100vw - 980px) / 2)); display: grid; min-width: 0; grid-template-rows: auto auto minmax(0, 1fr); overflow: hidden; border: 1px solid var(--chrome-border); border-radius: 8px; background: var(--chrome-background); color: var(--chrome-text); box-shadow: 0 16px 48px var(--chrome-selection); }
+.settings-dialog > * { min-width: 0; }
+.settings-dialog-header, .settings-portability { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--chrome-border); background: var(--chrome-surface); }
+.settings-dialog-header h2 { margin: 0; font-size: 18px; }
+.settings-dialog-header button { margin-left: auto; }
+.settings-portability > label:first-child { display: flex; min-width: 180px; flex: 1 1 auto; align-items: center; gap: 8px; }
+.settings-portability input[type="search"] { min-width: 0; flex: 1 1 auto; }
+.settings-import { position: relative; overflow: hidden; }
+.settings-import input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.settings-sections { display: grid; gap: 10px; overflow: auto; padding: 12px; }
+.settings-section { border: 1px solid var(--chrome-border); border-radius: 6px; background: var(--chrome-surface); }
+.settings-section > header { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-bottom: 1px solid var(--chrome-border); }
+.settings-section h3 { margin: 0; font-size: 14px; }
+.setting-row { display: grid; grid-template-columns: minmax(160px, .8fr) minmax(120px, 1fr); align-items: center; gap: 12px; padding: 6px 10px; }
+.setting-row input:not([type="checkbox"]), .setting-row select { min-width: 0; border: 1px solid var(--chrome-border); border-radius: 4px; background: var(--chrome-surface-raised); color: var(--chrome-text); }
+.settings-secret-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 4px 10px; }
+.settings-section > p { margin: 4px 10px 8px; color: var(--chrome-text-muted); }
+.settings-dialog button, .settings-portability > label { border: 1px solid var(--chrome-border); border-radius: 4px; background: var(--chrome-surface-raised); color: var(--chrome-text); cursor: pointer; }
+.settings-dialog button:disabled { color: var(--chrome-text-disabled); cursor: not-allowed; }
 .status-chip { flex: 0 0 auto; min-height: 21px; padding: 0 7px; border: 0; border-radius: 4px; background: var(--chrome-status-bar-background); color: var(--chrome-status-bar-text); cursor: pointer; }
 .status-chip:hover, .status-chip[aria-pressed="true"] { background: var(--chrome-hover); }
 
@@ -151,6 +171,19 @@ button.console-diagnostic:hover, button.console-diagnostic:focus-visible { backg
 .workspace-frame[data-layout-mode="narrow"] .workspace-console { position: absolute; z-index: 25; grid-row: auto; right: 0; bottom: 0; left: 44px; max-height: calc(100% - 40px); box-shadow: 0 -8px 24px var(--chrome-selection); }
 
 @media (max-width: 599px) {
+  .settings-dialog { inset: 8px; }
+  .settings-dialog-header, .settings-portability { min-width: 0; padding: 8px; }
+  .settings-portability { flex-wrap: wrap; }
+  .settings-portability > label:first-child { min-width: 0; flex-basis: 100%; }
+  .settings-portability input[type="search"] { width: 100%; }
+  .settings-sections { min-width: 0; padding: 8px; }
+  .settings-section, .settings-section > header { min-width: 0; }
+  .setting-row { min-width: 0; grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .setting-row input:not([type="checkbox"]), .setting-row select { width: 100%; max-width: 100%; }
+  .engine-banner { align-items: flex-start; flex-direction: column; gap: 6px; padding: 7px 8px; }
+  .engine-banner > *, .engine-banner form, .engine-banner label { width: 100%; min-width: 0; }
+  .engine-banner form, .engine-banner label { flex-wrap: wrap; }
+  .engine-banner input { width: 100%; min-width: 0; }
   .statusbar { gap: 4px; padding: 0 4px; font-size: 11px; }
   .status-engine { max-width: 54px; }
   .status-render { max-width: 46px; margin-left: 0; }
@@ -162,6 +195,12 @@ button.console-diagnostic:hover, button.console-diagnostic:focus-visible { backg
 
 @media (max-width: 399px) {
   .web-menu-popover { position: fixed; top: 30px; right: 8px; left: 8px; min-width: 0; }
+  .titlebar { gap: 4px; padding: 0 6px; }
+  .titlebar > div:first-child { display: none; }
+  .settings-launcher { margin-left: 0; }
+  .titlebar-actions { min-width: 0; gap: 4px; }
+  .titlebar-actions .auto-render-toggle span { display: none; }
+  .titlebar-actions button { min-height: 32px; padding: 0 7px; font-size: 12px; }
 }
 
 .workbench-with-web-menu .titlebar { grid-row: 2; }

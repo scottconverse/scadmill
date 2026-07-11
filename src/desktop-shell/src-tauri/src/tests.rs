@@ -3,7 +3,57 @@ use super::{
     decode_project_files, finish_after_join, map_render_error,
 };
 use scadmill_native_engine::EngineError;
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 use std::sync::atomic::Ordering;
+use std::time::{SystemTime, UNIX_EPOCH};
+
+#[derive(Default)]
+struct MemoryKeychain(Mutex<Option<String>>);
+
+impl super::keychain::SecretBackend for MemoryKeychain {
+    fn load(&self) -> Result<Option<String>, String> {
+        Ok(self.0.lock().expect("keychain lock").clone())
+    }
+
+    fn save(&self, secret: &str) -> Result<(), String> {
+        *self.0.lock().expect("keychain lock") = Some(secret.to_string());
+        Ok(())
+    }
+
+    fn clear(&self) -> Result<(), String> {
+        *self.0.lock().expect("keychain lock") = None;
+        Ok(())
+    }
+}
+
+fn privacy_test_root() -> PathBuf {
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("clock")
+        .as_nanos();
+    std::env::temp_dir().join(format!(
+        "scadmill-secret-scan-{}-{nonce}",
+        std::process::id()
+    ))
+}
+
+fn regular_files(root: &Path) -> Vec<PathBuf> {
+    let mut pending = vec![root.to_path_buf()];
+    let mut files = Vec::new();
+    while let Some(directory) = pending.pop() {
+        for entry in fs::read_dir(directory).expect("read app-managed directory") {
+            let path = entry.expect("read app-managed entry").path();
+            if path.is_dir() {
+                pending.push(path);
+            } else if path.is_file() {
+                files.push(path);
+            }
+        }
+    }
+    files
+}
 
 #[test]
 fn maps_an_engine_process_error_to_the_typed_failure_wire_shape() {
@@ -137,4 +187,44 @@ fn completing_a_superseded_job_keeps_the_replacement_registered() {
     assert_eq!(result, Ok("finished"));
     jobs.cancel("job-1");
     assert!(replacement.load(Ordering::Acquire));
+}
+
+#[test]
+fn ai_secret_is_absent_from_every_app_managed_file_after_representative_writes() {
+    const SENTINEL: &str = "M2-AC9C-SENTINEL-DO-NOT-PERSIST";
+    let root = privacy_test_root();
+    let settings = root.join("config/settings-v1.json");
+    let project = root.join("project");
+    let downloads = root.join("downloads");
+    let keychain = MemoryKeychain::default();
+
+    super::desktop_settings::save_settings_file(
+        &settings,
+        r#"{"version":1,"ai":{"provider":"openai","persistWebSecret":false}}"#,
+    )
+    .expect("save settings");
+    fs::create_dir_all(&project).expect("create project root");
+    super::project_storage::write_project_file(&project, "main.scad", b"cube(10);")
+        .expect("save project file");
+    super::artifact_storage::save_artifact_in(&downloads, "cube.stl", b"mesh bytes")
+        .expect("save artifact");
+    super::keychain::save_secret(&keychain, SENTINEL).expect("save keychain secret");
+
+    let files = regular_files(&root);
+    assert_eq!(files.len(), 3, "scan the complete app-managed fixture tree");
+    for path in files {
+        let bytes = fs::read(&path).expect("scan app-managed file");
+        assert!(
+            !bytes
+                .windows(SENTINEL.len())
+                .any(|window| window == SENTINEL.as_bytes()),
+            "secret leaked into {}",
+            path.display()
+        );
+    }
+    assert_eq!(
+        super::keychain::load_secret(&keychain).expect("load keychain secret"),
+        SENTINEL
+    );
+    fs::remove_dir_all(root).expect("cleanup privacy fixture");
 }

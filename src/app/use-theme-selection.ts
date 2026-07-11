@@ -3,15 +3,21 @@ import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import {
   applyThemeToRoot,
   createBrowserThemeHost,
-  resolveTheme,
   type ThemeHost,
   type ThemePreference,
 } from "../application/theme/theme-runtime";
+import { createThemeRegistry } from "../application/theme/theme-registry";
+import type { ThemeTokens } from "../application/theme/theme-schema";
 
-export function useThemeSelection(preference: ThemePreference, injectedHost?: ThemeHost) {
+export function useThemeSelection(
+  preference: ThemePreference,
+  customThemes: readonly ThemeTokens[],
+  injectedHost?: ThemeHost,
+) {
   const host = useMemo(() => injectedHost ?? createBrowserThemeHost(), [injectedHost]);
   const [prefersDark, setPrefersDark] = useState(host.darkMode.matches);
-  const theme = resolveTheme(preference, prefersDark);
+  const registry = useMemo(() => createThemeRegistry(customThemes), [customThemes]);
+  const theme = registry.resolve(preference, prefersDark);
 
   useEffect(() => {
     const update = (event: { matches: boolean }) => setPrefersDark(event.matches);

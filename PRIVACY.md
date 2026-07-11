@@ -21,3 +21,10 @@ recent-project metadata, the complete autosaved original scratch source, and cra
 snapshots containing the complete saved and unsaved source of every recoverable buffer. Those
 records remain in the browser profile until ScadMill replaces or clears them, or the user clears
 site data.
+
+Ordinary settings use one platform-config JSON file on desktop and browser local storage on the
+web target. Settings export uses the same non-secret profile and never includes the AI key.
+Desktop AI keys cross only the operating-system keychain boundary. Browser AI keys use session
+storage by default; ScadMill writes a key to browser local storage only after the user explicitly
+enables the warning-labeled persistence setting. Turning that setting off moves the key back to
+session storage.

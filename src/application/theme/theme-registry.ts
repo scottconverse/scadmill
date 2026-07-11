@@ -10,10 +10,7 @@ export interface RegisteredTheme {
 export interface ThemeRegistry {
   register(theme: ThemeTokens): CustomThemePreference;
   list(): readonly RegisteredTheme[];
-  resolve(
-    preference: ThemePreference | CustomThemePreference,
-    prefersDark: boolean,
-  ): ThemeTokens;
+  resolve(preference: ThemePreference, prefersDark: boolean): ThemeTokens;
 }
 
 export function customThemePreference(name: string): CustomThemePreference {
@@ -21,13 +18,16 @@ export function customThemePreference(name: string): CustomThemePreference {
 }
 
 function isCustomThemePreference(
-  preference: ThemePreference | CustomThemePreference,
+  preference: ThemePreference,
 ): preference is CustomThemePreference {
   return preference.startsWith("custom:");
 }
 
-export function createThemeRegistry(): ThemeRegistry {
+export function createThemeRegistry(initialThemes: readonly ThemeTokens[] = []): ThemeRegistry {
   const customThemes = new Map<CustomThemePreference, ThemeTokens>();
+  for (const theme of initialThemes) {
+    customThemes.set(customThemePreference(theme.meta.name), theme);
+  }
 
   return {
     register(theme) {

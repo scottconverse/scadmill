@@ -5,9 +5,10 @@ import {
   canReopenDocument,
 } from "../application/documents/document-workspace";
 import type { WorkspaceLayoutAction } from "../application/layout/workspace-layout";
+import { EPHEMERAL_SECRET_STORE } from "../application/settings/secret-store";
 import { messages } from "../messages/en";
 import { WebMenuBar } from "./layout/WebMenuBar";
-import { LegacyWorkbenchStatusBar } from "./layout/LegacyWorkbenchStatusBar";
+import { WorkbenchStatusBar } from "./layout/WorkbenchStatusBar";
 import { WorkspaceFrame } from "./layout/WorkspaceFrame";
 import { useLayoutKeybindings } from "./layout/use-layout-keybindings";
 import { useNarrowLayout } from "./layout/use-narrow-layout";
@@ -31,6 +32,7 @@ import type { ProjectOpenRequest } from "./files/ProjectLifecycleControls";
 import { useFileCommands } from "./files/use-file-commands";
 import type { WorkbenchProps } from "./workbench-props";
 import { LegacyViewerPane } from "./viewer/LegacyViewerPane";
+import { SettingsLauncher } from "./settings/SettingsLauncher";
 import "./workbench.css";
 
 const CodeEditor = lazy(() => import("./editor/CodeEditor").then((module) => ({ default: module.CodeEditor })));
@@ -38,11 +40,13 @@ const CodeEditor = lazy(() => import("./editor/CodeEditor").then((module) => ({ 
 export function Workbench({
   runtime,
   engine,
+  secretStore = EPHEMERAL_SECRET_STORE,
   engineLabel,
   engineAvailable = true,
   engineChecking = false,
   engineRecovery,
   activeTheme,
+  customThemes = [],
   themePreference,
   showWebMenu = true,
   forceNarrowLayout = false,
@@ -337,6 +341,7 @@ export function Workbench({
           <span className="brand-mark" aria-hidden="true">S</span>
           <h1>{messages.appName}</h1>
         </div>
+        <SettingsLauncher engineLabel={engineLabel} runtime={runtime} secretStore={secretStore} />
         <RenderControls
           autoRender={autoRender}
           renderDisabled={!engineAvailable || render.status === "rendering"}
@@ -383,15 +388,11 @@ export function Workbench({
         onLayoutAction={dispatchLayout}
       />
 
-      <LegacyWorkbenchStatusBar
-        consoleButtonRef={statusConsoleButton}
-        consoleVisible={consoleVisible}
-        cursor={cursor}
-        diagnosticStatus={diagnosticStatus}
-        engineLabel={engineLabel}
-        renderStatus={renderStatus}
-        themePreference={themePreference}
-        onFocusConsole={focusConsole}
+      <WorkbenchStatusBar
+        customThemes={customThemes} cursor={cursor}
+        diagnosticStatus={diagnosticStatus} engineLabel={engineLabel} renderStatus={renderStatus}
+        consoleVisible={consoleVisible} consoleButtonRef={statusConsoleButton}
+        themePreference={themePreference} onFocusConsole={focusConsole}
         onThemePreferenceChange={onThemePreferenceChange}
       />
     </main>

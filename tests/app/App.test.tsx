@@ -8,6 +8,13 @@ import { App } from "../../src/app/App";
 import type { EngineService, RenderFailure } from "../../src/application/engine/contracts";
 import { PINNED_OPENSCAD_VERSION } from "../../src/application/engine/engine-pin";
 import type { WorkspaceLayoutPersistence } from "../../src/application/runtime/layout-persistence";
+import {
+  createDefaultPersistedSettings,
+  serializePersistedSettings,
+} from "../../src/application/settings/settings-codec";
+import type { SettingsPersistence } from "../../src/application/settings/settings-persistence";
+import { SHIPPED_THEMES } from "../../src/application/theme/shipped-themes";
+import { customThemePreference } from "../../src/application/theme/theme-registry";
 import { messages } from "../../src/messages/en";
 
 class FakeDarkModeQuery {
@@ -52,6 +59,25 @@ describe("App", () => {
 
     expect(screen.getByText("Checking OpenSCAD…")).toBeVisible();
     expect(screen.queryByText(messages.engineUnavailable)).not.toBeInTheDocument();
+  });
+
+  it("returns focus to the settings launcher after the dialog closes", async () => {
+    const engine: EngineService = {
+      render: vi.fn(),
+      export: vi.fn(),
+      version: vi.fn().mockResolvedValue(null),
+      cancel: vi.fn(),
+    };
+    const view = render(<App engine={engine} />);
+    const app = within(view.container);
+    const launcher = app.getByRole("button", { name: messages.openSettings });
+    fireEvent.click(launcher);
+    fireEvent.click(await app.findByRole("button", { name: messages.closeSettings }));
+
+    await waitFor(() =>
+      expect(app.queryByRole("dialog", { name: messages.settingsTitle })).not.toBeInTheDocument()
+    );
+    expect(launcher).toHaveFocus();
   });
 
   it("probes and starts the native engine exactly once under StrictMode", async () => {
@@ -101,6 +127,41 @@ describe("App", () => {
       PINNED_OPENSCAD_VERSION,
     ))).toHaveLength(2);
     expect(app.getByRole("textbox", { name: messages.engineExecutablePath })).toBeVisible();
+  });
+
+  it("uses the persisted default quality for the initial automatic render", async () => {
+    const result: RenderFailure = {
+      kind: "failure",
+      reason: "engine-error",
+      diagnostics: [],
+      rawLog: "test result",
+    };
+    const engine: EngineService = {
+      render: vi.fn().mockReturnValue({ jobId: "initial-full", done: Promise.resolve(result) }),
+      export: vi.fn(),
+      version: vi.fn().mockResolvedValue({
+        version: PINNED_OPENSCAD_VERSION,
+        path: "native",
+        features: [],
+      }),
+      cancel: vi.fn(),
+    };
+    const defaults = createDefaultPersistedSettings();
+    const settingsPersistence: SettingsPersistence = {
+      load: () => serializePersistedSettings({
+        ...defaults,
+        rendering: { ...defaults.rendering, defaultQuality: "full" },
+      }),
+      save: vi.fn(),
+    };
+
+    render(<App engine={engine} settingsPersistence={settingsPersistence} />);
+
+    await waitFor(() => expect(engine.render).toHaveBeenCalledTimes(1));
+    expect(engine.render).toHaveBeenCalledWith(expect.objectContaining({
+      quality: "full",
+      timeoutMs: 600_000,
+    }));
   });
 
   it("falls back to editor-only mode when the engine version probe rejects", async () => {
@@ -210,6 +271,33 @@ describe("App", () => {
     await waitFor(() => expect(engine.version).toHaveBeenCalledTimes(2));
     expect(configuration.save).toHaveBeenCalledWith("C:\\OpenSCAD\\openscad.exe");
     await waitFor(() => expect(engine.render).toHaveBeenCalledTimes(1));
+  });
+
+  it("applies an engine path changed in settings to native discovery immediately", async () => {
+    const engine: EngineService = {
+      render: vi.fn(),
+      export: vi.fn(),
+      version: vi.fn().mockResolvedValue(null),
+      cancel: vi.fn(),
+    };
+    let configuredPath = "";
+    const configuration = {
+      load: vi.fn(() => configuredPath),
+      save: vi.fn((path: string) => { configuredPath = path; }),
+    };
+    const view = render(<App engine={engine} enginePathConfiguration={configuration} />);
+    const app = within(view.container);
+    await app.findByRole("button", { name: messages.fixEngine });
+    fireEvent.click(app.getByRole("button", { name: messages.openSettings }));
+
+    fireEvent.change(app.getByLabelText(messages.enginePath), {
+      target: { value: "C:\\OpenSCAD\\openscad.exe" },
+    });
+
+    await waitFor(() => expect(configuration.save).toHaveBeenCalledWith(
+      "C:\\OpenSCAD\\openscad.exe",
+    ));
+    await waitFor(() => expect(engine.version).toHaveBeenCalledTimes(2));
   });
 
   it("distinguishes a rejected configured path and keeps it available for correction", async () => {
@@ -343,6 +431,50 @@ describe("App", () => {
 
     view.unmount();
     expect(darkMode.listeners).toHaveLength(0);
+  });
+
+  it("restores and applies a persisted custom theme without a reload", async () => {
+    const engine: EngineService = {
+      render: vi.fn(),
+      export: vi.fn(),
+      version: vi.fn().mockResolvedValue(null),
+      cancel: vi.fn(),
+    };
+    const theme = {
+      ...SHIPPED_THEMES[0],
+      meta: { name: "Workshop blue", kind: "dark" as const, version: 1 as const },
+      chrome: { ...SHIPPED_THEMES[0].chrome, background: "#101216" },
+    };
+    const defaults = createDefaultPersistedSettings();
+    const profile = {
+      ...defaults,
+      theme: {
+        preference: customThemePreference(theme.meta.name),
+        customThemes: [theme],
+      },
+    };
+    const settingsPersistence: SettingsPersistence = {
+      load: () => serializePersistedSettings(profile),
+      save: vi.fn(),
+    };
+    const themeRoot = document.createElement("div");
+    const darkMode = new FakeDarkModeQuery(false);
+
+    const view = render(
+      <App
+        engine={engine}
+        settingsPersistence={settingsPersistence}
+        themeHost={{ root: themeRoot, darkMode }}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(themeRoot.style.getPropertyValue("--chrome-background")).toBe("#101216")
+    );
+    expect(within(view.container).getByRole("combobox", { name: messages.themeLabel })).toHaveValue(
+      customThemePreference(theme.meta.name),
+    );
+    expect(within(view.container).getByRole("option", { name: theme.meta.name })).toBeVisible();
   });
 
   it("persists all four splitter drags through an App restart", async () => {

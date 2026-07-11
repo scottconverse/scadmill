@@ -11,7 +11,8 @@ import {
 } from "./theme-schema";
 
 export type CustomThemePreference = `custom:${string}`;
-export type ThemePreference = "system" | ThemeKind;
+export type BuiltInThemePreference = "system" | ThemeKind;
+export type ThemePreference = BuiltInThemePreference | CustomThemePreference;
 
 export interface ThemeDarkModeQuery {
   readonly matches: boolean;
@@ -35,7 +36,10 @@ export function createBrowserThemeHost(): ThemeHost {
   return { root: document.documentElement, darkMode };
 }
 
-export function resolveTheme(preference: ThemePreference, prefersDark: boolean): ThemeTokens {
+export function resolveTheme(
+  preference: BuiltInThemePreference,
+  prefersDark: boolean,
+): ThemeTokens {
   const kind = preference === "system" ? (prefersDark ? "dark" : "light") : preference;
   const theme = SHIPPED_THEMES.find((candidate) => candidate.meta.kind === kind);
   if (!theme) {

@@ -12,7 +12,7 @@ import {
 export type ThemeColorValidator = (value: string, path: string) => boolean;
 
 export interface ThemeLoadIssue {
-  readonly code: "invalid-json" | "invalid-schema" | "invalid-color";
+  readonly code: "invalid-json" | "invalid-schema" | "invalid-color" | "invalid-contrast";
   readonly path: string;
   readonly message: string;
 }

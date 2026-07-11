@@ -536,12 +536,17 @@ describe("Workbench", () => {
       cancel: vi.fn(),
     };
     const runtime = createWorkbenchRuntime(engine, { makeId: () => "command-1" });
+    const customTheme = {
+      ...SHIPPED_THEMES[0],
+      meta: { name: "Workshop blue", kind: "dark" as const, version: 1 as const },
+    };
 
     const view = render(
       <Workbench
         runtime={runtime}
         engineLabel="OpenSCAD 2021.01"
         activeTheme={SHIPPED_THEMES[0]}
+        customThemes={[customTheme]}
         themePreference="system"
         onThemePreferenceChange={vi.fn()}
       />,
@@ -551,6 +556,8 @@ describe("Workbench", () => {
     expect(workbench.getByRole("combobox", { name: "Theme" }).closest("footer")).toHaveClass(
       "statusbar",
     );
+    expect(workbench.getByRole("option", { name: "Workshop blue" })).toBeVisible();
+    expect(workbench.getByRole("button", { name: messages.openSettings })).toBeVisible();
     expect(workbench.getByText(messages.noCurrentDiagnosticsStatus("main.scad"))).toBeVisible();
     expect(workbench.getByText("Ln 1, Col 1")).toBeVisible();
 
