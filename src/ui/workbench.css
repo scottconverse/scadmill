@@ -260,7 +260,7 @@ button.console-diagnostic:hover, button.console-diagnostic:focus-visible { backg
   .titlebar > div:first-child { display: none; }
   .settings-launcher { margin-left: 0; }
   .titlebar-actions { min-width: 0; gap: 4px; }
-  .titlebar-actions .auto-render-toggle span { display: none; }
+  .auto-render-toggle span { display: none; }
   .titlebar-actions button { min-height: 32px; padding: 0 7px; font-size: 12px; }
 }
 

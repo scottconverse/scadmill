@@ -357,11 +357,6 @@ describe("createWorkbenchRuntime", () => {
       cancel: vi.fn(),
     };
     const runtime = createWorkbenchRuntime(engine, { makeId: () => "revision-command" });
-    await runtime.dispatch({
-      kind: "update-layout",
-      origin: "user",
-      action: { kind: "toggle-panel", panel: "console" },
-    });
     const pending = runtime.dispatch({
       kind: "render-active",
       origin: "user",
@@ -705,11 +700,6 @@ describe("createWorkbenchRuntime", () => {
       origin: "user",
       documentId: "document-main",
     });
-    await runtime.dispatch({
-      kind: "update-layout",
-      origin: "user",
-      action: { kind: "toggle-panel", panel: "console" },
-    });
     const pending = runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
     await runtime.dispatch({
       kind: "activate-document",
@@ -745,11 +735,6 @@ describe("createWorkbenchRuntime", () => {
       cancel: vi.fn(),
     };
     const runtime = createWorkbenchRuntime(engine, { makeId: () => "revert-command" });
-    await runtime.dispatch({
-      kind: "update-layout",
-      origin: "user",
-      action: { kind: "toggle-panel", panel: "console" },
-    });
     const pending = runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
     await runtime.dispatch({
       kind: "edit-document",

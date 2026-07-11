@@ -529,8 +529,8 @@ describe("Workbench", () => {
     expect(workbench.getByRole("navigation", { name: "Activity rail" })).toBeVisible();
     expect(workbench.getByRole("region", { name: "Files panel" })).toBeVisible();
     expect(workbench.getByRole("region", { name: "Parameters" })).toBeVisible();
-    expect(workbench.getByRole("region", { name: "Console" })).toBeVisible();
-    expect(workbench.getAllByRole("separator")).toHaveLength(4);
+    expect(view.container.querySelector(".workspace-console")).toHaveAttribute("hidden");
+    expect(workbench.getAllByRole("separator")).toHaveLength(3);
 
     fireEvent.click(workbench.getByRole("button", { name: "Search" }));
 
@@ -696,11 +696,6 @@ describe("Workbench", () => {
       cancel: vi.fn(),
     };
     const runtime = createWorkbenchRuntime(engine);
-    await runtime.dispatch({
-      kind: "update-layout",
-      origin: "user",
-      action: { kind: "toggle-panel", panel: "console" },
-    });
     const view = render(
       <Workbench
         runtime={runtime}

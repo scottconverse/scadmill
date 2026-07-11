@@ -182,18 +182,13 @@ describe("workbench runtime layout", () => {
       now: () => new Date("2026-07-10T07:15:00.000Z"),
     });
 
-    await runtime.dispatch({
-      kind: "update-layout",
-      origin: "user",
-      action: { kind: "toggle-panel", panel: "console" },
-    });
     await runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
 
     expect(runtime.layout.getState()).toMatchObject({
       consoleOpen: true,
       consoleAutoOpenedForJobId: "render-1",
     });
-    expect(runtime.history.getState()).toHaveLength(2);
+    expect(runtime.history.getState()).toHaveLength(1);
 
     await runtime.dispatch({
       kind: "update-layout",
@@ -207,9 +202,8 @@ describe("workbench runtime layout", () => {
       consoleOpen: false,
       consoleAutoOpenedForJobId: "render-1",
     });
-    expect(persistence.save).toHaveBeenCalledTimes(3);
+    expect(persistence.save).toHaveBeenCalledTimes(2);
     expect(runtime.history.getState().map((entry) => entry.kind)).toEqual([
-      "update-layout",
       "render-active",
       "update-layout",
       "render-active",
@@ -232,11 +226,6 @@ describe("workbench runtime layout", () => {
     });
     const runtime = createWorkbenchRuntime(engine);
 
-    await runtime.dispatch({
-      kind: "update-layout",
-      origin: "user",
-      action: { kind: "toggle-panel", panel: "console" },
-    });
     await runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
 
     expect(runtime.render.getState()).toMatchObject({ status: "failure", result: cancelled });

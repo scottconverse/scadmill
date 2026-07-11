@@ -43,7 +43,7 @@ export const DEFAULT_WORKSPACE_LAYOUT: WorkspaceLayoutState = Object.freeze({
   editorOpen: true,
   viewerOpen: true,
   parameterOpen: true,
-  consoleOpen: true,
+  consoleOpen: false,
   dockWidth: 260,
   viewerWidth: 480,
   parameterHeight: 220,

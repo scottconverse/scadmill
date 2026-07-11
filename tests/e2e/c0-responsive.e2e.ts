@@ -29,6 +29,20 @@ test.describe("AC-0.c responsive workspace", () => {
       .toBe(true);
   });
 
+  test("keeps the fresh wide viewer useful until the first render error opens Console", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.goto("/");
+
+    await expect(page.getByRole("region", { name: "Console" })).toBeHidden();
+    const viewer = page.locator(".workspace-viewer-surface");
+    await expect(viewer).toBeVisible();
+    await expect
+      .poll(async () => Math.round((await viewer.boundingBox())?.height ?? 0))
+      .toBeGreaterThanOrEqual(260);
+  });
+
   test("keeps capped viewer resizing aligned with its rendered and accessible size", async ({
     page,
   }) => {

@@ -24,7 +24,7 @@ describe("workspace layout state", () => {
       editorOpen: true,
       viewerOpen: true,
       parameterOpen: true,
-      consoleOpen: true,
+      consoleOpen: false,
       dockWidth: 260,
       viewerWidth: 480,
       parameterHeight: 220,
@@ -125,10 +125,7 @@ describe("workspace layout state", () => {
   });
 
   it("auto-opens once per failed render job without changing state on success", () => {
-    const collapsed = reduceWorkspaceLayout(DEFAULT_WORKSPACE_LAYOUT, {
-      kind: "toggle-panel",
-      panel: "console",
-    });
+    const collapsed = DEFAULT_WORKSPACE_LAYOUT;
     const firstFailure = reduceWorkspaceLayout(collapsed, {
       kind: "render-failed",
       jobId: "render-1",
@@ -184,7 +181,6 @@ describe("workspace layout state", () => {
     const collapsed = apply(
       DEFAULT_WORKSPACE_LAYOUT,
       { kind: "toggle-panel", panel: "parameter" },
-      { kind: "toggle-panel", panel: "console" },
     );
     const consoleSheet = reduceWorkspaceLayout(collapsed, {
       kind: "set-narrow-sheet",

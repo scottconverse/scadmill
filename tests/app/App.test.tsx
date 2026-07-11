@@ -495,6 +495,7 @@ describe("App", () => {
     };
     const first = render(<App engine={engine} layoutPersistence={persistence} />);
     const firstApp = within(first.container);
+    fireEvent.click(firstApp.getByRole("button", { name: "Toggle console" }));
     const drags = [
       { name: "Resize files panel", pointerId: 1, from: [100, 20], to: [140, 20] },
       { name: "Resize viewer column", pointerId: 2, from: [600, 20], to: [560, 20] },

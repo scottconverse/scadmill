@@ -40,7 +40,7 @@ describe("WorkspaceFrame", () => {
     expect(within(view.container).queryByText("No parameters were detected.")).not.toBeInTheDocument();
   });
 
-  it("renders the exact wide layout landmarks and four splitters", () => {
+  it("renders the exact fresh wide layout landmarks and three splitters", () => {
     const view = render(
       <WorkspaceFrame
         layout={DEFAULT_WORKSPACE_LAYOUT}
@@ -58,8 +58,8 @@ describe("WorkspaceFrame", () => {
     expect(frame.getByRole("region", { name: "OpenSCAD code editor" })).toBeVisible();
     expect(frame.getByRole("region", { name: "Model viewer" })).toBeVisible();
     expect(frame.getByRole("region", { name: "Parameters" })).toBeVisible();
-    expect(frame.getByRole("region", { name: "Console" })).toBeVisible();
-    expect(frame.getAllByRole("separator")).toHaveLength(4);
+    expect(view.container.querySelector(".workspace-console")).toHaveAttribute("hidden");
+    expect(frame.getAllByRole("separator")).toHaveLength(3);
   });
 
   it("renders activity badges and mouse-accessible parameter and console toggles", () => {
@@ -94,7 +94,7 @@ describe("WorkspaceFrame", () => {
     const onLayoutAction = vi.fn();
     const view = render(
       <WorkspaceFrame
-        layout={DEFAULT_WORKSPACE_LAYOUT}
+        layout={{ ...DEFAULT_WORKSPACE_LAYOUT, consoleOpen: true }}
         narrow={false}
         editor={editor}
         viewer={viewer}
