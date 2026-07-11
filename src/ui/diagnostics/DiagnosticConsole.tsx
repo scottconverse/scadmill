@@ -214,7 +214,9 @@ export function DiagnosticConsole({
             <ol aria-label={messages.rawEngineOutput} className="console-log">
               {lines.map((line) => (
                 <li key={`${line.sequence}-${line.part}`}>
-                  <span className="console-line-time">+{(line.elapsedMs / 1000).toFixed(3)}s</span>
+                  <span className="console-line-time">
+                    {messages.consoleElapsedSeconds(line.elapsedMs / 1000)}
+                  </span>
                   <span className="console-line-stream">{line.stream}</span>
                   <span className="console-line-raw">{displayRaw(line.raw)}</span>
                 </li>

@@ -27,14 +27,12 @@ import { ViewerDetailsPanel } from "./ViewerDetailsPanel";
 import type { ModelViewerHandle } from "./ModelViewer";
 import { ViewerToolbar, type ViewerTool } from "./ViewerToolbar";
 import type { ViewerDegradation } from "./viewer-furniture";
-
 const ModelViewer = lazy(() =>
   import("./ModelViewer").then((module) => ({ default: module.ModelViewer })),
 );
 const SvgViewer = lazy(() =>
   import("./SvgViewer").then((module) => ({ default: module.SvgViewer })),
 );
-
 const EMPTY_VIEWER: ViewerDocumentState = {
   camera: createDefaultViewerCamera(),
   mode: "auto",
@@ -43,11 +41,9 @@ const EMPTY_VIEWER: ViewerDocumentState = {
   annotations: [],
 };
 let fallbackId = 0;
-
 function nextItemId(prefix: string): string {
   return globalThis.crypto?.randomUUID?.() ?? `${prefix}-${++fallbackId}`;
 }
-
 export interface ViewerPaneProps {
   readonly colors: ThemeTokens["viewer"];
   readonly engineAvailable?: boolean;
@@ -55,6 +51,7 @@ export interface ViewerPaneProps {
   readonly maximized: boolean;
   readonly narrow: boolean;
   readonly quality?: Quality;
+  readonly renderJobId?: string;
   readonly renderStatus: "idle" | "rendering" | "success" | "failure";
   readonly result?: RenderResult;
   readonly failure?: RenderFailure;
@@ -78,14 +75,12 @@ export interface ViewerPaneProps {
   readonly onShowConsole?: () => void;
   readonly onViewerAction?: (action: ViewerAction) => void;
 }
-
 function boundsLabel(result: RenderSuccess3D): string | null {
   const bounds = result.stats.boundingBox;
   if (!bounds) return null;
   const size = bounds.max.map((maximum, axis) => maximum - bounds.min[axis]);
-  return `${size.map((value) => Number(value.toFixed(3))).join(" × ")} mm`;
+  return messages.dimensionsMillimeters(size.map((value) => Number(value.toFixed(3))));
 }
-
 export function ViewerPane({
   colors,
   engineAvailable = true,
@@ -93,6 +88,7 @@ export function ViewerPane({
   maximized,
   narrow,
   quality,
+  renderJobId,
   renderStatus,
   result,
   failure,
@@ -115,6 +111,8 @@ export function ViewerPane({
 }: ViewerPaneProps) {
   const modelViewer = useRef<ModelViewerHandle>(null);
   const firstPoint = useRef<Point3 | null>(null);
+  const activeRenderJobId = useRef(renderJobId);
+  activeRenderJobId.current = renderJobId;
   const viewerMode = mode ?? viewer.mode;
   const [tool, setTool] = useState<ViewerTool>("navigate");
   const [annotationDraft, setAnnotationDraft] = useState("");
@@ -143,15 +141,17 @@ export function ViewerPane({
       setElapsedSeconds(0);
       return;
     }
+    const effectJobId = renderJobId;
     const started = globalThis.performance?.now?.() ?? Date.now();
     const update = () => {
+      if (activeRenderJobId.current !== effectJobId) return;
       const current = globalThis.performance?.now?.() ?? Date.now();
       setElapsedSeconds(Math.max(0, current - started) / 1_000);
     };
     update();
     const timer = globalThis.setInterval(update, 100);
     return () => globalThis.clearInterval(timer);
-  }, [renderStatus]);
+  }, [renderJobId, renderStatus]);
 
   useEffect(() => {
     void documentId;

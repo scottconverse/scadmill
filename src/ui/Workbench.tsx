@@ -265,7 +265,6 @@ export function Workbench({
       </div>
     </section>
   );
-
   const viewer = (
     <ViewerPaneConnector
       colors={activeTheme.viewer}
@@ -277,6 +276,7 @@ export function Workbench({
       maximized={layout.maximized === "viewer"}
       narrow={narrow}
       quality={presentation.quality}
+      renderJobId={presentation.status === "rendering" ? render.jobId : undefined}
       renderStatus={presentation.status}
       result={presentation.result}
       runtime={runtime}

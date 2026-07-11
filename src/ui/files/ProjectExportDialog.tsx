@@ -63,7 +63,7 @@ function ExportSummary({ completion }: { readonly completion: ProjectExportCompl
             completion.triangleCount ?? messages.projectExportFactUnavailable,
           )}</p>
           <p>{messages.projectExportBoundingBox(completion.boundingBox
-            ? `${completion.boundingBox.size.join(" × ")} mm`
+            ? messages.dimensionsMillimeters(completion.boundingBox.size)
             : messages.projectExportFactUnavailable)}</p>
         </>
       )}

@@ -3,6 +3,7 @@ import type {
   PointMeasurement,
   ViewerAnnotation,
 } from "../../application/viewer/viewer-state";
+import { messages } from "../../messages/en";
 import type { OverlayPosition } from "./model-viewer-runtime";
 
 export interface SpatialOverlays {
@@ -34,7 +35,7 @@ export function ModelViewerOverlays({
           className="viewer-spatial-label viewer-measurement-label"
           key={measurement.id}
           style={{ left: position.left, top: position.top, color: measurementColor }}
-        >{pointDistance(measurement.start, measurement.end).toFixed(4)} mm</span>
+        >{messages.millimeters(pointDistance(measurement.start, measurement.end).toFixed(4))}</span>
       ) : null;
     })}
     {annotations.map((annotation) => {

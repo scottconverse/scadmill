@@ -15,7 +15,7 @@ export interface ViewerDetailsPanelProps {
 }
 
 function measurementLabel(measurement: PointMeasurement): string {
-  return `${pointDistance(measurement.start, measurement.end).toFixed(4)} mm`;
+  return messages.millimeters(pointDistance(measurement.start, measurement.end).toFixed(4));
 }
 
 export function ViewerDetailsPanel({

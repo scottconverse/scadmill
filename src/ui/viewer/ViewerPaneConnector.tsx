@@ -25,6 +25,7 @@ export interface ViewerPaneConnectorProps {
   readonly maximized: boolean;
   readonly narrow: boolean;
   readonly quality?: Quality;
+  readonly renderJobId?: string;
   readonly renderStatus: "idle" | "rendering" | "success" | "failure";
   readonly result?: RenderResult;
   readonly runtime: WorkbenchRuntime;
@@ -43,6 +44,7 @@ export function ViewerPaneConnector({
   maximized,
   narrow,
   quality,
+  renderJobId,
   renderStatus,
   result,
   runtime,
@@ -122,6 +124,7 @@ export function ViewerPaneConnector({
       mouseMapping={{ orbit: preferences.orbitButton, pan: preferences.panButton }}
       narrow={narrow}
       quality={quality}
+      renderJobId={renderJobId}
       renderStatus={renderStatus}
       result={result}
       viewer={effectiveViewer}

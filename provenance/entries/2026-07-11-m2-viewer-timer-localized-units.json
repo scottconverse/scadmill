@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-m2-viewer-timer-localized-units",
+  "createdAt": "2026-07-11T17:55:53-06:00",
+  "summary": "Close the remaining viewer elapsed-time identity and N-4 unit-localization findings by resetting time for every engine job and routing user-visible time, distance, and dimension units through the message catalog.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 test-first evidence and milestone gates",
+    "FR-4 rendering lifecycle",
+    "N-4 localization",
+    "N-7 UI honesty"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-11-m2-viewer-timer-localized-units.json", "status": "added" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/diagnostics/DiagnosticConsole.tsx", "status": "modified" },
+    { "path": "src/ui/files/ProjectExportDialog.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/ViewerDetailsPanel.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/ViewerPane.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/ViewerPaneConnector.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/model-viewer-overlays.tsx", "status": "modified" },
+    { "path": "tests/ui/message-catalog-units.test.ts", "status": "added" },
+    { "path": "tests/ui/viewer/ViewerPane.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0211",
+      "topic": "Render job identity and localized units",
+      "decision": "Thread the active engine job ID from Workbench through ViewerPaneConnector to ViewerPane and make it part of the elapsed-timer effect identity. Add catalog functions for compact console seconds, millimeter values, and millimeter dimensions, and require each previously hard-coded product surface to call them.",
+      "rationale": "Rendering status remains `rendering` across supersession, so status alone cannot identify the clock origin and visibly overstates the replacement job duration. User-visible units are language content even when the current English rendering stays byte-for-byte identical; centralizing them in the message catalog satisfies N-4 and preserves existing acceptance copy.",
+      "specBasis": ["FR-4", "N-4", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "A superseding render starts a new visible elapsed clock",
+      "test": "Keep ViewerPane continuously in rendering status, advance job A to 1.2 seconds, rerender with job B, and require an immediate 0.0-second display followed by 0.2 seconds after the new interval advances.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/viewer/ViewerPane.test.tsx tests/ui/message-catalog-units.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T17:54:48-06:00",
+        "outcome": "ASSERTION-LEVEL RED: the superseding job still displayed `Rendering… 1.2 s` where `Rendering… 0.0 s` was required. The initial catalog-policy test path was also one directory too high and was corrected before implementation evidence was accepted."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/viewer/ViewerPane.test.tsx tests/ui/message-catalog-units.test.ts tests/ui/diagnostics/DiagnosticConsole.test.tsx tests/ui/files/ProjectExportDialog.test.tsx tests/ui/viewer/ViewerDetailsPanel.test.tsx --reporter=verbose\npnpm.cmd typecheck",
+        "observedAt": "2026-07-11T17:55:40-06:00",
+        "outcome": "GREEN: Test Files 5 passed (5); Tests 23 passed (23); Duration 1.76s. The superseding job reset to 0.0 seconds and advanced independently to 0.2 seconds. TypeScript no-emit exited 0."
+      }
+    },
+    {
+      "criterion": "User-visible elapsed, distance, and dimension units use message-catalog authority",
+      "test": "Inspect the five affected product surfaces and require calls to the dedicated message-catalog functions, then run their component behavior tests to preserve existing visible English output.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/message-catalog-units.test.ts --reporter=verbose (isolated test-only worktree at baseline commit 3e41b42)",
+        "observedAt": "2026-07-11T17:59:02-06:00",
+        "outcome": "ASSERTION-LEVEL RED: Test Files 1 failed (1); Tests 1 failed (1). The first required product source, DiagnosticConsole.tsx, did not contain `messages.consoleElapsedSeconds(`. The initial combined run had exposed a one-directory test-path setup mistake; the path was corrected and this isolated baseline replay supplied the valid behavior-level falsification without altering the implementation worktree."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/viewer/ViewerPane.test.tsx tests/ui/message-catalog-units.test.ts tests/ui/diagnostics/DiagnosticConsole.test.tsx tests/ui/files/ProjectExportDialog.test.tsx tests/ui/viewer/ViewerDetailsPanel.test.tsx --reporter=verbose\npnpm.cmd typecheck",
+        "observedAt": "2026-07-11T17:55:40-06:00",
+        "outcome": "GREEN: the source-policy assertion and all affected component suites passed within 5 files / 23 tests; existing `+0.003s`, millimeter distances, bounds, and export summary copy remained unchanged. TypeScript no-emit exited 0."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "No owner similarity gate, comparison repository, similarity workflow content, M3 work, installer work, or prohibited source was opened, executed, or modified."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
