@@ -96,6 +96,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Routed the ready-engine version status through the English message catalog, closing the remaining N-4 inline status construction found by the final M2 preflight.
 - Moved uncached structural cross-file completion indexing into a dedicated Vite worker with an asynchronous CodeMirror source, cooperative workerless fallback, safe cancellation/disposal/error recovery, a 2.1-million-code-unit per-file limit, an 8-million-code-unit traversal budget, and a bounded exact-source cache. Repeated textual includes now replay cached structural events, so `include A; include B; include A` correctly restores A's authority while recursion-stack and global work budgets still stop cycles and expansion.
 - Kept WebView2 automation test-only: the packaged lane passes Microsoft's documented host-app remote-debugging switch through official `tauri-driver` and bridges EdgeDriver's `DevToolsActivePort` path mismatch without changing normal ScadMill launches.
+- Bound packaged desktop evidence to its source by removing the arbitrary executable input, refusing dirty or changing worktrees, performing the frozen frontend and clean locked canonical release builds inside the wrapper, and retaining strict commit/tree, lockfile, tool, command, timestamp, and executable-hash provenance.
 
 ### Known policy block
 

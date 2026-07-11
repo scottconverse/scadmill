@@ -295,33 +295,165 @@ describe("packaged desktop evidence helpers", () => {
     );
   });
 
-  it("binds evidence metadata to one source commit, branch, and release hash", () => {
+  it("binds evidence metadata to one clean source tree and its locked same-step build", () => {
     const appSha256 = "82".repeat(32);
-    expect(validateSourceMetadata({
-      baseCommit: "e6".repeat(20),
+    const metadata = {
+      schemaVersion: 1,
+      sourceCommit: "e6".repeat(20),
+      sourceTree: "ab".repeat(20),
       branch: "agent/m2-r02-r03",
+      canonicalApplication: "src/desktop-shell/src-tauri/target/release/scadmill.exe",
       applicationSha256: appSha256,
-    }, appSha256)).toEqual({
-      baseCommit: "e6".repeat(20),
-      branch: "agent/m2-r02-r03",
-      applicationSha256: appSha256,
-    });
+      worktree: { cleanBeforeBuild: true, cleanAfterBuild: true },
+      lockfiles: {
+        pnpm: { path: "pnpm-lock.yaml", sha256: "11".repeat(32) },
+        nativeCargo: { path: "src/native-engine/Cargo.lock", sha256: "22".repeat(32) },
+        desktopCargo: {
+          path: "src/desktop-shell/src-tauri/Cargo.lock",
+          sha256: "33".repeat(32),
+        },
+      },
+      build: {
+        startedAt: "2026-07-11T23:00:00.000Z",
+        completedAt: "2026-07-11T23:02:00.000Z",
+        commands: [
+          "pnpm.cmd install --frozen-lockfile",
+          "pnpm.cmd build",
+          "cargo.exe clean --manifest-path src/desktop-shell/src-tauri/Cargo.toml --target-dir src/desktop-shell/src-tauri/target --package scadmill-desktop",
+          "cargo.exe build --release --locked --manifest-path src/desktop-shell/src-tauri/Cargo.toml --target-dir src/desktop-shell/src-tauri/target",
+        ],
+        toolVersions: {
+          node: "v24.17.0",
+          pnpm: "11.7.0",
+          cargo: "cargo 1.96.0 (example 2026-01-01)",
+          rustc: "rustc 1.96.0 (example 2026-01-01)",
+        },
+      },
+    };
+
+    expect(validateSourceMetadata(metadata, appSha256)).toEqual(metadata);
     expect(() => validateSourceMetadata({
-      baseCommit: "e6".repeat(20),
-      branch: "agent/m2-r02-r03",
+      ...metadata,
       applicationSha256: "00".repeat(32),
     }, appSha256)).toThrow("release hash");
+    expect(() => validateSourceMetadata({
+      ...metadata,
+      worktree: { ...metadata.worktree, cleanBeforeBuild: false },
+    }, appSha256)).toThrow("clean worktree");
+    expect(() => validateSourceMetadata({
+      ...metadata,
+      build: { ...metadata.build, commands: metadata.build.commands.slice(1) },
+    }, appSha256)).toThrow("locked build provenance");
   });
 
   it("parses PowerShell UTF-8 source metadata without accepting a mismatched app", () => {
     const appSha256 = "82".repeat(32);
     const serialized = `\uFEFF${JSON.stringify({
-      baseCommit: "e6".repeat(20),
+      schemaVersion: 1,
+      sourceCommit: "e6".repeat(20),
+      sourceTree: "ab".repeat(20),
       branch: "agent/m2-r02-r03",
+      canonicalApplication: "src/desktop-shell/src-tauri/target/release/scadmill.exe",
       applicationSha256: appSha256,
+      worktree: { cleanBeforeBuild: true, cleanAfterBuild: true },
+      lockfiles: {
+        pnpm: { path: "pnpm-lock.yaml", sha256: "11".repeat(32) },
+        nativeCargo: { path: "src/native-engine/Cargo.lock", sha256: "22".repeat(32) },
+        desktopCargo: {
+          path: "src/desktop-shell/src-tauri/Cargo.lock",
+          sha256: "33".repeat(32),
+        },
+      },
+      build: {
+        startedAt: "2026-07-11T23:00:00.000Z",
+        completedAt: "2026-07-11T23:02:00.000Z",
+        commands: [
+          "pnpm.cmd install --frozen-lockfile",
+          "pnpm.cmd build",
+          "cargo.exe clean --manifest-path src/desktop-shell/src-tauri/Cargo.toml --target-dir src/desktop-shell/src-tauri/target --package scadmill-desktop",
+          "cargo.exe build --release --locked --manifest-path src/desktop-shell/src-tauri/Cargo.toml --target-dir src/desktop-shell/src-tauri/target",
+        ],
+        toolVersions: {
+          node: "v24.17.0",
+          pnpm: "11.7.0",
+          cargo: "cargo 1.96.0 (example 2026-01-01)",
+          rustc: "rustc 1.96.0 (example 2026-01-01)",
+        },
+      },
     })}`;
     expect(parseSourceMetadata(serialized, appSha256)).toMatchObject({ branch: "agent/m2-r02-r03" });
     expect(() => parseSourceMetadata(serialized, "00".repeat(32))).toThrow("release hash");
+  });
+
+  it("fails closed before staging unless a clean HEAD is built at the canonical target", async () => {
+    const wrapper = await readFile(
+      join(process.cwd(), "scripts", "windows", "run-packaged-desktop-evidence.ps1"),
+      "utf8",
+    );
+    const cleanBefore = wrapper.indexOf("Assert-CleanWorktree \"before build\"");
+    const emptyOutput = wrapper.indexOf(
+      "Get-ChildItem -LiteralPath $outputPath -Force -ErrorAction Stop",
+    );
+    const install = wrapper.indexOf('-Arguments @("install", "--frozen-lockfile")');
+    const frontendBuild = wrapper.indexOf(
+      '-Arguments @("build") -WorkingDirectory $repo -LogPath $frontendBuildLog',
+    );
+    const cargoClean = wrapper.indexOf('-Arguments @("clean", "--manifest-path"');
+    const cargoBuild = wrapper.indexOf('-Arguments @("build", "--release", "--locked"');
+    const cleanAfter = wrapper.indexOf("Assert-CleanWorktree \"after build\"");
+    const stageApplication = wrapper.indexOf(
+      'Copy-Item -LiteralPath $applicationPath -Destination (Join-Path $stage "app\\scadmill.exe")',
+    );
+    const retainedConfig = wrapper.indexOf(
+      'Copy-Item -LiteralPath $configPath -Destination (Join-Path $outputPath "sandbox-config.wsb")',
+    );
+    const launchClean = wrapper.indexOf('Assert-CleanWorktree "before Sandbox launch"');
+    const launchTree = wrapper.indexOf('"launch source tree"');
+    const sandboxLaunch = wrapper.indexOf('Start-Process -FilePath "WindowsSandbox.exe"');
+
+    expect(wrapper).not.toContain("[string] $Application");
+    expect(wrapper).toContain('git -C $repo status --porcelain=v1 --untracked-files=all');
+    expect(wrapper).toContain(
+      '$canonicalApplication = "src/desktop-shell/src-tauri/target/release/scadmill.exe"',
+    );
+    for (const marker of [
+      cleanBefore,
+      emptyOutput,
+      install,
+      frontendBuild,
+      cargoClean,
+      cargoBuild,
+      cleanAfter,
+      stageApplication,
+      retainedConfig,
+      launchClean,
+      launchTree,
+      sandboxLaunch,
+    ]) expect(marker).toBeGreaterThanOrEqual(0);
+    expect([
+      cleanBefore,
+      emptyOutput,
+      install,
+      frontendBuild,
+      cargoClean,
+      cargoBuild,
+      cleanAfter,
+      stageApplication,
+    ])
+      .toEqual([...[
+        cleanBefore,
+        emptyOutput,
+        install,
+        frontendBuild,
+        cargoClean,
+        cargoBuild,
+        cleanAfter,
+        stageApplication,
+      ]].sort((left, right) => left - right));
+    expect(stageApplication).toBeGreaterThan(cleanAfter);
+    expect([retainedConfig, launchClean, launchTree, sandboxLaunch]).toEqual([
+      ...[retainedConfig, launchClean, launchTree, sandboxLaunch].sort((left, right) => left - right),
+    ]);
   });
 
   it("requires an exact isolated-Sandbox harness manifest", () => {

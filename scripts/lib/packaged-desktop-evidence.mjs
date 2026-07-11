@@ -139,24 +139,97 @@ export function validatePackagedWorkspaceLayoutRestart(before, after) {
   };
 }
 
+const SOURCE_BUILD_COMMANDS = [
+  "pnpm.cmd install --frozen-lockfile",
+  "pnpm.cmd build",
+  "cargo.exe clean --manifest-path src/desktop-shell/src-tauri/Cargo.toml --target-dir src/desktop-shell/src-tauri/target --package scadmill-desktop",
+  "cargo.exe build --release --locked --manifest-path src/desktop-shell/src-tauri/Cargo.toml --target-dir src/desktop-shell/src-tauri/target",
+];
+
+const SOURCE_LOCKFILES = {
+  pnpm: "pnpm-lock.yaml",
+  nativeCargo: "src/native-engine/Cargo.lock",
+  desktopCargo: "src/desktop-shell/src-tauri/Cargo.lock",
+};
+
+function hasExactKeys(value, keys) {
+  return record(value) && Object.keys(value).sort().join(",") === [...keys].sort().join(",");
+}
+
+function sha(value, length) {
+  return typeof value === "string" && new RegExp(`^[A-Fa-f0-9]{${length}}$`, "u").test(value);
+}
+
+function safeText(value, maximumLength = 512) {
+  return typeof value === "string"
+    && value.length > 0
+    && value.length <= maximumLength
+    && [...value].every((character) => {
+      const codePoint = character.codePointAt(0) ?? 0;
+      return codePoint >= 32 && codePoint !== 127;
+    });
+}
+
+function validateSourceLockfiles(lockfiles) {
+  if (!hasExactKeys(lockfiles, Object.keys(SOURCE_LOCKFILES))) return false;
+  return Object.entries(SOURCE_LOCKFILES).every(([name, path]) => {
+    const lockfile = lockfiles[name];
+    return hasExactKeys(lockfile, ["path", "sha256"])
+      && lockfile.path === path
+      && sha(lockfile.sha256, 64);
+  });
+}
+
+function validateSourceBuild(build) {
+  if (!hasExactKeys(build, ["startedAt", "completedAt", "commands", "toolVersions"])) return false;
+  const started = Date.parse(build.startedAt);
+  const completed = Date.parse(build.completedAt);
+  const exactDates = Number.isFinite(started)
+    && Number.isFinite(completed)
+    && new Date(started).toISOString() === build.startedAt
+    && new Date(completed).toISOString() === build.completedAt
+    && completed >= started;
+  const exactCommands = Array.isArray(build.commands)
+    && build.commands.length === SOURCE_BUILD_COMMANDS.length
+    && build.commands.every((command, index) => command === SOURCE_BUILD_COMMANDS[index]);
+  const versions = build.toolVersions;
+  const exactVersions = hasExactKeys(versions, ["node", "pnpm", "cargo", "rustc"])
+    && Object.values(versions).every((version) => safeText(version));
+  return exactDates && exactCommands && exactVersions;
+}
+
 export function validateSourceMetadata(payload, expectedApplicationSha256) {
   if (
-    !record(payload)
-    || Object.keys(payload).sort().join(",") !== "applicationSha256,baseCommit,branch"
-    || !/^[A-Fa-f0-9]{40}$/u.test(payload.baseCommit)
-    || typeof payload.branch !== "string"
-    || payload.branch.length === 0
-    || payload.branch.length > 256
-    || [...payload.branch].some((character) => {
-      const codePoint = character.codePointAt(0) ?? 0;
-      return codePoint < 32 || codePoint === 127;
-    })
-    || !/^[A-Fa-f0-9]{64}$/u.test(payload.applicationSha256)
+    !hasExactKeys(payload, [
+      "schemaVersion",
+      "sourceCommit",
+      "sourceTree",
+      "branch",
+      "canonicalApplication",
+      "applicationSha256",
+      "worktree",
+      "lockfiles",
+      "build",
+    ])
+    || payload.schemaVersion !== 1
+    || !sha(payload.sourceCommit, 40)
+    || !sha(payload.sourceTree, 40)
+    || !safeText(payload.branch, 256)
+    || payload.canonicalApplication !== "src/desktop-shell/src-tauri/target/release/scadmill.exe"
+    || !sha(payload.applicationSha256, 64)
   ) {
-    throw new Error("Source metadata must contain one commit, branch, and application hash.");
+    throw new Error("Source metadata must identify one canonical application and source tree.");
   }
   if (payload.applicationSha256.toUpperCase() !== expectedApplicationSha256.toUpperCase()) {
     throw new Error("Source metadata release hash does not match the staged application.");
+  }
+  if (
+    !hasExactKeys(payload.worktree, ["cleanBeforeBuild", "cleanAfterBuild"])
+    || payload.worktree.cleanBeforeBuild !== true
+    || payload.worktree.cleanAfterBuild !== true
+  ) throw new Error("Source metadata must attest a clean worktree before and after the build.");
+  if (!validateSourceLockfiles(payload.lockfiles) || !validateSourceBuild(payload.build)) {
+    throw new Error("Source metadata must retain exact locked build provenance.");
   }
   return payload;
 }

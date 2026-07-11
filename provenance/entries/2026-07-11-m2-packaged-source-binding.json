@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-m2-packaged-source-binding",
+  "createdAt": "2026-07-11T17:30:33-06:00",
+  "summary": "Make the packaged Windows evidence wrapper fail closed unless it builds the canonical release executable itself from one clean committed source tree with frozen and locked dependencies, then retain strict source/build metadata that the isolated guest and host both verify.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 test-first evidence and milestone gates",
+    "M2-R02 packaged desktop evidence",
+    "AC-0.b packaged restart evidence",
+    "N-2 reliability",
+    "N-7 UI and evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-11-m2-packaged-source-binding.json", "status": "added" },
+    { "path": "scripts/lib/packaged-desktop-evidence.d.mts", "status": "modified" },
+    { "path": "scripts/lib/packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "scripts/windows/run-packaged-desktop-evidence.ps1", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0204",
+      "topic": "Source-bound packaged desktop evidence build",
+      "decision": "Remove the application-path input from the packaged evidence wrapper; require an exact clean HEAD index and worktree before and after the build; record and recheck the commit, tree, and branch; run pnpm install with the frozen lockfile, build the frontend, cargo-clean the desktop package's canonical target, require the canonical executable to be absent, and cargo-build that target in release mode with --locked before staging only the resulting executable. Retain schema-versioned source metadata containing the canonical path, executable and lockfile hashes, exact command sequence, tool versions, millisecond UTC timestamps, and clean-worktree attestations, and bind that metadata into both the hashed guest harness and retained host evidence.",
+      "rationale": "The former optional application path could stage a stale or arbitrary executable and then label it with the current HEAD. A same-step clean and locked canonical build, strict metadata validation in the guest, retained-file hashing on the host, and a second source-identity check make that false provenance fail closed.",
+      "specBasis": ["Section 2.4", "Section 2.7", "M2-R02", "N-2", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Packaged evidence accepts only strict source metadata for a same-step clean locked canonical build and orders that build before staging",
+      "test": "Focused helper tests validate the exact metadata schema, reject a mismatched executable hash, false clean-worktree attestation, and incomplete command sequence, and statically require every fail-closed wrapper marker to exist in source order before the application copy.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T17:30:33-06:00",
+        "outcome": "ASSERTION-LEVEL RED (original execution time not retained): Test Files 1 failed (1); Tests 3 failed | 16 passed (19); duration 602 ms. The prior validator rejected the new strict schema while the wrapper still exposed [string] $Application and had no required self-build sequence."
+      },
+      "green": {
+        "command": "$tokens = $null; $errors = $null; [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path 'scripts/windows/run-packaged-desktop-evidence.ps1'), [ref]$tokens, [ref]$errors) | Out-Null; if ($errors.Count -gt 0) { exit 1 }; pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T17:34:18-06:00",
+        "outcome": "GREEN: PowerShell parse PASS; Test Files 1 passed (1); Tests 19 passed (19); duration 550 ms. This is static and contract evidence only; Windows Sandbox was not started."
+      }
+    },
+    {
+      "criterion": "A nominally fresh run cannot retain stale artifacts or launch after post-staging source drift",
+      "test": "Hostile source-contract widening requires an empty output directory check before the first build command and requires clean-worktree plus exact commit/tree/branch checks after retained harness copies and immediately before Windows Sandbox launch.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T17:31:47-06:00",
+        "outcome": "ASSERTION-LEVEL RED: Test Files 1 failed (1); Tests 1 failed | 18 passed (19); duration 492 ms. At least one newly required empty-output or pre-launch source-identity marker was absent."
+      },
+      "green": {
+        "command": "$tokens = $null; $errors = $null; [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path 'scripts/windows/run-packaged-desktop-evidence.ps1'), [ref]$tokens, [ref]$errors) | Out-Null; if ($errors.Count -gt 0) { exit 1 }; pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T17:32:17-06:00",
+        "outcome": "GREEN: PowerShell parse PASS; Test Files 1 passed (1); Tests 19 passed (19); duration 542 ms. Every marker existed in fail-closed source order."
+      }
+    },
+    {
+      "criterion": "The source-binding change remains typed, lint-clean, provenance-valid, parseable, and diff-clean",
+      "test": "Run independent TypeScript, Biome/source-policy, provenance, JavaScript parse, and diff-integrity gates without starting Windows Sandbox.",
+      "red": {
+        "command": "Independent M2 packaged-evidence review",
+        "observedAt": "2026-07-11T17:20:00-06:00",
+        "outcome": "REVIEW RED: the prior wrapper could pair an arbitrary or stale executable with the current HEAD and retained no exact locked-build provenance."
+      },
+      "green": {
+        "command": "Parallel independent commands: pnpm.cmd typecheck; pnpm.cmd lint; pnpm.cmd check:provenance; node --check scripts/lib/packaged-desktop-evidence.mjs; node --check scripts/run-packaged-desktop-evidence.mjs; git diff --check",
+        "observedAt": "2026-07-11T17:33:39-06:00",
+        "outcome": "GREEN: TypeScript exited 0; lint checked 301 files with no fixes and source policy passed; provenance baseline validation passed; both JavaScript modules parsed; diff integrity passed."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "Windows Sandbox was intentionally not run from this isolated fix branch. After integration, the final combined committed tree must run the wrapper from clean HEAD so the retained source metadata names the exact integrated commit and executable hash before any packaged PASS is claimed.",
+    "No owner similarity gate, comparison repository, workflow content, M3 source, or prohibited source was opened, modified, or executed."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

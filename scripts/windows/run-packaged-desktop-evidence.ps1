@@ -5,7 +5,6 @@ param(
   [Parameter(Mandatory = $true)] [string] $EdgeDriver,
   [Parameter(Mandatory = $true)] [string] $FixedWebViewDirectory,
   [Parameter(Mandatory = $true)] [string] $OutputDirectory,
-  [string] $Application = "src\desktop-shell\src-tauri\target\release\scadmill.exe",
   [string] $Node = "node.exe",
   [int] $TimeoutSeconds = 600
 )
@@ -29,9 +28,72 @@ function Escape-Xml([string] $Value) {
   return [Security.SecurityElement]::Escape($Value)
 }
 
+function Assert-CleanWorktree([string] $Phase) {
+  [string[]] $status = @(git -C $repo status --porcelain=v1 --untracked-files=all)
+  if ($LASTEXITCODE -ne 0) { throw "Could not inspect the source worktree $Phase." }
+  if ($status.Count -ne 0) {
+    throw "Source worktree must be clean $Phase. Refusing evidence build:`n$($status -join "`n")"
+  }
+}
+
+function Get-GitValue([string[]] $Arguments, [string] $Label) {
+  $value = (& git -C $repo @Arguments).Trim()
+  if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($value)) {
+    throw "Could not resolve $Label."
+  }
+  return $value
+}
+
+function Get-ToolVersion([string] $Executable, [string] $Label) {
+  $priorPreference = $ErrorActionPreference
+  try {
+    $ErrorActionPreference = "Continue"
+    [string[]] $output = @(& $Executable "--version" 2>&1)
+    $exitCode = $LASTEXITCODE
+  } finally {
+    $ErrorActionPreference = $priorPreference
+  }
+  $version = ($output -join "`n").Trim()
+  if ($exitCode -ne 0 -or [string]::IsNullOrWhiteSpace($version)) {
+    throw "Could not resolve $Label version."
+  }
+  return $version
+}
+
+function Format-IsoInstant([DateTime] $Value) {
+  return $Value.ToUniversalTime().ToString(
+    "yyyy-MM-dd'T'HH:mm:ss.fff'Z'",
+    [Globalization.CultureInfo]::InvariantCulture
+  )
+}
+
+function Invoke-LoggedCommand {
+  param(
+    [Parameter(Mandatory = $true)] [string] $Executable,
+    [Parameter(Mandatory = $true)] [string[]] $Arguments,
+    [Parameter(Mandatory = $true)] [string] $WorkingDirectory,
+    [Parameter(Mandatory = $true)] [string] $LogPath
+  )
+  $display = "$([IO.Path]::GetFileName($Executable)) $($Arguments -join ' ')"
+  [IO.File]::WriteAllText($LogPath, "> $display`n", [Text.UTF8Encoding]::new($false))
+  Push-Location -LiteralPath $WorkingDirectory
+  $priorPreference = $ErrorActionPreference
+  try {
+    $ErrorActionPreference = "Continue"
+    & $Executable @Arguments 2>&1 | Tee-Object -FilePath $LogPath -Append
+    $exitCode = $LASTEXITCODE
+  } finally {
+    $ErrorActionPreference = $priorPreference
+    Pop-Location
+  }
+  if ($exitCode -ne 0) { throw "Command failed with exit code ${exitCode}: $display. See $LogPath." }
+}
+
 if ($TimeoutSeconds -lt 60) { throw "TimeoutSeconds must be at least 60." }
-$applicationInput = if ([IO.Path]::IsPathRooted($Application)) { $Application } else { Join-Path $repo $Application }
-$applicationPath = Resolve-File $applicationInput "ScadMill application"
+$canonicalApplication = "src/desktop-shell/src-tauri/target/release/scadmill.exe"
+$desktopManifest = "src/desktop-shell/src-tauri/Cargo.toml"
+$desktopTarget = "src/desktop-shell/src-tauri/target"
+$applicationPath = Join-Path $repo ($canonicalApplication.Replace('/', '\'))
 $enginePath = Resolve-Directory $EngineDirectory "OpenSCAD directory"
 $tauriDriverPath = Resolve-File $TauriDriver "tauri-driver"
 $visualCppRuntimePath = Resolve-File $VisualCppRuntime "Visual C++ runtime"
@@ -39,13 +101,64 @@ $edgeDriverPath = Resolve-File $EdgeDriver "Microsoft EdgeDriver"
 $webViewPath = Resolve-Directory $FixedWebViewDirectory "fixed WebView2 runtime"
 $nodeCommand = Get-Command $Node -CommandType Application -ErrorAction Stop
 $nodePath = Resolve-File $nodeCommand.Source "Node.js"
+$pnpmCommand = Get-Command "pnpm.cmd" -CommandType Application -ErrorAction Stop
+$pnpmPath = Resolve-File $pnpmCommand.Source "pnpm"
+$cargoCommand = Get-Command "cargo.exe" -CommandType Application -ErrorAction Stop
+$cargoPath = Resolve-File $cargoCommand.Source "Cargo"
+$rustcCommand = Get-Command "rustc.exe" -CommandType Application -ErrorAction Stop
+$rustcPath = Resolve-File $rustcCommand.Source "rustc"
 $outputPath = [IO.Path]::GetFullPath($OutputDirectory)
-New-Item -ItemType Directory -Force -Path $outputPath | Out-Null
-foreach ($marker in @("evidence.json", "GUEST_PASS", "PASS", "sandbox-exit-code.txt")) {
-  if (Test-Path -LiteralPath (Join-Path $outputPath $marker)) {
-    throw "OutputDirectory already contains $marker; use a fresh evidence directory."
-  }
+$repoPrefix = $repo.TrimEnd('\') + '\'
+if ($outputPath -eq $repo -or $outputPath.StartsWith($repoPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+  throw "OutputDirectory must be outside the source worktree."
 }
+
+Assert-CleanWorktree "before build"
+$sourceCommit = Get-GitValue @("rev-parse", "HEAD") "source commit"
+$sourceTree = Get-GitValue @("write-tree") "source tree"
+$headTree = Get-GitValue @("rev-parse", "HEAD^{tree}") "HEAD source tree"
+if ($sourceCommit -notmatch '^[A-Fa-f0-9]{40}$' -or $sourceTree -notmatch '^[A-Fa-f0-9]{40}$') {
+  throw "Source commit or tree is not a full Git object ID."
+}
+if ($sourceTree -ne $headTree) { throw "Clean source tree does not match HEAD." }
+$branch = Get-GitValue @("branch", "--show-current") "source branch"
+
+if (Test-Path -LiteralPath $outputPath) {
+  if (-not (Test-Path -LiteralPath $outputPath -PathType Container)) {
+    throw "OutputDirectory is not a directory: $outputPath"
+  }
+  [object[]] $existingOutput = @(Get-ChildItem -LiteralPath $outputPath -Force -ErrorAction Stop)
+  if ($existingOutput.Count -ne 0) { throw "OutputDirectory must be empty: $outputPath" }
+} else {
+  New-Item -ItemType Directory -Path $outputPath | Out-Null
+}
+
+$dependencyInstallLog = Join-Path $outputPath "dependency-install.log"
+$frontendBuildLog = Join-Path $outputPath "frontend-build.log"
+$desktopCleanLog = Join-Path $outputPath "desktop-release-clean.log"
+$desktopBuildLog = Join-Path $outputPath "desktop-release-build.log"
+$nodeVersion = Get-ToolVersion $nodePath "Node.js"
+$pnpmVersion = Get-ToolVersion $pnpmPath "pnpm"
+$cargoVersion = Get-ToolVersion $cargoPath "Cargo"
+$rustcVersion = Get-ToolVersion $rustcPath "rustc"
+$buildStartedAt = Format-IsoInstant (Get-Date)
+Invoke-LoggedCommand -Executable $pnpmPath -Arguments @("install", "--frozen-lockfile") -WorkingDirectory $repo -LogPath $dependencyInstallLog
+Invoke-LoggedCommand -Executable $pnpmPath -Arguments @("build") -WorkingDirectory $repo -LogPath $frontendBuildLog
+Invoke-LoggedCommand -Executable $cargoPath -Arguments @("clean", "--manifest-path", $desktopManifest, "--target-dir", $desktopTarget, "--package", "scadmill-desktop") -WorkingDirectory $repo -LogPath $desktopCleanLog
+if (Test-Path -LiteralPath $applicationPath) {
+  throw "Canonical release executable survived cargo clean; refusing a potentially stale build."
+}
+Invoke-LoggedCommand -Executable $cargoPath -Arguments @("build", "--release", "--locked", "--manifest-path", $desktopManifest, "--target-dir", $desktopTarget) -WorkingDirectory $repo -LogPath $desktopBuildLog
+$buildCompletedAt = Format-IsoInstant (Get-Date)
+Assert-CleanWorktree "after build"
+$builtCommit = Get-GitValue @("rev-parse", "HEAD") "post-build source commit"
+$builtTree = Get-GitValue @("write-tree") "post-build source tree"
+$builtBranch = Get-GitValue @("branch", "--show-current") "post-build source branch"
+if ($builtCommit -ne $sourceCommit -or $builtTree -ne $sourceTree -or $builtBranch -ne $branch) {
+  throw "Source identity changed during the evidence build."
+}
+$applicationPath = Resolve-File $applicationPath "just-built canonical ScadMill application"
+$applicationSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $applicationPath).Hash
 
 $runId = [Guid]::NewGuid().ToString("N")
 $stageRoot = Join-Path ([IO.Path]::GetTempPath()) "scadmill-packaged-evidence"
@@ -67,17 +180,56 @@ try {
   Copy-Item -LiteralPath (Join-Path $repo "scripts\lib\packaged-desktop-evidence.mjs") -Destination (Join-Path $stage "scripts\lib")
   Copy-Item -LiteralPath (Join-Path $repo "scripts\windows\credential-probe.ps1") -Destination (Join-Path $stage "scripts")
   Copy-Item -LiteralPath (Join-Path $repo "scripts\windows\run-packaged-desktop-sandbox.ps1") -Destination (Join-Path $stage "scripts")
-  $baseCommit = (& git -C $repo rev-parse HEAD).Trim()
-  if ($LASTEXITCODE -ne 0 -or $baseCommit -notmatch '^[A-Fa-f0-9]{40}$') { throw "Could not resolve the source commit." }
-  $branch = (& git -C $repo branch --show-current).Trim()
-  if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($branch)) { throw "Could not resolve the source branch." }
-  $applicationSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $applicationPath).Hash
-  $sourceMetadata = @{ baseCommit = $baseCommit; branch = $branch; applicationSha256 = $applicationSha256 } | ConvertTo-Json
+  $sourceMetadata = [ordered]@{
+    schemaVersion = 1
+    sourceCommit = $sourceCommit
+    sourceTree = $sourceTree
+    branch = $branch
+    canonicalApplication = $canonicalApplication
+    applicationSha256 = $applicationSha256
+    worktree = [ordered]@{
+      cleanBeforeBuild = $true
+      cleanAfterBuild = $true
+    }
+    lockfiles = [ordered]@{
+      pnpm = [ordered]@{
+        path = "pnpm-lock.yaml"
+        sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $repo "pnpm-lock.yaml")).Hash
+      }
+      nativeCargo = [ordered]@{
+        path = "src/native-engine/Cargo.lock"
+        sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $repo "src\native-engine\Cargo.lock")).Hash
+      }
+      desktopCargo = [ordered]@{
+        path = "src/desktop-shell/src-tauri/Cargo.lock"
+        sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $repo "src\desktop-shell\src-tauri\Cargo.lock")).Hash
+      }
+    }
+    build = [ordered]@{
+      startedAt = $buildStartedAt
+      completedAt = $buildCompletedAt
+      commands = @(
+        "pnpm.cmd install --frozen-lockfile",
+        "pnpm.cmd build",
+        "cargo.exe clean --manifest-path src/desktop-shell/src-tauri/Cargo.toml --target-dir src/desktop-shell/src-tauri/target --package scadmill-desktop",
+        "cargo.exe build --release --locked --manifest-path src/desktop-shell/src-tauri/Cargo.toml --target-dir src/desktop-shell/src-tauri/target"
+      )
+      toolVersions = [ordered]@{
+        node = $nodeVersion
+        pnpm = $pnpmVersion
+        cargo = $cargoVersion
+        rustc = $rustcVersion
+      }
+    }
+  } | ConvertTo-Json -Depth 8
+  $sourceMetadataPath = Join-Path $stage "scripts\source-metadata.json"
   [IO.File]::WriteAllText(
-    (Join-Path $stage "scripts\source-metadata.json"),
+    $sourceMetadataPath,
     $sourceMetadata,
     [Text.UTF8Encoding]::new($false)
   )
+  $sourceMetadataSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $sourceMetadataPath).Hash
+  Copy-Item -LiteralPath $sourceMetadataPath -Destination (Join-Path $outputPath "source-metadata.json")
 
   $configuration = @"
 <Configuration>
@@ -106,7 +258,7 @@ try {
       helper = [ordered]@{ path = "scripts/lib/packaged-desktop-evidence.mjs"; sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $stage "scripts\lib\packaged-desktop-evidence.mjs")).Hash }
       runner = [ordered]@{ path = "scripts/run-packaged-desktop-evidence.mjs"; sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $stage "scripts\run-packaged-desktop-evidence.mjs")).Hash }
       sandboxBootstrap = [ordered]@{ path = "scripts/run-packaged-desktop-sandbox.ps1"; sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $stage "scripts\run-packaged-desktop-sandbox.ps1")).Hash }
-      sourceMetadata = [ordered]@{ path = "scripts/source-metadata.json"; sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $stage "scripts\source-metadata.json")).Hash }
+      sourceMetadata = [ordered]@{ path = "scripts/source-metadata.json"; sha256 = $sourceMetadataSha256 }
     }
     policy = [ordered]@{
       networking = "Disable"
@@ -127,6 +279,13 @@ try {
   $harnessManifestSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $harnessManifestPath).Hash
   Copy-Item -LiteralPath $harnessManifestPath -Destination (Join-Path $outputPath "harness-manifest.json")
   Copy-Item -LiteralPath $configPath -Destination (Join-Path $outputPath "sandbox-config.wsb")
+  Assert-CleanWorktree "before Sandbox launch"
+  $launchCommit = Get-GitValue @("rev-parse", "HEAD") "launch source commit"
+  $launchTree = Get-GitValue @("write-tree") "launch source tree"
+  $launchBranch = Get-GitValue @("branch", "--show-current") "launch source branch"
+  if ($launchCommit -ne $sourceCommit -or $launchTree -ne $sourceTree -or $launchBranch -ne $branch) {
+    throw "Source identity changed before Sandbox launch."
+  }
   Start-Process -FilePath "WindowsSandbox.exe" -ArgumentList @("`"$configPath`"") -WindowStyle Hidden | Out-Null
 
   $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
@@ -149,8 +308,18 @@ try {
   if ($artifactEvent.harness.manifestSha256 -ne $harnessManifestSha256) {
     throw "Evidence harness manifest does not match the pre-launch manifest."
   }
+  if (
+    $artifactEvent.source.sourceCommit -ne $sourceCommit -or
+    $artifactEvent.source.sourceTree -ne $sourceTree -or
+    $artifactEvent.source.applicationSha256 -ne $applicationSha256
+  ) {
+    throw "Evidence source metadata does not match the just-built canonical application."
+  }
   if ((Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $outputPath "harness-manifest.json")).Hash -ne $harnessManifestSha256) {
     throw "Retained harness manifest changed after launch."
+  }
+  if ((Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $outputPath "source-metadata.json")).Hash -ne $sourceMetadataSha256) {
+    throw "Retained source metadata changed after launch."
   }
   $guestValidated = $true
 } finally {

@@ -41,9 +41,37 @@ export function validatePackagedWorkspaceLayoutRestart(
   after: PackagedWorkspaceLayoutProcessObservation,
 ): PackagedWorkspaceLayoutRestartEvidence;
 export interface SourceMetadata {
-  baseCommit: string;
+  schemaVersion: 1;
+  sourceCommit: string;
+  sourceTree: string;
   branch: string;
+  canonicalApplication: "src/desktop-shell/src-tauri/target/release/scadmill.exe";
   applicationSha256: string;
+  worktree: {
+    cleanBeforeBuild: true;
+    cleanAfterBuild: true;
+  };
+  lockfiles: {
+    pnpm: { path: "pnpm-lock.yaml"; sha256: string };
+    nativeCargo: { path: "src/native-engine/Cargo.lock"; sha256: string };
+    desktopCargo: { path: "src/desktop-shell/src-tauri/Cargo.lock"; sha256: string };
+  };
+  build: {
+    startedAt: string;
+    completedAt: string;
+    commands: readonly [
+      "pnpm.cmd install --frozen-lockfile",
+      "pnpm.cmd build",
+      "cargo.exe clean --manifest-path src/desktop-shell/src-tauri/Cargo.toml --target-dir src/desktop-shell/src-tauri/target --package scadmill-desktop",
+      "cargo.exe build --release --locked --manifest-path src/desktop-shell/src-tauri/Cargo.toml --target-dir src/desktop-shell/src-tauri/target",
+    ];
+    toolVersions: {
+      node: string;
+      pnpm: string;
+      cargo: string;
+      rustc: string;
+    };
+  };
 }
 export function validateSourceMetadata(payload: unknown, expectedApplicationSha256: string): SourceMetadata;
 export function parseSourceMetadata(serialized: string, expectedApplicationSha256: string): SourceMetadata;
