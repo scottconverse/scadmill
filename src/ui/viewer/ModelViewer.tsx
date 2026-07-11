@@ -53,6 +53,7 @@ export interface ModelViewerHandle { capturePng(): Promise<Uint8Array>; }
 
 export interface ModelViewerProps {
   readonly result?: RenderSuccess3D;
+  readonly emptyMessage?: string;
   readonly colors: ViewerThemeColors;
   readonly camera?: ViewerCameraState;
   readonly furniture?: ViewerFurnitureState;
@@ -78,6 +79,7 @@ const DEFAULT_MOUSE_MAPPING = { orbit: "left", pan: "right" } as const;
 
 export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(function ModelViewer({
   result,
+  emptyMessage = messages.modelAwaitingRender,
   colors,
   camera = DEFAULT_CAMERA,
   furniture = DEFAULT_FURNITURE,
@@ -384,7 +386,7 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
         ref={canvas}
         tabIndex={viewerError ? -1 : 0}
       />
-      {!result && !displayError && <p className="viewer-empty">{messages.modelAwaitingRender}</p>}
+      {!result && !displayError && <p className="viewer-empty">{emptyMessage}</p>}
       {displayError && <p className="viewer-empty" role="alert">{displayError}</p>}
       <ModelViewerOverlays
         annotationColor={colors.annotation}

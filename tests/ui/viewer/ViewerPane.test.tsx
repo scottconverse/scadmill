@@ -8,8 +8,9 @@ import { DEFAULT_KEYBINDINGS } from "../../../src/application/commands/default-k
 import { ViewerPane } from "../../../src/ui/viewer/ViewerPane";
 
 vi.mock("../../../src/ui/viewer/ModelViewer", () => ({
-  ModelViewer: forwardRef(({ dimmed, onPointPick }: {
+  ModelViewer: forwardRef(({ dimmed, emptyMessage, onPointPick }: {
     dimmed?: boolean;
+    emptyMessage?: string;
     onPointPick?: (point: readonly [number, number, number]) => void;
   }, ref) => {
     useImperativeHandle(ref, () => ({
@@ -21,7 +22,7 @@ vi.mock("../../../src/ui/viewer/ModelViewer", () => ({
         data-testid="model-viewer"
         onClick={() => onPointPick?.([1, 2, 3])}
         type="button"
-      >3D</button>
+      >3D{emptyMessage && <span>{emptyMessage}</span>}</button>
     );
   }),
 }));
@@ -78,6 +79,24 @@ function Harness({ result }: { result?: RenderResult }) {
 }
 
 describe("ViewerPane result routing", () => {
+  it("offers an available next step when rendering is unavailable", async () => {
+    const props = {
+      colors,
+      engineAvailable: false,
+      maximized: false,
+      narrow: false,
+      renderStatus: "idle" as const,
+      onLayoutAction: vi.fn(),
+    };
+
+    const view = render(<ViewerPane {...props} />);
+
+    expect(await view.findByText(
+      "OpenSCAD is unavailable. Keep editing, or configure the engine to render this model.",
+    )).toBeVisible();
+    expect(view.queryByText("Render the source to inspect the model.")).not.toBeInTheDocument();
+  });
+
   it("switches automatically between 2D and 3D from the engine discriminator", async () => {
     const view = render(<Harness result={twoD} />);
     expect(await view.findByTestId("svg-viewer")).toBeVisible();

@@ -89,7 +89,13 @@ describe("SettingsDialog", () => {
     expect(view.getAllByRole("button", { name: /Restore .* defaults/ })).toHaveLength(9);
     fireEvent.click(view.getByRole("button", { name: "Restore viewer defaults" }));
     expect(onRestore).toHaveBeenCalledWith("viewer");
-    expect(view.getByLabelText("Keybinding: renderPreview")).toHaveValue("F5");
+    expect(view.getByLabelText("Keybinding: Render preview")).toHaveValue("F5");
+    for (const group of ["Files", "Editor", "Render", "Viewer", "Layout"]) {
+      expect(view.getByRole("group", { name: group })).toBeVisible();
+    }
+    expect(view.queryByText("renderPreview", { exact: true })).not.toBeInTheDocument();
+    expect(view.queryByText("redoAlternate", { exact: true })).not.toBeInTheDocument();
+    expect(view.queryByText("switchCodeModel", { exact: true })).not.toBeInTheDocument();
     expect(view.getByRole("button", { name: "Export settings" })).toBeEnabled();
     expect(view.getByLabelText("Import settings JSON")).toHaveAttribute("type", "file");
     expect(view.container.textContent).not.toContain("apiKey");
@@ -409,7 +415,7 @@ describe("SettingsDialog", () => {
       />,
     );
 
-    fireEvent.change(view.getByLabelText("Keybinding: renderFull"), { target: { value: "F5" } });
+    fireEvent.change(view.getByLabelText("Keybinding: Full render"), { target: { value: "F5" } });
 
     expect(onChange).not.toHaveBeenCalled();
     expect(view.getByRole("alert")).toHaveTextContent("collision");

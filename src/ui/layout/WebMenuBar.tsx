@@ -62,6 +62,7 @@ export function WebMenuBar({
   onEditorCommand = () => undefined,
 }: WebMenuBarProps) {
   const [openMenu, setOpenMenu] = useState<"file" | "edit" | "view" | "render" | null>(null);
+  const [helpVisible, setHelpVisible] = useState(false);
   const menuBar = useRef<HTMLElement>(null);
   const fileTrigger = useRef<HTMLButtonElement>(null);
   const editTrigger = useRef<HTMLButtonElement>(null);
@@ -356,9 +357,26 @@ export function WebMenuBar({
           />
         </fieldset>}
       </div>
-      <button disabled title={messages.helpMenuUnavailable} type="button">
-        {messages.helpMenu}
-      </button>
+      <div className="web-menu-entry">
+        <button
+          aria-controls="scadmill-help-information"
+          aria-expanded={helpVisible}
+          onClick={() => setHelpVisible((visible) => !visible)}
+          type="button"
+        >
+          {messages.helpMenu}
+        </button>
+        {helpVisible && (
+          <p
+            aria-label={messages.helpInformation}
+            className="web-menu-popover"
+            id="scadmill-help-information"
+            role="status"
+          >
+            {messages.helpSummary}
+          </p>
+        )}
+      </div>
     </nav>
   );
 }

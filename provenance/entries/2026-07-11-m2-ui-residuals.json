@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-m2-ui-residuals",
+  "createdAt": "2026-07-11T13:20:00-06:00",
+  "summary": "Close M2-R10 through M2-R12 with dependency-aware empty-viewer guidance, localized and grouped keybinding settings, and a focusable Help explanation, each proved by assertion-level RED and focused runtime tests.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 test-first evidence and milestone gates",
+    "N-3 accessibility",
+    "N-4 internationalization readiness",
+    "N-7 UI honesty",
+    "Appendix D default keybindings"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-11-m2-ui-residuals.json", "status": "added" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/layout/WebMenuBar.tsx", "status": "modified" },
+    { "path": "src/ui/settings/KeybindingSettingsFields.tsx", "status": "added" },
+    { "path": "src/ui/settings/SettingsDialog.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/ModelViewer.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/ViewerPane.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/ViewerPaneConnector.tsx", "status": "modified" },
+    { "path": "tests/ui/layout/WebMenuBar.test.tsx", "status": "modified" },
+    { "path": "tests/ui/settings/SettingsDialog.test.tsx", "status": "modified" },
+    { "path": "tests/ui/viewer/ViewerPane.test.tsx", "status": "modified" },
+    { "path": "tests/ui/viewer/ViewerPaneConnector.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0132",
+      "topic": "Dependency-aware empty model guidance",
+      "decision": "Propagate ready, checking, and unavailable engine state into the empty model viewer and display the next action that is actually available in each state.",
+      "rationale": "An unavailable render control cannot honestly be the empty pane's requested action. State-specific catalog copy satisfies N-7 without hiding editing or engine configuration paths.",
+      "specBasis": ["N-7 UI honesty", "M2-R10"]
+    },
+    {
+      "id": "D-0133",
+      "topic": "Localized keybinding presentation",
+      "decision": "Render every Appendix D command with a catalog-backed human label inside Files, Editor, Render, Viewer, or Layout fieldsets while retaining stable command identifiers only in application state.",
+      "rationale": "Raw camelCase implementation identifiers are not user copy and cannot be translated. Explicit groups improve scanability while leaving serialization and command routing unchanged.",
+      "specBasis": ["N-3 accessibility", "N-4 internationalization readiness", "Appendix D", "M2-R11"]
+    },
+    {
+      "id": "D-0134",
+      "topic": "Accessible Help explanation",
+      "decision": "Replace the disabled title-only Help button with an enabled, focusable disclosure whose visible role=status explanation is named for assistive technology.",
+      "rationale": "Disabled controls are not normally keyboard-focusable, so their title cannot be the sole explanation. A small disclosure preserves honest scope while making the explanation discoverable.",
+      "specBasis": ["N-3 accessibility", "N-7 UI honesty", "M2-R12"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "M2-R10 through M2-R12 behavior",
+      "test": "Focused viewer, settings, and menu tests assert unavailable-engine next-step copy, engine-state propagation, localized grouped labels with no raw command identifiers, and a focusable Help disclosure with an accessible status name.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/viewer/ViewerPane.test.tsx tests/ui/settings/SettingsDialog.test.tsx tests/ui/layout/WebMenuBar.test.tsx --reporter=verbose; pnpm.cmd exec vitest run tests/ui/viewer/ViewerPaneConnector.test.tsx -t \"forwards engine availability\" --reporter=verbose",
+        "observedAt": "2026-07-11T13:15:48-06:00",
+        "outcome": "ASSERTION-LEVEL RED: Help was disabled; the unavailable-engine next-step message was absent after the lazy viewer resolved; human keybinding labels were absent in both normal and collision flows; and ViewerPaneConnector forwarded undefined instead of false."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/viewer/ViewerPane.test.tsx tests/ui/viewer/ViewerPaneConnector.test.tsx tests/ui/viewer/ModelViewer.theme.test.tsx tests/ui/settings/SettingsDialog.test.tsx tests/ui/layout/WebMenuBar.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-11T13:17:12-06:00",
+        "outcome": "GREEN: Test Files 5 passed (5); Tests 48 passed (48); Duration 1.91s."
+      }
+    },
+    {
+      "criterion": "Static safety and modularity",
+      "test": "Typecheck all component contracts and lint the expanded message/settings/viewer/menu surface under the 400-line and platform-boundary policies.",
+      "red": {
+        "command": "Not applicable after assertion-level component RED; no static-only defect was used as TDD evidence.",
+        "observedAt": "2026-07-11T13:17:12-06:00",
+        "outcome": "No static baseline failure."
+      },
+      "green": {
+        "command": "pnpm.cmd typecheck; pnpm.cmd lint",
+        "observedAt": "2026-07-11T13:17:20-06:00",
+        "outcome": "GREEN: TypeScript exited 0. Biome checked 271 files with no fixes; source policy passed and every UI file remained at or below 400 lines."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "M2-R10, M2-R11, and M2-R12 are closed by this slice; no specification question blocks their behavior.",
+    "The first unavailable-viewer RED initially inspected the Suspense fallback. The test was strengthened to await the lazy viewer, then failed on the missing intended message before implementation.",
+    "No owner similarity gate, comparison repository, workflow content, or prohibited source was opened or executed."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

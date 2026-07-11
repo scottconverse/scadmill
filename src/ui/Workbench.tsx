@@ -271,6 +271,8 @@ export function Workbench({
       colors={activeTheme.viewer}
       dimmed={presentation.dimmed}
       documentId={document.id}
+      engineAvailable={engineAvailable}
+      engineChecking={engineChecking}
       failure={presentation.failure}
       maximized={layout.maximized === "viewer"}
       narrow={narrow}

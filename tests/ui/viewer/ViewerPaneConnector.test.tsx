@@ -35,6 +35,33 @@ beforeEach(() => {
   paneProps = {};
 });
 
+it("forwards engine availability to the dependency-aware empty viewer", () => {
+  const engine: EngineService = {
+    render: vi.fn(),
+    export: vi.fn(),
+    version: vi.fn(),
+    cancel: vi.fn(),
+  };
+  const runtime = createWorkbenchRuntime(engine);
+  const props = {
+    colors,
+    dimmed: false,
+    documentId: "doc",
+    engineAvailable: false,
+    maximized: false,
+    narrow: false,
+    renderStatus: "idle" as const,
+    runtime,
+    viewer: viewerDocument(createViewerState(), "doc"),
+    onLayoutAction: vi.fn(),
+    onShowConsole: vi.fn(),
+  };
+
+  render(<ViewerPaneConnector {...props} />);
+
+  expect(paneProps.engineAvailable).toBe(false);
+});
+
 it("uses C9 viewer preferences as the live projection, furniture, mouse, and color authority", async () => {
   const engine: EngineService = {
     render: vi.fn(),

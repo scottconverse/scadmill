@@ -50,7 +50,14 @@ describe("WebMenuBar", () => {
     expect(menu.getByRole("navigation", { name: "Application menu" })).toBeVisible();
     expect(menu.getByRole("button", { name: "File" })).toBeEnabled();
     expect(menu.getByRole("button", { name: "Edit" })).toBeEnabled();
-    expect(menu.getByRole("button", { name: "Help" })).toBeDisabled();
+    const help = menu.getByRole("button", { name: "Help" });
+    expect(help).toBeEnabled();
+    help.focus();
+    expect(help).toHaveFocus();
+    fireEvent.click(help);
+    expect(menu.getByRole("status", { name: "Help information" })).toHaveTextContent(
+      "ScadMill help is being built. All available commands are listed in the menus and Settings → Keybindings.",
+    );
 
     const openFile = () => fireEvent.click(menu.getByText("File"));
     openFile();

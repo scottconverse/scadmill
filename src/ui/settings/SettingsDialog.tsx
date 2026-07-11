@@ -26,6 +26,7 @@ import type {
 import type { SecretStore } from "../../application/settings/secret-store";
 import { messages } from "../../messages/en";
 import { CustomThemeSettings } from "./CustomThemeSettings";
+import { KeybindingSettingsFields } from "./KeybindingSettingsFields";
 export interface SettingsDialogProps {
   readonly engineLabel: string;
   readonly secretStore: SecretStore;
@@ -381,9 +382,10 @@ export function SettingsDialog({
         )}
         {show("keybindings") && (
           <Section section="keybindings" onRestore={restoreSection}>
-            {(Object.keys(settings.keybindings) as KeybindingCommand[]).map((command) => (
-              <Setting key={command} label={command}><input aria-label={messages.keybindingLabel(command)} value={settings.keybindings[command]} onChange={(event) => changeKeybinding(command, event.currentTarget.value)} /></Setting>
-            ))}
+            <KeybindingSettingsFields
+              settings={settings.keybindings}
+              onChange={changeKeybinding}
+            />
             {keybindingError && <p role="alert">{keybindingError}</p>}
           </Section>
         )}

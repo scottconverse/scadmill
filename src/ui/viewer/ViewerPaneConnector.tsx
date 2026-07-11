@@ -19,6 +19,8 @@ export interface ViewerPaneConnectorProps {
   readonly colors: ThemeTokens["viewer"];
   readonly dimmed: boolean;
   readonly documentId: string;
+  readonly engineAvailable?: boolean;
+  readonly engineChecking?: boolean;
   readonly failure?: RenderFailure;
   readonly maximized: boolean;
   readonly narrow: boolean;
@@ -35,6 +37,8 @@ export function ViewerPaneConnector({
   colors,
   dimmed,
   documentId,
+  engineAvailable = true,
+  engineChecking = false,
   failure,
   maximized,
   narrow,
@@ -97,6 +101,8 @@ export function ViewerPaneConnector({
       colors={colors}
       dimmed={dimmed}
       documentId={documentId}
+      engineAvailable={engineAvailable}
+      engineChecking={engineChecking}
       failure={failure}
       keybindings={profile.keybindings}
       maximized={maximized}

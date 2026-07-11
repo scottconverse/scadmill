@@ -49,6 +49,8 @@ function nextItemId(prefix: string): string {
 
 export interface ViewerPaneProps {
   readonly colors: ThemeTokens["viewer"];
+  readonly engineAvailable?: boolean;
+  readonly engineChecking?: boolean;
   readonly maximized: boolean;
   readonly narrow: boolean;
   readonly quality?: Quality;
@@ -82,6 +84,8 @@ function boundsLabel(result: RenderSuccess3D): string | null {
 
 export function ViewerPane({
   colors,
+  engineAvailable = true,
+  engineChecking = false,
   maximized,
   narrow,
   quality,
@@ -310,7 +314,17 @@ export function ViewerPane({
               result={visibleGeometry}
               tool={tool}
             />
-          ) : !mismatch ? <ModelViewer colors={colors} ref={modelViewer} /> : null}
+          ) : !mismatch ? (
+            <ModelViewer
+              colors={colors}
+              emptyMessage={engineChecking
+                ? messages.modelCheckingEngine
+                : engineAvailable
+                  ? messages.modelAwaitingRender
+                  : messages.modelAwaitingEngine}
+              ref={modelViewer}
+            />
+          ) : null}
         </Suspense>
         {visibleGeometry?.kind === "3d" && (
           <ViewerDetailsPanel
