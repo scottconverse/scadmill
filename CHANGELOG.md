@@ -49,6 +49,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Full-quality 3MF, binary/ASCII STL, OFF, AMF, SVG, DXF, and PNG export with awaited artifact destinations, cancellation, and exact mesh file-size/triangle/bounds summaries.
 - Byte-preserving web project ZIP import/export and compressed URL-fragment share links that keep source out of server requests and identify the shared source origin.
 - A searchable, versioned settings dialog covering all nine sections, per-section restore, strict import/export, immediate durable persistence with rollback on failure, OS-keychain desktop secrets, and warning-gated browser secret persistence.
+- A reproducible network-disabled Windows Sandbox lane for the release executable: exact pinned-engine first use, real cube render and binary-STL export, normal restart, forced-process recovery, native Windows Credential Manager save/load/clear, recursive secret-byte exclusion, and exact guest-process plus host-session cleanup.
 - Visible custom-theme import, persistence, selection, exact-schema validation, conservative opaque-sRGB validation, and the existing AA contrast audit applied before activation.
 - Real Chromium WebGL acceptance evidence that viewport capture produces a decodable PNG dominated by the active theme background.
 - Functional File menu and Appendix D Save, Save All, New, Open Project, and Export commands, including caught failures and conservative multi-scratch persistence behavior.
@@ -89,6 +90,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Removed the Customizer's arbitrary four-component ceiling so every finite numeric vector component remains editable and round-trippable.
 - Routed keybinding rejection and rendered-mesh fallback copy through the English message catalog instead of displaying implementation-layer error strings.
 - Made cross-file completion renderer-safe: referenced sources are read lazily, unchanged files reuse a bounded path-and-source cache, aggregate files/code/references/symbols have hard budgets, textual include order determines duplicate signatures, and an open completion list closes when dependency context changes.
+- Kept WebView2 automation test-only: the packaged lane passes Microsoft's documented host-app remote-debugging switch through official `tauri-driver` and bridges EdgeDriver's `DevToolsActivePort` path mismatch without changing normal ScadMill launches.
 
 ### Known policy block
 
@@ -105,8 +107,5 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Known verification gaps
 
-- A live packaged-desktop first-run, render, export, and restart journey is not yet preserved as a milestone-gate artifact.
 - FR-2.5 now has a retained, reproducible two-million-triangle hardware profile and passes at 59.95 fps on this host's AMD Radeon 780M, but the claim remains unverified because that GPU is newer than the required 2020-class integrated target.
-- AC-6.d has automated recovery-boundary coverage but not a retained live process-kill and relaunch artifact.
-- AC-9.c has recursive app-file exclusion and an isolated keychain abstraction test, but no retained packaged-desktop round trip against a production operating-system credential store.
 - `cargo audit` reports zero vulnerability failures but 17 pre-existing informational warnings in the current Tauri dependency graph, including the GTK3/glib unsoundness advisory and unmaintained GTK3, proc-macro-error, and UNIC families; current compatible upstream releases do not remove them.
