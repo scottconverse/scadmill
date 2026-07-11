@@ -2,6 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { EngineInfo, EngineService } from "../application/engine/contracts";
 import type { EnginePathConfiguration } from "../application/engine/engine-path-configuration";
+import {
+  acceptsPinnedEngineVersion,
+  PINNED_OPENSCAD_VERSION,
+} from "../application/engine/engine-pin";
 import type { WorkspaceLayoutPersistence } from "../application/runtime/layout-persistence";
 import { createWorkbenchRuntime } from "../application/runtime/workbench-runtime";
 import type { ThemeHost } from "../application/theme/theme-runtime";
@@ -15,6 +19,7 @@ type EngineHealth =
   | { kind: "checking"; configuredPath: string }
   | { kind: "unavailable" }
   | { kind: "invalid-config"; configuredPath: string }
+  | { kind: "unsupported-version"; configuredPath: string; info: EngineInfo }
   | { kind: "ready"; info: EngineInfo };
 
 export interface AppProps {
@@ -72,8 +77,14 @@ export function App({
     void probe.result
       .then((info) => {
         if (!active) return;
-        if (info) {
+        if (info && acceptsPinnedEngineVersion(info.version)) {
           setEngineHealth({ kind: "ready", info });
+        } else if (info) {
+          setEngineHealth({
+            kind: "unsupported-version",
+            configuredPath: probe.configuredPath,
+            info,
+          });
         } else if (probe.configuredPath) {
           setEngineHealth({ kind: "invalid-config", configuredPath: probe.configuredPath });
         } else {
@@ -111,6 +122,11 @@ export function App({
     ? messages.checkingEngine
     : engineHealth.kind === "ready"
       ? `OpenSCAD ${engineHealth.info.version}`
+      : engineHealth.kind === "unsupported-version"
+        ? messages.engineVersionUnsupported(
+            engineHealth.info.version,
+            PINNED_OPENSCAD_VERSION,
+          )
       : engineHealth.kind === "invalid-config"
         ? messages.engineConfiguredPathInvalidStatus
         : messages.engineUnavailable;
@@ -120,6 +136,13 @@ export function App({
       ? { kind: "unavailable" }
       : engineHealth.kind === "invalid-config"
         ? { kind: "invalid-config", path: engineHealth.configuredPath }
+        : engineHealth.kind === "unsupported-version"
+          ? {
+              kind: "unsupported-version",
+              expected: PINNED_OPENSCAD_VERSION,
+              found: engineHealth.info.version,
+              path: engineHealth.configuredPath,
+            }
         : engineHealth.kind === "checking" && engineHealth.configuredPath
           ? { kind: "checking", path: engineHealth.configuredPath }
           : undefined;

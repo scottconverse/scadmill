@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { App } from "../../src/app/App";
 import type { EngineService, RenderFailure } from "../../src/application/engine/contracts";
+import { PINNED_OPENSCAD_VERSION } from "../../src/application/engine/engine-pin";
 import type { WorkspaceLayoutPersistence } from "../../src/application/runtime/layout-persistence";
 import { messages } from "../../src/messages/en";
 
@@ -63,7 +64,11 @@ describe("App", () => {
     const engine: EngineService = {
       render: vi.fn().mockReturnValue({ jobId: "render-1", done: Promise.resolve(result) }),
       export: vi.fn(),
-      version: vi.fn().mockResolvedValue({ version: "2021.01", path: "native", features: [] }),
+      version: vi.fn().mockResolvedValue({
+        version: PINNED_OPENSCAD_VERSION,
+        path: "native",
+        features: [],
+      }),
       cancel: vi.fn(),
     };
 
@@ -76,6 +81,26 @@ describe("App", () => {
     expect(screen.getByText("Checking OpenSCAD…")).toBeVisible();
     await waitFor(() => expect(engine.render).toHaveBeenCalledTimes(1));
     expect(engine.version).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses to enable rendering for an engine older than the recorded pin", async () => {
+    const engine: EngineService = {
+      render: vi.fn(),
+      export: vi.fn(),
+      version: vi.fn().mockResolvedValue({ version: "2021.01", path: "native", features: [] }),
+      cancel: vi.fn(),
+    };
+    const configuration = { load: vi.fn(() => ""), save: vi.fn() };
+    const view = render(<App engine={engine} enginePathConfiguration={configuration} />);
+    const app = within(view.container);
+
+    await waitFor(() => expect(app.queryByText(messages.checkingEngine)).not.toBeInTheDocument());
+    expect(engine.render).not.toHaveBeenCalled();
+    expect(app.getAllByText(messages.engineVersionUnsupported(
+      "2021.01",
+      PINNED_OPENSCAD_VERSION,
+    ))).toHaveLength(2);
+    expect(app.getByRole("textbox", { name: messages.engineExecutablePath })).toBeVisible();
   });
 
   it("falls back to editor-only mode when the engine version probe rejects", async () => {
@@ -160,7 +185,11 @@ describe("App", () => {
       export: vi.fn(),
       version: vi.fn()
         .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce({ version: "2021.01", path: "native", features: [] }),
+        .mockResolvedValueOnce({
+          version: PINNED_OPENSCAD_VERSION,
+          path: "native",
+          features: [],
+        }),
       cancel: vi.fn(),
     };
     let configuredPath = "";

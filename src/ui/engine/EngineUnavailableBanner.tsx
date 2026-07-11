@@ -11,7 +11,8 @@ export interface EngineUnavailableBannerProps {
 export type EngineRecoveryState =
   | { kind: "unavailable" }
   | { kind: "checking"; path: string }
-  | { kind: "invalid-config"; path: string };
+  | { kind: "invalid-config"; path: string }
+  | { kind: "unsupported-version"; expected: string; found: string; path: string };
 
 export function EngineUnavailableBanner({
   configuredPath,
@@ -35,7 +36,9 @@ export function EngineUnavailableBanner({
           ? messages.engineUnavailable
           : state.kind === "checking"
             ? messages.checkingConfiguredEngine
-            : messages.engineConfiguredPathRejected}
+            : state.kind === "unsupported-version"
+              ? messages.engineVersionUnsupported(state.found, state.expected)
+              : messages.engineConfiguredPathRejected}
       </span>
       {state.kind === "invalid-config" && (
         <span className="engine-rejected-path">{messages.engineRejectedPath(state.path)}</span>

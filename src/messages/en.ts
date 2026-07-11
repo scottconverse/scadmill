@@ -221,6 +221,8 @@ export const messages = {
   checkingEngineAction: "Checking…",
   engineUnavailable:
     "OpenSCAD is unavailable. This temporary buffer remains editable, but it cannot be saved yet.",
+  engineVersionUnsupported: (found: string, expected: string) =>
+    `OpenSCAD ${found} is not the pinned engine. ScadMill requires ${expected}; rendering and model export are disabled.`,
   engineConfiguredPathRejected:
     "That OpenSCAD executable could not be used. Check the path and try again.",
   engineConfiguredPathInvalidStatus: "Configured OpenSCAD path is invalid",

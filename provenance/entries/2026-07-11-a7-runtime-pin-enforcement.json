@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-a7-runtime-pin-enforcement",
+  "createdAt": "2026-07-11T02:30:34.7747417-06:00",
+  "summary": "Enforce the owner-mandated OpenSCAD 2026.06.12 snapshot at the application boundary, keep rendering and export disabled for every other engine version, expose the expected and found versions in the recovery UI, and make native acceptance self-identify the exact snapshot it executes.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.7 engine pin as amended by A-7",
+    "Section 4.4 C4 native engine path",
+    "Section 7 V-1 and V-6",
+    "Amendment A-7"
+  ],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-11-a7-runtime-pin-enforcement.json", "status": "added" },
+    { "path": "src/app/App.tsx", "status": "modified" },
+    { "path": "src/application/engine/engine-pin.ts", "status": "added" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/native-engine/tests/engine_pin.rs", "status": "added" },
+    { "path": "src/ui/engine/EngineUnavailableBanner.tsx", "status": "modified" },
+    { "path": "tests/app/App.test.tsx", "status": "modified" },
+    { "path": "tests/application/engine/engine-pin.test.ts", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0087",
+      "topic": "Runtime meaning of the A-7 engine pin",
+      "decision": "Treat only the exact trimmed version string 2026.06.12 as engine-ready; a discovered older, newer, or otherwise different build remains visible but cannot enable render or export.",
+      "rationale": "A-7 mandates one official development snapshot because required color and multi-object behavior is snapshot-specific. Accepting a merely available executable would make the recorded pin advisory rather than enforceable.",
+      "specBasis": ["Section 2.7", "A-7", "ENGINE_VERSION"]
+    },
+    {
+      "id": "D-0088",
+      "topic": "Unsupported engine recovery",
+      "decision": "Represent a version mismatch separately from a missing or invalid executable and show both expected and found versions while retaining the configuration control.",
+      "rationale": "Users need an actionable explanation for why an installed OpenSCAD cannot render without ScadMill silently changing or deleting that installation.",
+      "specBasis": ["FR-4.4", "A-7", "N-7"]
+    },
+    {
+      "id": "D-0089",
+      "topic": "Native acceptance provenance",
+      "decision": "Make the native acceptance suite query the selected executable and fail before geometry claims when its version is not exactly 2026.06.12.",
+      "rationale": "Structural geometry tests can pass on the 2021.01 PATH installation; a self-check prevents those results from being misattributed to the pinned snapshot.",
+      "specBasis": ["Section 2.7", "V-3", "V-6", "A-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "A-7 exact runtime enforcement",
+      "test": "Reject OpenSCAD 2021.01 at the App boundary while accepting the version recorded in ENGINE_VERSION.",
+      "red": {
+        "command": "No contemporaneous RED command was retained for the original combined-worktree implementation.",
+        "observedAt": "2026-07-11T02:30:34.7747417-06:00",
+        "outcome": "The accepted pre-change App fixtures treated 2021.01 as ready, but no original failing-test transcript was preserved. This entry records that evidence gap and does not manufacture a RED run during history reconstruction."
+      },
+      "green": {
+        "command": "vitest run tests/application/engine/engine-pin.test.ts tests/app/App.test.tsx --reporter=dot",
+        "observedAt": "2026-07-11T02:29:27-06:00",
+        "outcome": "GREEN: 2 files and 13 tests passed, including exact manifest agreement, old-engine rejection, disabled render, and visible recovery copy. TypeScript and the complete source-policy/lint scan also passed at this capability stack point."
+      }
+    },
+    {
+      "criterion": "Native acceptance uses the exact pinned executable",
+      "test": "Query the executable selected by native acceptance and compare its reported version to 2026.06.12.",
+      "red": {
+        "command": "cargo test --test engine_pin -- --nocapture",
+        "observedAt": "2026-07-11T02:03:00-06:00",
+        "outcome": "RED: the unconfigured local acceptance path selected C:/Users/Scott/scoop/apps/openscad/2021.01/openscad.exe and reported 2021.01 instead of 2026.06.12."
+      },
+      "green": {
+        "command": "$env:SCADMILL_OPENSCAD='<OpenSCAD-2026.06.12>/openscad.exe'; cargo test --locked --manifest-path src/native-engine/Cargo.toml",
+        "observedAt": "2026-07-11T02:13:00-06:00",
+        "outcome": "GREEN: 39 native tests passed; the version self-check identified 2026.06.12 before the real render, export, cancellation, 2D bounds, include, asset, and parameter cases."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "Q-0023 parks only the M3 WebAssembly artifact provenance choice; it does not weaken native runtime enforcement."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
