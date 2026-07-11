@@ -11,6 +11,8 @@ import {
   processHasExited,
   scanFileForBytes,
   unwrapWebDriverValue,
+  validatePackagedWorkspaceLayoutObservation,
+  validatePackagedWorkspaceLayoutRestart,
   validateSourceMetadata,
   validateHarnessManifest,
   validateSandboxConfig,
@@ -86,6 +88,174 @@ describe("packaged desktop evidence helpers", () => {
       found: false,
       lastError: 1168,
     }, "ai-api-key.dev.scadmill.app", false)).toThrow("target");
+  });
+
+  it("validates one exact opaque project layout observation", () => {
+    const workspaceIdentity = `desktop-project:${"a".repeat(64)}`;
+    const storageKey = `scadmill.desktop-workspace-layout.v1:${workspaceIdentity}`;
+    const serializedLayout = JSON.stringify({
+      version: 1,
+      activeRail: "files",
+      dockOpen: true,
+      editorOpen: true,
+      viewerOpen: true,
+      parameterOpen: true,
+      consoleOpen: false,
+      dockWidth: 300,
+      viewerWidth: 480,
+      parameterHeight: 220,
+      consoleHeight: 180,
+      narrowView: "code",
+    });
+
+    expect(validatePackagedWorkspaceLayoutObservation({
+      dockWidth: 300,
+      storageEntries: [{ key: storageKey, value: serializedLayout }],
+    }, 300)).toEqual({
+      dockWidth: 300,
+      serializedLayout,
+      storageKey,
+      workspaceIdentity,
+    });
+  });
+
+  it("rejects serialized layout evidence that could expose a raw project path", () => {
+    const workspaceIdentity = `desktop-project:${"a".repeat(64)}`;
+    const storageKey = `scadmill.desktop-workspace-layout.v1:${workspaceIdentity}`;
+    const serializedLayout = JSON.stringify({
+      version: 1,
+      activeRail: "files",
+      dockOpen: true,
+      editorOpen: true,
+      viewerOpen: true,
+      parameterOpen: true,
+      consoleOpen: false,
+      dockWidth: 300,
+      viewerWidth: 480,
+      parameterHeight: 220,
+      consoleHeight: 180,
+      narrowView: "code",
+      projectPath: "C:\\Users\\Scott\\Secret",
+    });
+
+    expect(() => validatePackagedWorkspaceLayoutObservation({
+      dockWidth: 300,
+      storageEntries: [{ key: storageKey, value: serializedLayout }],
+    }, 300)).toThrow("layout value has the wrong shape");
+  });
+
+  it("rejects scratch, ambiguous, and wrong-width packaged layout observations", () => {
+    const workspaceIdentity = `desktop-project:${"a".repeat(64)}`;
+    const storageKey = `scadmill.desktop-workspace-layout.v1:${workspaceIdentity}`;
+    const layout = {
+      version: 1,
+      activeRail: "files",
+      dockOpen: true,
+      editorOpen: true,
+      viewerOpen: true,
+      parameterOpen: true,
+      consoleOpen: false,
+      dockWidth: 300,
+      viewerWidth: 480,
+      parameterHeight: 220,
+      consoleHeight: 180,
+      narrowView: "code",
+    };
+    const entry = { key: storageKey, value: JSON.stringify(layout) };
+
+    expect(() => validatePackagedWorkspaceLayoutObservation({
+      dockWidth: 300,
+      storageEntries: [{ ...entry, key: "scadmill.desktop-workspace-layout.v1:scratch" }],
+    }, 300)).toThrow("opaque project identity");
+    expect(() => validatePackagedWorkspaceLayoutObservation({
+      dockWidth: 300,
+      storageEntries: [entry, entry],
+    }, 300)).toThrow("wrong shape or width");
+    expect(() => validatePackagedWorkspaceLayoutObservation({
+      dockWidth: 300,
+      storageEntries: [{ ...entry, value: JSON.stringify({ ...layout, dockWidth: 292 }) }],
+    }, 300)).toThrow("wrong dock width");
+  });
+
+  it("requires an exact layout round trip through fresh app and WebView processes", () => {
+    const workspaceIdentity = `desktop-project:${"a".repeat(64)}`;
+    const layout = {
+      dockWidth: 300,
+      serializedLayout: JSON.stringify({
+        version: 1,
+        activeRail: "files",
+        dockOpen: true,
+        editorOpen: true,
+        viewerOpen: true,
+        parameterOpen: true,
+        consoleOpen: false,
+        dockWidth: 300,
+        viewerWidth: 480,
+        parameterHeight: 220,
+        consoleHeight: 180,
+        narrowView: "code",
+      }),
+      storageKey: `scadmill.desktop-workspace-layout.v1:${workspaceIdentity}`,
+      workspaceIdentity,
+    };
+
+    expect(validatePackagedWorkspaceLayoutRestart({
+      applicationPid: 120,
+      webViewPids: [121, 122],
+      layout,
+    }, {
+      applicationPid: 220,
+      webViewPids: [221, 222],
+      layout: { ...layout },
+    })).toEqual({
+      exactLayoutRestored: true,
+      freshApplicationProcess: true,
+      freshWebViewProcesses: true,
+    });
+  });
+
+  it("rejects retained processes and changed values in a layout restart observation", () => {
+    const workspaceIdentity = `desktop-project:${"a".repeat(64)}`;
+    const serializedLayout = JSON.stringify({
+      version: 1,
+      activeRail: "files",
+      dockOpen: true,
+      editorOpen: true,
+      viewerOpen: true,
+      parameterOpen: true,
+      consoleOpen: false,
+      dockWidth: 300,
+      viewerWidth: 480,
+      parameterHeight: 220,
+      consoleHeight: 180,
+      narrowView: "code",
+    });
+    const layout = {
+      dockWidth: 300,
+      serializedLayout,
+      storageKey: `scadmill.desktop-workspace-layout.v1:${workspaceIdentity}`,
+      workspaceIdentity,
+    };
+    const before = { applicationPid: 120, webViewPids: [121, 122], layout };
+
+    expect(() => validatePackagedWorkspaceLayoutRestart(before, {
+      applicationPid: 120,
+      webViewPids: [221, 222],
+      layout,
+    })).toThrow("fresh application process");
+    expect(() => validatePackagedWorkspaceLayoutRestart(before, {
+      applicationPid: 220,
+      webViewPids: [122, 222],
+      layout,
+    })).toThrow("fresh WebView processes");
+    expect(() => validatePackagedWorkspaceLayoutRestart(before, {
+      applicationPid: 220,
+      webViewPids: [221, 222],
+      layout: {
+        ...layout,
+        serializedLayout: serializedLayout.replace('"viewerWidth":480', '"viewerWidth":500'),
+      },
+    })).toThrow("restored exactly");
   });
 
   it("finds a sentinel split across streaming read boundaries", async () => {

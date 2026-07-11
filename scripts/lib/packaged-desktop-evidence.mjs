@@ -13,6 +13,132 @@ export function processHasExited(exitCode, signalCode) {
   return exitCode !== null || signalCode !== null;
 }
 
+export function validatePackagedWorkspaceLayoutObservation(payload, expectedDockWidth) {
+  if (!Number.isInteger(expectedDockWidth) || expectedDockWidth < 180 || expectedDockWidth > 480) {
+    throw new Error("Expected packaged dock width must be an integer from 180 through 480.");
+  }
+  if (
+    !record(payload)
+    || Object.keys(payload).sort().join(",") !== "dockWidth,storageEntries"
+    || payload.dockWidth !== expectedDockWidth
+    || !Array.isArray(payload.storageEntries)
+    || payload.storageEntries.length !== 1
+  ) throw new Error("Packaged workspace layout observation has the wrong shape or width.");
+  const entry = payload.storageEntries[0];
+  if (
+    !record(entry)
+    || Object.keys(entry).sort().join(",") !== "key,value"
+    || typeof entry.key !== "string"
+    || typeof entry.value !== "string"
+  ) {
+    throw new Error("Packaged workspace layout storage entry is invalid.");
+  }
+  const match = /^scadmill\.desktop-workspace-layout\.v1:(desktop-project:[0-9a-f]{64})$/u.exec(entry.key);
+  if (!match) throw new Error("Packaged workspace layout key is not an opaque project identity.");
+  let serializedLayout;
+  try {
+    serializedLayout = JSON.parse(entry.value);
+  } catch {
+    throw new Error("Packaged workspace layout value is not JSON.");
+  }
+  const layoutKeys = [
+    "activeRail",
+    "consoleHeight",
+    "consoleOpen",
+    "dockOpen",
+    "dockWidth",
+    "editorOpen",
+    "narrowView",
+    "parameterHeight",
+    "parameterOpen",
+    "version",
+    "viewerOpen",
+    "viewerWidth",
+  ];
+  if (
+    !record(serializedLayout)
+    || Object.keys(serializedLayout).sort().join(",") !== layoutKeys.join(",")
+    || serializedLayout.version !== 1
+    || !["files", "search", "history", "ai", "libraries"].includes(serializedLayout.activeRail)
+    || !["dockOpen", "editorOpen", "viewerOpen", "parameterOpen", "consoleOpen"]
+      .every((key) => typeof serializedLayout[key] === "boolean")
+    || !Number.isInteger(serializedLayout.dockWidth)
+    || serializedLayout.dockWidth < 180
+    || serializedLayout.dockWidth > 480
+    || !Number.isInteger(serializedLayout.viewerWidth)
+    || serializedLayout.viewerWidth < 320
+    || serializedLayout.viewerWidth > 720
+    || !Number.isInteger(serializedLayout.parameterHeight)
+    || serializedLayout.parameterHeight < 120
+    || serializedLayout.parameterHeight > 480
+    || !Number.isInteger(serializedLayout.consoleHeight)
+    || serializedLayout.consoleHeight < 100
+    || serializedLayout.consoleHeight > 400
+    || (serializedLayout.narrowView !== "code" && serializedLayout.narrowView !== "model")
+  ) {
+    throw new Error("Packaged workspace layout value has the wrong shape.");
+  }
+  if (serializedLayout.dockWidth !== expectedDockWidth) {
+    throw new Error("Packaged workspace layout value has the wrong dock width.");
+  }
+  return {
+    dockWidth: payload.dockWidth,
+    serializedLayout: entry.value,
+    storageKey: entry.key,
+    workspaceIdentity: match[1],
+  };
+}
+
+export function validatePackagedWorkspaceLayoutRestart(before, after) {
+  const validateProcessObservation = (value, phase) => {
+    if (
+      !record(value)
+      || Object.keys(value).sort().join(",") !== "applicationPid,layout,webViewPids"
+      || !Number.isSafeInteger(value.applicationPid)
+      || value.applicationPid <= 0
+      || !Array.isArray(value.webViewPids)
+      || value.webViewPids.length === 0
+      || value.webViewPids.some((pid) => !Number.isSafeInteger(pid) || pid <= 0)
+      || new Set(value.webViewPids).size !== value.webViewPids.length
+      || !record(value.layout)
+      || Object.keys(value.layout).sort().join(",")
+        !== "dockWidth,serializedLayout,storageKey,workspaceIdentity"
+    ) {
+      throw new Error(`Packaged workspace layout ${phase} process observation is invalid.`);
+    }
+    const layout = validatePackagedWorkspaceLayoutObservation({
+      dockWidth: value.layout.dockWidth,
+      storageEntries: [{ key: value.layout.storageKey, value: value.layout.serializedLayout }],
+    }, value.layout.dockWidth);
+    if (layout.workspaceIdentity !== value.layout.workspaceIdentity) {
+      throw new Error(`Packaged workspace layout ${phase} identity does not match its storage key.`);
+    }
+    return { ...value, layout };
+  };
+  const checkedBefore = validateProcessObservation(before, "before-restart");
+  const checkedAfter = validateProcessObservation(after, "after-restart");
+  if (checkedBefore.applicationPid === checkedAfter.applicationPid) {
+    throw new Error("Packaged workspace layout restart did not create a fresh application process.");
+  }
+  const priorWebViewPids = new Set(checkedBefore.webViewPids);
+  if (checkedAfter.webViewPids.some((pid) => priorWebViewPids.has(pid))) {
+    throw new Error("Packaged workspace layout restart did not create fresh WebView processes.");
+  }
+  if (
+    checkedBefore.layout.dockWidth !== checkedAfter.layout.dockWidth
+    || checkedBefore.layout.storageKey !== checkedAfter.layout.storageKey
+    || checkedBefore.layout.workspaceIdentity !== checkedAfter.layout.workspaceIdentity
+    || checkedBefore.layout.serializedLayout !== checkedAfter.layout.serializedLayout
+  ) {
+    throw new Error("Packaged workspace layout was not restored exactly after process restart.");
+  }
+  return {
+    exactLayoutRestored: true,
+    freshApplicationProcess: true,
+    freshWebViewProcesses: true,
+  };
+}
+
 export function validateSourceMetadata(payload, expectedApplicationSha256) {
   if (
     !record(payload)

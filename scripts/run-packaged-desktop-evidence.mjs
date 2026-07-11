@@ -21,6 +21,8 @@ import {
   scanFileForBytes,
   unwrapWebDriverValue,
   validateHarnessManifest,
+  validatePackagedWorkspaceLayoutObservation,
+  validatePackagedWorkspaceLayoutRestart,
   validateSandboxConfig,
   validateCredentialProbe,
   webViewAutomationArgument,
@@ -30,6 +32,7 @@ const ELEMENT_KEY = "element-6066-11e4-a52e-4f735466cecf";
 const NULL_KEY = "\uE000";
 const CONTROL_KEY = "\uE009";
 const END_KEY = "\uE010";
+const ARROW_RIGHT_KEY = "\uE014";
 const EXPECTED_ENGINE_SHA256 = "DE9A0C732C23C3FEB0B49CF938777AA0AEE3E206DB9E98571672CACC4816C524";
 const EXPECTED_ENGINE_VERSION = "2026.06.12";
 const EXPECTED_WEBVIEW_SHA256 = "CA3D481F5E049CA550989D49C87D2AF9A3D0C1BED97CB080D15339899B0E241F";
@@ -342,6 +345,33 @@ async function inputValue(client, label) {
   return typeof value === "string" ? value : null;
 }
 
+async function splitterAriaValue(client, label) {
+  const value = await client.execute(`
+    const element = [...document.querySelectorAll('[role="separator"]')]
+      .find((candidate) => candidate.getAttribute('aria-label') === arguments[0]
+        && candidate.getClientRects().length > 0);
+    return element?.getAttribute('aria-valuenow') ?? null;
+  `, [label]);
+  const parsed = typeof value === "string" && /^\d+$/u.test(value) ? Number(value) : null;
+  return Number.isSafeInteger(parsed) ? parsed : null;
+}
+
+async function captureProjectLayoutObservation(client, expectedDockWidth) {
+  const payload = await client.execute(`
+    const prefix = 'scadmill.desktop-workspace-layout.v1:desktop-project:';
+    const storageEntries = Object.keys(localStorage)
+      .filter((key) => key.startsWith(prefix))
+      .sort()
+      .map((key) => ({ key, value: localStorage.getItem(key) }));
+    const splitter = [...document.querySelectorAll('[role="separator"]')]
+      .find((candidate) => candidate.getAttribute('aria-label') === 'Resize files panel'
+        && candidate.getClientRects().length > 0);
+    const value = splitter?.getAttribute('aria-valuenow') ?? null;
+    return { dockWidth: /^[0-9]+$/.test(value ?? '') ? Number(value) : null, storageEntries };
+  `);
+  return validatePackagedWorkspaceLayoutObservation(payload, expectedDockWidth);
+}
+
 async function editorSource(client) {
   const source = await client.execute(`
     const content = document.querySelector('.cm-content');
@@ -408,8 +438,28 @@ async function requireSingleAppProcess(appPath, expectedSha256) {
   return processes[0];
 }
 
+async function requireExactExecutableProcesses(executablePath, expectedSha256, label) {
+  const processes = await waitFor(async () => {
+    const found = await exactExecutableProcesses(executablePath);
+    return found.length > 0 ? found : false;
+  }, label, 15_000, 100);
+  for (const process of processes) {
+    assert.equal(await fileSha256(process.path), expectedSha256, `${label} executable hash mismatch.`);
+  }
+  return processes.sort((left, right) => left.pid - right.pid);
+}
+
 async function waitForNoAppProcess(appPath) {
   await waitFor(async () => (await exactAppProcesses(appPath)).length === 0, "ScadMill process exit", 15_000, 100);
+}
+
+async function waitForNoExactExecutableProcess(executablePath, label) {
+  await waitFor(
+    async () => (await exactExecutableProcesses(executablePath)).length === 0,
+    label,
+    15_000,
+    100,
+  );
 }
 
 async function findFiles(root, wantedName) {
@@ -502,6 +552,39 @@ async function visibleAlerts(client) {
       .map((element) => element.textContent.trim());
   `);
   return Array.isArray(alerts) ? alerts : [];
+}
+
+async function openDesktopProject(client, projectDirectory, expectedSource) {
+  const projectLocatorVisible = async () => (await client.execute(`
+    const form = document.querySelector('.project-locator-form');
+    return Boolean(form && form.getClientRects().length > 0);
+  `)) === true;
+  if (!(await projectLocatorVisible())) await clickAria(client, "Files");
+  await waitFor(projectLocatorVisible, "visible project-folder control", 15_000, 100);
+  await setControl(client, "Project folder path", projectDirectory);
+  await waitFor(async () => (await client.execute(`
+    const button = document.querySelector('.project-locator-form button[type="submit"]');
+    return button instanceof HTMLButtonElement && !button.disabled;
+  `)) === true, "enabled project-locator submit", 15_000, 100);
+  const projectOpenButton = await client.find('.project-locator-form button[type="submit"]');
+  await client.clickElement(projectOpenButton);
+  const projectOpenOutcome = await waitFor(async () => {
+    if ((await bodyText(client)).includes("Confirm project replacement")) return { kind: "dialog" };
+    const alerts = await visibleAlerts(client);
+    return alerts.length > 0 ? { kind: "error", alerts } : false;
+  }, "project replacement dialog or visible project error", 15_000, 100);
+  assert.deepEqual(
+    projectOpenOutcome,
+    { kind: "dialog" },
+    `Project fixture failed to open: ${JSON.stringify(projectOpenOutcome)}`,
+  );
+  await clickButton(client, "Confirm project replacement");
+  await waitFor(
+    async () => (await editorSource(client)) === expectedSource,
+    "project source after open",
+    30_000,
+    100,
+  );
 }
 
 const args = parseArguments(process.argv.slice(2));
@@ -751,29 +834,122 @@ try {
   client = new WebDriverClient(DRIVER_URL);
   await client.createSession(args.app, args.webview);
   await waitForBody(client, `OpenSCAD ${EXPECTED_ENGINE_VERSION}`, 60_000);
-  const projectLocatorVisible = async () => (await client.execute(`
-    const form = document.querySelector('.project-locator-form');
-    return Boolean(form && form.getClientRects().length > 0);
-  `)) === true;
-  if (!(await projectLocatorVisible())) await clickAria(client, "Files");
-  await waitFor(projectLocatorVisible, "visible project-folder control", 15_000, 100);
-  await setControl(client, "Project folder path", recoveryProjectDirectory);
-  await waitFor(async () => (await client.execute(`
-    const button = document.querySelector('.project-locator-form button[type="submit"]');
-    return button instanceof HTMLButtonElement && !button.disabled;
-  `)) === true, "enabled project-locator submit", 15_000, 100);
-  const projectOpenButton = await client.find('.project-locator-form button[type="submit"]');
-  await client.clickElement(projectOpenButton);
-  const projectOpenOutcome = await waitFor(async () => {
-    if ((await bodyText(client)).includes("Confirm project replacement")) return { kind: "dialog" };
-    const alerts = await visibleAlerts(client);
-    return alerts.length > 0 ? { kind: "error", alerts } : false;
-  }, "project replacement dialog or visible project error", 15_000, 100);
-  assert.deepEqual(projectOpenOutcome, { kind: "dialog" }, `Project fixture failed to open: ${JSON.stringify(projectOpenOutcome)}`);
-  await clickButton(client, "Confirm project replacement");
-  await waitFor(async () => (await editorSource(client)) === cubeSource, "project source before dirty recovery run", 30_000, 100);
+  await openDesktopProject(client, recoveryProjectDirectory, cubeSource);
   assert.equal(await readFile(recoveryProjectFile, "utf8"), cubeSource);
   lastVerifiedAppProcess = await requireSingleAppProcess(args.app, appSha256);
+  await probeCredential(args["credential-probe"], true);
+
+  await waitFor(
+    async () => (await splitterAriaValue(client, "Resize files panel")) === 260,
+    "default project files-panel width",
+    15_000,
+    100,
+  );
+  for (const expectedWidth of [268, 276, 284, 292, 300]) {
+    const dockSplitter = await client.find('[aria-label="Resize files panel"]');
+    await client.sendKeys(dockSplitter, ARROW_RIGHT_KEY);
+    await waitFor(
+      async () => (await splitterAriaValue(client, "Resize files panel")) === expectedWidth,
+      `production keyboard files-panel resize to ${expectedWidth}`,
+      5_000,
+      50,
+    );
+  }
+  const layoutBeforeRestart = await waitFor(
+    () => captureProjectLayoutObservation(client, 300),
+    "one exact opaque project layout observation before restart",
+    15_000,
+    50,
+  );
+  assert.equal(
+    layoutBeforeRestart.serializedLayout.toLowerCase().includes(recoveryProjectDirectory.toLowerCase()),
+    false,
+    "Packaged layout evidence exposed the raw project path.",
+  );
+  const applicationBeforeLayoutRestart = lastVerifiedAppProcess;
+  const webViewsBeforeLayoutRestart = await requireExactExecutableProcesses(
+    webViewExecutable,
+    webViewSha256,
+    "fixed WebView2 processes before layout restart",
+  );
+  await client.screenshot(join(args.output, "03a-project-layout-before-restart.png"));
+  await record("project-layout-persisted-before-process-restart", {
+    dockWidth: layoutBeforeRestart.dockWidth,
+    workspaceIdentity: layoutBeforeRestart.workspaceIdentity,
+    storageKey: layoutBeforeRestart.storageKey,
+    serializedLayout: layoutBeforeRestart.serializedLayout,
+    serializedLayoutSha256: fingerprint(layoutBeforeRestart.serializedLayout),
+    applicationProcess: {
+      pid: applicationBeforeLayoutRestart.pid,
+      executablePath: applicationBeforeLayoutRestart.path,
+      executableSha256: appSha256,
+    },
+    webViewProcesses: webViewsBeforeLayoutRestart.map(({ pid }) => ({ pid })),
+    webViewExecutableSha256: webViewSha256,
+    productionCommandPath: "Resize files panel keyboard ArrowRight",
+  });
+
+  await client.deleteSession();
+  client = null;
+  await waitForNoAppProcess(args.app);
+  await waitForNoExactExecutableProcess(webViewExecutable, "fixed WebView2 process exit before layout restart");
+
+  client = new WebDriverClient(DRIVER_URL);
+  await client.createSession(args.app, args.webview);
+  await waitForBody(client, `OpenSCAD ${EXPECTED_ENGINE_VERSION}`, 60_000);
+  const applicationAfterLayoutRestart = await requireSingleAppProcess(args.app, appSha256);
+  const webViewsAfterLayoutRestart = await requireExactExecutableProcesses(
+    webViewExecutable,
+    webViewSha256,
+    "fixed WebView2 processes after layout restart",
+  );
+  await waitFor(
+    async () => (await splitterAriaValue(client, "Resize files panel")) === 260,
+    "scratch files-panel width before reopening the project",
+    15_000,
+    100,
+  );
+  await openDesktopProject(client, recoveryProjectDirectory, cubeSource);
+  const layoutAfterRestart = await waitFor(
+    () => captureProjectLayoutObservation(client, 300),
+    "exact project layout restored in a fresh application and WebView process",
+    15_000,
+    50,
+  );
+  const layoutRestartEvidence = validatePackagedWorkspaceLayoutRestart({
+    applicationPid: applicationBeforeLayoutRestart.pid,
+    webViewPids: webViewsBeforeLayoutRestart.map(({ pid }) => pid),
+    layout: layoutBeforeRestart,
+  }, {
+    applicationPid: applicationAfterLayoutRestart.pid,
+    webViewPids: webViewsAfterLayoutRestart.map(({ pid }) => pid),
+    layout: layoutAfterRestart,
+  });
+  assert.equal(await readFile(recoveryProjectFile, "utf8"), cubeSource);
+  await client.screenshot(join(args.output, "03b-project-layout-restored.png"));
+  await record("project-layout-restored-after-process-restart", {
+    dockWidth: layoutAfterRestart.dockWidth,
+    workspaceIdentity: layoutAfterRestart.workspaceIdentity,
+    storageKey: layoutAfterRestart.storageKey,
+    serializedLayout: layoutAfterRestart.serializedLayout,
+    serializedLayoutSha256: fingerprint(layoutAfterRestart.serializedLayout),
+    applicationProcess: {
+      priorPid: applicationBeforeLayoutRestart.pid,
+      pid: applicationAfterLayoutRestart.pid,
+      executablePath: applicationAfterLayoutRestart.path,
+      executableSha256: appSha256,
+      freshProcess: layoutRestartEvidence.freshApplicationProcess,
+    },
+    webViewProcesses: {
+      priorPids: webViewsBeforeLayoutRestart.map(({ pid }) => pid),
+      pids: webViewsAfterLayoutRestart.map(({ pid }) => pid),
+      executableSha256: webViewSha256,
+      freshProcesses: layoutRestartEvidence.freshWebViewProcesses,
+    },
+    sameOpaqueWorkspace: true,
+    exactLayoutRestored: layoutRestartEvidence.exactLayoutRestored,
+  });
+  lastVerifiedAppProcess = applicationAfterLayoutRestart;
   await probeCredential(args["credential-probe"], true);
 
   const recoveryMarker = `// DIRTY-RECOVERY-${randomBytes(16).toString("hex")}`;

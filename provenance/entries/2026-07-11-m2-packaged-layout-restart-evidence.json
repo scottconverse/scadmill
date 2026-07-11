@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-m2-packaged-layout-restart-evidence",
+  "createdAt": "2026-07-11T16:59:10-06:00",
+  "summary": "Extend the existing fail-closed Windows Sandbox harness with the missing AC-0.b packaged-process oracle: change one real project's persisted layout through the production UI, close the exact app and WebView processes, launch fresh processes, reopen the same project, and require the exact opaque key and layout value to return without retaining the raw project path.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 test-first evidence and milestone gates",
+    "FR-0.7 panel-layout persistence",
+    "AC-0.b process-restart layout persistence",
+    "M2-R02 packaged desktop evidence",
+    "N-2 reliability",
+    "N-7 UI honesty",
+    "Q-0008 provisional opaque desktop layout identity"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-11-m2-packaged-layout-restart-evidence.json", "status": "added" },
+    { "path": "scripts/lib/packaged-desktop-evidence.d.mts", "status": "modified" },
+    { "path": "scripts/lib/packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "scripts/run-packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0197",
+      "topic": "Packaged AC-0.b process-restart oracle",
+      "decision": "Open a real folder-backed project, move the visible Files splitter from its exact 260 default to 300 with five WebDriver ArrowRight actions against the production keyboard handler, capture the exact persisted value, close the exact release-app and fixed-WebView2 processes, require both process sets to be absent, launch fresh disjoint process IDs, reopen the same project through the production project UI, and require the identical 300 value and serialized layout before continuing every existing render, recovery, credential, scan, and cleanup oracle.",
+      "rationale": "Unit and in-process restart tests cannot satisfy AC-0.b's process boundary. Exact pre/post process identity, an intervening scratch-default observation, and an exact value comparison make a stale renderer, auto-reopened state, or merely present storage entry fail closed.",
+      "specBasis": ["Section 2.7", "FR-0.7", "AC-0.b", "M2-R02", "N-2"]
+    },
+    {
+      "id": "D-0198",
+      "topic": "Opaque packaged layout evidence boundary",
+      "decision": "Accept exactly one storage entry whose key is scadmill.desktop-workspace-layout.v1:desktop-project:<64 lowercase hexadecimal characters>; validate the complete version-1 serialized layout schema and every enum, boolean, and bounded dimension; retain the opaque identity, key, exact layout string, and hash; and reject scratch keys, multiple entries, extra fields, raw-path fields, mismatched identities, or malformed values.",
+      "rationale": "AC-0.b needs an exact observable tied to the same workspace, while Q-0008 and the clean privacy boundary prohibit exposing native project paths. Strict schema validation proves both exact persistence and absence of a hidden path-bearing evidence channel.",
+      "specBasis": ["Section 2.4", "FR-0.7", "AC-0.b", "Q-0008", "N-2", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Packaged layout observations are exact, opaque, and path-free",
+      "test": "Focused helper tests require one exact opaque project key and the complete persisted layout schema, then falsify raw-path fields, scratch keys, multiple entries, and wrong widths.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T16:53:02-06:00",
+        "outcome": "ASSERTION-LEVEL RED: Test Files 1 failed (1); Tests 1 failed | 13 passed (14). The prior validator accepted a serialized layout containing projectPath C:\\\\Users\\\\Scott\\\\Secret instead of throwing."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T16:58:45-06:00",
+        "outcome": "GREEN after hostile widening: Test Files 1 passed (1); Tests 17 passed (17); duration 466 ms."
+      }
+    },
+    {
+      "criterion": "A layout round trip requires fresh exact process sets and an unchanged value",
+      "test": "A typed restart validator rejects a reused application PID, any retained WebView PID, changed layout value, malformed process set, or mismatched opaque identity and returns affirmative evidence only for disjoint process sets with an exact layout round trip.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T16:57:02-06:00",
+        "outcome": "ASSERTION-LEVEL RED: Test Files 1 failed (1); Tests 1 failed | 14 passed (15). The scaffold returned an empty object instead of exact-layout and fresh-process evidence."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T16:58:45-06:00",
+        "outcome": "GREEN after adversarial widening: Test Files 1 passed (1); Tests 17 passed (17); duration 466 ms."
+      }
+    },
+    {
+      "criterion": "Static harness integration remains syntactically and repository-contract valid",
+      "test": "Parse both executable modules, run the focused helper plus relevant layout/desktop suites, and run type, lint, provenance, and diff-integrity gates without starting Windows Sandbox.",
+      "red": {
+        "command": "Independent M2 completion review",
+        "observedAt": "2026-07-11T16:30:00-06:00",
+        "outcome": "REVIEW RED: AC-0.b lacked a real packaged WebView/application-process restart assertion even though in-process layout tests were green."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts tests/platform-desktop/desktop-project-metadata.test.ts tests/platform-desktop/tauri-project-storage.test.ts tests/application/runtime/workbench-runtime-layout.test.ts tests/ui/layout/WorkspaceFrame.test.tsx --reporter=verbose; pnpm.cmd typecheck; pnpm.cmd lint; pnpm.cmd check:provenance; node --check scripts/run-packaged-desktop-evidence.mjs; node --check scripts/lib/packaged-desktop-evidence.mjs; git diff --check",
+        "observedAt": "2026-07-11T17:00:36-06:00",
+        "outcome": "GREEN: focused Test Files 5 passed (5), Tests 42 passed (42), duration 1.25 s; TypeScript exited 0; lint checked 296 files and source policy passed; provenance baseline validation passed; both executable modules parsed; diff integrity passed. This is static evidence only and does not claim a packaged runtime PASS."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "The expensive Windows Sandbox lane was not run from this isolated source-rooted branch. The final combined tree must cherry-pick this change, rebuild the release executable, and run the lane once against that exact app hash before the added AC-0.b oracle is called green.",
+    "The harness remains additive to all existing R02, R03, credential, render/export, crash-recovery, secret-scan, and cleanup assertions; none was removed or relaxed.",
+    "No owner similarity gate, comparison repository, workflow content, M3 source, or prohibited source was opened, modified, or executed."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

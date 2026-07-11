@@ -16,6 +16,30 @@ export interface CredentialProbe {
 export function parseBinaryStl(bytes: Uint8Array): StlEvidence;
 export function webViewAutomationArgument(): "--edge-webview-switches=--remote-debugging-port=0";
 export function processHasExited(exitCode: number | null, signalCode: NodeJS.Signals | null): boolean;
+export interface PackagedWorkspaceLayoutObservation {
+  dockWidth: number;
+  storageKey: string;
+  workspaceIdentity: string;
+  serializedLayout: string;
+}
+export function validatePackagedWorkspaceLayoutObservation(
+  payload: unknown,
+  expectedDockWidth: number,
+): PackagedWorkspaceLayoutObservation;
+export interface PackagedWorkspaceLayoutProcessObservation {
+  applicationPid: number;
+  webViewPids: readonly number[];
+  layout: PackagedWorkspaceLayoutObservation;
+}
+export interface PackagedWorkspaceLayoutRestartEvidence {
+  freshApplicationProcess: true;
+  freshWebViewProcesses: true;
+  exactLayoutRestored: true;
+}
+export function validatePackagedWorkspaceLayoutRestart(
+  before: PackagedWorkspaceLayoutProcessObservation,
+  after: PackagedWorkspaceLayoutProcessObservation,
+): PackagedWorkspaceLayoutRestartEvidence;
 export interface SourceMetadata {
   baseCommit: string;
   branch: string;
