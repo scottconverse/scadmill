@@ -553,4 +553,212 @@ describe("ProjectLifecycleControls", () => {
     expect(runtime.project.getState()).toMatchObject({ mode: "project", displayName: "empty-project" });
     expect(runtime.documents.getState().documents[0].path).toBe("design.scad");
   });
+
+  it("creates a named browser workspace without exposing or reusing its opaque identity", async () => {
+    const projects = new Map<string, Map<string, ProjectFileContent>>([
+      ["workspace:existing-empty", new Map()],
+    ]);
+    const projectStorage: ProjectStorage = {
+      snapshot: async (projectId) => createProjectSnapshot(
+        projectId,
+        projects.get(projectId) ?? new Map(),
+      ),
+      read: async (projectId, path) => projects.get(projectId)?.get(path),
+      write: async (projectId, path, content) => {
+        const files = projects.get(projectId) ?? new Map<string, ProjectFileContent>();
+        files.set(path, content);
+        projects.set(projectId, files);
+      },
+      move: async () => undefined,
+      trash: async () => undefined,
+      reveal: async () => undefined,
+    };
+    const workspaceDirectory = {
+      listWorkspaces: vi.fn(async () => [{
+        projectId: "workspace:existing-empty",
+        displayName: "Existing Empty",
+      }]),
+      createWorkspace: vi.fn(async (displayName: string) => {
+        projects.set("workspace:opaque-new", new Map([["main.scad", ""]]));
+        return { projectId: "workspace:opaque-new", displayName };
+      }),
+    };
+    const runtime = createWorkbenchRuntime(engine(), { projectStorage });
+    const view = render(
+      <ProjectLifecycleControls
+        projectLocatorKind="browser"
+        runtime={runtime}
+        storage={projectStorage}
+        workspaceDirectory={workspaceDirectory}
+      />,
+    );
+
+    expect(view.queryByRole("button", { name: "Create workspace" })).toBeInTheDocument();
+    fireEvent.click(view.getByRole("button", { name: "Create workspace" }));
+    fireEvent.change(view.getByLabelText("Workspace name"), {
+      target: { value: "Gear Lab" },
+    });
+    fireEvent.click(view.getByRole("button", { name: "Create and open workspace" }));
+    fireEvent.click(await view.findByRole("button", { name: "Confirm project replacement" }));
+
+    await waitFor(() => expect(runtime.project.getState()).toMatchObject({
+      mode: "project",
+      displayName: "Gear Lab",
+      snapshot: { projectId: "workspace:opaque-new" },
+    }));
+    expect(workspaceDirectory.createWorkspace).toHaveBeenCalledWith("Gear Lab");
+    expect(projects.get("workspace:existing-empty")).toEqual(new Map());
+    expect(view.queryByText("workspace:opaque-new")).not.toBeInTheDocument();
+  });
+
+  it("opens discoverable existing and recent browser workspaces by name", async () => {
+    const projects = new Map<string, Map<string, ProjectFileContent>>([
+      ["workspace:opaque-existing", new Map([["main.scad", "cube(3);"]])],
+      ["workspace:opaque-recent", new Map([["main.scad", "sphere(4);"]])],
+    ]);
+    const projectStorage: ProjectStorage = {
+      snapshot: async (projectId) => createProjectSnapshot(
+        projectId,
+        projects.get(projectId) ?? new Map(),
+      ),
+      read: async (projectId, path) => projects.get(projectId)?.get(path),
+      write: async () => undefined,
+      move: async () => undefined,
+      trash: async () => undefined,
+      reveal: async () => undefined,
+    };
+    const runtime = createWorkbenchRuntime(engine(), {
+      projectStorage,
+      recentProjectsPersistence: {
+        load: () => [{
+          projectId: "workspace:opaque-recent",
+          displayName: "Recent Wheel",
+          openedAt: "2026-07-11T00:00:00.000Z",
+        }],
+        save: () => undefined,
+      },
+    });
+    const view = render(
+      <ProjectLifecycleControls
+        projectLocatorKind="browser"
+        runtime={runtime}
+        storage={projectStorage}
+        workspaceDirectory={{
+          listWorkspaces: async () => [{
+            projectId: "workspace:opaque-existing",
+            displayName: "Existing Gear",
+          }],
+          createWorkspace: async () => {
+            throw new Error("not used");
+          },
+        }}
+      />,
+    );
+
+    fireEvent.click(view.getByRole("button", { name: "Open workspace" }));
+    fireEvent.click(await view.findByRole("button", { name: "Open Existing Gear" }));
+    fireEvent.click(await view.findByRole("button", { name: "Confirm project replacement" }));
+    await waitFor(() => expect(runtime.project.getState().displayName).toBe("Existing Gear"));
+
+    expect(view.getByRole("button", { name: "Reopen Recent Wheel" })).toBeVisible();
+    expect(view.queryByText("workspace:opaque-existing")).not.toBeInTheDocument();
+    expect(view.queryByText("workspace:opaque-recent")).not.toBeInTheDocument();
+  });
+
+  it("uses a desktop folder picker, treats cancel as no-op, and reports picker failure", async () => {
+    const files = new Map<string, ProjectFileContent>([["main.scad", "cube(6);"]]);
+    const snapshot = vi.fn(async (projectId: string) => createProjectSnapshot(projectId, files));
+    const projectStorage: ProjectStorage = {
+      snapshot,
+      read: async (_projectId, path) => files.get(path),
+      write: async () => undefined,
+      move: async () => undefined,
+      trash: async () => undefined,
+      reveal: async () => undefined,
+    };
+    const chooseDirectory = vi.fn()
+      .mockResolvedValueOnce(null)
+      .mockRejectedValueOnce(new Error("Native dialog denied"))
+      .mockResolvedValueOnce({ projectId: "C:\\Models\\Gear", displayName: "Gear" });
+    const runtime = createWorkbenchRuntime(engine(), { projectStorage });
+    const view = render(
+      <ProjectLifecycleControls
+        directoryPicker={{ chooseDirectory }}
+        projectLocatorKind="folder"
+        runtime={runtime}
+        storage={projectStorage}
+      />,
+    );
+
+    const choose = view.getByRole("button", { name: "Choose folder…" });
+    fireEvent.click(choose);
+    await waitFor(() => expect(chooseDirectory).toHaveBeenCalledTimes(1));
+    expect(snapshot).not.toHaveBeenCalled();
+    expect(runtime.project.getState().mode).toBe("scratch");
+
+    fireEvent.click(choose);
+    expect(await view.findByRole("alert")).toHaveTextContent("Native dialog denied");
+    expect(runtime.project.getState().mode).toBe("scratch");
+
+    fireEvent.click(choose);
+    fireEvent.click(await view.findByRole("button", { name: "Confirm project replacement" }));
+    await waitFor(() => expect(runtime.project.getState()).toMatchObject({
+      mode: "project",
+      displayName: "Gear",
+      snapshot: { projectId: "C:\\Models\\Gear" },
+    }));
+  });
+
+  it("blocks workspace creation for dirty tabs and native picking during recovery", async () => {
+    const files = new Map<string, ProjectFileContent>();
+    const projectStorage = storage(files);
+    const dirtyRuntime = createWorkbenchRuntime(engine(), { projectStorage });
+    await dirtyRuntime.dispatch({
+      kind: "edit-document",
+      origin: "user",
+      documentId: "document-main",
+      source: "cube(99);",
+    });
+    const createWorkspace = vi.fn(async () => ({
+      projectId: "workspace:unused",
+      displayName: "Unused",
+    }));
+    const browser = render(
+      <ProjectLifecycleControls
+        projectLocatorKind="browser"
+        runtime={dirtyRuntime}
+        storage={projectStorage}
+        workspaceDirectory={{ listWorkspaces: async () => [], createWorkspace }}
+      />,
+    );
+    fireEvent.click(browser.getByRole("button", { name: "Create workspace" }));
+    expect(browser.getByLabelText("Workspace name")).toBeDisabled();
+    expect(browser.getByRole("button", { name: "Create and open workspace" })).toBeDisabled();
+    expect(createWorkspace).not.toHaveBeenCalled();
+
+    const chooseDirectory = vi.fn();
+    const desktop = render(
+      <ProjectLifecycleControls
+        directoryPicker={{ chooseDirectory }}
+        projectLocatorKind="folder"
+        recoveryPersistence={recovery(JSON.stringify({
+          version: 1,
+          projectId: "scratch",
+          capturedAt: "2026-07-11T00:00:00.000Z",
+          buffers: [{
+            documentId: "document-main",
+            path: "main.scad",
+            source: "cube(77);",
+            savedSource: "cube(12);",
+          }],
+        }))}
+        runtime={createWorkbenchRuntime(engine(), { projectStorage })}
+        storage={projectStorage}
+      />,
+    );
+    const choose = desktop.getByRole("button", { name: "Choose folder…" });
+    expect(choose).toBeDisabled();
+    fireEvent.click(choose);
+    expect(chooseDirectory).not.toHaveBeenCalled();
+  });
 });

@@ -5,6 +5,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import { isDocumentDirty } from "../../src/application/documents/document-workspace";
 import type { EngineService, RenderSuccess3D } from "../../src/application/engine/contracts";
+import type { ProjectStorage } from "../../src/application/files/project-file-service";
+import { createProjectSnapshot } from "../../src/application/files/project-snapshot";
 import { createWorkbenchRuntime } from "../../src/application/runtime/workbench-runtime";
 import { SHIPPED_THEMES } from "../../src/application/theme/shipped-themes";
 import { messages } from "../../src/messages/en";
@@ -147,6 +149,64 @@ describe("Workbench", () => {
 
     fireEvent.keyDown(window, { key: "e", ctrlKey: true });
     expect(await workbench.findByRole("dialog", { name: /^Export /u })).toBeVisible();
+  });
+
+  it("routes Mod+O and File Open through the native directory picker without mutating on cancel", async () => {
+    const engine: EngineService = {
+      render: vi.fn(), export: vi.fn(), version: vi.fn(), cancel: vi.fn(),
+    };
+    const files = new Map([["main.scad", "cube(8);"]]);
+    const snapshot = vi.fn(async (projectId: string) => createProjectSnapshot(projectId, files));
+    const projectStorage: ProjectStorage = {
+      snapshot,
+      read: async (_projectId, path) => files.get(path),
+      write: async () => undefined,
+      move: async () => undefined,
+      trash: async () => undefined,
+      reveal: async () => undefined,
+    };
+    const chooseDirectory = vi.fn()
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ projectId: "C:\\Models\\Gear", displayName: "Gear" })
+      .mockRejectedValueOnce(new Error("Dialog service unavailable"));
+    const runtime = createWorkbenchRuntime(engine, { projectStorage });
+    const view = render(
+      <Workbench
+        activeTheme={SHIPPED_THEMES[0]}
+        directoryPicker={{ chooseDirectory }}
+        engineLabel="OpenSCAD 2026.06.12"
+        projectStorage={projectStorage}
+        runtime={runtime}
+        themePreference="system"
+        onThemePreferenceChange={vi.fn()}
+      />,
+    );
+    const workbench = within(view.container);
+
+    fireEvent.keyDown(window, { key: "o", ctrlKey: true });
+    await waitFor(() => expect(chooseDirectory).toHaveBeenCalledTimes(1));
+    expect(snapshot).not.toHaveBeenCalled();
+    expect(runtime.project.getState().mode).toBe("scratch");
+
+    fireEvent.click(workbench.getByRole("button", { name: messages.fileMenu }));
+    fireEvent.click(within(workbench.getByRole("group", {
+      name: messages.fileMenu,
+    })).getByRole("button", { name: messages.openProject }));
+    fireEvent.click(await workbench.findByRole("button", {
+      name: messages.confirmProjectReplacement,
+    }));
+    await waitFor(() => expect(runtime.project.getState()).toMatchObject({
+      mode: "project",
+      displayName: "Gear",
+      snapshot: { projectId: "C:\\Models\\Gear" },
+    }));
+
+    fireEvent.keyDown(window, { key: "o", ctrlKey: true });
+    expect(await workbench.findByText(/Dialog service unavailable/u)).toHaveAttribute(
+      "role",
+      "alert",
+    );
+    expect(runtime.project.getState().snapshot.projectId).toBe("C:\\Models\\Gear");
   });
 
   it("switches document tabs without dirtying them and targets the first real editor change", async () => {

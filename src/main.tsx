@@ -11,6 +11,7 @@ import { createTauriSecretStore } from "./platform-desktop/tauri-secret-store";
 import { createTauriSettingsPersistence } from "./platform-desktop/tauri-settings-persistence";
 import { createTauriProjectStorage } from "./platform-desktop/tauri-project-storage";
 import { createTauriArtifactDestination } from "./platform-desktop/tauri-artifact-destination";
+import { createTauriProjectDirectoryPicker } from "./platform-desktop/tauri-project-directory-picker";
 import {
   createDesktopRecentProjectsPersistence,
   createDesktopRecoveryPersistence,
@@ -45,6 +46,7 @@ const settingsPersistence = desktop
 const secretStore = desktop ? createTauriSecretStore() : createBrowserSecretStore();
 const browserProjectStorage = desktop ? undefined : createAvailableBrowserProjectStorage();
 const projectStorage = desktop ? createTauriProjectStorage() : browserProjectStorage;
+const directoryPicker = desktop ? createTauriProjectDirectoryPicker() : undefined;
 const mobileWeb = !desktop && isMobileWebClient();
 const artifactDestination = desktop
   ? createTauriArtifactDestination()
@@ -72,6 +74,7 @@ createRoot(root).render(
     <App
       artifactDestination={artifactDestination}
       canRevealProjectFiles={desktop}
+      directoryPicker={directoryPicker}
       engine={engine}
       forceNarrowLayout={mobileWeb}
       layoutPersistence={layoutPersistence}
@@ -83,6 +86,7 @@ createRoot(root).render(
       settingsPersistence={settingsPersistence}
       secretStore={secretStore}
       workspaceMetadataPersistence={workspaceMetadataPersistence}
+      workspaceDirectory={browserProjectStorage}
       enginePathConfiguration={enginePathConfiguration}
     />
   </StrictMode>,

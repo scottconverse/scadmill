@@ -48,6 +48,12 @@ button:focus-visible, select:focus-visible, [tabindex]:focus-visible { outline: 
 .project-locator input { width: 100%; min-width: 0; }
 .project-locator-help { color: var(--chrome-text-muted); font-size: 11px; line-height: 1.35; }
 .project-locator-form > button { justify-self: start; }
+.project-onboarding, .project-manual-locator { border-bottom: 1px solid var(--chrome-border); }
+.project-onboarding-actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px; }
+.project-onboarding section { padding: 0 10px 10px; }
+.project-onboarding h3 { margin: 4px 0 8px; color: var(--chrome-text); font-size: 12px; }
+.project-onboarding ul { display: grid; gap: 6px; padding: 0; margin: 0; list-style: none; }
+.project-manual-locator > summary { padding: 8px 10px; color: var(--chrome-text-muted); cursor: pointer; }
 .layout-panel-heading { display: flex; min-height: 36px; align-items: center; justify-content: space-between; padding: 0 8px 0 12px; border-bottom: 1px solid var(--chrome-border); color: var(--chrome-text); font-size: 13px; }
 .layout-panel-heading button, .panel-action { width: 28px; height: 28px; border-radius: 4px; }
 .panel-splitter { position: relative; z-index: 3; box-sizing: border-box; padding: 0; margin: 0; border: 0; background: none; touch-action: none; }

@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Core ScadMill desktop window capability.",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "dialog:allow-open"]
 }

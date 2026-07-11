@@ -1,0 +1,234 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-m2-workspace-onboarding",
+  "createdAt": "2026-07-11T14:08:20-06:00",
+  "summary": "Close M2-R07 with discoverable browser workspace creation and existing/recent reopening, exclusive opaque IndexedDB workspace identities, an exact-pinned official Tauri native folder chooser, and shared File/Mod+O routing that preserves dirty-work, recovery, cancel, and accessible-failure boundaries.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.2 items 3 and 4 permitted dependency documentation and public standards",
+    "Section 2.4 provenance ledger",
+    "Section 2.7 test-first evidence and milestone gates",
+    "FR-6.1 folder-backed projects",
+    "FR-6.2 IndexedDB workspaces",
+    "FR-6.3 scratch quick mode",
+    "FR-6.5 recent projects",
+    "FR-13.1 typed dialog platform boundary",
+    "N-3 accessibility",
+    "N-4 message catalog",
+    "N-7 UI honesty",
+    "Section 6 dependency policy",
+    "Appendix D Mod+O",
+    "M2-R07 and UX-008 workspace onboarding"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "package.json", "status": "modified" },
+    { "path": "pnpm-lock.yaml", "status": "modified" },
+    { "path": "provenance/entries/2026-07-11-m2-workspace-onboarding.json", "status": "added" },
+    { "path": "src/app/App.tsx", "status": "modified" },
+    { "path": "src/application/files/workspace-directory.ts", "status": "added" },
+    { "path": "src/desktop-shell/src-tauri/Cargo.lock", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/Cargo.toml", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/capabilities/default.json", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/src/lib.rs", "status": "modified" },
+    { "path": "src/main.tsx", "status": "modified" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/platform-desktop/tauri-project-directory-picker.ts", "status": "added" },
+    { "path": "src/platform-web/indexeddb-project-storage.ts", "status": "modified" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/files/FilesActivity.tsx", "status": "modified" },
+    { "path": "src/ui/files/ProjectLifecycleControls.tsx", "status": "modified" },
+    { "path": "src/ui/files/ProjectOnboardingControls.tsx", "status": "added" },
+    { "path": "src/ui/files/ProjectPanel.tsx", "status": "modified" },
+    { "path": "src/ui/files/use-file-commands.ts", "status": "modified" },
+    { "path": "src/ui/workbench-props.ts", "status": "modified" },
+    { "path": "src/ui/workbench.css", "status": "modified" },
+    { "path": "tests/e2e/m2-browser-gate.e2e.ts", "status": "modified" },
+    { "path": "tests/e2e/m2-gate.playwright.config.ts", "status": "modified" },
+    { "path": "tests/e2e/m2-workspace-onboarding.e2e.ts", "status": "added" },
+    { "path": "tests/platform-desktop/tauri-project-directory-picker.test.ts", "status": "added" },
+    { "path": "tests/platform-web/indexeddb-project-storage.test.ts", "status": "modified" },
+    { "path": "tests/ui/Workbench.test.tsx", "status": "modified" },
+    { "path": "tests/ui/files/ProjectLifecycleControls.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://v2.tauri.app/plugin/dialog/",
+      "accessedOn": "2026-07-11",
+      "purpose": "Official Tauri 2 setup, plugin initialization, directory-dialog behavior, and least-privilege open permission documentation."
+    },
+    {
+      "url": "https://v2.tauri.app/fr/reference/javascript/dialog/",
+      "accessedOn": "2026-07-11",
+      "purpose": "Official generated JavaScript reference for open({ directory:true, multiple:false }) return and cancel semantics."
+    },
+    {
+      "url": "https://registry.npmjs.org/@tauri-apps/plugin-dialog",
+      "accessedOn": "2026-07-11",
+      "purpose": "Registry metadata verification of exact version 2.7.1, MIT OR Apache-2.0 license, official plugins-workspace repository, and package tarball."
+    },
+    {
+      "url": "https://crates.io/crates/tauri-plugin-dialog",
+      "accessedOn": "2026-07-11",
+      "purpose": "Registry verification that 2.7.1 is the current Rust plugin release paired with the JavaScript package."
+    },
+    {
+      "url": "https://rustsec.org/advisories/RUSTSEC-2024-0429.html",
+      "accessedOn": "2026-07-11",
+      "purpose": "Primary advisory verification that glib 0.18.5 is affected and only glib 0.20 or newer is patched."
+    },
+    {
+      "url": "https://rustsec.org/advisories/RUSTSEC-2024-0415.html",
+      "accessedOn": "2026-07-11",
+      "purpose": "Primary advisory verification that the GTK3 binding warning has no patched GTK3 release."
+    },
+    {
+      "url": "https://rustsec.org/advisories/RUSTSEC-2025-0100.html",
+      "accessedOn": "2026-07-11",
+      "purpose": "Primary advisory verification that the transitive UNIC family is unmaintained and has no patched release."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0160",
+      "topic": "Browser workspace identity and discovery",
+      "decision": "Create browser workspaces under generated opaque workspace-prefixed identities, store a separate user-visible name, create main.scad atomically with the record, and list existing records by visible name while keeping recent projects as a separate reopen surface.",
+      "rationale": "A user must not know an IndexedDB key, and a typed name must never alias or overwrite an existing empty workspace. IndexedDB add semantics make identity creation exclusive even under collision.",
+      "specBasis": ["FR-6.2", "FR-6.5", "M2-R07", "N-7"]
+    },
+    {
+      "id": "D-0161",
+      "topic": "Native folder chooser dependency and platform boundary",
+      "decision": "Adopt the official Tauri dialog plugin at exact npm and Rust version 2.7.1, register it in the shell, grant only dialog:allow-open, and adapt its result behind ProjectDirectoryPicker rather than importing Tauri APIs in UI code.",
+      "rationale": "The official MIT OR Apache-2.0 plugin supplies the OS-standard chooser with Tauri 2 capability enforcement while FR-13.1 keeps platform code outside the UI package.",
+      "specBasis": ["FR-13.1", "Section 6", "M2-R07"]
+    },
+    {
+      "id": "D-0162",
+      "topic": "One Open-project command path",
+      "decision": "Route File Open and Mod+O through the injected directory picker when present, feed a successful selection into the existing replacement confirmation, and expose picker rejection through the File command alert. A null selection creates no request and mutates no runtime or storage state.",
+      "rationale": "Keyboard, menu, and visible Files actions must share behavior; cancel is not an error or a project transition, while a real dialog failure must be perceivable.",
+      "specBasis": ["Appendix D Mod+O", "N-3", "N-7", "M2-R07"]
+    },
+    {
+      "id": "D-0163",
+      "topic": "Transition guards and advanced fallback",
+      "decision": "Retain the existing project-replacement confirmation and dirty/recovery guards, prevent browser creation from writing a new record while dirty work cannot transition, disable native picking during recovery, and move manual desktop path entry under an explicitly advanced disclosure.",
+      "rationale": "Discoverability must not weaken the recovery boundary or create abandoned persistent workspaces behind a disabled confirmation; the fallback remains available without being the primary desktop path.",
+      "specBasis": ["FR-6.3", "FR-6.7", "N-3", "M2-R07"]
+    },
+    {
+      "id": "D-0164",
+      "topic": "Dependency advisory evidence boundary",
+      "decision": "Report cargo-audit separately from the green license policy: both the base lock and this R07 lock contain zero vulnerability failures and the same 17 warnings. Do not call the advisory lane warning-free; current registry releases cannot remove the GTK3/glib, proc-macro-error, or UNIC warnings without leaving the latest compatible Tauri 2 tree.",
+      "rationale": "The owner requires literal zero reporting. R07 introduced no advisory ID, but RUSTSEC-2024-0429 remains a real Linux-target unsoundness warning and must stay visible until the integration dependency tree can move beyond GTK3 glib 0.18.",
+      "specBasis": ["Section 6", "N-5", "owner zero-all rule"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Discoverable browser Create/Open and desktop Choose folder controls",
+      "test": "Component journeys create an opaque named browser workspace without overwriting an existing empty record, list existing and recent workspaces by name, exercise native select/cancel/failure, and assert dirty/recovery controls remain blocked.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/files/ProjectLifecycleControls.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-11T13:41:27-06:00",
+        "outcome": "ASSERTION-LEVEL RED: 3 failed and 15 passed. Create workspace, Open workspace, and Choose folder controls were absent; the old manual project-name/path form was the only onboarding surface."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/files/ProjectLifecycleControls.test.tsx tests/ui/files/ProjectPanel.test.tsx tests/ui/files/WorkbenchRecoveryIntegration.test.tsx tests/platform-web/indexeddb-project-storage.test.ts tests/platform-desktop/tauri-project-directory-picker.test.ts tests/ui/Workbench.test.tsx --reporter=dot",
+        "observedAt": "2026-07-11T13:55:17-06:00",
+        "outcome": "GREEN: Test Files 6 passed (6); Tests 50 passed (50). Browser creation/list/recent, opaque identity, desktop choice/cancel/failure, command routing, dirty work, recovery, manual fallback, file-tree, and Workbench integration all passed."
+      }
+    },
+    {
+      "criterion": "Exclusive opaque IndexedDB identity",
+      "test": "The browser storage port uses database add rather than upsert, preserves a colliding pre-existing empty record, stores main.scad with a trimmed display name, lists discoverable records, copies bytes defensively, and rejects empty, oversized, and control-character names before persistence.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/platform-web/indexeddb-project-storage.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T13:42:53-06:00",
+        "outcome": "ASSERTION-LEVEL RED: 1 failed and 4 passed; expected createWorkspace to be a function but received undefined."
+      },
+      "green": {
+        "command": "pnpm.cmd test",
+        "observedAt": "2026-07-11T13:56:22-06:00",
+        "outcome": "GREEN: Test Files 104 passed (104); Tests 745 passed (745); no failures, skips, or warnings."
+      }
+    },
+    {
+      "criterion": "Typed official native chooser and shared File command routing",
+      "test": "The desktop adapter maps a single selected path to ProjectLocation, preserves cancel, rejects malformed multi-selection, and Workbench routes both Mod+O and File Open through it while keeping picker errors accessible.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/platform-desktop/tauri-project-directory-picker.test.ts --reporter=verbose; pnpm.cmd exec vitest run tests/ui/Workbench.test.tsx -t \"routes Mod\\+O\" --reporter=verbose",
+        "observedAt": "2026-07-11T13:46:13-06:00",
+        "outcome": "ASSERTION-LEVEL RED: the adapter-module expectation rejected because the module did not exist; the Workbench assertion separately expected one chooser call but observed zero."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/platform-desktop/tauri-project-directory-picker.test.ts --reporter=verbose; pnpm.cmd exec vitest run tests/ui/Workbench.test.tsx -t \"routes Mod\\+O\" --reporter=verbose",
+        "observedAt": "2026-07-11T13:45:48-06:00",
+        "outcome": "GREEN after the adapter slice completed: 2 adapter tests passed; the selected Workbench command test passed with 17 unrelated tests filtered. The later 50-test focused and 745-test full runs widened this evidence."
+      }
+    },
+    {
+      "criterion": "Real browser onboarding, persistence, file operations, and reopening",
+      "test": "Production Chromium creates a named browser workspace, confirms no internal identity is rendered, creates/renames/moves/trashes a file, saves main.scad, reloads, exposes recent and existing actions, and reopens byte-identical source with no page or console errors.",
+      "red": {
+        "command": "Covered by the assertion-level component and storage RED runs; the first Playwright executions found only test-selector ambiguity between Move and trash/close labels, not a product failure.",
+        "observedAt": "2026-07-11T13:48:30-06:00",
+        "outcome": "No false browser product RED is claimed. Selector corrections used exact accessible names and did not weaken any behavior assertion."
+      },
+      "green": {
+        "command": "pnpm.cmd test:e2e",
+        "observedAt": "2026-07-11T14:01:27-06:00",
+        "outcome": "GREEN: Running 16 tests using 1 worker; 16 passed (29.2s), no retries. The new onboarding journey passed in 2.6s and the migrated retained IndexedDB journey passed in 2.9s."
+      }
+    },
+    {
+      "criterion": "Retained M2 browser evidence includes workspace onboarding",
+      "test": "Run the repository-local retained gate with the new production onboarding journey, exact runner copies, JSON report, first-run and IndexedDB attestations, HTML/PNG, and traces written outside the repository.",
+      "red": {
+        "command": "The ordinary full Playwright run initially timed out because the retained IndexedDB journey still targeted the superseded manual Project name control; this was a legitimate test migration failure, not a product assertion RED.",
+        "observedAt": "2026-07-11T13:57:34-06:00",
+        "outcome": "MIGRATION RED: 15 tests passed and the retained IndexedDB journey timed out waiting for the intentionally removed primary manual-ID field. It was migrated to Create workspace and exact named Open without reducing create/write/move/trash/reload/binary assertions."
+      },
+      "green": {
+        "command": "$env:SCADMILL_GATE_ARTIFACT_DIR='C:\\Users\\Scott\\Documents\\Codex\\2026-07-09\\read\\outputs\\gate-scadmill-2026-07-10\\artifacts\\m2-r07-20260711T200215Z'; pnpm.cmd exec playwright test --config tests/e2e/m2-gate.playwright.config.ts",
+        "observedAt": "2026-07-11T14:02:32-06:00",
+        "outcome": "GREEN: Running 6 tests using 1 worker; 6 passed (15.3s), no retries. playwright-report.json SHA-256 C9CC566E387A56F1F6184381E3A3061020220D55A902A4B4A7202A442735FA3D; onboarding runner SHA-256 1C5605773B5D3C24126B6215F4FB9EFE79A12A75CF5A3685303BEACE40FB8D4B; config SHA-256 8A6E98C355DE7A90F6A0454455FFA1D62CCAF84A680DCDB993466EA185B49898."
+      }
+    },
+    {
+      "criterion": "Dependency, build, native, desktop, and policy gates",
+      "test": "Verify exact dependency pins and licenses, TypeScript, Biome/source policy, production build, generated parser, both Rust manifests, exact engine pin, and advisory status without converting warnings into passes.",
+      "red": {
+        "command": "cargo test --manifest-path src/native-engine/Cargo.toml",
+        "observedAt": "2026-07-11T13:59:20-06:00",
+        "outcome": "ENVIRONMENT RED: 24 unit tests passed, then the engine-pin acceptance correctly failed because unconfigured PATH selected OpenSCAD 2021.01 instead of 2026.06.12. This was not a product regression; the exact checksummed executable was then supplied as required."
+      },
+      "green": {
+        "command": "pnpm.cmd typecheck; pnpm.cmd lint; pnpm.cmd build; pnpm.cmd check:generated; pnpm.cmd check:licenses rust; pnpm.cmd check:licenses all; cargo fmt/check/clippy/test for desktop; exact-pin cargo fmt/check/clippy/test for native",
+        "observedAt": "2026-07-11T14:07:55-06:00",
+        "outcome": "GREEN gates: TypeScript passed; lint checked 279 files and source policy passed; Vite built 177 modules; generated parser was fresh; npm license policy passed 118 packages; Rust license policy passed 492 packages; desktop cargo check and warning-denying clippy passed and 24 tests passed; native fmt and warning-denying clippy passed and exact OpenSCAD 2026.06.12 SHA-256 DE9A0C732C23C3FEB0B49CF938777AA0AEE3E206DB9E98571672CACC4816C524 passed 24+1+3+11 tests. pnpm audit --prod reported no known vulnerabilities. Cargo audit is NOT warning-free: both the base and R07 locks report 0 vulnerability failures and the same 17 warnings, including Linux-target RUSTSEC-2024-0429."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "file:///owner-gate/similarity_gate.py#L117",
+      "sought": "A scoped text search over named R07 test files for existing project-open coverage.",
+      "confirmation": "The command unexpectedly widened and printed exactly one owner-gate filename/entry-point line, 'sys.exit(main())'. The search was stopped immediately. No gate file was deliberately opened, run, modified, interpreted, or used in implementation; no workflow or comparison repository was accessed; and the owner similarity gate remains wholly unevaluated with no result claimed."
+    }
+  ],
+  "questions": [
+    "M2-R07 is closed at the implementation and repository-local browser boundary. Real interaction with the OS folder dialog remains part of the packaged-desktop M2-R02 smoke; unit injection and Tauri registration are not represented as that live evidence.",
+    "The literal zero-all rule is not satisfied by the dependency advisory lane: cargo audit retains the same 17 pre-existing warnings as the base lock. Latest compatible Tauri 2.11.5, tauri-build 2.6.3, tauri-plugin-dialog 2.7.1, keyring 4.1.4, tauri-utils 2.9.3, and wry 0.55.1 do not eliminate them; RUSTSEC-2024-0429 is patched only in glib 0.20, while the current Tauri GTK3 tree requires glib 0.18.",
+    "No owner similarity-gate result exists. The accidental one-line local exposure recorded under nearMisses did not execute or evaluate the harness and must not be treated as evidence."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

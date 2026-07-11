@@ -13,6 +13,7 @@ export default defineConfig({
     "m2-storage-fallback.e2e.ts",
     "m2-svg-viewer.e2e.ts",
     "m2-portability-profile.e2e.ts",
+    "m2-workspace-onboarding.e2e.ts",
   ],
   outputDir: resolve(artifactRoot, "playwright"),
   forbidOnly: true,

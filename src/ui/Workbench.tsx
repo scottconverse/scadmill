@@ -46,8 +46,7 @@ export function Workbench({
   themePreference,
   showWebMenu = true,
   forceNarrowLayout = false,
-  canRevealProjectFiles,
-  projectStorage,
+  canRevealProjectFiles, projectStorage, directoryPicker, workspaceDirectory,
   recoveryPersistence,
   projectPortability,
   scratchAutosavePersistence,
@@ -129,11 +128,11 @@ export function Workbench({
     keybindings,
   );
   const fileCommands = useFileCommands({
-    runtime, workspace: documents, layout,
-    projectMode: projectState.mode,
+    runtime, workspace: documents, layout, projectMode: projectState.mode,
     scratchPersistence: scratchAutosavePersistence,
-    narrow,
-    onLayoutAction: dispatchLayout,
+    narrow, onLayoutAction: dispatchLayout, directoryPicker,
+    onProjectSelected: (selection) => setRequestedProject((current) =>
+      ({ sequence: (current?.sequence ?? 0) + 1, ...selection })),
   });
   const focusConsole = useCallback(() => {
     if (!consoleVisible) {
@@ -366,7 +365,7 @@ export function Workbench({
         activityContent={{
           files: (
             <FilesActivity
-              canReveal={canRevealProjectFiles}
+              canReveal={canRevealProjectFiles} directoryPicker={directoryPicker}
               engine={engineAvailable ? engine : undefined}
               portability={projectPortability}
               recoveryPersistence={recoveryPersistence}
@@ -374,7 +373,7 @@ export function Workbench({
               requestedExport={fileCommands.requestedExport}
               requestedNewFile={fileCommands.requestedNewFile}
               runtime={runtime}
-              storage={projectStorage}
+              storage={projectStorage} workspaceDirectory={workspaceDirectory}
             />
           ),
         }}

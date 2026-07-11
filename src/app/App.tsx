@@ -18,6 +18,10 @@ import type { RecoveryPersistence } from "../application/files/recovery-state";
 import type { RecentProjectsPersistence } from "../application/files/recent-projects";
 import type { ScratchAutosavePersistence } from "../application/files/scratch-autosave";
 import type { WorkspaceMetadataPersistence } from "../application/viewer/annotation-persistence";
+import type {
+  ProjectDirectoryPicker,
+  WorkspaceDirectory,
+} from "../application/files/workspace-directory";
 import {
   createWorkbenchProjectPortabilityController,
   type ImportedProjectStorage,
@@ -47,6 +51,8 @@ export interface AppProps {
   forceNarrowLayout?: boolean;
   canRevealProjectFiles?: boolean;
   projectStorage?: ProjectStorage;
+  directoryPicker?: ProjectDirectoryPicker;
+  workspaceDirectory?: WorkspaceDirectory;
   artifactDestination?: ArtifactDestination;
   recoveryPersistence?: RecoveryPersistence;
   recentProjectsPersistence?: RecentProjectsPersistence;
@@ -66,6 +72,8 @@ export function App({
   forceNarrowLayout,
   canRevealProjectFiles,
   projectStorage,
+  directoryPicker,
+  workspaceDirectory,
   artifactDestination,
   recoveryPersistence,
   recentProjectsPersistence,
@@ -258,6 +266,8 @@ export function App({
       forceNarrowLayout={forceNarrowLayout}
       canRevealProjectFiles={canRevealProjectFiles}
       projectStorage={projectStorage}
+      directoryPicker={directoryPicker}
+      workspaceDirectory={workspaceDirectory}
       recoveryPersistence={recoveryPersistence}
       scratchAutosavePersistence={scratchAutosavePersistence}
       projectPortability={projectPortability}

@@ -8,6 +8,10 @@ import {
 import type { ProjectSessionState } from "../../application/files/project-session";
 import type { ScratchAutosavePersistence } from "../../application/files/scratch-autosave";
 import type {
+  ProjectDirectoryPicker,
+  ProjectLocation,
+} from "../../application/files/workspace-directory";
+import type {
   WorkspaceLayoutAction,
   WorkspaceLayoutState,
 } from "../../application/layout/workspace-layout";
@@ -37,6 +41,8 @@ export interface FileCommandOptions {
   readonly layout: WorkspaceLayoutState;
   readonly narrow: boolean;
   readonly onLayoutAction: (action: WorkspaceLayoutAction) => void;
+  readonly directoryPicker?: ProjectDirectoryPicker;
+  readonly onProjectSelected?: (selection: ProjectLocation) => void;
 }
 
 export function useFileCommands(options: FileCommandOptions): FileCommandCoordinator {
@@ -131,7 +137,14 @@ export function useFileCommands(options: FileCommandOptions): FileCommandCoordin
       openFiles();
       setRequestedNewFile((sequence) => (sequence ?? 0) + 1);
     },
-    openProject: openFiles,
+    openProject: () => {
+      openFiles();
+      if (!options.directoryPicker) return;
+      run(async () => {
+        const selection = await options.directoryPicker?.chooseDirectory();
+        if (selection) options.onProjectSelected?.(selection);
+      });
+    },
     exportModel: () => {
       openFiles();
       setRequestedExport((sequence) => (sequence ?? 0) + 1);

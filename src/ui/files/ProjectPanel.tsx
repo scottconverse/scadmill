@@ -4,6 +4,10 @@ import { activeDocument } from "../../application/documents/document-workspace";
 import type { WorkbenchRuntime } from "../../application/runtime/workbench-runtime";
 import type { ProjectStorage } from "../../application/files/project-file-service";
 import type { RecoveryPersistence } from "../../application/files/recovery-state";
+import type {
+  ProjectDirectoryPicker,
+  WorkspaceDirectory,
+} from "../../application/files/workspace-directory";
 import { messages } from "../../messages/en";
 import { useReadonlyStore } from "../use-readonly-store";
 import { ProjectLifecycleControls } from "./ProjectLifecycleControls";
@@ -15,6 +19,8 @@ export interface ProjectPanelProps {
   readonly recoveryPersistence?: RecoveryPersistence;
   readonly requestedNewFile?: number;
   readonly projectTransitionsBlocked?: boolean;
+  readonly directoryPicker?: ProjectDirectoryPicker;
+  readonly workspaceDirectory?: WorkspaceDirectory;
 }
 
 interface TreeEntry {
@@ -78,6 +84,8 @@ export function ProjectPanel({
   recoveryPersistence,
   requestedNewFile,
   projectTransitionsBlocked,
+  directoryPicker,
+  workspaceDirectory,
 }: ProjectPanelProps) {
   const project = useReadonlyStore(runtime.project, (state) => state);
   const workspace = useReadonlyStore(runtime.documents, (state) => state);
@@ -97,11 +105,13 @@ export function ProjectPanel({
   const lifecycle = (
     <ProjectLifecycleControls
       monitor={false}
-      projectLocatorKind={canReveal ? "folder" : "browser"}
+      directoryPicker={directoryPicker}
+      projectLocatorKind={directoryPicker || canReveal ? "folder" : "browser"}
       projectTransitionsBlocked={projectTransitionsBlocked}
       recoveryPersistence={recoveryPersistence}
       runtime={runtime}
       storage={storage}
+      workspaceDirectory={workspaceDirectory}
     />
   );
   useEffect(() => {

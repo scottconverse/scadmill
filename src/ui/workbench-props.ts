@@ -3,6 +3,10 @@ import type { ProjectStorage } from "../application/files/project-file-service";
 import type { ProjectPortabilityController } from "../application/files/project-portability";
 import type { RecoveryPersistence } from "../application/files/recovery-state";
 import type { ScratchAutosavePersistence } from "../application/files/scratch-autosave";
+import type {
+  ProjectDirectoryPicker,
+  WorkspaceDirectory,
+} from "../application/files/workspace-directory";
 import type { WorkbenchRuntime } from "../application/runtime/workbench-runtime";
 import type { SecretStore } from "../application/settings/secret-store";
 import type { ThemeTokens } from "../application/theme/theme-schema";
@@ -24,6 +28,8 @@ export interface WorkbenchProps {
   forceNarrowLayout?: boolean;
   canRevealProjectFiles?: boolean;
   projectStorage?: ProjectStorage;
+  directoryPicker?: ProjectDirectoryPicker;
+  workspaceDirectory?: WorkspaceDirectory;
   recoveryPersistence?: RecoveryPersistence;
   projectPortability?: ProjectPortabilityController;
   scratchAutosavePersistence?: ScratchAutosavePersistence;

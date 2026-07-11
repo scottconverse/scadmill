@@ -5,6 +5,10 @@ import type { EngineService, ExportFormat } from "../../application/engine/contr
 import type { ProjectStorage } from "../../application/files/project-file-service";
 import type { ProjectPortabilityController } from "../../application/files/project-portability";
 import type { RecoveryPersistence } from "../../application/files/recovery-state";
+import type {
+  ProjectDirectoryPicker,
+  WorkspaceDirectory,
+} from "../../application/files/workspace-directory";
 import { startWorkbenchProjectExport } from "../../application/files/workbench-project-export";
 import type { WorkbenchRuntime } from "../../application/runtime/workbench-runtime";
 import { messages } from "../../messages/en";
@@ -23,6 +27,8 @@ export interface FilesActivityProps {
   readonly requestedExport?: number;
   readonly requestedNewFile?: number;
   readonly projectTransitionsBlocked?: boolean;
+  readonly directoryPicker?: ProjectDirectoryPicker;
+  readonly workspaceDirectory?: WorkspaceDirectory;
 }
 
 export function FilesActivity({
@@ -35,6 +41,8 @@ export function FilesActivity({
   requestedExport,
   requestedNewFile,
   projectTransitionsBlocked,
+  directoryPicker,
+  workspaceDirectory,
 }: FilesActivityProps) {
   const document = useReadonlyStore(runtime.documents, activeDocument);
   const renderResult = useReadonlyStore(runtime.render, (state) => state.result);
@@ -57,8 +65,10 @@ export function FilesActivity({
         recoveryPersistence={recoveryPersistence}
         projectTransitionsBlocked={projectTransitionsBlocked}
         requestedNewFile={requestedNewFile}
+        directoryPicker={directoryPicker}
         runtime={runtime}
         storage={storage}
+        workspaceDirectory={workspaceDirectory}
       />
       {engine && (
         <ProjectExportDialog

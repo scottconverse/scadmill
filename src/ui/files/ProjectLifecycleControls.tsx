@@ -16,10 +16,15 @@ import {
   type RecoverySnapshot,
 } from "../../application/files/recovery-state";
 import type { ProjectSnapshot } from "../../application/files/project-snapshot";
+import type {
+  ProjectDirectoryPicker,
+  WorkspaceDirectory,
+} from "../../application/files/workspace-directory";
 import type { WorkbenchRuntime } from "../../application/runtime/workbench-runtime";
 import { messages } from "../../messages/en";
 import { useReadonlyStore } from "../use-readonly-store";
 import { ProjectExternalChangeControls } from "./ProjectExternalChangeControls";
+import { ProjectOnboardingControls } from "./ProjectOnboardingControls";
 
 const EPHEMERAL_RECOVERY: RecoveryPersistence = {
   load: () => null,
@@ -45,6 +50,8 @@ export interface ProjectLifecycleControlsProps {
   readonly projectTransitionsBlocked?: boolean;
   readonly onRecoveryPendingChange?: (pending: boolean) => void;
   readonly projectLocatorKind?: "folder" | "browser" | "generic";
+  readonly directoryPicker?: ProjectDirectoryPicker;
+  readonly workspaceDirectory?: WorkspaceDirectory;
 }
 
 export interface ProjectOpenRequest {
@@ -79,6 +86,8 @@ export function ProjectLifecycleControls({
   projectTransitionsBlocked = false,
   onRecoveryPendingChange,
   projectLocatorKind = "generic",
+  directoryPicker,
+  workspaceDirectory,
 }: ProjectLifecycleControlsProps) {
   const projectLocatorHelpId = useId();
   const project = useReadonlyStore(runtime.project, (state) => state);
@@ -262,7 +271,20 @@ export function ProjectLifecycleControls({
 
   return (
     <div className="project-lifecycle-controls">
-      {showOpenControls && storage && (
+      {showOpenControls && storage && (directoryPicker || workspaceDirectory) && (
+        <ProjectOnboardingControls
+          busy={busy}
+          directoryPicker={directoryPicker}
+          hasDirtyDocuments={hasDirtyDocuments}
+          inspectProject={inspectProject}
+          run={run}
+          transitionsBlocked={transitionsBlocked}
+          workspaceDirectory={workspaceDirectory}
+        />
+      )}
+      {showOpenControls && storage && (projectLocatorKind !== "browser" || !workspaceDirectory) && (
+        <details className="project-manual-locator" open={!directoryPicker}>
+          <summary>{directoryPicker ? messages.enterFolderPathInstead : messages.manualProjectEntry}</summary>
         <form className="project-locator-form" onSubmit={openProject}>
           <label className="project-locator">
             <span>{projectLocatorLabel}</span>
@@ -283,6 +305,7 @@ export function ProjectLifecycleControls({
             {messages.openProject}
           </button>
         </form>
+        </details>
       )}
       {pendingProject && (
         <div aria-label={messages.confirmProjectReplacement} role="dialog">

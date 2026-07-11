@@ -12,6 +12,11 @@ function memoryDatabase(): ProjectRecordDatabase {
   const records = new Map<string, StoredProjectRecord>();
   return {
     read: async (projectId) => records.get(projectId) ?? null,
+    create: async (record) => {
+      if (records.has(record.projectId)) throw new Error("Project already exists.");
+      records.set(record.projectId, record);
+    },
+    list: async () => [...records.values()],
     update: async (projectId, transform) => {
       records.set(projectId, transform(records.get(projectId) ?? null));
     },
@@ -66,5 +71,44 @@ describe("browser IndexedDB project storage", () => {
     await storage.write("web-project", "main.scad", "cube(1);");
 
     await expect(storage.reveal("web-project", "main.scad")).rejects.toThrow(/web|browser/u);
+  });
+
+  it("creates discoverable workspaces with exclusive opaque identities", async () => {
+    const database = memoryDatabase();
+    const collision = createBrowserProjectStorage(database, () => "fixed") as ReturnType<
+      typeof createBrowserProjectStorage
+    > & {
+      createWorkspace(displayName: string): Promise<{ projectId: string; displayName: string }>;
+      listWorkspaces(): Promise<readonly { projectId: string; displayName: string }[]>;
+    };
+    await collision.write("workspace:fixed", "placeholder.scad", "");
+    await collision.trash("workspace:fixed", "placeholder.scad");
+
+    expect(collision.createWorkspace).toBeTypeOf("function");
+    await expect(collision.createWorkspace("Existing name")).rejects.toThrow(/exists/u);
+    expect((await collision.snapshot("workspace:fixed")).files.size).toBe(0);
+
+    const storage = createBrowserProjectStorage(database, () => "fresh") as typeof collision;
+    await expect(storage.createWorkspace("  Gear Lab  ")).resolves.toEqual({
+      projectId: "workspace:fresh",
+      displayName: "Gear Lab",
+    });
+    expect(await storage.listWorkspaces()).toEqual([
+      { projectId: "workspace:fixed", displayName: "workspace:fixed" },
+      { projectId: "workspace:fresh", displayName: "Gear Lab" },
+    ]);
+    expect([...((await storage.snapshot("workspace:fresh")).files)]).toEqual([
+      ["main.scad", ""],
+    ]);
+  });
+
+  it("rejects empty, oversized, and control-character workspace names before persistence", async () => {
+    const database = memoryDatabase();
+    const storage = createBrowserProjectStorage(database, () => "unused");
+
+    await expect(storage.createWorkspace("   ")).rejects.toThrow(/non-empty/u);
+    await expect(storage.createWorkspace("x".repeat(121))).rejects.toThrow(/120/u);
+    await expect(storage.createWorkspace("bad\nname")).rejects.toThrow(/control/u);
+    await expect(database.list()).resolves.toEqual([]);
   });
 });

@@ -17,6 +17,7 @@ const RUNNER_PATHS = [
   "tests/e2e/m2-portability-profile.e2e.ts",
   "tests/e2e/fixtures/m2-portability-profile.html",
   "tests/e2e/fixtures/m2-portability-profile.ts",
+  "tests/e2e/m2-workspace-onboarding.e2e.ts",
   "tests/e2e/m2-gate.playwright.config.ts",
 ] as const;
 const REPRODUCTION_COMMAND =
@@ -31,6 +32,7 @@ interface StoredFileEvidence {
 
 interface StoredProjectEvidence {
   readonly projectId: string;
+  readonly displayName?: string;
   readonly files: readonly StoredFileEvidence[];
 }
 
@@ -72,10 +74,12 @@ async function indexedDbProjects(page: Page): Promise<readonly StoredProjectEvid
       request.onsuccess = () => {
         const records = request.result as {
           projectId: string;
+          displayName?: string;
           files: { path: string; content: string | Uint8Array }[];
         }[];
         resolveProjects(records.map((record) => ({
           projectId: record.projectId,
+          ...(record.displayName ? { displayName: record.displayName } : {}),
           files: record.files.map(({ path, content }) => typeof content === "string"
             ? { path, kind: "text" as const, text: content }
             : { path, kind: "binary" as const, bytes: [...content] }),
@@ -247,7 +251,7 @@ test.describe("M2 real-browser gate", () => {
     page.on("console", (message) => {
       if (message.type() === "error") consoleErrors.push(message.text());
     });
-    const projectId = "m2-real-indexeddb-project";
+    const projectName = "M2 durable browser project";
     const mainSource = "// durable main source\ncube([17, 18, 19]);";
     const draftSource = "cylinder(h = 9, r = 2);";
     const importedSource = "// binary project\nsphere(11);";
@@ -255,11 +259,19 @@ test.describe("M2 real-browser gate", () => {
 
     await page.goto("/");
     const files = await openFilesPanel(page);
-    await files.getByRole("textbox", { name: "Project name" }).fill(projectId);
-    await files.getByRole("button", { name: "Open project", exact: true }).click();
+    await files.getByRole("button", { name: "Create workspace" }).click();
+    await files.getByRole("textbox", { name: "Workspace name" }).fill(projectName);
+    await files.getByRole("button", { name: "Create and open workspace" }).click();
     const confirmation = files.getByRole("dialog", { name: "Confirm project replacement" });
     await expect(confirmation).toBeVisible();
     await confirmation.getByRole("button", { name: "Confirm project replacement" }).click();
+    await expect.poll(async () => (await indexedDbProjects(page)).find(
+      ({ displayName }) => displayName === projectName,
+    )?.projectId).toMatch(/^workspace:/u);
+    const projectId = (await indexedDbProjects(page)).find(
+      ({ displayName }) => displayName === projectName,
+    )?.projectId;
+    if (!projectId) throw new Error("The named browser workspace has no durable identity.");
 
     await replaceEditorSource(page, mainSource);
     await files.getByRole("button", { name: "Save active file" }).click();
@@ -308,8 +320,8 @@ test.describe("M2 real-browser gate", () => {
 
     await page.reload();
     const reloadedFiles = await openFilesPanel(page);
-    await reloadedFiles.getByRole("textbox", { name: "Project name" }).fill(projectId);
-    await reloadedFiles.getByRole("button", { name: "Open project", exact: true }).click();
+    await reloadedFiles.getByRole("button", { name: "Open workspace" }).click();
+    await reloadedFiles.getByRole("button", { name: `Open ${projectName}`, exact: true }).click();
     await reloadedFiles.getByRole("dialog", { name: "Confirm project replacement" })
       .getByRole("button", { name: "Confirm project replacement" }).click();
     await expect.poll(() => editorSource(page)).toBe(mainSource);
@@ -326,7 +338,8 @@ test.describe("M2 real-browser gate", () => {
       generatedAt: new Date().toISOString(),
       browserStorage: "native Chromium IndexedDB",
       databaseName: DATABASE_NAME,
-      operations: ["create", "write", "move", "trash", "reload", "binary roundtrip"],
+      operations: ["discoverable create", "write", "move", "trash", "reload", "binary roundtrip"],
+      projectName,
       projectId,
       exactMainSource: mainSource,
       trashedPathAbsent: true,

@@ -53,6 +53,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Real Chromium WebGL acceptance evidence that viewport capture produces a decodable PNG dominated by the active theme background.
 - Functional File menu and Appendix D Save, Save All, New, Open Project, and Export commands, including caught failures and conservative multi-scratch persistence behavior.
 - Exact runtime enforcement of the OpenSCAD 2026.06.12 engine pin, with a version-mismatch fix-it instead of silently accepting an older PATH installation.
+- Discoverable browser **Create workspace** and existing/recent **Open** actions backed by opaque, exclusive IndexedDB identities, plus a native **Choose folder…** action routed through the typed platform boundary and the exact-pinned official Tauri dialog plugin 2.7.1. Manual desktop path entry remains an advanced fallback.
 
 ### Changed
 
