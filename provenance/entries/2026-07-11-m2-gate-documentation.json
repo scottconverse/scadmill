@@ -1,0 +1,192 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-m2-gate-documentation",
+  "createdAt": "2026-07-11T12:43:05-06:00",
+  "summary": "Add the final M2 cross-capability verification runner, shipped-source encoding guard, exact loading-copy assertions, and documentation, privacy, and owner-question reconciliation while preserving every known policy, packaged-platform, performance, recovery, and secret-store evidence gap.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.2 clean-room reading and owner-gate restrictions",
+    "Section 2.4 provenance ledger",
+    "Section 2.7 questions, capability-sized work, test-first evidence, and milestone gates",
+    "Section 4 C0 through C15 cross-capability verification",
+    "Section 5 acceptance criteria through the M2 boundary",
+    "Section 7 N-3 accessibility, N-6 privacy, and N-7 honesty",
+    "Section 8 M2 milestone exit gate"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "PRIVACY.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-11-m2-gate-documentation.json", "status": "added" },
+    { "path": "scripts/lib/source-policy.mjs", "status": "modified" },
+    { "path": "spec/QUESTIONS.md", "status": "modified" },
+    { "path": "tests/app/App.test.tsx", "status": "modified" },
+    { "path": "tests/e2e/c0-responsive.e2e.ts", "status": "modified" },
+    { "path": "tests/e2e/m2-browser-gate.e2e.ts", "status": "added" },
+    { "path": "tests/e2e/m2-gate.playwright.config.ts", "status": "added" },
+    { "path": "tests/scripts/source-policy.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0126",
+      "topic": "Durable final-browser evidence identity",
+      "decision": "Use a dedicated one-worker, no-retry Chromium gate for fresh-profile, returning-scratch and startup-share composition, real IndexedDB text and binary lifecycle, compact-viewport, and zero page or console-error checks; retain traces, JSON report, attestations, runner and configuration copies, reproduction instructions, and cryptographic runner identity outside the product repository.",
+      "rationale": "A one-off first-run capture became stale after product corrections. A reproducible dedicated gate associates checkable artifacts with the exact candidate without turning generated evidence into shipped source or widening the ordinary browser suite accidentally.",
+      "specBasis": ["Section 2.7 green CI and milestone verification", "AC-0.a", "AC-0.c", "AC-6.a", "N-3", "N-7"]
+    },
+    {
+      "id": "D-0127",
+      "topic": "Shipped-source mojibake protection and exact copy assertions",
+      "decision": "Make source policy reject common UTF-8 mojibake sequences in shipped source, prove the rule with a deliberate malformed fixture under tests, and reference the canonical loading message from both App disappearance assertions rather than duplicating its text.",
+      "rationale": "The technical-writing audit found visible encoding corruption and a corrupted assertion that passed too early. A small deterministic source scan plus canonical-copy assertions prevents recurrence without a runtime dependency or a claim that every possible encoding error is detectable.",
+      "specBasis": ["Section 2.7 verification", "N-3", "N-7"]
+    },
+    {
+      "id": "D-0128",
+      "topic": "Final M2 documentation and question honesty",
+      "decision": "Treat README, CHANGELOG, PRIVACY, and QUESTIONS as evidence-bearing records: reconcile capability claims and exact engine evidence, distinguish implementation from retained or manual verification, inventory all local persistence and secret locations, classify actionable, historical, and later-milestone questions, and keep the candidate labeled as undergoing its gate.",
+      "rationale": "Cross-capability composition exposed wording, privacy-inventory, question-taxonomy, performance, packaging, keychain, and live-recovery gaps. N-7 requires these to remain explicit instead of being promoted to completed claims by documentation cleanup.",
+      "specBasis": ["Section 2.7 questions and milestone boundary", "FR-2.5", "AC-5.c", "AC-6.d", "AC-9.c", "N-6", "N-7"]
+    },
+    {
+      "id": "D-0129",
+      "topic": "Final stacked provenance and shim reconciliation",
+      "decision": "Run schema, exact-path, base-aware provenance, and full evidence reconciliation only after every capability and correction entry is stacked; preserve C9 and C2 ownership of the two already-absent Legacy shims, associate retained artifacts with the final candidate externally, and never inspect or execute the owner similarity gate locally.",
+      "rationale": "A baseline-only check cannot prove a reconstructed multi-entry stack, while duplicate shim ownership corrupts path accounting. The owner similarity harness is deliberately isolated and is not repo-local verification evidence.",
+      "specBasis": ["Section 2.2 owner-gate restrictions", "Section 2.4 provenance ledger", "Section 2.7 green CI and exit gates", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Shipped-source encoding policy rejects common mojibake",
+      "test": "A deliberate malformed source fixture emits the mojibake rule while the shipped source tree remains clean under every existing source-policy check.",
+      "red": {
+        "command": "node node_modules/vitest/vitest.mjs run tests/scripts/source-policy.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T12:31:59-06:00",
+        "outcome": "RED: 1 file failed; 1 test failed and 57 passed in 979 ms. The new assertion expected the mojibake violation for BrokenCopy.tsx and received an empty array."
+      },
+      "green": {
+        "command": "node node_modules/vitest/vitest.mjs run tests/scripts/source-policy.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T12:32:58-06:00",
+        "outcome": "GREEN: 1 file and all 58 tests passed in 1.06 s."
+      }
+    },
+    {
+      "criterion": "Canonical engine-checking copy remains observable until the probe resolves",
+      "test": "Both App fallback tests wait for the canonical messages.checkingEngine copy to disappear instead of using a corrupted or duplicated literal that is absent from the first render.",
+      "red": {
+        "command": "manual assertion audit of tests/app/App.test.tsx against src/messages/en.ts",
+        "observedAt": "2026-07-11T12:30:00-06:00",
+        "outcome": "MANUAL RED: one assertion queried a mojibake string that the product never rendered, so it could pass before the asynchronous engine probe completed. The second assertion duplicated the correct literal and could drift independently."
+      },
+      "green": {
+        "command": "node node_modules/vitest/vitest.mjs run tests/app/App.test.tsx --reporter=verbose -t \"keeps CodeMirror editable and rendering disabled\"",
+        "observedAt": "2026-07-11T12:32:58-06:00",
+        "outcome": "GREEN after canonical-copy reconciliation: 1 test passed and 14 were skipped in 3.14 s. The full App file later passed inside the 730-test suite."
+      }
+    },
+    {
+      "criterion": "Durable first-run, returning-state, IndexedDB, compact-layout, and error-free browser evidence",
+      "test": "The dedicated Chromium runner executes exactly three tests with one worker and no retries, retains traces, JSON, HTML, PNG, attestations and exact runner copies, verifies real text and binary IndexedDB lifecycle, and observes no page or console errors in wide and compact journeys.",
+      "red": {
+        "command": "pnpm.cmd exec playwright test --config tests/e2e/m2-gate.playwright.config.ts",
+        "observedAt": "2026-07-11T12:32:10-06:00",
+        "outcome": "INFRASTRUCTURE RED (not an assertion-level product RED): Playwright exited 1 because tests/e2e/m2-gate.playwright.config.ts did not exist on the clean C0 parent. Product behavior was not reverted merely to manufacture a browser failure."
+      },
+      "green": {
+        "command": "$env:SCADMILL_GATE_ARTIFACT_DIR='<gate-artifacts>/m2-final-036413e-20260711T124528'; pnpm.cmd exec playwright test --config tests/e2e/m2-gate.playwright.config.ts",
+        "observedAt": "2026-07-11T12:45:45-06:00",
+        "outcome": "GREEN against clean provisional commit 036413eb78a1f6262ca887b12ed77b66b427cd58 / tree a064fdae307fcc7c203cab2544bc77d2d223bda5: 3 Chromium tests passed with one worker and no retries in 10.2 s. first-run-attestation.json was generated 2026-07-11T18:45:41.868Z and indexeddb-attestation.json at 2026-07-11T18:45:44.999Z; runner SHA-256 3A9433B73DE1E5EE61226B1B1D5365AD00C2AB7EF30E97E3AD86E5F54D5F819A; configuration SHA-256 7347D7A26F31DAD49D4A79BB5F11BC5E78345D6611F7FDA8B8A31C09F5D91093; JSON report SHA-256 A295FFF22D45BFA31C28D7A2FBB566A22F8001A4FDC978974EC9F9AB7225C96B; first-run attestation SHA-256 2E42ECED0E2B422D20F5CE9D0AF51DDB8E1DE2E8D1D9FE392F892345EAC257D7; IndexedDB attestation SHA-256 049ED07C3AD4356777ADA3FF2A6691C67AE5AB7A0B242B98C591F12F7549983F. No page or console errors were observed; the final amendment changes only gate-status documentation and this ledger evidence, not product or runner behavior."
+      }
+    },
+    {
+      "criterion": "Ordinary browser journeys retain generic error guards",
+      "test": "The C0 narrow journey records page errors and the capped-resize journey records console errors without absorbing the C0 fresh-wide or C9 compact-settings assertions into this slice.",
+      "red": {
+        "command": "gate review of the pre-remediation Settings and viewer-resize browser journeys",
+        "observedAt": "2026-07-11T12:30:27-06:00",
+        "outcome": "NO ARTIFICIAL ASSERTION RED: earlier review had observed selector and ResizeObserver failures, but those product fixes were already present on the clean C0 parent and their original raw transcript was not retained. The current six-test C0 baseline passed before the generic collectors were added."
+      },
+      "green": {
+        "command": "pnpm.cmd exec playwright test tests/e2e/c0-responsive.e2e.ts --workers=1 --retries=0",
+        "observedAt": "2026-07-11T12:33:20-06:00",
+        "outcome": "GREEN: all 6 C0 Chromium tests passed in 7.6 s, including empty page-error and console-error collections."
+      }
+    },
+    {
+      "criterion": "M2 documentation, privacy, and question reconciliation remains evidence-honest",
+      "test": "Manual comparison resolves TW-001 through TW-005 while preserving the implementation-candidate label, exact storage and secret inventory, Q-0001 policy RED, packaged, keychain, performance and live-recovery gaps, and C11 ownership of MCP exposure.",
+      "red": {
+        "command": "manual review of README.md CHANGELOG.md PRIVACY.md spec/QUESTIONS.md against TW-001 through TW-005 and the final capability matrix",
+        "observedAt": "2026-07-11T12:30:00-06:00",
+        "outcome": "MANUAL RED: the parent omitted the final M2 capability and evidence matrix, complete local-source privacy inventory and deletion guidance, Q-0027 and Q-0029 through Q-0031, the question queue taxonomy, dated historical notes, and the durable runner command; one loading assertion retained mojibake."
+      },
+      "green": {
+        "command": "independent read-only audit of the final README.md CHANGELOG.md PRIVACY.md spec/QUESTIONS.md diff",
+        "observedAt": "2026-07-11T12:37:45-06:00",
+        "outcome": "GREEN: the independent documentation audit reported no remaining factual blocker. It confirmed TW-001 through TW-005 remediation, Q-0027, Q-0026 C11 ownership, Q-0029 through Q-0031, W-001 through W-003, the production keychain gap, privacy/share disclosures, and UTF-8 guard wording."
+      }
+    },
+    {
+      "criterion": "V-1 and V-2 widened reconstructed-candidate verification",
+      "test": "Unit, component, integration, full browser, exact-pin native engine, desktop Rust, typecheck, lint and source policy, build, generated-source, npm license, Rust format, check, and warning-denying clippy remain green while policy and manual gaps stay qualified.",
+      "red": {
+        "command": "No separate widened RED is claimed; the focused encoding assertion and manual documentation findings provide this slice's RED evidence.",
+        "observedAt": "2026-07-11T12:31:59-06:00",
+        "outcome": "Widened commands are regression evidence. Product behavior was not deliberately broken to manufacture a second failure."
+      },
+      "green": {
+        "command": "pnpm.cmd test; pnpm.cmd test:e2e -- --workers=1 --retries=0; pnpm.cmd typecheck; pnpm.cmd lint; pnpm.cmd build; pnpm.cmd check:generated; pnpm.cmd check:licenses npm; $env:SCADMILL_OPENSCAD='<exact-2026.06.12-executable>'; cargo test --locked --manifest-path src/native-engine/Cargo.toml; cargo test --locked --manifest-path src/desktop-shell/src-tauri/Cargo.toml; cargo fmt/check/clippy -- -D warnings for both manifests",
+        "observedAt": "2026-07-11T12:46:30-06:00",
+        "outcome": "GREEN: Vitest passed 102 files and 730 tests in 17.77 s; Playwright passed 13 tests with one worker and no retries in 20.4 s; typecheck passed; lint checked 270 files and source policy passed; Vite built 173 modules; generated parser freshness passed; npm license policy passed for 117 packages; native Rust passed 24 unit, 1 exact-pin, 3 export and 11 project tests; desktop Rust passed 24 tests; cargo fmt, check, and warning-denying clippy passed for both manifests. The probed OpenSCAD executable reported 2026.06.12 and SHA-256 DE9A0C732C23C3FEB0B49CF938777AA0AEE3E206DB9E98571672CACC4816C524."
+      }
+    },
+    {
+      "criterion": "Q-0001 split dependency-license policy remains explicit",
+      "test": "The permitted npm dependency half remains green while the Rust half reports the exact owner-decision set instead of being waived, edited, or mislabeled green.",
+      "red": {
+        "command": "pnpm.cmd check:licenses rust",
+        "observedAt": "2026-07-11T12:46:00-06:00",
+        "outcome": "KNOWN POLICY RED: exit 1 with exactly 19 records: 18 Unicode-3.0 packages and unicode-ident with (MIT OR Apache-2.0) AND Unicode-3.0. The checker identifies Q-0001 as the block; no license policy was changed."
+      },
+      "green": {
+        "command": "pnpm.cmd check:licenses npm",
+        "observedAt": "2026-07-11T12:41:00-06:00",
+        "outcome": "GREEN for the permitted half only: npm license policy passed for 117 packages. The Rust half is deliberately not claimed green."
+      }
+    },
+    {
+      "criterion": "Final stacked provenance and exact path reconciliation",
+      "test": "The final gate entry makes the clean C0-to-gate diff an append-only provenance change with exactly ten behavior, test, tooling, or documentation paths plus this ledger.",
+      "red": {
+        "command": "node scripts/check-provenance.mjs --base ee8191ed2392b55c95b6caa15af194f50ec0dee3",
+        "observedAt": "2026-07-11T12:40:30-06:00",
+        "outcome": "EXPECTED PRE-LEDGER RED: exit 1; provenance validation reported that the pull request must add at least one provenance/entries/*.json entry."
+      },
+      "green": {
+        "command": "node scripts/check-provenance.mjs --base ee8191ed2392b55c95b6caa15af194f50ec0dee3",
+        "observedAt": "2026-07-11T12:45:15-06:00",
+        "outcome": "GREEN on clean provisional commit 036413eb78a1f6262ca887b12ed77b66b427cd58: provenance ledger passed validation in PR append mode. Exact diff inventory is 11 paths: 10 behavior, test, tooling, or documentation paths plus this added ledger; no legacy shim path exists or is claimed."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "Q-0001 remains open and is not concealed: Rust Unicode-3.0 license-policy acceptance requires the owner's decision; no product implementation item is blocked.",
+    "W-001, W-002, and W-003 remain explicit: packaged desktop first-use, FR-2.5 device-class performance, and AC-6.d live kill and relaunch lack retained acceptance evidence.",
+    "AC-9.c has recursive app-file exclusion, production OsKeychain wiring, and abstraction tests, but no retained packaged round trip through a production operating-system credential store.",
+    "Near-limit ZIP and recovery responsiveness, silent annotation-persistence failure, and storage-independent portability after IndexedDB failure remain gate-report residuals rather than completed claims.",
+    "C3 SVG interaction has deterministic unit and component coverage but no dedicated production-route Chromium interaction journey beyond cross-capability routing and screenshot lanes.",
+    "C9 owns deletion of src/ui/layout/LegacyWorkbenchStatusBar.tsx and C2 owns deletion of src/ui/viewer/LegacyViewerPane.tsx; both are already absent, so this slice owns no shim deletion.",
+    "The exact original Settings-selector and ResizeObserver RED transcripts were not retained. Current generic collectors are honest regression evidence, not reconstructed historical output.",
+    "The owner similarity gate, its workflow, comparison repositories, and harness were not inspected or executed locally and are not part of this ledger's test evidence."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

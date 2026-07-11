@@ -36,26 +36,25 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Engine-selected 3D binary STL or 2D SVG render results, plus full-quality STL, 3MF, OFF, AMF, SVG, DXF, and default-camera PNG exports through the normative service boundary.
 - Concurrent native stdout/stderr streaming with one ordered event sequence, elapsed timestamps, exact raw-log reconstruction, timeout and explicit-cancellation process-tree cleanup, and idempotent Tauri job management.
 - Per-run diagnostic console history with run separators, exit state, duration and geometry metadata, severity filters, case-insensitive search, filter-independent copy-all, clear-during-run behavior, and oldest-dropped notices at the 10,000-line cap.
-- Configurable render debounce, automatic preview, in-flight supersession, separate preview/full timeouts, preview-only quality override plumbing, F5/F6 shortcuts, visible preview/full controls, and the disclosed **Preview quality** badge.
+- Configurable render debounce, automatic rendering at the configured default quality, in-flight supersession, separate preview/full timeouts, preview-only quality override plumbing, F5/F6 shortcuts, visible preview/full controls, and the disclosed **Preview quality** badge.
 - Bundled/configured/environment/PATH engine discovery and a functional missing-engine executable-path fix-it that retries discovery without blocking editing.
 - Explicit checking, unavailable, invalid-config, and ready engine-health states with deduplicated retry progress and actionable rejected-path feedback.
 - A keyboard-navigable Edit menu for the implemented find, replace, go-to-line, comment-toggle, undo, and redo commands, showing each active runtime binding.
 - Native integration coverage for real multi-file includes, imported binary STL assets, cross-file parser errors, parameter overrides, 2D bounds, ASCII STL/SVG/PNG exports, and post-timeout render recovery.
-- A complete M2 Customizer surface with structural top-level parameter extraction, stock annotation controls, grouped and hidden sections, debounced overrides, exact source rewriting, named sets, and stock OpenSCAD JSON interchange.
-- A demand-driven 3D viewer with controlled cameras, axis views, fit and projection controls, configurable mouse mapping and scene furniture, off-thread STL decoding, large-mesh degradation, point measurements, bounded per-project/file annotation persistence, last-good error presentation, and scene PNG capture.
+- A complete M2 Customizer surface with structural top-level parameter extraction, stock annotation controls, grouped/hidden sections, debounced overrides, exact source rewriting, named sets, and stock OpenSCAD JSON interchange.
+- A demand-driven 3D viewer with controlled cameras, axis views, fit and projection controls, configurable mouse mapping and scene furniture, off-thread STL decoding, large-mesh degradation, point-to-point measurements, bounded per-project/file annotation persistence, last-good error presentation, and scene PNG capture.
 - An exact 2D SVG pane with an allowlist sanitizer, engine-bounds normalization, automatic or pinned 2D/3D routing, cursor-centered pan/zoom, fit, dimensions, and millimeters-per-pixel scale.
-- Real Chromium WebGL acceptance evidence that viewport capture produces a decodable PNG dominated by the active theme background.
 - Folder-backed desktop and IndexedDB-backed web project storage with text/binary fidelity, a functional file tree, durable saves, create/rename/move/trash/reveal operations, unloaded-file navigation, external-change handling, crash recovery, and durable recent projects.
 - Full-quality 3MF, binary/ASCII STL, OFF, AMF, SVG, DXF, and PNG export with awaited artifact destinations, cancellation, and exact mesh file-size/triangle/bounds summaries.
-- Byte-preserving web project ZIP import/export and compressed URL-fragment share links that keep source out of server requests and identify the shared-source origin.
-- Functional File menu Save, Save All, New, Open Project, and Export commands, including caught failures and conservative multi-scratch persistence behavior.
-- A searchable nine-section settings surface backed by one strict, versioned, secret-free profile with immediate application, ordered durable writes, per-section restore, bounded import/export, and rollback on persistence failure.
-- Visible custom-theme JSON import, Appendix C schema and conservative opaque-sRGB contrast validation, durable selection, and live application without reloading the workbench.
-- Browser AI-key storage that is session-only by default and moves to persistent browser storage only after an explicit warning-labeled opt-in; desktop AI keys cross only the OS-keychain command boundary.
+- Byte-preserving web project ZIP import/export and compressed URL-fragment share links that keep source out of server requests and identify the shared source origin.
+- A searchable, versioned settings dialog covering all nine sections, per-section restore, strict import/export, immediate durable persistence with rollback on failure, OS-keychain desktop secrets, and warning-gated browser secret persistence.
+- Visible custom-theme import, persistence, selection, exact-schema validation, conservative opaque-sRGB validation, and the existing AA contrast audit applied before activation.
+- Real Chromium WebGL acceptance evidence that viewport capture produces a decodable PNG dominated by the active theme background.
+- Functional File menu and Appendix D Save, Save All, New, Open Project, and Export commands, including caught failures and conservative multi-scratch persistence behavior.
+- Exact runtime enforcement of the OpenSCAD 2026.06.12 engine pin, with a version-mismatch fix-it instead of silently accepting an older PATH installation.
 
 ### Changed
 
-- Replaced SVG-exporter-margin dimensions with the pinned engine's exact geometry-summary bounds for 2D presentation.
 - Replaced SVG-viewBox-derived 2D bounds with the pinned engine's machine-readable geometry summary because the 2026.06.12 SVG exporter adds presentation margins around exact model geometry.
 - Updated the native CI lane from the 2021.01 stable AppImage to the checksummed 2026.06.12 snapshot required by A-7.
 - Editor commands now report typed handled/unavailable outcomes; F12 visibly explains that go-to-definition is parked instead of recording a silent success.
@@ -66,11 +65,15 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Strengthened the component color-literal CI gate across product source to catch CSS functions and fallbacks, gradients, numeric and named colors, SVG/canvas attributes, and Three.js color forms while ignoring comments, fragments, and token references.
 - Removed the legacy CSS palette and enforced an exact repository-wide allowlist of the 64 generated Appendix C custom properties.
 - Replaced the latest-run-only console with retained streaming run history while keeping current-snapshot diagnostics as the sole source of status counts and inline editor markers.
-- Replaced the stale M0 engine-unavailable save claim with C6-accurate editing, persistence, rendering, and export status copy.
-- Web startup now degrades to the scratch editor when IndexedDB is absent or access is blocked instead of failing the application module.
+- Used the A-8-approved scoped `@openscad/tree-sitter-openscad` 0.6.1 source as an attributed MIT structural reference while retaining the independently authored generated Lezer runtime grammar and adding no second parser dependency.
+- Applied the persisted default render quality to initial and debounced automatic renders; explicit F5/F6 behavior and full-only exports remain unchanged.
+- Corrected the settings modal selector collision and moved viewer resize work out of the observed layout cycle, eliminating the real-browser layout break and ResizeObserver loop errors.
+- Changed the fresh workspace default to keep Console collapsed until a qualifying render failure opens it, preserving useful first-run viewer height and explicit persisted or user-open state.
+- Replaced the stale M0 engine-unavailable save claim with M2-accurate editing, persistence, rendering, and export status copy.
+- Web startup now degrades to the scratch editor when IndexedDB is absent or access is blocked instead of failing the entire application module.
 - Made the persisted settings profile authoritative for editor, rendering, engine path, theme, AI, keybinding, and privacy preferences, including compatibility migration from the earlier engine-path slot.
 - Pinned the desktop keychain boundary to `keyring` 4.1.4 and kept ordinary settings in a separate platform-config JSON file.
-- Used the A-8-approved scoped `@openscad/tree-sitter-openscad` 0.6.1 source as an attributed MIT structural reference while retaining the independently authored generated Lezer runtime grammar and adding no second parser dependency.
+- Added a common UTF-8 mojibake source-policy check and corrected the remaining malformed loading-copy assertion.
 
 ### Known policy block
 
@@ -79,15 +82,16 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Q-0021 parks only explicit-camera PNG exports because the pinned snapshot CLI cannot preserve Appendix A's `CameraPose.up`; default-camera PNG and all non-PNG exports continue.
 - Q-0023 asks whether the exact-date official WebAssembly archives now visible in the snapshot manifest may replace v0.6's mandated same-commit source build; M2 native work is unaffected.
 - Q-0022 asks whether Appendix A may replace its complete in-memory `rawLog: string` with a bounded/file-backed contract; live capture is bounded without truncating the normative result, but final string materialization and spill-file growth remain size-proportional.
-- Q-0024/Q-0025/Q-0026/Q-0028 isolate incompatible pinned-mode presentation, edge/face measurement topology, screenshot overlay composition, and keyboard geometry-picking semantics; the independent 2D/3D viewer behavior continues conservatively.
+- Q-0024/Q-0025/Q-0026/Q-0028 isolate incompatible pinned-viewer behavior, edge/face measurement topology, screenshot overlay composition, and keyboard geometry-picking semantics; the independent viewer behavior continues conservatively.
+- Q-0027 records the settings-export/secret contradiction; the implementation follows the stronger AC-9.c rule and never writes the secret into settings files.
 - Q-0029 parks only recent-project duplication on the M3 welcome screen.
 - Q-0030 parks only the autosave-control and multi-untitled store semantics; default-on original-scratch autosave and multi-buffer recovery remain active without overwriting additional tabs.
-- Q-0031 parks only an application-owned cross-platform destination picker; the dialog names the real browser or desktop destination and reports the saved location.
+- Q-0031 parks only an application-owned cross-platform destination picker; the dialog truthfully names the real browser or desktop destination and reports the saved location.
 - Q-0006 keeps custom-theme values conservatively limited to opaque six-digit sRGB colors until the owner defines normalization for the complete CSS color grammar.
-- Q-0027 keeps settings export aligned with the stronger AC-9.c rule: exported settings never contain the AI key.
 
 ### Known verification gaps
 
+- A live packaged-desktop first-run, render, export, and restart journey is not yet preserved as a milestone-gate artifact.
 - FR-2.5's two-million-triangle, at-least-30-fps claim on disclosed 2020-class integrated graphics remains unverified.
 - AC-6.d has automated recovery-boundary coverage but not a retained live process-kill and relaunch artifact.
-- AC-9.c has recursive app-file exclusion and an isolated keychain abstraction test, but no retained packaged-desktop round trip against a production OS credential store.
+- AC-9.c has recursive app-file exclusion and an isolated keychain abstraction test, but no retained packaged-desktop round trip against a production operating-system credential store.

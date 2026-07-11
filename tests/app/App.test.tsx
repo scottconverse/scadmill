@@ -179,7 +179,7 @@ describe("App", () => {
     );
     const app = within(view.container);
 
-    await waitFor(() => expect(app.queryByText("Checking OpenSCAD…")).not.toBeInTheDocument());
+    await waitFor(() => expect(app.queryByText(messages.checkingEngine)).not.toBeInTheDocument());
     expect(app.getAllByText(messages.engineUnavailable)).toHaveLength(2);
     expect(
       within(view.container.querySelector(".titlebar") as HTMLElement).getByRole("button", {
@@ -200,7 +200,7 @@ describe("App", () => {
     const view = render(<App engine={engine} />);
     const app = within(view.container);
 
-    await waitFor(() => expect(app.queryByText("Checking OpenSCADâ€¦")).not.toBeInTheDocument());
+    await waitFor(() => expect(app.queryByText(messages.checkingEngine)).not.toBeInTheDocument());
     expect(app.getAllByText(messages.engineUnavailable)).toHaveLength(2);
     expect(app.getAllByText(
       "OpenSCAD is unavailable. Editing and local project features remain available; rendering and model export are disabled.",

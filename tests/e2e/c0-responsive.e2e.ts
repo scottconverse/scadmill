@@ -6,6 +6,8 @@ test.describe("AC-0.c responsive workspace", () => {
   test("engages narrow mode, switches Code and Model, and prevents body overflow", async ({
     page,
   }) => {
+    const pageErrors: string[] = [];
+    page.on("pageerror", (error) => pageErrors.push(error.message));
     await page.goto("/");
 
     const frame = page.locator(".workspace-frame");
@@ -27,6 +29,7 @@ test.describe("AC-0.c responsive workspace", () => {
     await expect
       .poll(() => page.evaluate(() => document.body.scrollWidth === document.body.clientWidth))
       .toBe(true);
+    expect(pageErrors).toEqual([]);
   });
 
   test("keeps the fresh wide viewer useful until the first render error opens Console", async ({
@@ -46,6 +49,10 @@ test.describe("AC-0.c responsive workspace", () => {
   test("keeps capped viewer resizing aligned with its rendered and accessible size", async ({
     page,
   }) => {
+    const consoleErrors: string[] = [];
+    page.on("console", (message) => {
+      if (message.type() === "error") consoleErrors.push(message.text());
+    });
     await page.setViewportSize({ width: 900, height: 700 });
     await page.goto("/");
 
@@ -74,6 +81,7 @@ test.describe("AC-0.c responsive workspace", () => {
     await page.mouse.up();
     await expect.poll(async () => Math.round((await viewer.boundingBox())?.width ?? 0)).toBe(356);
     await expect(splitter).toHaveAttribute("aria-valuenow", "356");
+    expect(consoleErrors).toEqual([]);
   });
 });
 

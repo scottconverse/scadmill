@@ -51,6 +51,20 @@ describe("scanSourcePolicy", () => {
     });
   });
 
+  it("rejects common UTF-8 mojibake in shipped source strings", async () => {
+    const root = await fixtureRoot();
+    await writeFile(
+      join(root, "src", "ui", "BrokenCopy.tsx"),
+      'export const loading = "Loadingâ€¦";\n',
+    );
+
+    await expect(scanSourcePolicy(root)).resolves.toContainEqual({
+      file: "src/ui/BrokenCopy.tsx",
+      rule: "mojibake",
+      message: "Source contains a common UTF-8 mojibake sequence: â€¦.",
+    });
+  });
+
   it("applies the UI file-length cap to app composition components", async () => {
     const root = await fixtureRoot();
     await mkdir(join(root, "src", "app"), { recursive: true });

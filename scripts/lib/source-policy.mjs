@@ -5,6 +5,7 @@ import ts from "typescript";
 const UI_EXTENSIONS = new Set([".css", ".js", ".jsx", ".ts", ".tsx"]);
 const IGNORED_SOURCE_DIRECTORIES = new Set(["dist", "node_modules", "target"]);
 const SOURCE_EXTENSION = /\.[^.]+$/u;
+const MOJIBAKE = /(?:Ã.|Â.|â(?:€|€¦|‡).?|�)/u;
 const IMPORT_SOURCE = /(?:from\s+|import\s*\()\s*["']([^"']+)["']/gu;
 const CSS_COLOR_FUNCTION =
   /\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color|device-cmyk)\s*\([^)]*\)/giu;
@@ -520,6 +521,15 @@ export async function scanSourcePolicy(root) {
         file: relativePath,
         rule: "platform-boundary",
         message: `Shared UI imports a platform-specific module: ${importedPlatform}.`,
+      });
+    }
+
+    const mojibake = source.match(MOJIBAKE)?.[0];
+    if (mojibake) {
+      violations.push({
+        file: relativePath,
+        rule: "mojibake",
+        message: `Source contains a common UTF-8 mojibake sequence: ${mojibake}.`,
       });
     }
 

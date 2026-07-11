@@ -2,6 +2,15 @@
 
 Numbered questions are appended here under §2.7. Only the affected work item is parked while the remaining milestone work continues.
 
+## Queue index — 2026-07-11
+
+| State | Questions | Milestone impact |
+|---|---|---|
+| Open/actionable — policy gate | Q-0001–Q-0002 | Q-0001 blocks an all-green Rust license-policy gate; neither question blocks product implementation. |
+| Open/actionable — scoped behavior | Q-0003, Q-0005–Q-0010, Q-0013–Q-0019, Q-0021–Q-0022, Q-0024–Q-0028, Q-0030–Q-0031 | Each blocks only the item named in its **Blocked** field; no question silently blocks unrelated work. |
+| Open/historical — delivered conservatively | Q-0004, Q-0011–Q-0012, Q-0020 | M2 delivered the later capability named by each question. The owner answer still governs the historical milestone interpretation. |
+| Open/later milestone | Q-0023, Q-0029 | These park M3 WebAssembly provenance or M3 welcome-screen placement, not M2 implementation. |
+
 ## Q-0001 — Open — 2026-07-09
 
 - **Section:** §6 dependency policy; V-2 license scan
@@ -29,7 +38,7 @@ Numbered questions are appended here under §2.7. Only the affected work item is
 - **Question:** Does M1 include the user-facing control for importing a custom theme JSON file, or only the schema validator and runtime registration service, with the visible import control arriving in the M2 settings surface?
 - **Evidence:** The milestone table puts theming core in M1 and the settings capability in M2; FR-12.4 requires themes to be loadable from settings without pinning which side owns the initial control.
 - **Blocked:** Only the visible custom-theme import control. M1 theme schema validation, registration, shipped themes, OS/manual selection, and runtime switching continue.
-- **Implementation status (M2, 2026-07-10):** Visible custom-theme import is delivered under C9. This question remains open only for historical M1 ownership and blocks no current product work.
+- **Implementation status (2026-07-11):** The visible import control was delivered conservatively with C9 in M2. The owner answer still governs how this scheduling question is recorded for M1.
 
 ## Q-0005 — Open — 2026-07-09
 
@@ -79,7 +88,7 @@ Numbered questions are appended here under §2.7. Only the affected work item is
 - **Question:** Does M1 require only typed editor/keybinding defaults and runtime configuration seams, with the visible rebind/settings UI and durable preference storage arriving with C9 in M2?
 - **Evidence:** C1 requires rebindable commands and editor settings in M1, but C9 owns the settings surface and persistence in M2. A typed injected configuration boundary supports both without inventing a second settings owner.
 - **Blocked:** Only the visible editor-settings/rebinding UI and final durable adapter. Defaults, runtime application, the command bus, and unrelated editor work continue.
-- **Implementation status (M2, 2026-07-10):** The visible settings/rebinding UI and durable per-user adapters are delivered under C9. This question remains open only for historical M1 ownership.
+- **Implementation status (2026-07-11):** The visible settings/rebinding UI and durable adapters were delivered conservatively with C9 in M2. The owner answer still governs the historical M1 boundary.
 
 ## Q-0012 — Open — 2026-07-10
 
@@ -87,6 +96,7 @@ Numbered questions are appended here under §2.7. Only the affected work item is
 - **Question:** Should M1 satisfy save behavior through a `save-document` command and injected persistence port before C6 defines the project filesystem, or is AC-1.d intentionally parked until C6 lands in M2?
 - **Evidence:** AC-1.d requires the dirty indicator to clear on save in M1, while C6 owns project files in M2. An injected port can prove lifecycle behavior without pre-deciding project storage.
 - **Blocked:** Only the final save boundary and AC-1.d claim. In-memory document state, dirty tracking, command routing, and unrelated editor work continue.
+- **Implementation status (2026-07-11):** Project-backed and original-scratch save paths were delivered conservatively with C6 in M2. The owner answer still governs the historical M1 AC-1.d interpretation.
 
 ## Q-0013 — Open — 2026-07-10
 
@@ -143,6 +153,7 @@ Numbered questions are appended here under §2.7. Only the affected work item is
 - **Question:** Before C6 supplies project-file discovery and loading, should M1 diagnostic navigation activate only current or already-open source buffers, with opening an unloaded reported path completed through the C6 source port in M2, or must M1 introduce an injected read-only project-file loader solely for C8?
 - **Evidence:** The M1 document workspace and render snapshot currently contain open text buffers only. A diagnostic can safely activate any matching open project-relative path, but opening a path that is not loaded requires source bytes, document identity, and filesystem authority owned by C6; reconstructing it from an engine message would be unsafe and lossy.
 - **Blocked:** Only opening a reported file that is not already available as an open buffer. Same-file and open-cross-file diagnostic clicks, cursor movement, current-snapshot inline squiggles/gutter markers, and all unrelated M1 work continue.
+- **Implementation status (2026-07-11):** Opening an unloaded reported path through the C6 project source port was delivered conservatively in M2. The owner answer still governs the historical M1 boundary.
 
 ## Q-0021 — Open — 2026-07-10
 
@@ -186,9 +197,37 @@ Numbered questions are appended here under §2.7. Only the affected work item is
 - **Evidence:** Canvas capture preserves the exact rendered scene and theme background; composing DOM overlays requires a separately specified rasterization/layout pipeline and can produce platform-dependent typography.
 - **Blocked:** Only overlay composition in screenshots. Scene capture, PNG validation, desktop save, and web download continue. MCP exposure remains C11 scope and is not claimed at M2.
 
+## Q-0027 — Open — 2026-07-10
+
+- **Section:** FR-9.3, FR-9.4; AC-9.b, AC-9.c
+- **Question:** Should settings export explicitly exclude AI secrets?
+- **Evidence:** AC-9.b says an exported file reproduces all values, while AC-9.c requires an AI key to be absent from every file the application writes. Including the key would violate the stronger security requirement.
+- **Blocked:** Only an owner-confirmed description of the export contents. The implementation excludes secrets from the versioned settings schema and stores them solely through the platform secret store.
+
 ## Q-0028 — Open — 2026-07-10
 
 - **Section:** N-3; FR-2.6; FR-2.7
 - **Question:** What keyboard-only interaction is accepted for selecting arbitrary model points, edges, and faces: crosshair navigation, coordinate entry, a feature list, or another mechanism?
 - **Evidence:** Keyboard camera controls and accessible measurement/annotation lists do not by themselves define how a keyboard user selects an arbitrary location in a canvas.
 - **Blocked:** Only final keyboard geometry-picking acceptance. Keyboard navigation, labeled results, deletion, and pointer picking continue.
+
+## Q-0029 — Open — 2026-07-10
+
+- **Section:** FR-6.5 recent files/projects; C14 welcome surface; §8 milestone table
+- **Question:** Is FR-6.5's recent-project list on the welcome screen intentionally split across milestones, with the durable list and file-workflow access delivered in M2 and its duplicate presentation on the C14 welcome screen delivered in M3?
+- **Evidence:** C6 is assigned to M2 and requires the recent list on both the welcome screen and file menu, while the welcome surface that owns that placement is assigned in full to M3. Pulling C14 into M2 would contradict the capability sequence; omitting every M2 access point would make the C6 list unreachable.
+- **Blocked:** Only the welcome-screen placement. M2 continues with a durable recent-project list reachable through the Files/file workflow; C14 can consume the same persistence port in M3 without changing its data or behavior.
+
+## Q-0030 — Open — 2026-07-10
+
+- **Section:** FR-6.3; FR-6.7; C6 scratch autosave
+- **Question:** Does “Autosave (optional, default on for the scratch document)” require a user-facing on/off preference, and if so is that preference global or per scratch session? When several untitled tabs are open, must the autosave store restore all of them, or only the original scratch document while crash recovery remains responsible for every unsaved buffer?
+- **Evidence:** The implemented scratch store is a durable single-document slot and is enabled by default. It never overwrites that slot with an additional untitled tab or marks an unretained tab saved; additional dirty buffers remain dirty and are captured by the separate multi-buffer recovery mechanism. The requirement defines neither a control surface nor multi-tab scratch-store semantics.
+- **Blocked:** Only the autosave preference UI and any expansion of the single-document scratch store. Default-on autosave for the original scratch document, truthful additional-tab warnings, exact multi-buffer crash recovery, and unrelated work continue.
+
+## Q-0031 — Open — 2026-07-10
+
+- **Section:** FR-6.4; FR-13 platform dialogs; C6 export dialog
+- **Question:** Does the Export dialog's “destination” require an application-owned location picker before every export, or may it identify the actual platform destination while the browser download UI or desktop Downloads folder performs the final placement?
+- **Evidence:** Web browsers control whether a download prompt appears and do not reliably reveal the chosen filesystem path. The current dialog names “Browser downloads” or the desktop Downloads folder before export and reports the durable artifact location after saving, but it does not invent a selectable path that the platform cannot honor uniformly.
+- **Blocked:** Only application-owned destination selection and its cross-platform acceptance claim. Real full-quality export, actual platform saving, format choice, completion location, mesh facts, and unrelated work continue.
