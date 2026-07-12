@@ -6,6 +6,9 @@ import {
   reduceParameterState,
 } from "../../../src/application/parameters/parameter-state";
 
+const sparseSetVector = [6, 7, 8, 9, 10, 11];
+delete sparseSetVector[2];
+
 describe("per-document customizer state", () => {
   it("edits, saves, and reapplies a six-component vector as one exact value", () => {
     let state = createParameterState([{
@@ -171,6 +174,25 @@ describe("per-document customizer state", () => {
       .toEqual(JSON.parse(
         '{"parameterSets":{"Imported":{"pose":"[6, 7, 8, 9, 10, 11]","width":"12","__proto__":"[1, 2, 3, 4, 5, 6]"}},"fileFormatVersion":"1"}',
       ));
+  });
+
+  it.each([
+    ["a sparse vector", sparseSetVector],
+    ["a non-finite vector", [6, 7, 8, 9, 10, Number.POSITIVE_INFINITY]],
+    ["a non-finite scalar", Number.NaN],
+  ] as const)("rejects a runtime replace-sets action containing %s", (_caseName, invalidValue) => {
+    const state = createParameterState([{
+      documentId: "doc-a",
+      revision: 0,
+      source: "pose = [0, 1, 2, 3, 4, 5]; cube(1);",
+    }]);
+
+    expect(() => reduceParameterState(state, {
+      kind: "replace-sets",
+      documentId: "doc-a",
+      sets: [{ name: "Invalid", values: { pose: invalidValue } }],
+    })).toThrow(/valid parameter value/i);
+    expect(parameterDocument(state, "doc-a").sets).toEqual([]);
   });
 
   it("keeps forward-compatible set data and safely ignores stale members after a source edit", () => {

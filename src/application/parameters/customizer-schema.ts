@@ -33,7 +33,7 @@ export interface CustomizerParameter {
   readonly componentRanges?: readonly SourceRange[];
 }
 
-function isDenseFiniteNumberVector(value: readonly number[]): boolean {
+function isDenseFiniteNumberVector(value: readonly unknown[]): value is readonly number[] {
   if (value.length === 0) return false;
   for (let index = 0; index < value.length; index += 1) {
     if (
@@ -43,6 +43,15 @@ function isDenseFiniteNumberVector(value: readonly number[]): boolean {
     ) return false;
   }
   return true;
+}
+
+function isParameterValue(value: unknown): value is ParameterValue {
+  return (
+    typeof value === "boolean"
+    || typeof value === "string"
+    || (typeof value === "number" && Number.isFinite(value))
+    || (Array.isArray(value) && isDenseFiniteNumberVector(value))
+  );
 }
 
 export function isParameterValueCompatible(
@@ -62,6 +71,11 @@ export function isParameterValueCompatible(
 }
 
 export function cloneParameterValue(value: ParameterValue): ParameterValue {
+  if (!isParameterValue(value)) {
+    throw new TypeError(
+      "Invalid parameter value: expected a finite scalar or non-empty dense vector of finite numbers.",
+    );
+  }
   return Array.isArray(value) ? [...value] : value;
 }
 
