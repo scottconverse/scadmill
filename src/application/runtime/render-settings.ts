@@ -21,6 +21,10 @@ export interface RenderingSettings {
 
 export type EditorSettings = EditorPreferences;
 
+export type SettingsPersistenceStatus =
+  | { readonly status: "ready" }
+  | { readonly status: "load-error"; readonly reason: "read-error" | "invalid-data" };
+
 export const DEFAULT_EDITOR_SETTINGS: Readonly<EditorSettings> = Object.freeze(
   defaultPersistedSettings().editor,
 );
@@ -31,11 +35,13 @@ export interface SettingsState extends RenderingSettings {
   editor: Readonly<EditorSettings>;
   keybindings: KeybindingSettings;
   profile: PersistedSettings;
+  persistenceStatus: SettingsPersistenceStatus;
 }
 
 export function settingsStateFromProfile(
   profile: PersistedSettings,
   engineAvailable = false,
+  persistenceStatus: SettingsPersistenceStatus = { status: "ready" },
 ): SettingsState {
   return {
     profile,
@@ -49,6 +55,7 @@ export function settingsStateFromProfile(
     previewTimeoutMs: profile.rendering.previewTimeoutMs,
     fullTimeoutMs: profile.rendering.fullTimeoutMs,
     previewFacetLimit: profile.rendering.previewFacetLimit,
+    persistenceStatus,
   };
 }
 

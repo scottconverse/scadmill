@@ -241,6 +241,8 @@ export const messages = {
   exportSettings: "Export settings",
   importSettings: "Import settings JSON",
   settingsImportFailed: "The settings file was rejected; current settings were not changed.",
+  settingsLoadFailed:
+    "Saved settings could not be read safely. Defaults are in use, and settings changes are blocked to protect the existing file.",
   settingsSaveFailed: "The setting could not be saved, so the last durable value was restored.",
   restoreSectionDefaults: (section: string) => `Restore ${section.toLowerCase()} defaults`,
   restoreDefaults: "Restore defaults",

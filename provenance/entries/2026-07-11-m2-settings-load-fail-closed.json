@@ -1,0 +1,131 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-m2-settings-load-fail-closed",
+  "createdAt": "2026-07-11T18:05:18-06:00",
+  "summary": "Close the C9 silent-settings-loss finding by distinguishing missing, loaded, and failed settings reads; retaining unreadable or malformed load state in the runtime; and blocking all durable settings mutations before they can replace unknown bytes.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 test-first evidence and milestone gates",
+    "FR-9.2 durable settings persistence",
+    "AC-9.a settings persistence",
+    "N-2 reliability",
+    "N-7 UI honesty"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-11-m2-settings-load-fail-closed.json", "status": "added" },
+    { "path": "src/app/App.tsx", "status": "modified" },
+    { "path": "src/application/runtime/render-settings.ts", "status": "modified" },
+    { "path": "src/application/runtime/workbench-runtime.ts", "status": "modified" },
+    { "path": "src/application/settings/settings-persistence.ts", "status": "modified" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/platform-desktop/tauri-settings-persistence.ts", "status": "modified" },
+    { "path": "src/platform-web/browser-settings-persistence.ts", "status": "modified" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/WorkbenchBanners.tsx", "status": "added" },
+    { "path": "src/ui/settings/SettingsDialog.tsx", "status": "modified" },
+    { "path": "src/ui/settings/SettingsLauncher.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/ViewerPaneConnector.tsx", "status": "modified" },
+    { "path": "src/ui/workbench.css", "status": "modified" },
+    { "path": "tests/app/App.test.tsx", "status": "modified" },
+    { "path": "tests/application/runtime/workbench-runtime-settings.test.ts", "status": "modified" },
+    { "path": "tests/platform-desktop/tauri-settings-persistence.test.ts", "status": "modified" },
+    { "path": "tests/platform-web/browser-settings-persistence.test.ts", "status": "modified" },
+    { "path": "tests/ui/settings/SettingsLauncher.test.tsx", "status": "modified" },
+    { "path": "tests/ui/viewer/ViewerPaneConnector.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0209",
+      "topic": "Fail-closed settings load authority",
+      "decision": "Make SettingsPersistence.load return an explicit missing, loaded, or error result. Latch adapter read errors and runtime parse failures as a typed SettingsState load-error, keep the application usable on validated defaults, show a catalog-owned warning in a dedicated responsive banner and the settings dialog, and reject every persistence-backed settings mutation before in-memory state, command history, or save is touched. Guard the settings-coupled AI secret-location toggle and AI-section restore before either can move or clear a secret. Missing settings remain writable, and valid optimistic-write rollback remains unchanged.",
+      "rationale": "Treating an unreadable or malformed durable file as missing made the next ordinary edit capable of overwriting settings that ScadMill had never safely loaded. Distinguishing absence from ambiguity and failing closed preserves the user's exact durable bytes while keeping editing and non-settings work available.",
+      "specBasis": ["FR-9.2", "AC-9.a", "N-2", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Browser, desktop, runtime, launcher, and App boundaries distinguish read failure from absence and preserve unknown durable bytes",
+      "test": "Simulate transient browser and Tauri read rejection plus malformed durable JSON. Require explicit error outcomes, default-backed usable runtime state, an immediate catalog-owned alert, rejection of replace/restore/theme/auto-render mutations, unchanged settings and history, and zero browser setItem, Tauri save_settings, or runtime save calls.",
+      "red": {
+        "command": ".\\node_modules\\.bin\\vitest.cmd run tests/platform-web/browser-settings-persistence.test.ts tests/platform-desktop/tauri-settings-persistence.test.ts tests/application/runtime/workbench-runtime-settings.test.ts tests/ui/settings/SettingsLauncher.test.tsx tests/app/App.test.tsx",
+        "observedAt": "2026-07-11T17:55:36-06:00",
+        "outcome": "ASSERTION-LEVEL RED: Test Files 5 failed (5); Tests 5 failed and 31 passed. Browser and Tauri read failures returned null, malformed JSON retained no persistenceStatus, and neither SettingsLauncher nor App exposed an alert."
+      },
+      "green": {
+        "command": ".\\node_modules\\.bin\\vitest.cmd run tests/platform-web/browser-settings-persistence.test.ts tests/platform-desktop/tauri-settings-persistence.test.ts tests/application/runtime/workbench-runtime-settings.test.ts tests/ui/settings/SettingsLauncher.test.tsx tests/app/App.test.tsx",
+        "observedAt": "2026-07-11T17:58:47-06:00",
+        "outcome": "GREEN: Test Files 5 passed (5); Tests 36 passed (36); Duration 6.98s. No failures, errors, skips, or warnings were emitted."
+      }
+    },
+    {
+      "criterion": "Every non-dialog settings caller handles the intentional fail-closed rejection",
+      "test": "Trigger the always-visible status-bar theme control against a transient settings read failure and require the controlled selection to remain at its durable default with no write and no unhandled rejection. Audit the legacy engine migration, engine-path fix-it, status theme, title-bar auto-render, and viewer furniture/projection callers.",
+      "red": {
+        "command": ".\\node_modules\\.bin\\vitest.cmd run tests/platform-web/browser-settings-persistence.test.ts tests/platform-desktop/tauri-settings-persistence.test.ts tests/application/runtime/workbench-runtime-settings.test.ts tests/ui/settings/SettingsLauncher.test.tsx tests/app/App.test.tsx",
+        "observedAt": "2026-07-11T17:57:56-06:00",
+        "outcome": "BEHAVIORAL RED AFTER THE FIRST FIX: all 36 assertions passed, but Vitest exited 1 after catching one unhandled rejection from App's status-bar set-theme dispatch: `Settings were not loaded safely; existing settings were not changed.`"
+      },
+      "green": {
+        "command": ".\\node_modules\\.bin\\vitest.cmd run tests/application/settings tests/application/runtime/workbench-runtime-settings.test.ts tests/application/runtime/render-settings.test.ts tests/platform-web/browser-settings-persistence.test.ts tests/platform-desktop/tauri-settings-persistence.test.ts tests/platform-desktop/tauri-secret-store.test.ts tests/ui/settings tests/ui/editor/CodeEditor.settings.test.tsx tests/ui/Workbench.editor-settings.test.tsx tests/ui/Workbench.test.tsx tests/ui/viewer/ViewerPaneConnector.test.tsx tests/app/App.test.tsx",
+        "observedAt": "2026-07-11T18:13:59-06:00",
+        "outcome": "GREEN widened run: Test Files 13 passed (13); Tests 104 passed (104); Duration 6.12s. No unhandled errors, failures, skips, or warnings were emitted."
+      }
+    },
+    {
+      "criterion": "The viewer projection settings path cannot leak a secondary viewer-memory or history mutation after fail-closed rejection",
+      "test": "Send a persisted projection change through ViewerPaneConnector while malformed settings are latched. Require settings, raw viewer state, command history, and durable storage all to remain untouched; sequence the ordinary viewer update only after the settings command succeeds.",
+      "red": {
+        "command": ".\\node_modules\\.bin\\vitest.cmd run tests/ui/viewer/ViewerPaneConnector.test.tsx",
+        "observedAt": "2026-07-11T18:07:19-06:00",
+        "outcome": "ASSERTION-LEVEL RED: Test Files 1 failed (1); Tests 1 failed and 4 passed. Although the settings profile stayed at perspective, the connector still installed an orthographic raw viewer document and recorded the secondary viewer command."
+      },
+      "green": {
+        "command": ".\\node_modules\\.bin\\vitest.cmd run tests/ui/viewer/ViewerPaneConnector.test.tsx",
+        "observedAt": "2026-07-11T18:07:34-06:00",
+        "outcome": "GREEN: Test Files 1 passed (1); Tests 5 passed (5); Duration 1.09s. No failures, errors, skips, or warnings were emitted."
+      }
+    },
+    {
+      "criterion": "Fail-closed settings guard runs before settings-coupled AI secret side effects",
+      "test": "Open the real SettingsLauncher on malformed durable settings with an existing browser secret, then attempt both the persist-location toggle and Restore AI defaults. Require the persistence-location control and AI restore to be disabled and guarded, with zero secret save/clear, zero settings save, and unchanged SettingsState and history.",
+      "red": {
+        "command": ".\\node_modules\\.bin\\vitest.cmd run tests/ui/settings/SettingsLauncher.test.tsx",
+        "observedAt": "2026-07-11T18:11:37-06:00",
+        "outcome": "ASSERTION-LEVEL RED FROM INDEPENDENT REVIEW: Test Files 1 failed (1); Tests 1 failed and 3 passed. Clicking the persist-location control invoked secretStore.save(existing-key, true) before the runtime could reject the locked settings commit. The same pre-guard restore path could clear the secret without rollback."
+      },
+      "green": {
+        "command": ".\\node_modules\\.bin\\vitest.cmd run tests/ui/settings/SettingsLauncher.test.tsx tests/ui/settings/SettingsDialog.test.tsx",
+        "observedAt": "2026-07-11T18:13:47-06:00",
+        "outcome": "GREEN: Test Files 2 passed (2); Tests 19 passed (19); Duration 1.88s. The coupled controls are disabled and guarded under load-error, while existing writable secret migration and rollback tests remain green."
+      }
+    },
+    {
+      "criterion": "C9 responsive presentation, desktop file boundary, type, lint, source-policy, and production build remain green",
+      "test": "Run the C9 real-browser layout flow at desktop and 320/390-pixel viewports, the desktop settings-file Rust tests, TypeScript no-emit, repository lint/source policy, and a production Vite build after moving stacked alerts into their own auto-sized grid row.",
+      "red": {
+        "command": ".\\node_modules\\.bin\\biome.cmd lint src tests scripts vite.config.ts playwright.config.ts; node scripts/check-source-policy.mjs",
+        "observedAt": "2026-07-11T18:01:00-06:00",
+        "outcome": "POLICY RED DURING REFACTOR: Biome checked 303 files without lint findings, then source policy rejected src/ui/Workbench.tsx at 413 physical lines against the 400-line maximum. The banner composition was extracted before the final run."
+      },
+      "green": {
+        "command": ".\\node_modules\\.bin\\playwright.cmd test tests/e2e/c9-settings-layout.e2e.ts --workers=1 --retries=0\ncargo test --locked --manifest-path src/desktop-shell/src-tauri/Cargo.toml desktop_settings\n.\\node_modules\\.bin\\tsc.cmd --noEmit\n.\\node_modules\\.bin\\biome.cmd lint src tests scripts vite.config.ts playwright.config.ts; node scripts/check-source-policy.mjs\n.\\node_modules\\.bin\\vite.cmd build",
+        "observedAt": "2026-07-11T18:15:14-06:00",
+        "outcome": "GREEN: Playwright passed 2 tests in 4.7s; desktop Rust passed 4 tests with 24 filtered out and zero failures; TypeScript no-emit exited 0; Biome checked 304 files in 155ms with no fixes and source policy passed; Vite transformed 184 modules and built in 335ms. Cargo reported only a transient build-directory lock wait before compiling; no product-test warning or failure occurred."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "No owner similarity gate, comparison repository, similarity workflow content, M3 work, installer work, or prohibited source was opened, executed, or modified."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

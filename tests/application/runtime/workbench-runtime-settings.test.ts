@@ -15,7 +15,11 @@ const engine: EngineService = {
 function memoryPersistence(): SettingsPersistence & { value: string | null } {
   return {
     value: null,
-    load() { return this.value; },
+    load() {
+      return this.value === null
+        ? { kind: "missing" as const }
+        : { kind: "loaded" as const, serializedSettings: this.value };
+    },
     save(value) { this.value = value; },
   };
 }
@@ -31,10 +35,53 @@ function deferred() {
 }
 
 describe("runtime settings persistence", () => {
+  it("keeps malformed durable settings visible and blocks every persisted mutation", async () => {
+    const save = vi.fn();
+    const runtime = createWorkbenchRuntime(engine, {
+      settingsPersistence: {
+        load: () => ({ kind: "loaded", serializedSettings: "{malformed" }),
+        save,
+      },
+    });
+    const before = runtime.settings.getState();
+
+    expect(before.persistenceStatus).toEqual({
+      status: "load-error",
+      reason: "invalid-data",
+    });
+    await expect(runtime.dispatch({
+      kind: "replace-settings",
+      origin: "user",
+      settings: {
+        ...before.profile,
+        editor: { ...before.profile.editor, fontSize: 18 },
+      },
+    })).rejects.toThrow("not loaded safely");
+    await expect(runtime.dispatch({
+      kind: "restore-settings-section",
+      origin: "user",
+      section: "editor",
+    })).rejects.toThrow("not loaded safely");
+    await expect(runtime.dispatch({
+      kind: "set-theme",
+      origin: "user",
+      theme: "high-contrast",
+    })).rejects.toThrow("not loaded safely");
+    await expect(runtime.dispatch({
+      kind: "set-auto-render",
+      origin: "user",
+      enabled: !before.autoRender,
+    })).rejects.toThrow("not loaded safely");
+
+    expect(runtime.settings.getState()).toEqual(before);
+    expect(runtime.history.getState()).toEqual([]);
+    expect(save).not.toHaveBeenCalled();
+  });
+
   it("writes each accepted settings profile exactly once", async () => {
     const save = vi.fn();
     const runtime = createWorkbenchRuntime(engine, {
-      settingsPersistence: { load: () => null, save },
+      settingsPersistence: { load: () => ({ kind: "missing" }), save },
     });
 
     await runtime.dispatch({
@@ -139,7 +186,7 @@ describe("runtime settings persistence", () => {
 
   it("rolls back an immediately applied profile when durable persistence rejects", async () => {
     const persistence: SettingsPersistence = {
-      load: () => null,
+      load: () => ({ kind: "missing" }),
       save: async () => {
         throw new Error("disk full");
       },
@@ -166,7 +213,7 @@ describe("runtime settings persistence", () => {
     const secondWrite = deferred();
     const writes = [firstWrite, secondWrite];
     const persistence: SettingsPersistence = {
-      load: () => null,
+      load: () => ({ kind: "missing" }),
       save: () => writes.shift()?.promise ?? Promise.resolve(),
     };
     const runtime = createWorkbenchRuntime(engine, { settingsPersistence: persistence });
@@ -202,7 +249,7 @@ describe("runtime settings persistence", () => {
   it("does not complete a settings command before desktop persistence finishes", async () => {
     const write = deferred();
     const persistence: SettingsPersistence = {
-      load: () => null,
+      load: () => ({ kind: "missing" }),
       save: () => write.promise,
     };
     const runtime = createWorkbenchRuntime(engine, { settingsPersistence: persistence });

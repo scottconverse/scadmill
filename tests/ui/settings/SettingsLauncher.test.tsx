@@ -17,10 +17,71 @@ const engine: EngineService = {
 };
 
 describe("SettingsLauncher", () => {
+  it("shows a malformed durable-settings error before the user attempts an edit", () => {
+    const runtime = createWorkbenchRuntime(engine, {
+      settingsPersistence: {
+        load: () => ({ kind: "loaded", serializedSettings: "{malformed" }),
+        save: vi.fn(),
+      },
+    });
+    const view = render(
+      <SettingsLauncher
+        engineLabel="OpenSCAD 2026.06.12"
+        runtime={runtime}
+        secretStore={EPHEMERAL_SECRET_STORE}
+      />,
+    );
+
+    fireEvent.click(view.getByRole("button", { name: messages.openSettings }));
+    expect(view.getByRole("alert")).toHaveTextContent(messages.settingsLoadFailed);
+  });
+
+  it("blocks AI persistence side effects when durable settings were not loaded safely", async () => {
+    const settingsSave = vi.fn();
+    const secretSave = vi.fn().mockResolvedValue(undefined);
+    const secretClear = vi.fn().mockResolvedValue(undefined);
+    const runtime = createWorkbenchRuntime(engine, {
+      settingsPersistence: {
+        load: () => ({ kind: "loaded", serializedSettings: "{malformed" }),
+        save: settingsSave,
+      },
+    });
+    const view = render(
+      <SettingsLauncher
+        engineLabel="OpenSCAD 2026.06.12"
+        runtime={runtime}
+        secretStore={{
+          persistence: "web-session",
+          load: vi.fn().mockResolvedValue("existing-key"),
+          save: secretSave,
+          clear: secretClear,
+        }}
+      />,
+    );
+    const before = runtime.settings.getState();
+
+    fireEvent.click(view.getByRole("button", { name: messages.openSettings }));
+    await view.findByDisplayValue("existing-key");
+    const persistenceToggle = view.getByLabelText(messages.persistWebSecret);
+    const restoreAi = view.getByRole("button", { name: messages.restoreSectionDefaults("ai") });
+    expect(persistenceToggle).toBeDisabled();
+    expect(restoreAi).toBeDisabled();
+    fireEvent.click(persistenceToggle);
+    fireEvent.click(restoreAi);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(secretSave).not.toHaveBeenCalled();
+    expect(secretClear).not.toHaveBeenCalled();
+    expect(settingsSave).not.toHaveBeenCalled();
+    expect(runtime.settings.getState()).toEqual(before);
+    expect(runtime.history.getState()).toEqual([]);
+  });
+
   it("shows a durable-write failure after the optimistic setting rolls back", async () => {
     const runtime = createWorkbenchRuntime(engine, {
       settingsPersistence: {
-        load: () => null,
+        load: () => ({ kind: "missing" }),
         save: () => Promise.reject(new Error("disk full")),
       },
     });
@@ -50,7 +111,7 @@ describe("SettingsLauncher", () => {
     };
     const runtime = createWorkbenchRuntime(engine, {
       settingsPersistence: {
-        load: () => null,
+        load: () => ({ kind: "missing" }),
         save: () => Promise.reject(new Error("disk full")),
       },
     });

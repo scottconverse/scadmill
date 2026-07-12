@@ -12,7 +12,7 @@ import { DocumentTabBar, documentTabId } from "./editor/DocumentTabBar";
 import { useProjectCompletionContext } from "./editor/use-project-completion-context";
 import { useDocumentKeybindings } from "./editor/use-document-keybindings";
 import { useEditorCommandCoordinator } from "./editor/use-editor-command-coordinator";
-import { type EngineRecoveryState, EngineUnavailableBanner } from "./engine/EngineUnavailableBanner";
+import type { EngineRecoveryState } from "./engine/EngineUnavailableBanner";
 import { FilesActivity } from "./files/FilesActivity";
 import type { ProjectOpenRequest } from "./files/ProjectLifecycleControls";
 import { ProjectSessionHost } from "./files/ProjectSessionHost";
@@ -30,9 +30,9 @@ import { useReadonlyStore } from "./use-readonly-store";
 import { resolveActiveViewerPresentation } from "./viewer/active-viewer-presentation";
 import { ViewerPaneConnector } from "./viewer/ViewerPaneConnector";
 import type { WorkbenchProps } from "./workbench-props";
+import { WorkbenchBanners } from "./WorkbenchBanners";
 import { diagnosticStatusLabel, renderStatusLabel } from "./workbench-status";
 import "./workbench.css";
-
 const CodeEditor = lazy(() => import("./editor/CodeEditor").then((module) => ({ default: module.CodeEditor })));
 export function Workbench({
   runtime,
@@ -62,6 +62,7 @@ export function Workbench({
   const autoRender = useReadonlyStore(runtime.settings, (state) => state.autoRender);
   const editorSettings = useReadonlyStore(runtime.settings, (state) => state.editor);
   const keybindings = useReadonlyStore(runtime.settings, (state) => state.keybindings);
+  const settingsPersistenceStatus = useReadonlyStore(runtime.settings, (state) => state.persistenceStatus);
   const layout = useReadonlyStore(runtime.layout, (state) => state);
   const viewerState = useReadonlyStore(runtime.viewer, (state) => state);
   const parameterState = useReadonlyStore(runtime.parameters, (state) => state);
@@ -345,22 +346,21 @@ export function Workbench({
           renderDisabled={!engineAvailable || render.status === "rendering"}
           rendering={render.status === "rendering"}
           onAutoRenderChange={(enabled) =>
-            void runtime.dispatch({ kind: "set-auto-render", origin: "user", enabled })}
+            void runtime
+              .dispatch({ kind: "set-auto-render", origin: "user", enabled })
+              .catch(() => undefined)}
           onRenderFull={renderFull}
           onRenderPreview={renderPreview}
         />
       </header>
-
-      {!engineAvailable && onConfigureEnginePath && effectiveEngineRecovery && (
-        <EngineUnavailableBanner
-          configuredPath={configuredEnginePath}
-          state={effectiveEngineRecovery}
-          onSave={onConfigureEnginePath}
-        />
-      )}
-      {!engineAvailable && !engineChecking && !onConfigureEnginePath && (
-        <div className="engine-banner" role="status">{messages.engineUnavailable}</div>
-      )}
+      <WorkbenchBanners
+        configuredEnginePath={configuredEnginePath}
+        engineAvailable={engineAvailable}
+        engineChecking={engineChecking}
+        engineRecovery={effectiveEngineRecovery}
+        settingsLoadError={settingsPersistenceStatus.status === "load-error"}
+        onConfigureEnginePath={onConfigureEnginePath}
+      />
 
       <WorkspaceFrame
         activityContent={{

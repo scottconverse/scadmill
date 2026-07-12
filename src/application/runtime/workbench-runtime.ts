@@ -29,7 +29,10 @@ import {
   restoreSettingsSection,
   serializePersistedSettings,
 } from "../settings/settings-codec";
-import { EPHEMERAL_SETTINGS_PERSISTENCE } from "../settings/settings-persistence";
+import {
+  EPHEMERAL_SETTINGS_PERSISTENCE,
+  type SettingsPersistence,
+} from "../settings/settings-persistence";
 import {
   parseWorkspaceLayout,
   reduceWorkspaceLayout,
@@ -62,6 +65,7 @@ import { sameLayout } from "./same-layout";
 import {
   createSettingsState,
   type SettingsState,
+  type SettingsPersistenceStatus,
   settingsStateFromProfile,
 } from "./render-settings";
 import {
@@ -107,12 +111,20 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     options.workspaceMetadataPersistence ?? EPHEMERAL_WORKSPACE_METADATA_PERSISTENCE,
   );
   let persistedSettings = createDefaultPersistedSettings();
-  const serializedSettings = settingsPersistence.load();
-  if (serializedSettings !== null) {
+  let settingsPersistenceStatus: SettingsPersistenceStatus = { status: "ready" };
+  let loadedSettings: ReturnType<SettingsPersistence["load"]>;
+  try {
+    loadedSettings = settingsPersistence.load();
+  } catch {
+    loadedSettings = { kind: "error" };
+  }
+  if (loadedSettings.kind === "error") {
+    settingsPersistenceStatus = { status: "load-error", reason: "read-error" };
+  } else if (loadedSettings.kind === "loaded") {
     try {
-      persistedSettings = parsePersistedSettings(serializedSettings);
+      persistedSettings = parsePersistedSettings(loadedSettings.serializedSettings);
     } catch {
-      persistedSettings = createDefaultPersistedSettings();
+      settingsPersistenceStatus = { status: "load-error", reason: "invalid-data" };
     }
   }
   let durableSettingsProfile = persistedSettings;
@@ -145,7 +157,11 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
   );
   const render = createStore<RenderState>(() => ({ status: "idle" }));
   const settings = createStore<SettingsState>(() =>
-    createSettingsState(options.rendering, options.keybindings, persistedSettings)
+    settingsStateFromProfile(
+      createSettingsState(options.rendering, options.keybindings, persistedSettings).profile,
+      false,
+      settingsPersistenceStatus,
+    )
   );
   const runConsole = createStore<ConsoleState>(() => createConsoleState());
   const annotationPersistence = createStore(() => annotationRepository.state());
@@ -220,10 +236,16 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
   }
 
   async function replaceSettingsProfile(profile: SettingsState["profile"]): Promise<void> {
+    if (settingsPersistenceStatus.status === "load-error") {
+      throw new Error("Settings were not loaded safely; existing settings were not changed.");
+    }
     const serialized = serializePersistedSettings(profile);
     const validated = parsePersistedSettings(serialized);
     const current = settings.getState();
-    settings.setState(settingsStateFromProfile(validated, current.engineAvailable), true);
+    settings.setState(
+      settingsStateFromProfile(validated, current.engineAvailable, current.persistenceStatus),
+      true,
+    );
     const save = settingsSaveTail.then(async () => {
       await settingsPersistence.save(serialized);
       durableSettingsProfile = validated;
@@ -235,7 +257,11 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       const latest = settings.getState();
       if (latest.profile === validated) {
         settings.setState(
-          settingsStateFromProfile(durableSettingsProfile, latest.engineAvailable),
+          settingsStateFromProfile(
+            durableSettingsProfile,
+            latest.engineAvailable,
+            latest.persistenceStatus,
+          ),
           true,
         );
       }

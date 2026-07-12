@@ -146,7 +146,7 @@ export function App({
           ...runtime.settings.getState().profile,
           engine: { executablePath: legacyEnginePath.current },
         },
-      });
+      }).catch(() => undefined);
       return;
     }
     if (mirroredEnginePath.current !== configuredEnginePath) {
@@ -283,11 +283,13 @@ export function App({
                 ...runtime.settings.getState().profile,
                 engine: { executablePath: path },
               },
-            });
+            }).catch(() => undefined);
           }
         : undefined}
       onThemePreferenceChange={(theme) =>
-        void runtime.dispatch({ kind: "set-theme", origin: "user", theme })
+        void runtime
+          .dispatch({ kind: "set-theme", origin: "user", theme })
+          .catch(() => undefined)
       }
     />
   );

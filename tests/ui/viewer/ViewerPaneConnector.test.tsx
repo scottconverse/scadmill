@@ -137,6 +137,51 @@ it("uses C9 viewer preferences as the live projection, furniture, mouse, and col
   await waitFor(() => expect(runtime.settings.getState().profile.viewer.projection).toBe("perspective"));
 });
 
+it("does not mutate viewer memory or history when a persisted projection change is blocked", async () => {
+  const save = vi.fn();
+  const engine: EngineService = {
+    render: vi.fn(),
+    export: vi.fn(),
+    version: vi.fn(),
+    cancel: vi.fn(),
+  };
+  const runtime = createWorkbenchRuntime(engine, {
+    settingsPersistence: {
+      load: () => ({ kind: "loaded", serializedSettings: "{malformed" }),
+      save,
+    },
+  });
+  const initialViewer = viewerDocument(createViewerState(), "doc");
+  render(
+    <ViewerPaneConnector
+      colors={colors}
+      dimmed={false}
+      documentId="doc"
+      maximized={false}
+      narrow={false}
+      renderStatus="idle"
+      runtime={runtime}
+      viewer={initialViewer}
+      onLayoutAction={vi.fn()}
+      onShowConsole={vi.fn()}
+    />,
+  );
+
+  await act(async () => {
+    (paneProps.onViewerAction as (action: unknown) => void)({
+      kind: "set-camera",
+      documentId: "doc",
+      camera: { ...initialViewer.camera, projection: "orthographic" },
+    });
+    await Promise.resolve();
+  });
+
+  expect(runtime.settings.getState().profile.viewer.projection).toBe("perspective");
+  expect(runtime.viewer.getState().documents.get("doc")).toBeUndefined();
+  expect(runtime.history.getState()).toEqual([]);
+  expect(save).not.toHaveBeenCalled();
+});
+
 it("saves a captured PNG through the configured artifact destination", async () => {
   const save = vi.fn().mockResolvedValue({ location: "cube.png" });
   const engine: EngineService = {

@@ -23,6 +23,10 @@ export function SettingsLauncher({ engineLabel, runtime, secretStore }: Settings
   const returnFocus = useRef<HTMLElement | null>(null);
   const persistenceRequest = useRef(0);
   const profile = useReadonlyStore(runtime.settings, (state) => state.profile);
+  const persistenceStatus = useReadonlyStore(
+    runtime.settings,
+    (state) => state.persistenceStatus,
+  );
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!matchesKeybinding(event, profile.keybindings.settings, primaryModifierForPlatform())) {
@@ -62,7 +66,10 @@ export function SettingsLauncher({ engineLabel, runtime, secretStore }: Settings
       {open && (
         <SettingsDialog
           engineLabel={engineLabel}
-          persistenceError={persistenceError}
+          persistenceError={persistenceStatus.status === "load-error"
+            ? messages.settingsLoadFailed
+            : persistenceError}
+          settingsMutationsBlocked={persistenceStatus.status === "load-error"}
           secretStore={secretStore}
           settings={profile}
           onChange={(settings) => {

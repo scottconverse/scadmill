@@ -27,7 +27,10 @@ button:focus-visible, select:focus-visible, [tabindex]:focus-visible { outline: 
 .brand-mark { display: grid; place-items: center; width: 30px; height: 30px; border: 2px solid var(--chrome-accent); border-radius: 8px; color: var(--chrome-accent); font-weight: 800; }
 .render-button { min-height: 34px; padding: 0 16px; border: 0; border-radius: 7px; background: var(--chrome-accent); color: var(--chrome-accent-text); font-weight: 700; cursor: pointer; }
 .render-button:disabled { cursor: not-allowed; background: var(--chrome-surface-raised); color: var(--chrome-text-disabled); }
-.engine-banner { grid-row: 2; display: flex; min-width: 0; align-items: center; gap: 12px; padding: 9px 16px; overflow-wrap: anywhere; border-bottom: 1px solid var(--chrome-border); color: var(--chrome-text-muted); background: var(--chrome-surface-raised); }
+.workbench-banners { grid-row: 2; display: grid; min-width: 0; }
+.settings-load-banner, .engine-banner { display: flex; min-width: 0; align-items: center; gap: 12px; padding: 9px 16px; overflow-wrap: anywhere; border-bottom: 1px solid var(--chrome-border); background: var(--chrome-surface-raised); }
+.settings-load-banner { color: var(--console-error); }
+.engine-banner { color: var(--chrome-text-muted); }
 .engine-banner form, .engine-banner label { display: flex; align-items: center; gap: 8px; }
 .engine-banner input { min-width: min(360px, 48vw); }
 .engine-rejected-path { color: var(--console-error); overflow-wrap: anywhere; }
@@ -289,7 +292,7 @@ button.console-diagnostic:hover, button.console-diagnostic:focus-visible { backg
 }
 
 .workbench-with-web-menu .titlebar { grid-row: 2; }
-.workbench-with-web-menu .engine-banner { grid-row: 3; }
+.workbench-with-web-menu .workbench-banners { grid-row: 3; }
 .workbench-with-web-menu .workspace-frame { grid-row: 4; }
 .workbench-with-web-menu .statusbar { grid-row: 5; }
 

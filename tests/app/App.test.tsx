@@ -16,6 +16,7 @@ import type { SettingsPersistence } from "../../src/application/settings/setting
 import { SHIPPED_THEMES } from "../../src/application/theme/shipped-themes";
 import { customThemePreference } from "../../src/application/theme/theme-registry";
 import { messages } from "../../src/messages/en";
+import { createBrowserSettingsPersistence } from "../../src/platform-web/browser-settings-persistence";
 
 class FakeDarkModeQuery {
   matches: boolean;
@@ -46,6 +47,31 @@ function deferred<T>() {
 }
 
 describe("App", () => {
+  it("surfaces a transient settings read failure and catches non-dialog settings dispatches", async () => {
+    const setItem = vi.fn();
+    const settingsPersistence = createBrowserSettingsPersistence({
+      getItem: () => { throw new Error("temporary read failure"); },
+      setItem,
+    });
+    const engine: EngineService = {
+      render: vi.fn(),
+      export: vi.fn(),
+      version: vi.fn().mockResolvedValue(null),
+      cancel: vi.fn(),
+    };
+    const view = render(<App engine={engine} settingsPersistence={settingsPersistence} />);
+    const app = within(view.container);
+
+    expect(app.getByRole("alert")).toHaveTextContent(messages.settingsLoadFailed);
+    fireEvent.change(app.getByRole("combobox", { name: messages.themeLabel }), {
+      target: { value: "high-contrast" },
+    });
+    await Promise.resolve();
+
+    expect(setItem).not.toHaveBeenCalled();
+    expect(app.getByRole("combobox", { name: messages.themeLabel })).toHaveValue("system");
+  });
+
   it("shows only the checking state while the initial engine probe is pending", () => {
     const probe = deferred<Awaited<ReturnType<EngineService["version"]>>>();
     const engine: EngineService = {
@@ -174,9 +200,12 @@ describe("App", () => {
     };
     const defaults = createDefaultPersistedSettings();
     const settingsPersistence: SettingsPersistence = {
-      load: () => serializePersistedSettings({
-        ...defaults,
-        rendering: { ...defaults.rendering, defaultQuality: "full" },
+      load: () => ({
+        kind: "loaded",
+        serializedSettings: serializePersistedSettings({
+          ...defaults,
+          rendering: { ...defaults.rendering, defaultQuality: "full" },
+        }),
       }),
       save: vi.fn(),
     };
@@ -480,7 +509,10 @@ describe("App", () => {
       },
     };
     const settingsPersistence: SettingsPersistence = {
-      load: () => serializePersistedSettings(profile),
+      load: () => ({
+        kind: "loaded",
+        serializedSettings: serializePersistedSettings(profile),
+      }),
       save: vi.fn(),
     };
     const themeRoot = document.createElement("div");

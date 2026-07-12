@@ -10,19 +10,13 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from "react";
-import {
-  createKeybindingSettings,
-  type KeybindingCommand,
-} from "../../application/commands/default-keybindings";
+import { createKeybindingSettings, type KeybindingCommand } from "../../application/commands/default-keybindings";
 import {
   parsePersistedSettings,
   serializePersistedSettings,
   SETTINGS_SIZE_LIMIT_BYTES,
 } from "../../application/settings/settings-codec";
-import type {
-  PersistedSettings,
-  SettingsSection,
-} from "../../application/settings/settings-schema";
+import type { PersistedSettings, SettingsSection } from "../../application/settings/settings-schema";
 import type { SecretStore } from "../../application/settings/secret-store";
 import { messages } from "../../messages/en";
 import { CustomThemeSettings } from "./CustomThemeSettings";
@@ -36,6 +30,7 @@ export interface SettingsDialogProps {
   readonly onClose: () => void;
   readonly onRestore: (section: SettingsSection) => void;
   readonly persistenceError?: string;
+  readonly settingsMutationsBlocked?: boolean;
 }
 const SECTION_TITLES: Readonly<Record<SettingsSection, string>> = {
   editor: messages.settingsEditor,
@@ -59,10 +54,12 @@ function Setting({ label, children }: { readonly label: string; readonly childre
 function Section({
   section,
   onRestore,
+  restoreDisabled = false,
   children,
 }: {
   readonly section: SettingsSection;
   readonly onRestore: (section: SettingsSection) => void;
+  readonly restoreDisabled?: boolean;
   readonly children: ReactNode;
 }) {
   return (
@@ -71,6 +68,7 @@ function Section({
         <h3 id={`settings-${section}`}>{SECTION_TITLES[section]}</h3>
         <button
           aria-label={messages.restoreSectionDefaults(section)}
+          disabled={restoreDisabled}
           onClick={() => onRestore(section)}
           type="button"
         >{messages.restoreDefaults}</button>
@@ -79,7 +77,6 @@ function Section({
     </section>
   );
 }
-
 function numericValue(value: string, minimum: number, maximum: number): number | null {
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed >= minimum && parsed <= maximum ? parsed : null;
@@ -94,6 +91,7 @@ export function SettingsDialog({
   onClose,
   onRestore,
   persistenceError,
+  settingsMutationsBlocked = false,
 }: SettingsDialogProps) {
   const [query, setQuery] = useState("");
   const searchInput = useRef<HTMLInputElement>(null);
@@ -129,6 +127,7 @@ export function SettingsDialog({
     }).catch(() => setSecretStatus("error"));
   };
   const changeSecretPersistence = (persistWebSecret: boolean) => {
+    if (settingsMutationsBlocked) return;
     const previousPersistence = settings.ai.persistWebSecret;
     const nextSettings = { ...settings, ai: { ...settings.ai, persistWebSecret } };
     setSecretStatus("saving");
@@ -147,6 +146,7 @@ export function SettingsDialog({
     }).catch(() => setSecretStatus("error"));
   };
   const restoreSection = (section: SettingsSection) => {
+    if (settingsMutationsBlocked && section === "ai") return;
     if (section !== "ai") {
       onRestore(section);
       return;
@@ -364,14 +364,14 @@ export function SettingsDialog({
           </Section>
         )}
         {show("ai") && (
-          <Section section="ai" onRestore={restoreSection}>
+          <Section section="ai" onRestore={restoreSection} restoreDisabled={settingsMutationsBlocked}>
             <Setting label={messages.aiProvider}><select aria-label={messages.aiProvider} value={settings.ai.provider} onChange={(event) => onChange({ ...settings, ai: { ...settings.ai, provider: event.currentTarget.value as PersistedSettings["ai"]["provider"] } })}><option value="none">{messages.aiProviderNone}</option><option value="openai">{messages.aiProviderOpenAi}</option><option value="anthropic">{messages.aiProviderAnthropic}</option><option value="compatible">{messages.aiProviderCompatible}</option><option value="local">{messages.aiProviderLocal}</option></select></Setting>
             <Setting label={messages.aiEndpoint}><input aria-label={messages.aiEndpoint} type="url" value={settings.ai.endpoint} onChange={(event) => onChange({ ...settings, ai: { ...settings.ai, endpoint: event.currentTarget.value } })} /></Setting>
             <Setting label={messages.aiModel}><input aria-label={messages.aiModel} type="text" value={settings.ai.model} onChange={(event) => onChange({ ...settings, ai: { ...settings.ai, model: event.currentTarget.value } })} /></Setting>
             <Setting label={messages.aiApiKey}><input aria-label={messages.aiApiKey} autoComplete="off" disabled={secretStatus === "loading"} onChange={(event) => { setSecret(event.currentTarget.value); setSecretStatus("idle"); }} type="password" value={secret} /></Setting>
             <div className="settings-secret-actions"><button disabled={secretStatus === "loading" || secretStatus === "saving"} onClick={saveSecret} type="button">{messages.saveAiKey}</button><button disabled={secretStatus === "loading" || secretStatus === "saving" || secret.length === 0} onClick={clearSecret} type="button">{messages.clearAiKey}</button></div>
             {secretStore.persistence === "web-session" ? <>
-              <Setting label={messages.persistWebSecret}><input checked={settings.ai.persistWebSecret} disabled={secretStatus === "loading" || secretStatus === "saving"} onChange={(event) => changeSecretPersistence(event.currentTarget.checked)} type="checkbox" /></Setting>
+              <Setting label={messages.persistWebSecret}><input checked={settings.ai.persistWebSecret} disabled={settingsMutationsBlocked || secretStatus === "loading" || secretStatus === "saving"} onChange={(event) => changeSecretPersistence(event.currentTarget.checked)} type="checkbox" /></Setting>
               {settings.ai.persistWebSecret && <p role="note">{messages.persistWebSecretWarning}</p>}
             </> : <p role="note">{messages.desktopKeychainNote}</p>}
             {secretStatus === "loading" && <p role="status">{messages.aiKeyLoading}</p>}

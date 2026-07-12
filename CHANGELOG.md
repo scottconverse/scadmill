@@ -79,6 +79,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Replaced the stale M0 engine-unavailable save claim with M2-accurate editing, persistence, rendering, and export status copy.
 - Web startup now degrades to the scratch editor when IndexedDB is absent or access is blocked instead of failing the entire application module.
 - Made the persisted settings profile authoritative for editor, rendering, engine path, theme, AI, keybinding, and privacy preferences, including compatibility migration from the earlier engine-path slot.
+- Made settings loading fail closed: missing storage remains writable, while an unreadable or malformed durable profile keeps the app usable on defaults, shows a persistent catalog-owned warning, and blocks every settings mutation before memory, history, or durable bytes can change.
 - Pinned the desktop keychain boundary to `keyring` 4.1.4 and kept ordinary settings in a separate platform-config JSON file.
 - Added a common UTF-8 mojibake source-policy check and corrected the remaining malformed loading-copy assertion.
 - Added `Unicode-3.0` to the dependency-license allowlist after the owner's Q-0001 decision: it is an OSI-approved permissive license, approved in November 2023, and is required transitively by the ICU4X family and `unicode-ident`. This is a deliberate addition of a real open-source license, not a policy bypass; the license command no longer retains the obsolete Q-0001 blocker diagnostic.

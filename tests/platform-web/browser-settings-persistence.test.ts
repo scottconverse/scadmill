@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   BROWSER_SETTINGS_STORAGE_KEY,
   createBrowserSettingsPersistence,
@@ -15,15 +15,37 @@ describe("browser settings persistence", () => {
     persistence.save("settings-json");
 
     expect(values.get(BROWSER_SETTINGS_STORAGE_KEY)).toBe("settings-json");
-    expect(persistence.load()).toBe("settings-json");
+    expect(persistence.load()).toEqual({
+      kind: "loaded",
+      serializedSettings: "settings-json",
+    });
   });
 
-  it("falls back on unreadable storage but reports a failed durable write", () => {
+  it("distinguishes unreadable storage from a missing settings record", () => {
     const persistence = createBrowserSettingsPersistence({
       getItem: () => { throw new Error("blocked"); },
       setItem: () => { throw new Error("full"); },
     });
-    expect(persistence.load()).toBeNull();
-    expect(() => persistence.save("settings-json")).toThrow("could not be saved");
+    expect(persistence.load()).toEqual({ kind: "error" });
+    expect(() => persistence.save("settings-json")).toThrow("not loaded safely");
+  });
+
+  it("retains a transient read failure and refuses to overwrite unknown durable bytes", () => {
+    let reads = 0;
+    const setItem = vi.fn();
+    const persistence = createBrowserSettingsPersistence({
+      getItem: () => {
+        reads += 1;
+        if (reads === 1) throw new Error("temporarily blocked");
+        return "existing-durable-settings";
+      },
+      setItem,
+    });
+
+    expect(persistence.load()).toEqual({ kind: "error" });
+    expect(persistence.load()).toEqual({ kind: "error" });
+    expect(() => persistence.save("replacement-settings")).toThrow("not loaded safely");
+    expect(reads).toBe(1);
+    expect(setItem).not.toHaveBeenCalled();
   });
 });

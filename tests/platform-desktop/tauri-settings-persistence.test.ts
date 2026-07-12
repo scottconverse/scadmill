@@ -10,7 +10,10 @@ describe("desktop settings persistence", () => {
     const persistence = await createTauriSettingsPersistence(invoke);
 
     expect(invoke).toHaveBeenCalledWith("load_settings");
-    expect(persistence.load()).toBe('{"version":1}');
+    expect(persistence.load()).toEqual({
+      kind: "loaded",
+      serializedSettings: '{"version":1}',
+    });
   });
 
   it("serializes config writes so an older async write cannot overtake a newer one", async () => {
@@ -35,7 +38,7 @@ describe("desktop settings persistence", () => {
     expect(order).toEqual([]);
     releaseFirst?.();
     await vi.waitFor(() => expect(order).toEqual(["first", "second"]));
-    expect(persistence.load()).toBe("second");
+    expect(persistence.load()).toEqual({ kind: "loaded", serializedSettings: "second" });
   });
 
   it("reports a failed write, keeps the last durable cache, and lets a later write recover", async () => {
@@ -49,9 +52,28 @@ describe("desktop settings persistence", () => {
     const persistence = await createTauriSettingsPersistence(invoke);
 
     await expect(persistence.save("failed")).rejects.toThrow("disk full");
-    expect(persistence.load()).toBe("durable");
+    expect(persistence.load()).toEqual({ kind: "loaded", serializedSettings: "durable" });
 
     await expect(persistence.save("recovered")).resolves.toBeUndefined();
-    expect(persistence.load()).toBe("recovered");
+    expect(persistence.load()).toEqual({ kind: "loaded", serializedSettings: "recovered" });
+  });
+
+  it("retains a rejected load and never invokes a settings write afterward", async () => {
+    let loadAttempts = 0;
+    const invoke = vi.fn(<T>(command: string) => {
+      if (command !== "load_settings") return Promise.resolve(undefined as T);
+      loadAttempts += 1;
+      return loadAttempts === 1
+        ? Promise.reject(new Error("temporary sharing violation"))
+        : Promise.resolve("existing-durable-settings" as T);
+    }) as TauriInvoke;
+    const persistence = await createTauriSettingsPersistence(invoke);
+
+    expect(persistence.load()).toEqual({ kind: "error" });
+    expect(persistence.load()).toEqual({ kind: "error" });
+    await expect(persistence.save("replacement-settings")).rejects.toThrow("not loaded safely");
+    expect(loadAttempts).toBe(1);
+    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(invoke).not.toHaveBeenCalledWith("save_settings", expect.anything());
   });
 });
