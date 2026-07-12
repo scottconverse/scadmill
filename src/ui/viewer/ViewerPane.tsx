@@ -25,6 +25,7 @@ import {
 import { messages } from "../../messages/en";
 import { ViewerDetailsPanel } from "./ViewerDetailsPanel";
 import type { ModelViewerHandle } from "./ModelViewer";
+import { RenderProgressOverlay } from "./RenderProgressOverlay";
 import { ViewerToolbar, type ViewerTool } from "./ViewerToolbar";
 import type { ViewerDegradation } from "./viewer-furniture";
 const ModelViewer = lazy(() =>
@@ -111,12 +112,9 @@ export function ViewerPane({
 }: ViewerPaneProps) {
   const modelViewer = useRef<ModelViewerHandle>(null);
   const firstPoint = useRef<Point3 | null>(null);
-  const activeRenderJobId = useRef(renderJobId);
-  activeRenderJobId.current = renderJobId;
   const viewerMode = mode ?? viewer.mode;
   const [tool, setTool] = useState<ViewerTool>("navigate");
   const [annotationDraft, setAnnotationDraft] = useState("");
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
   const [degradation, setDegradation] = useState<ViewerDegradation>({
     edges: false,
@@ -135,23 +133,6 @@ export function ViewerPane({
     : undefined;
   const modelIdentity = viewer.modelIdentity ?? "";
   const visibleKind = visibleGeometry?.kind;
-
-  useEffect(() => {
-    if (renderStatus !== "rendering") {
-      setElapsedSeconds(0);
-      return;
-    }
-    const effectJobId = renderJobId;
-    const started = globalThis.performance?.now?.() ?? Date.now();
-    const update = () => {
-      if (activeRenderJobId.current !== effectJobId) return;
-      const current = globalThis.performance?.now?.() ?? Date.now();
-      setElapsedSeconds(Math.max(0, current - started) / 1_000);
-    };
-    update();
-    const timer = globalThis.setInterval(update, 100);
-    return () => globalThis.clearInterval(timer);
-  }, [renderJobId, renderStatus]);
 
   useEffect(() => {
     void documentId;
@@ -360,11 +341,7 @@ export function ViewerPane({
       {mismatch && <p className="viewer-empty" role="status">{messages.viewerModeMismatch(mismatch)}</p>}
       {measuredBounds && <output className="bounds-readout">{measuredBounds}</output>}
       {renderStatus === "rendering" && (
-        <div aria-label={messages.renderProgress} className="viewer-render-overlay" role="status">
-          <span aria-hidden="true" className="viewer-spinner">◌</span>
-          <span>{messages.renderingElapsed(elapsedSeconds)}</span>
-          <button aria-label={messages.cancelRender} onClick={onCancel} type="button">{messages.cancelRender}</button>
-        </div>
+        <RenderProgressOverlay key={renderJobId ?? "rendering"} onCancel={onCancel} />
       )}
       {failure && (
         <button aria-label={messages.showRenderError} className="viewer-error-badge" onClick={onShowConsole} type="button">

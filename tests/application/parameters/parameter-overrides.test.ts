@@ -6,7 +6,35 @@ import {
   writeParameterValues,
 } from "../../../src/application/parameters/parameter-overrides";
 
+function changingLengthVector() {
+  let lengthReads = 0;
+  const value = new Proxy([6, 7], {
+    get(target, property, receiver) {
+      if (property === "length") {
+        lengthReads += 1;
+        return lengthReads < 5 ? 2 : 1;
+      }
+      return Reflect.get(target, property, receiver);
+    },
+  });
+  return { value, lengthReads: () => lengthReads };
+}
+
 describe("customizer parameter overrides", () => {
+  it("uses one owned vector snapshot for reconciliation and source rewriting", () => {
+    const source = "point = [0, 1]; cube(point);";
+    const parameters = extractCustomizerParameters(source);
+    const reconcileValue = changingLengthVector();
+    const writeValue = changingLengthVector();
+
+    expect(reconcileParameterOverrides(parameters, { point: reconcileValue.value }))
+      .toEqual({ point: [6, 7] });
+    expect(reconcileValue.lengthReads()).toBe(1);
+    expect(writeParameterValues(source, parameters, { point: writeValue.value }))
+      .toBe("point = [6, 7]; cube(point);");
+    expect(writeValue.lengthReads()).toBe(1);
+  });
+
   it("preserves compatible overrides by surviving name and drops renamed or incompatible values", () => {
     const parameters = extractCustomizerParameters(
       `width = 10; enabled = false; label = "old"; point = [0, 1]; renamed = 3; cube(width);`,

@@ -22,15 +22,21 @@ export function reconcileParameterOverrides(
   for (const parameter of parameters) {
     if (parameter.hidden || !Object.hasOwn(previous, parameter.name)) continue;
     const value = previous[parameter.name];
+    let ownedValue: ParameterValue;
+    try {
+      if (value === undefined) continue;
+      ownedValue = cloneParameterValue(value);
+    } catch {
+      continue;
+    }
     if (
-      value !== undefined
-      && isParameterValueCompatible(value, parameter.defaultValue)
-      && !parameterValuesEqual(value, parameter.defaultValue)
+      isParameterValueCompatible(ownedValue, parameter.defaultValue)
+      && !parameterValuesEqual(ownedValue, parameter.defaultValue)
     ) {
       Object.defineProperty(reconciled, parameter.name, {
         configurable: true,
         enumerable: true,
-        value: cloneParameterValue(value),
+        value: ownedValue,
         writable: true,
       });
     }
@@ -47,7 +53,14 @@ export function writeParameterValues(
   for (const parameter of parameters) {
     if (!Object.hasOwn(values, parameter.name)) continue;
     const value = values[parameter.name];
-    if (value === undefined || !isParameterValueCompatible(value, parameter.defaultValue)) {
+    let ownedValue: ParameterValue;
+    try {
+      if (value === undefined) throw new TypeError("Missing parameter value.");
+      ownedValue = cloneParameterValue(value);
+    } catch {
+      throw new TypeError(`Invalid value for parameter "${parameter.name}".`);
+    }
+    if (!isParameterValueCompatible(ownedValue, parameter.defaultValue)) {
       throw new TypeError(`Invalid value for parameter "${parameter.name}".`);
     }
     if (
@@ -59,12 +72,12 @@ export function writeParameterValues(
       throw new RangeError(`Parameter "${parameter.name}" does not belong to the current document.`);
     }
     if (
-      Array.isArray(value)
+      Array.isArray(ownedValue)
       && Array.isArray(parameter.defaultValue)
-      && parameter.componentRanges?.length === value.length
+      && parameter.componentRanges?.length === ownedValue.length
     ) {
-      for (let index = 0; index < value.length; index += 1) {
-        if (Object.is(value[index], parameter.defaultValue[index])) continue;
+      for (let index = 0; index < ownedValue.length; index += 1) {
+        if (Object.is(ownedValue[index], parameter.defaultValue[index])) continue;
         const range = parameter.componentRanges[index];
         if (
           range === undefined
@@ -74,13 +87,13 @@ export function writeParameterValues(
         ) {
           throw new RangeError(`Parameter "${parameter.name}" has invalid component ranges.`);
         }
-        replacements.push({ from: range.from, to: range.to, text: parameterValueToSource(value[index] as number) });
+        replacements.push({ from: range.from, to: range.to, text: parameterValueToSource(ownedValue[index] as number) });
       }
     } else {
       replacements.push({
         from: parameter.valueRange.from,
         to: parameter.valueRange.to,
-        text: parameterValueToSource(value),
+        text: parameterValueToSource(ownedValue),
       });
     }
   }

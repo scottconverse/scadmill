@@ -10,6 +10,34 @@ const sparseSetVector = [6, 7, 8, 9, 10, 11];
 delete sparseSetVector[2];
 
 describe("per-document customizer state", () => {
+  it("snapshots a runtime vector once before compatibility and storage", () => {
+    let lengthReads = 0;
+    const changingLength = new Proxy([6, 7], {
+      get(target, property, receiver) {
+        if (property === "length") {
+          lengthReads += 1;
+          return lengthReads < 5 ? 2 : 1;
+        }
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    let state = createParameterState([{
+      documentId: "doc-a",
+      revision: 0,
+      source: "pose = [0, 1]; cube(1);",
+    }]);
+
+    state = reduceParameterState(state, {
+      kind: "set-value",
+      documentId: "doc-a",
+      name: "pose",
+      value: changingLength,
+    });
+
+    expect(parameterDocument(state, "doc-a").overrides.pose).toEqual([6, 7]);
+    expect(lengthReads).toBe(1);
+  });
+
   it("edits, saves, and reapplies a six-component vector as one exact value", () => {
     let state = createParameterState([{
       documentId: "doc-a",

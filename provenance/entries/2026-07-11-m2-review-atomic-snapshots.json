@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-m2-review-atomic-snapshots",
+  "createdAt": "2026-07-11T18:13:47-06:00",
+  "summary": "Close independent M2 review residuals in Customizer vector snapshots, concurrent render timing, and the negative unit-localization regression guard.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 test-first evidence and milestone gates",
+    "FR-4 rendering lifecycle",
+    "FR-5.4 stock parameter-set interchange",
+    "FR-5.5 parameter value preservation",
+    "N-4 localization",
+    "N-7 UI honesty"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-11-m2-review-atomic-snapshots.json", "status": "added" },
+    { "path": "src/application/parameters/customizer-schema.ts", "status": "modified" },
+    { "path": "src/application/parameters/parameter-overrides.ts", "status": "modified" },
+    { "path": "src/application/parameters/parameter-state.ts", "status": "modified" },
+    { "path": "src/ui/viewer/RenderProgressOverlay.tsx", "status": "added" },
+    { "path": "src/ui/viewer/ViewerPane.tsx", "status": "modified" },
+    { "path": "tests/application/parameters/customizer-schema.test.ts", "status": "modified" },
+    { "path": "tests/application/parameters/parameter-overrides.test.ts", "status": "modified" },
+    { "path": "tests/application/parameters/parameter-state.test.ts", "status": "modified" },
+    { "path": "tests/ui/message-catalog-units.test.ts", "status": "modified" },
+    { "path": "tests/ui/viewer/ViewerPane.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0214",
+      "topic": "Atomic Customizer vector snapshots",
+      "decision": "Capture and validate the native-array length once, then validate and copy each own numeric index exactly once into a fresh ordinary array; never spread or invoke caller iteration. Compare compatibility snapshots by their captured lengths, and make reducers, reconciliation, and source rewriting take one owned snapshot before compatibility, equality, storage, or serialization.",
+      "rationale": "Indexed validation followed by spread cloning allowed a custom Symbol.iterator to inject non-finite values after validation. Re-reading accessor-backed components or Proxy-provided length across helper and consumer calls created further time-of-check/time-of-use gaps that could shrink a two-component value to one after compatibility. One length-bounded indexed snapshot is both the validation result and the owned value, preserving dense finite vectors without an arbitrary component cap.",
+      "specBasis": ["FR-5.4", "FR-5.5"]
+    },
+    {
+      "id": "D-0215",
+      "topic": "Committed render-progress lifetime",
+      "decision": "Render elapsed progress in a component keyed by engine job ID, with an effect-local active flag and interval cleanup, instead of mutating a shared ref during ViewerPane render.",
+      "rationale": "React may render a superseding tree and then suspend or abandon it while retaining the old committed UI. Render-phase ref mutation let that uncommitted job stop the old job's live interval. A keyed child resets only when the replacement commits and leaves the visible committed job running until then.",
+      "specBasis": ["FR-4", "N-7"]
+    },
+    {
+      "id": "D-0216",
+      "topic": "Negative localization source guard",
+      "decision": "Keep the positive required message-call assertions and also reject raw millimeter and compact-seconds source forms in every affected surface, with synthetic bad-form tests and an executed mutation check.",
+      "rationale": "A presence-only test remained green if a raw unit literal was added alongside an existing catalog call. Negative source assertions make the one-message-authority claim regression-resistant without changing current English copy.",
+      "specBasis": ["N-4"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Validated vectors cannot change through iterators or repeated accessor reads",
+      "test": "Give a dense six-component array a custom iterator that yields Infinity, then give another array a component accessor that returns a finite value only on its first read; require both owned clones to contain the exact indexed finite values and the accessor to run once.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/parameters/customizer-schema.test.ts -t \"caller-defined iterator|reads each vector\" --reporter=verbose",
+        "observedAt": "2026-07-11T18:08:56-06:00",
+        "outcome": "ASSERTION-LEVEL RED: Test Files 1 failed (1); Tests 2 failed and 5 skipped. Spread cloning stored six Infinity values from the hostile iterator, while repeated accessor reads rejected a component whose first finite snapshot value was valid."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/parameters/customizer-schema.test.ts tests/application/parameters/parameter-state.test.ts tests/application/parameters/parameter-overrides.test.ts tests/application/parameters/parameter-set-codec.test.ts tests/ui/parameters/ParameterPanel.test.tsx --reporter=dot; pnpm.cmd typecheck; pnpm.cmd lint; pnpm.cmd build",
+        "observedAt": "2026-07-11T18:10:25-06:00",
+        "outcome": "GREEN: Test Files 5 passed (5); Tests 54 passed (54); Duration 1.29s. TypeScript no-emit passed; Biome checked 304 files with no fixes and source policy passed; Vite transformed 183 modules and built successfully in 340ms."
+      }
+    },
+    {
+      "criterion": "An uncommitted suspended replacement cannot freeze the visible render timer",
+      "test": "Advance committed job A to 0.3 seconds, start a transition to job B whose sibling suspends forever, require the outer fallback to remain hidden and job A to continue to 0.7 seconds; retain the direct committed supersession reset test.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/viewer/ViewerPane.test.tsx -t \"superseding render is suspended\" --reporter=verbose",
+        "observedAt": "2026-07-11T18:11:39-06:00",
+        "outcome": "ASSERTION-LEVEL RED: Test Files 1 failed (1); Tests 1 failed and 11 skipped. The still-visible committed job remained frozen at 0.3 seconds instead of advancing to 0.7 seconds after the uncommitted replacement rendered and suspended."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/viewer/ViewerPane.test.tsx --reporter=verbose; pnpm.cmd typecheck; pnpm.cmd lint",
+        "observedAt": "2026-07-11T18:12:20-06:00",
+        "outcome": "GREEN: ViewerPane Test Files 1 passed (1); Tests 12 passed (12), including direct committed supersession and abandoned-transition lifetime. TypeScript no-emit passed; Biome checked 305 files and source policy passed. Both fake-timer cases unmount before restoring real timers."
+      }
+    },
+    {
+      "criterion": "Vector shape cannot change between helper validation, compatibility, and state or source consumers",
+      "test": "Use Array Proxies whose length changes across reads. Require cloneParameterValue to capture length once and reject NaN/negative lengths, then require set-value, override reconciliation, and source rewriting to use one owned two-component snapshot through their complete operation.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/parameters/customizer-schema.test.ts -t \"captures vector length\" --reporter=verbose\npnpm.cmd exec vitest run tests/application/parameters/parameter-state.test.ts -t \"snapshots a runtime vector once\" --reporter=verbose",
+        "observedAt": "2026-07-11T18:18:06-06:00",
+        "outcome": "ASSERTION-LEVEL RED in both layers: the helper test failed 1/1 because a target [6, 7] cloned as [6] after three length reads; the reducer test failed 1/1 because a value that was compatible as length 2 was re-read and stored as [6]."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/parameters/customizer-schema.test.ts tests/application/parameters/parameter-state.test.ts tests/application/parameters/parameter-overrides.test.ts tests/application/parameters/parameter-set-codec.test.ts tests/ui/parameters/ParameterPanel.test.tsx --reporter=dot; pnpm.cmd typecheck; pnpm.cmd lint",
+        "observedAt": "2026-07-11T18:20:17-06:00",
+        "outcome": "GREEN: Test Files 5 passed (5); Tests 57 passed (57); Duration 1.11s. Helper, reducer, reconciliation, and source-writing Proxy regressions each observed one length read and retained [6, 7]. TypeScript no-emit passed; Biome checked 305 files with no fixes and source policy passed."
+      }
+    },
+    {
+      "criterion": "Raw units cannot return beside an existing catalog call",
+      "test": "Retain a valid messages.millimeters call while mutation-injecting the prior raw `${value} mm` form into the same scanned file; require the negative source guard to fail specifically on the raw literal, then remove the mutation and require both real-source and synthetic matcher tests to pass.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/message-catalog-units.test.ts --reporter=verbose (temporary uncommitted raw-unit mutation retained the valid catalog call)",
+        "observedAt": "2026-07-11T18:13:35-06:00",
+        "outcome": "MUTATION RED: Test Files 1 failed (1); Tests 1 failed and 1 passed. The exact failure was `details must not contain a raw unit literal`, proving the new negative guard catches a bypass that the prior presence-only assertions missed. The mutation was then removed."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/message-catalog-units.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T18:12:50-06:00",
+        "outcome": "GREEN before the deliberate mutation: Test Files 1 passed (1); Tests 2 passed (2). Final verification repeats this command after mutation removal."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "No vector length cap, owner-gate access, comparison-repository access, M3 work, installer work, or prohibited source was introduced."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

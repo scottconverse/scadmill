@@ -133,14 +133,20 @@ function withValue(
   const parameter = document.parameters.find((candidate) => candidate.name === name);
   if (!parameter) throw new Error(`Unknown customizer parameter: ${name}.`);
   if (parameter.hidden) throw new Error(`Hidden customizer parameter cannot be overridden: ${name}.`);
-  if (!isParameterValueCompatible(value, parameter.defaultValue)) {
+  let ownedValue: ParameterValue;
+  try {
+    ownedValue = cloneParameterValue(value);
+  } catch {
+    throw new TypeError(`Value for ${name} is not compatible with its source default.`);
+  }
+  if (!isParameterValueCompatible(ownedValue, parameter.defaultValue)) {
     throw new TypeError(`Value for ${name} is not compatible with its source default.`);
   }
   const overrides: Record<string, ParameterValue> = {};
   for (const [existingName, existingValue] of Object.entries(document.overrides)) {
     if (existingName !== name) defineValue(overrides, existingName, existingValue);
   }
-  if (!valuesEqual(value, parameter.defaultValue)) defineValue(overrides, name, value);
+  if (!valuesEqual(ownedValue, parameter.defaultValue)) defineValue(overrides, name, ownedValue);
   return { ...document, overrides, selectedSet: undefined };
 }
 
@@ -165,12 +171,18 @@ function applyValues(
   let next = document;
   for (const [name, value] of Object.entries(values)) {
     const parameter = document.parameters.find((candidate) => candidate.name === name);
+    let ownedValue: ParameterValue;
+    try {
+      ownedValue = cloneParameterValue(value);
+    } catch {
+      continue;
+    }
     if (
       parameter === undefined
       || parameter.hidden
-      || !isParameterValueCompatible(value, parameter.defaultValue)
+      || !isParameterValueCompatible(ownedValue, parameter.defaultValue)
     ) continue;
-    next = withValue(next, name, value);
+    next = withValue(next, name, ownedValue);
   }
   return next;
 }

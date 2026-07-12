@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { forwardRef, useImperativeHandle } from "react";
+import { forwardRef, startTransition, Suspense, useImperativeHandle } from "react";
 import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { RenderResult } from "../../../src/application/engine/contracts";
@@ -81,6 +81,7 @@ function Harness({ result }: { result?: RenderResult }) {
 describe("ViewerPane result routing", () => {
   it("restarts elapsed render time when a rendering job is superseded", () => {
     vi.useFakeTimers();
+    let view: ReturnType<typeof render> | undefined;
     try {
       const common = {
         colors,
@@ -89,7 +90,7 @@ describe("ViewerPane result routing", () => {
         renderStatus: "rendering" as const,
         onLayoutAction: vi.fn(),
       };
-      const view = render(<ViewerPane {...common} renderJobId="job-a" />);
+      view = render(<ViewerPane {...common} renderJobId="job-a" />);
 
       act(() => vi.advanceTimersByTime(1_200));
       expect(view.getByRole("status", { name: "Render progress" }))
@@ -103,6 +104,45 @@ describe("ViewerPane result routing", () => {
       expect(view.getByRole("status", { name: "Render progress" }))
         .toHaveTextContent("Rendering… 0.2 s");
     } finally {
+      view?.unmount();
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps the committed render timer running while a superseding render is suspended", () => {
+    vi.useFakeTimers();
+    const never = new Promise<never>(() => undefined);
+    function Blocker({ active }: { readonly active: boolean }) {
+      if (active) throw never;
+      return null;
+    }
+    const common = {
+      colors,
+      maximized: false,
+      narrow: false,
+      renderStatus: "rendering" as const,
+      onLayoutAction: vi.fn(),
+    };
+    const tree = (jobId: string, block: boolean) => (
+      <Suspense fallback={<p>Outer fallback</p>}>
+        <ViewerPane {...common} renderJobId={jobId} />
+        <Blocker active={block} />
+      </Suspense>
+    );
+    const view = render(tree("job-a", false));
+    try {
+      act(() => vi.advanceTimersByTime(300));
+      expect(view.getByRole("status", { name: "Render progress" }))
+        .toHaveTextContent("Rendering… 0.3 s");
+
+      act(() => startTransition(() => view.rerender(tree("job-b", true))));
+      expect(view.queryByText("Outer fallback")).not.toBeInTheDocument();
+
+      act(() => vi.advanceTimersByTime(400));
+      expect(view.getByRole("status", { name: "Render progress" }))
+        .toHaveTextContent("Rendering… 0.7 s");
+    } finally {
+      view.unmount();
       vi.useRealTimers();
     }
   });

@@ -33,25 +33,17 @@ export interface CustomizerParameter {
   readonly componentRanges?: readonly SourceRange[];
 }
 
-function isDenseFiniteNumberVector(value: readonly unknown[]): value is readonly number[] {
-  if (value.length === 0) return false;
-  for (let index = 0; index < value.length; index += 1) {
-    if (
-      !Object.hasOwn(value, index)
-      || typeof value[index] !== "number"
-      || !Number.isFinite(value[index])
-    ) return false;
+function snapshotDenseFiniteNumberVector(value: readonly unknown[]): number[] | null {
+  const length = value.length;
+  if (!Number.isSafeInteger(length) || length <= 0 || length > 0xffff_ffff) return null;
+  const snapshot: number[] = [];
+  for (let index = 0; index < length; index += 1) {
+    if (!Object.hasOwn(value, index)) return null;
+    const component = value[index];
+    if (typeof component !== "number" || !Number.isFinite(component)) return null;
+    snapshot.push(component);
   }
-  return true;
-}
-
-function isParameterValue(value: unknown): value is ParameterValue {
-  return (
-    typeof value === "boolean"
-    || typeof value === "string"
-    || (typeof value === "number" && Number.isFinite(value))
-    || (Array.isArray(value) && isDenseFiniteNumberVector(value))
-  );
+  return snapshot;
 }
 
 export function isParameterValueCompatible(
@@ -59,24 +51,31 @@ export function isParameterValueCompatible(
   reference: ParameterValue,
 ): boolean {
   if (Array.isArray(reference)) {
-    return (
-      Array.isArray(value)
-      && value.length === reference.length
-      && isDenseFiniteNumberVector(reference)
-      && isDenseFiniteNumberVector(value)
-    );
+    if (!Array.isArray(value)) return false;
+    const referenceSnapshot = snapshotDenseFiniteNumberVector(reference);
+    const valueSnapshot = snapshotDenseFiniteNumberVector(value);
+    return referenceSnapshot !== null
+      && valueSnapshot !== null
+      && valueSnapshot.length === referenceSnapshot.length;
   }
   if (Array.isArray(value) || typeof value !== typeof reference) return false;
   return typeof value !== "number" || Number.isFinite(value);
 }
 
 export function cloneParameterValue(value: ParameterValue): ParameterValue {
-  if (!isParameterValue(value)) {
-    throw new TypeError(
-      "Invalid parameter value: expected a finite scalar or non-empty dense vector of finite numbers.",
-    );
+  if (Array.isArray(value)) {
+    const snapshot = snapshotDenseFiniteNumberVector(value);
+    if (snapshot) return snapshot;
+  } else if (
+    typeof value === "boolean"
+    || typeof value === "string"
+    || (typeof value === "number" && Number.isFinite(value))
+  ) {
+    return value;
   }
-  return Array.isArray(value) ? [...value] : value;
+  throw new TypeError(
+    "Invalid parameter value: expected a finite scalar or non-empty dense vector of finite numbers.",
+  );
 }
 
 export function parameterValueToSource(value: ParameterValue): string {
@@ -86,13 +85,10 @@ export function parameterValueToSource(value: ParameterValue): string {
   }
   if (typeof value === "boolean") return value ? "true" : "false";
   if (typeof value === "string") return JSON.stringify(value);
-  if (!isDenseFiniteNumberVector(value)) {
+  const snapshot = snapshotDenseFiniteNumberVector(value);
+  if (!snapshot) {
     throw new TypeError("Parameter vectors must contain non-empty finite numbers.");
   }
-  const components: string[] = [];
-  for (let index = 0; index < value.length; index += 1) {
-    const component = value[index] as number;
-    components.push(Object.is(component, -0) ? "0" : String(component));
-  }
+  const components = snapshot.map((component) => Object.is(component, -0) ? "0" : String(component));
   return `[${components.join(", ")}]`;
 }
