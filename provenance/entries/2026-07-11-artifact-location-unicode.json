@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-artifact-location-unicode",
+  "createdAt": "2026-07-11T18:01:40-06:00",
+  "summary": "Make desktop artifact receipts exact by rejecting a Downloads path that cannot cross the string IPC boundary before any destination creation or file write, with Windows execution evidence and platform-specific Unix regression coverage.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 test-first evidence and milestone gates",
+    "N-7 truthful saved-artifact location"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-11-artifact-location-unicode.json", "status": "added" },
+    { "path": "src/desktop-shell/src-tauri/src/artifact_storage.rs", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0210",
+      "topic": "Exact desktop artifact receipt paths",
+      "decision": "Convert both the Downloads folder and each final collision candidate to the exact string IPC representation before creating the destination or opening the file; return that precomputed exact string after the durable write and reject paths that would require replacement characters.",
+      "rationale": "Converting with to_string_lossy after a successful write could display a location different from the path actually used, or report a conversion failure only after leaving an artifact behind. The sanitized filename is already Unicode, so validating the native folder and candidate before mutation closes that honesty gap without weakening size, collision, or create-new protections.",
+      "specBasis": [
+        "N-7 truthful saved-artifact location",
+        "Section 2.7 test-first evidence"
+      ]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "A non-representable desktop destination fails before writing",
+      "test": "On Windows, construct a path containing an unpaired UTF-16 surrogate, call the real artifact-storage helper, and require the exact IPC-contract error plus zero entries created under the test root.",
+      "red": {
+        "command": "cargo test --manifest-path src/desktop-shell/src-tauri/Cargo.toml artifact_storage::tests::rejects_an_ill_formed_utf16_destination_before_writing -- --exact --nocapture",
+        "observedAt": "2026-07-11T17:57:40-06:00",
+        "outcome": "ASSERTION-LEVEL RED: test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 28 filtered out. The assertion received Ok(\"C:\\\\Users\\\\Scott\\\\AppData\\\\Local\\\\Temp\\\\scadmill-artifacts-...\\\\\\u{d800}\\\\cube.png\") instead of Err(\"Artifact destination path is not valid Unicode.\"), proving the real file path was accepted and written before any exact IPC check."
+      },
+      "green": {
+        "command": "cargo test --manifest-path src/desktop-shell/src-tauri/Cargo.toml artifact_storage::tests -- --nocapture",
+        "observedAt": "2026-07-11T17:58:40-06:00",
+        "outcome": "GREEN on x86_64-pc-windows-msvc: 4 artifact-storage tests passed; 0 failed; 0 ignored; 0 measured; 26 filtered out. Pure ill-formed UTF-16 conversion and zero-created-entry checks passed alongside sanitization and collision/no-overwrite behavior."
+      }
+    },
+    {
+      "criterion": "Desktop Rust and export-boundary regression surface",
+      "test": "Widen through formatting, compilation, warning-denying clippy, the complete desktop Rust suite, and the TypeScript desktop destination/export/dialog tests.",
+      "red": {
+        "command": "cargo test --manifest-path src/desktop-shell/src-tauri/Cargo.toml",
+        "observedAt": "2026-07-11T17:54:45-06:00",
+        "outcome": "BASELINE GREEN before the change: 28 desktop library tests passed; 0 failed; 0 ignored; 0 measured; 0 filtered out. Binary and documentation targets each ran 0 tests and passed."
+      },
+      "green": {
+        "command": "cargo fmt --manifest-path src/desktop-shell/src-tauri/Cargo.toml -- --check; cargo check --manifest-path src/desktop-shell/src-tauri/Cargo.toml; cargo clippy --manifest-path src/desktop-shell/src-tauri/Cargo.toml --all-targets -- -D warnings; cargo test --manifest-path src/desktop-shell/src-tauri/Cargo.toml; pnpm.cmd exec vitest run tests/platform-desktop/tauri-artifact-destination.test.ts tests/application/files/project-export.test.ts tests/ui/files/ProjectExportDialog.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-11T18:01:40-06:00",
+        "outcome": "GREEN on x86_64-pc-windows-msvc: rustfmt check, cargo check, and all-target warning-denying clippy exited 0; desktop library test result: ok. 30 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; binary and documentation targets each passed with 0 tests. Vitest: Test Files 3 passed (3); Tests 15 passed (15); no failures or skips."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "The Windows pure-conversion and filesystem-mutation regressions executed locally on the only installed Rust target, x86_64-pc-windows-msvc. Equivalent cfg(unix) non-UTF8 pure-conversion and zero-created-entry tests are committed for Unix CI, but were not executed or represented as executed on this Windows host.",
+    "No owner similarity-gate file, workflow content, comparison repository, or M3 work was opened or executed."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

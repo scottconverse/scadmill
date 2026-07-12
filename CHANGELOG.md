@@ -102,6 +102,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Corrected cross-file completion lifecycle and OpenSCAD semantics: StrictMode effect rehearsal recreates a live index source, nested `use` declarations stay in their parent context instead of leaking into the base file, `include`/`use` paths resolve from each declaring file with safe `.`/`..` normalization inside the project, and late cancellation of a completed worker request retains no protocol state.
 - Kept WebView2 automation test-only: the packaged lane passes Microsoft's documented host-app remote-debugging switch through official `tauri-driver` and bridges EdgeDriver's `DevToolsActivePort` path mismatch without changing normal ScadMill launches.
 - Bound packaged desktop evidence to its source by removing the arbitrary executable input, refusing dirty or changing worktrees, performing the frozen frontend and clean locked canonical release builds inside the wrapper, and retaining strict commit/tree, lockfile, tool, command, timestamp, and executable-hash provenance.
+- Made desktop artifact receipts exact: a Downloads path that cannot cross the string IPC boundary without substitution is rejected before any destination directory or file is created, while collision-safe no-overwrite saves retain their real Unicode location.
 
 ### Known policy block
 

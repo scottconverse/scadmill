@@ -1,7 +1,7 @@
 use base64::Engine as _;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use tauri::{AppHandle, Manager};
 
 const ARTIFACT_SIZE_LIMIT: usize = 512 * 1024 * 1024;
@@ -54,14 +54,21 @@ fn collision_name(name: &str, ordinal: usize) -> String {
     }
 }
 
+fn exact_artifact_location(path: &Path) -> Result<String, String> {
+    path.to_str()
+        .map(str::to_owned)
+        .ok_or_else(|| "Artifact destination path is not valid Unicode.".to_string())
+}
+
 pub(crate) fn save_artifact_in(
     folder: &Path,
     suggested_name: &str,
     bytes: &[u8],
-) -> Result<PathBuf, String> {
+) -> Result<String, String> {
     if bytes.len() > ARTIFACT_SIZE_LIMIT {
         return Err("Artifact exceeds the supported size.".to_string());
     }
+    exact_artifact_location(folder)?;
     fs::create_dir_all(folder)
         .map_err(|error| format!("Could not create the artifact destination: {error}"))?;
     let name = sanitize_artifact_name(suggested_name);
@@ -72,6 +79,7 @@ pub(crate) fn save_artifact_in(
             collision_name(&name, ordinal)
         };
         let candidate = folder.join(candidate_name);
+        let location = exact_artifact_location(&candidate)?;
         let mut file = match OpenOptions::new()
             .write(true)
             .create_new(true)
@@ -86,7 +94,7 @@ pub(crate) fn save_artifact_in(
             let _ = fs::remove_file(&candidate);
             return Err(format!("Could not write artifact file: {error}"));
         }
-        return Ok(candidate);
+        return Ok(location);
     }
     Err("Could not allocate a unique artifact file name.".to_string())
 }
@@ -104,12 +112,9 @@ pub(crate) async fn save_artifact(
         .path()
         .download_dir()
         .map_err(|error| format!("Could not locate the Downloads folder: {error}"))?;
-    tauri::async_runtime::spawn_blocking(move || {
-        save_artifact_in(&folder, &suggested_name, &bytes)
-            .map(|path| path.to_string_lossy().into_owned())
-    })
-    .await
-    .map_err(|error| format!("Artifact save task failed: {error}"))?
+    tauri::async_runtime::spawn_blocking(move || save_artifact_in(&folder, &suggested_name, &bytes))
+        .await
+        .map_err(|error| format!("Artifact save task failed: {error}"))?
 }
 
 #[cfg(test)]
@@ -149,9 +154,83 @@ mod tests {
         assert_eq!(fs::read(folder.join("cube.png")).expect("old"), b"old");
         assert_eq!(fs::read(&location).expect("new"), b"new");
         assert_eq!(
-            location.file_name().and_then(|name| name.to_str()),
+            Path::new(&location)
+                .file_name()
+                .and_then(|name| name.to_str()),
             Some("cube (2).png")
         );
         fs::remove_dir_all(folder).expect("cleanup");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn rejects_ill_formed_utf16_location_without_lossy_substitution() {
+        use std::ffi::OsString;
+        use std::os::windows::ffi::OsStringExt;
+
+        let path = PathBuf::from(OsString::from_wide(&[0xd800]));
+
+        assert_eq!(
+            exact_artifact_location(&path),
+            Err("Artifact destination path is not valid Unicode.".to_string())
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn rejects_non_utf8_location_without_lossy_substitution() {
+        use std::ffi::OsString;
+        use std::os::unix::ffi::OsStringExt;
+
+        let path = PathBuf::from(OsString::from_vec(vec![0xff]));
+
+        assert_eq!(
+            exact_artifact_location(&path),
+            Err("Artifact destination path is not valid Unicode.".to_string())
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn rejects_an_ill_formed_utf16_destination_before_writing() {
+        use std::ffi::OsString;
+        use std::os::windows::ffi::OsStringExt;
+
+        let root = temp_folder();
+        let destination = root.join(OsString::from_wide(&[0xd800]));
+
+        let result = save_artifact_in(&destination, "cube.png", b"mesh");
+        let created_entries = fs::read_dir(&root)
+            .expect("inspect destination root")
+            .count();
+        fs::remove_dir_all(root).expect("cleanup");
+
+        assert_eq!(
+            result,
+            Err("Artifact destination path is not valid Unicode.".to_string())
+        );
+        assert_eq!(created_entries, 0, "no destination may be created");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn rejects_a_non_utf8_destination_before_writing() {
+        use std::ffi::OsString;
+        use std::os::unix::ffi::OsStringExt;
+
+        let root = temp_folder();
+        let destination = root.join(OsString::from_vec(vec![0xff]));
+
+        let result = save_artifact_in(&destination, "cube.png", b"mesh");
+        let created_entries = fs::read_dir(&root)
+            .expect("inspect destination root")
+            .count();
+        fs::remove_dir_all(root).expect("cleanup");
+
+        assert_eq!(
+            result,
+            Err("Artifact destination path is not valid Unicode.".to_string())
+        );
+        assert_eq!(created_entries, 0, "no destination may be created");
     }
 }
