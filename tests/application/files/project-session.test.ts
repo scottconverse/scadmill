@@ -38,6 +38,49 @@ const context = (storage?: ProjectStorage) => ({
 });
 
 describe("project session commands", () => {
+  it("replaces the workspace with a welcome sample without losing recent projects", async () => {
+    const recent = [{
+      projectId: "project-a",
+      displayName: "Project A",
+      openedAt: "2026-07-10T23:00:00.000Z",
+    }];
+    const state = createProjectSessionState(
+      createProjectSnapshot("project-a", new Map([["main.scad", "cube(1);"]])),
+      "project",
+      "Project A",
+      recent,
+    );
+    const transition = await executeProjectCommand(
+      state,
+      createDocumentWorkspace([{ id: "project-main", path: "main.scad", source: "cube(1);" }]),
+      {
+        kind: "open-welcome-sample-confirmed",
+        documentId: "scratch-main",
+        path: "gear_knob.scad",
+        source: "sphere(8);\n",
+      },
+      context(),
+    );
+
+    expect(transition?.project).toMatchObject({
+      mode: "scratch",
+      displayName: "Scratch",
+      recentProjects: recent,
+      snapshot: { projectId: "scratch", workspaceIdentity: "scratch" },
+    });
+    expect(transition?.project.snapshot.files).toEqual(new Map([["gear_knob.scad", "sphere(8);\n"]]));
+    expect(transition?.replacementWorkspace?.documents).toEqual([{
+      id: "scratch-main",
+      path: "gear_knob.scad",
+      source: "sphere(8);\n",
+      savedSource: "sphere(8);\n",
+      revision: 0,
+      savedRevision: 0,
+    }]);
+    const sampleDocument = transition?.replacementWorkspace?.documents[0];
+    expect(sampleDocument && isDocumentDirty(sampleDocument)).toBe(false);
+  });
+
   it("opens a confirmed project at one text entry and records it as recent", async () => {
     const scratch = createProjectSnapshot("scratch", new Map([["main.scad", "cube(1);"]]));
     const project = createProjectSnapshot("project-a", new Map<string, ProjectFileContent>([

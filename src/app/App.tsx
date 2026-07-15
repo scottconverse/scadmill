@@ -28,6 +28,7 @@ import {
 } from "../application/files/workbench-portability";
 import { createWorkbenchRuntime } from "../application/runtime/workbench-runtime";
 import type { ThemeHost } from "../application/theme/theme-runtime";
+import type { WelcomePreferencePersistence } from "../application/welcome/welcome-preference";
 import { messages } from "../messages/en";
 import { useReadonlyStore } from "../ui/use-readonly-store";
 import { Workbench } from "../ui/Workbench";
@@ -60,6 +61,7 @@ export interface AppProps {
   scratchAutosavePersistence?: ScratchAutosavePersistence;
   workspaceMetadataPersistence?: WorkspaceMetadataPersistence;
   enginePathConfiguration?: EnginePathConfiguration;
+  welcomePreferencePersistence?: WelcomePreferencePersistence;
 }
 
 export function App({
@@ -81,7 +83,11 @@ export function App({
   scratchAutosavePersistence,
   workspaceMetadataPersistence,
   enginePathConfiguration,
+  welcomePreferencePersistence,
 }: AppProps) {
+  const [showWelcomeOnLaunch, setShowWelcomeOnLaunch] = useState(() => {
+    try { return welcomePreferencePersistence?.load() ?? false; } catch { return false; }
+  });
   const runtime = useMemo(
     () => createWorkbenchRuntime(engine, {
       artifactDestination,
@@ -270,6 +276,7 @@ export function App({
       workspaceDirectory={workspaceDirectory}
       recoveryPersistence={recoveryPersistence}
       scratchAutosavePersistence={scratchAutosavePersistence}
+      showWelcomeOnLaunch={showWelcomeOnLaunch}
       projectPortability={projectPortability}
       configuredEnginePath={engineHealth.kind === "checking" || engineHealth.kind === "invalid-config"
         ? engineHealth.configuredPath
@@ -291,6 +298,12 @@ export function App({
           .dispatch({ kind: "set-theme", origin: "user", theme })
           .catch(() => undefined)
       }
+      onWelcomePreferenceChange={welcomePreferencePersistence
+        ? (show) => {
+            welcomePreferencePersistence.save(show);
+            setShowWelcomeOnLaunch(show);
+          }
+        : undefined}
     />
   );
 }

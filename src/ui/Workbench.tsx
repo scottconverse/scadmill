@@ -29,15 +29,14 @@ import { SettingsLauncher } from "./settings/SettingsLauncher";
 import { useReadonlyStore } from "./use-readonly-store";
 import { resolveActiveViewerPresentation } from "./viewer/active-viewer-presentation";
 import { ViewerPaneConnector } from "./viewer/ViewerPaneConnector";
+import { WelcomeLauncher } from "./welcome/WelcomeLauncher";
 import type { WorkbenchProps } from "./workbench-props";
 import { WorkbenchBanners } from "./WorkbenchBanners";
 import { diagnosticStatusLabel, renderStatusLabel } from "./workbench-status";
 import "./workbench.css";
 const CodeEditor = lazy(() => import("./editor/CodeEditor").then((module) => ({ default: module.CodeEditor })));
 export function Workbench({
-  runtime,
-  engine,
-  secretStore = EPHEMERAL_SECRET_STORE,
+  runtime, engine, secretStore = EPHEMERAL_SECRET_STORE,
   engineLabel,
   engineAvailable = true,
   engineChecking = false,
@@ -50,8 +49,8 @@ export function Workbench({
   canRevealProjectFiles, projectStorage, directoryPicker, workspaceDirectory,
   recoveryPersistence,
   projectPortability,
-  scratchAutosavePersistence,
-  onThemePreferenceChange,
+  scratchAutosavePersistence, showWelcomeOnLaunch = false,
+  onThemePreferenceChange, onWelcomePreferenceChange = () => undefined,
   configuredEnginePath = "",
   onConfigureEnginePath,
 }: WorkbenchProps) {
@@ -325,6 +324,7 @@ export function Workbench({
           <span className="brand-mark" aria-hidden="true">S</span>
           <h1>{messages.appName}</h1>
         </div>
+        <WelcomeLauncher documents={documents} project={projectState} runtime={runtime} showOnLaunch={showWelcomeOnLaunch} onNewFile={fileCommands.newFile} onOpenProject={fileCommands.openProject} onOpenRecentProject={(projectId, displayName) => setRequestedProject((current) => ({ sequence: (current?.sequence ?? 0) + 1, projectId, displayName }))} onShowOnLaunchChange={onWelcomePreferenceChange} />
         <SettingsLauncher engineLabel={engineLabel} runtime={runtime} secretStore={secretStore} />
         <RenderControls
           autoRender={autoRender}

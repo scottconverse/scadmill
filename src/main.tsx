@@ -12,6 +12,7 @@ import { createTauriSettingsPersistence } from "./platform-desktop/tauri-setting
 import { createTauriProjectStorage } from "./platform-desktop/tauri-project-storage";
 import { createTauriArtifactDestination } from "./platform-desktop/tauri-artifact-destination";
 import { createTauriProjectDirectoryPicker } from "./platform-desktop/tauri-project-directory-picker";
+import { createDesktopWelcomePreferencePersistence } from "./platform-desktop/desktop-welcome-preference";
 import {
   createDesktopRecentProjectsPersistence,
   createDesktopRecoveryPersistence,
@@ -25,6 +26,7 @@ import { createBrowserSettingsPersistence } from "./platform-web/browser-setting
 import { createAvailableBrowserProjectStorage } from "./platform-web/indexeddb-project-storage";
 import { isMobileWebClient } from "./platform-web/mobile-web";
 import { createBrowserArtifactDestination } from "./platform-web/browser-artifact-destination";
+import { createBrowserWelcomePreferencePersistence } from "./platform-web/browser-welcome-preference";
 import {
   createBrowserRecentProjectsPersistence,
   createBrowserRecoveryPersistence,
@@ -66,6 +68,9 @@ const scratchAutosavePersistence = desktop
 const workspaceMetadataPersistence = desktop
   ? createDesktopWorkspaceMetadataPersistence()
   : createBrowserWorkspaceMetadataPersistence();
+const welcomePreferencePersistence = desktop
+  ? createDesktopWelcomePreferencePersistence()
+  : createBrowserWelcomePreferencePersistence();
 
 const root = document.getElementById("root");
 if (!root) {
@@ -89,6 +94,7 @@ createRoot(root).render(
       settingsPersistence={settingsPersistence}
       secretStore={secretStore}
       workspaceMetadataPersistence={workspaceMetadataPersistence}
+      welcomePreferencePersistence={welcomePreferencePersistence}
       workspaceDirectory={browserProjectStorage}
       enginePathConfiguration={enginePathConfiguration}
     />

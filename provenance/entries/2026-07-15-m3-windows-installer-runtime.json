@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-15-m3-windows-installer-runtime",
+  "createdAt": "2026-07-15T17:03:00-06:00",
+  "summary": "Produce an offline Windows NSIS setup executable, remove the app's dynamic Visual C++ runtime dependency, prove install-launch-uninstall locally, and enforce sign-before-hash CI ordering.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 M3 delivery protocol",
+    "FR-13.4 Windows signed setup executable",
+    "V-2 CI",
+    "V-5 fresh-VM installer gate",
+    "N-2 reliability",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": ".cargo/config.toml", "status": "added" },
+    { "path": ".github/workflows/ci.yml", "status": "modified" },
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-15-m3-windows-installer-runtime.json", "status": "added" },
+    { "path": "src/desktop-shell/src-tauri/tauri.conf.json", "status": "modified" },
+    { "path": "tests/scripts/ci-workflow.test.ts", "status": "modified" },
+    { "path": "tests/scripts/windows-installer.test.ts", "status": "added" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://v2.tauri.app/distribute/windows-installer/",
+      "accessedOn": "2026-07-15",
+      "purpose": "Confirm NSIS bundling, offline WebView2 installation, and Windows installer behavior."
+    },
+    {
+      "url": "https://doc.rust-lang.org/reference/linkage.html",
+      "accessedOn": "2026-07-15",
+      "purpose": "Confirm the supported crt-static target feature and the requirement to inspect the resulting binary."
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/cpp/windows/deployment-in-visual-cpp?view=msvc-170",
+      "accessedOn": "2026-07-15",
+      "purpose": "Confirm supported Visual C++ runtime deployment choices and Windows Universal CRT context."
+    },
+    {
+      "url": "https://github.com/Azure/artifact-signing-action/blob/c7ab2a863ab5f9a846ddb8265964877ef296ee82/action.yml",
+      "accessedOn": "2026-07-15",
+      "purpose": "Verify the pinned signing action's actual service-principal inputs before editing CI."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0236",
+      "topic": "Self-contained Windows runtime and signed setup pipeline",
+      "decision": "Build Windows MSVC artifacts with Rust's crt-static target feature; emit one current-user NSIS setup executable with the offline WebView2 installer; inspect the built executable for VCRUNTIME140 imports; and in CI use the existing Azure client-secret credentials directly with the exact pinned Artifact Signing action. Signing is followed by fail-closed Authenticode verification and precedes every checksum and upload step. Pull requests without credentials retain an unsigned setup artifact as FR-13.4 permits.",
+      "rationale": "The owner-observed scadmill.exe loader error proved that the former evidence-only adjacent DLL copies did not make the product distributable. Static CRT linkage removes that exact application dependency and keeps the installed app self-contained, while offline WebView2 packaging removes network dependence. The signing sequence follows the owner-provided Universal Standard v2.1 and was checked against the repository's actual secret names and the action's real inputs.",
+      "specBasis": ["FR-13.4", "V-2", "V-5", "N-2", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The product configuration emits an offline NSIS setup and removes dynamic VCRUNTIME140 imports",
+      "test": "Require the exact Tauri bundle settings and Windows-only crt-static Cargo configuration.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/windows-installer.test.ts --reporter=verbose --maxWorkers=1",
+        "observedAt": "2026-07-15T16:42:35-06:00",
+        "outcome": "RED: 1 test file failed and 1 test failed. The bundle was inactive and no Windows crt-static Cargo configuration existed. An earlier setup attempt produced ENOENT while reading the intentionally absent config; the test was corrected to reach this behavioral assertion before implementation."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/windows-installer.test.ts --reporter=verbose --maxWorkers=1",
+        "observedAt": "2026-07-15T16:42:51-06:00",
+        "outcome": "GREEN: 1 test file passed and 1 test passed in 508 ms."
+      }
+    },
+    {
+      "criterion": "CI signs with the configured service principal, verifies Authenticode, and hashes only final signed bytes",
+      "test": "Require the pinned action, actual secret inputs, signing-resource preflight, no azure/login, fail-closed signature check, and strict build-sign-verify-hash-upload order.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/ci-workflow.test.ts -t \"builds, optionally signs\" --reporter=verbose --maxWorkers=1",
+        "observedAt": "2026-07-15T16:59:59-06:00",
+        "outcome": "RED: 1 test failed and 3 were skipped because no Windows installer job existed."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/ci-workflow.test.ts -t \"builds, optionally signs\" --reporter=verbose --maxWorkers=1",
+        "observedAt": "2026-07-15T17:00:58-06:00",
+        "outcome": "GREEN: 1 test passed and 3 were skipped in 624 ms."
+      }
+    },
+    {
+      "criterion": "The concrete setup fixes the owner-observed loader failure and supports the complete local lifecycle",
+      "test": "Build the release NSIS setup once, scan the app binary for the exact runtime import names, launch the raw app, install silently, launch the installed copy, uninstall silently, and require zero uninstall records and no install directory.",
+      "red": {
+        "command": "Owner launch of the prior scadmill.exe artifact",
+        "observedAt": "2026-07-15T16:35:00-06:00",
+        "outcome": "RED: Windows displayed `The code execution cannot proceed because VCRUNTIME140.dll was not found` and did not launch ScadMill."
+      },
+      "green": {
+        "command": "pnpm.cmd exec tauri build --bundles nsis --ci -- --locked; exact raw-app launch; ScadMill_0.0.0_x64-setup.exe /S; exact installed-app launch; uninstall.exe /S; registry and install-directory cleanup assertions",
+        "observedAt": "2026-07-15T16:58:30-06:00",
+        "outcome": "GREEN: the 209255942-byte setup and 12154368-byte app built successfully; no VCRUNTIME140.dll or VCRUNTIME140_1.dll import name was present; both raw and installed apps remained responsive with window title ScadMill; installer and uninstaller each exited 0; zero uninstall records and no install directory remained."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "Hosted signed-artifact evidence and the network-disabled clean-Sandbox installer journey remain required before the M3 exit gate; this local lifecycle does not predeclare either result."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

@@ -5,7 +5,7 @@ import { StrictMode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { App } from "../../src/app/App";
-import type { EngineService, RenderFailure } from "../../src/application/engine/contracts";
+import type { EngineService, RenderFailure, RenderSuccess3D } from "../../src/application/engine/contracts";
 import { PINNED_OPENSCAD_VERSION } from "../../src/application/engine/engine-pin";
 import type { WorkspaceLayoutPersistence } from "../../src/application/runtime/layout-persistence";
 import {
@@ -47,6 +47,66 @@ function deferred<T>() {
 }
 
 describe("App", () => {
+  it("opens a built-in sample from a fresh profile, populates parameters, and renders it", async () => {
+    const mesh = new Uint8Array(134);
+    new DataView(mesh.buffer).setUint32(80, 1, true);
+    const result: RenderSuccess3D = {
+      kind: "3d",
+      mesh: { format: "stl-binary", bytes: mesh },
+      stats: { triangles: 1, engineTimeMs: 1 },
+      diagnostics: [],
+      rawLog: "synthetic render completed",
+    };
+    let job = 0;
+    const engine: EngineService = {
+      render: vi.fn().mockImplementation(() => {
+        job += 1;
+        return {
+          jobId: `welcome-render-${job}`,
+          done: Promise.resolve(result),
+          subscribeOutput: () => () => undefined,
+        };
+      }),
+      export: vi.fn(),
+      version: vi.fn().mockResolvedValue({
+        version: PINNED_OPENSCAD_VERSION,
+        path: "native",
+        features: [],
+      }),
+      cancel: vi.fn(),
+    };
+    const defaults = createDefaultPersistedSettings();
+    const settingsPersistence: SettingsPersistence = {
+      load: () => ({
+        kind: "loaded",
+        serializedSettings: serializePersistedSettings({
+          ...defaults,
+          rendering: { ...defaults.rendering, renderDebounceMs: 1 },
+        }),
+      }),
+      save: vi.fn(),
+    };
+    const view = render(
+      <App
+        engine={engine}
+        settingsPersistence={settingsPersistence}
+        welcomePreferencePersistence={{ load: () => true, save: vi.fn() }}
+      />,
+    );
+    const app = within(view.container);
+
+    await waitFor(() => expect(engine.render).toHaveBeenCalledTimes(1));
+    fireEvent.click(app.getByRole("button", { name: "Open sample Parametric storage box" }));
+
+    await waitFor(() => expect(engine.render).toHaveBeenCalledTimes(2));
+    const request = vi.mocked(engine.render).mock.calls.at(-1)?.[0];
+    expect(request?.entryFile).toBe("parametric_box.scad");
+    expect(request?.files.get("parametric_box.scad")).toContain("module box()");
+    expect(app.getByRole("slider", { name: "width" })).toBeVisible();
+    expect(app.getByRole("combobox", { name: "corner" })).toBeVisible();
+    expect(app.getByRole("checkbox", { name: "with_lid" })).toBeChecked();
+  });
+
   it("surfaces a transient settings read failure and catches non-dialog settings dispatches", async () => {
     const setItem = vi.fn();
     const settingsPersistence = createBrowserSettingsPersistence({

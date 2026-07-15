@@ -22,6 +22,12 @@ export interface ProjectSessionState {
 
 export type ProjectCommand =
   | { readonly kind: "new-scratch-document" }
+  | {
+      readonly kind: "open-welcome-sample-confirmed";
+      readonly documentId: string;
+      readonly path: string;
+      readonly source: string;
+    }
   | { readonly kind: "replace-project-confirmed"; readonly snapshot: ProjectSnapshot; readonly displayName: string; readonly entryFile: string }
   | {
       readonly kind: "restore-recovery-confirmed";
@@ -43,6 +49,7 @@ export type ProjectCommand =
 
 const PROJECT_COMMAND_KINDS = new Set<ProjectCommand["kind"]>([
   "new-scratch-document",
+  "open-welcome-sample-confirmed",
   "replace-project-confirmed",
   "restore-recovery-confirmed",
   "open-project-file",
@@ -135,6 +142,32 @@ export async function executeProjectCommand(
   };
 
   switch (command.kind) {
+    case "open-welcome-sample-confirmed": {
+      if (!command.documentId.trim()) throw new Error("A welcome sample requires a document id.");
+      const path = parseProjectPath(command.path);
+      if (!path.toLowerCase().endsWith(".scad")) {
+        throw new Error("A welcome sample must be an OpenSCAD source file.");
+      }
+      const snapshot = createProjectSnapshot(
+        "scratch",
+        new Map([[path, command.source]]),
+        "scratch",
+      );
+      return transition(
+        updatedProject(snapshot, {
+          mode: "scratch",
+          displayName: "Scratch",
+          selectedBinaryPath: undefined,
+        }),
+        `Open welcome sample ${path}`,
+        [],
+        createDocumentWorkspace([{
+          id: command.documentId,
+          path,
+          source: command.source,
+        }]),
+      );
+    }
     case "new-scratch-document": {
       if (state.mode !== "scratch") throw new Error("A scratch document can be created only in scratch mode.");
       let ordinal = 1;

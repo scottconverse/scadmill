@@ -129,3 +129,135 @@ jobs:
         run: cargo test --locked --manifest-path src/desktop-shell/src-tauri/Cargo.toml
       - name: Rust license policy
         run: node scripts/check-licenses.mjs rust
+
+  windows-installer:
+    name: Windows setup
+    runs-on: windows-latest
+    env:
+      SIGNING_CONFIGURED: ${{ secrets.AZURE_CLIENT_ID != '' && secrets.AZURE_CLIENT_SECRET != '' && secrets.AZURE_TENANT_ID != '' && secrets.AZURE_SIGNING_ENDPOINT != '' }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 11.7.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build offline NSIS setup
+        shell: pwsh
+        run: |
+          rustc --version | Select-String '^rustc 1\.96\.0 '
+          Push-Location src/desktop-shell
+          pnpm exec tauri build --bundles nsis --ci -- --locked
+          Pop-Location
+      - name: Verify setup artifact and static Visual C++ runtime linkage
+        shell: pwsh
+        run: |
+          $bundle = Join-Path $env:GITHUB_WORKSPACE "src/desktop-shell/src-tauri/target/release/bundle/nsis"
+          $installers = @(Get-ChildItem -LiteralPath $bundle -Filter "*-setup.exe" -File)
+          if ($installers.Count -ne 1) {
+            Write-Error "Expected exactly one NSIS setup executable; found $($installers.Count)."
+            exit 1
+          }
+
+          $application = Join-Path $env:GITHUB_WORKSPACE "src/desktop-shell/src-tauri/target/release/scadmill.exe"
+          if (-not (Test-Path -LiteralPath $application -PathType Leaf)) {
+            Write-Error "The bundled ScadMill application is missing."
+            exit 1
+          }
+
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $visualStudio = (& $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath).Trim()
+          $dumpbin = Get-ChildItem -LiteralPath $visualStudio -Filter dumpbin.exe -Recurse |
+            Where-Object FullName -Match 'Hostx64\\x64\\dumpbin\.exe$' |
+            Select-Object -First 1 -ExpandProperty FullName
+          if ([string]::IsNullOrWhiteSpace($dumpbin)) {
+            Write-Error "Could not locate the x64 Visual C++ import-table inspector."
+            exit 1
+          }
+
+          $imports = (& $dumpbin /dependents $application | Out-String)
+          Write-Host $imports
+          if ($imports -match 'VCRUNTIME140(?:_1)?\.dll') {
+            Write-Error "ScadMill still depends on an external Visual C++ runtime."
+            exit 1
+          }
+          "SCADMILL_INSTALLER=$($installers[0].FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+      - name: Signing credential preflight (fail fast)
+        if: env.SIGNING_CONFIGURED == 'true'
+        shell: pwsh
+        env:
+          AZ_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZ_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZ_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+        run: |
+          $body = @{
+            client_id = $env:AZ_CLIENT_ID
+            client_secret = $env:AZ_CLIENT_SECRET
+            grant_type = "client_credentials"
+            scope = "https://codesigning.azure.net/.default"
+          }
+          $uri = "https://login.microsoftonline.com/$($env:AZ_TENANT_ID)/oauth2/v2.0/token"
+          try {
+            $response = Invoke-RestMethod -Method Post -Uri $uri -Body $body -ContentType "application/x-www-form-urlencoded" -ErrorAction Stop
+            if ($response.access_token) {
+              Write-Host "Signing credential preflight passed."
+              exit 0
+            }
+            Write-Error "The signing token endpoint returned no access token."
+            exit 1
+          } catch {
+            $code = ""
+            try { $code = ($_.ErrorDetails.Message | ConvertFrom-Json).error } catch {}
+            if ($code -in @("invalid_client", "unauthorized_client", "invalid_grant")) {
+              Write-Error "Signing credential preflight failed: $code."
+              exit 1
+            }
+            Write-Warning "Signing credential preflight was inconclusive ($code); continuing to the signing service."
+          }
+      - name: Sign setup executable
+        if: env.SIGNING_CONFIGURED == 'true'
+        uses: Azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2
+        with:
+          endpoint: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
+          signing-account-name: "scottconverse-signing"
+          certificate-profile-name: "ScottConversePublic"
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          files: ${{ env.SCADMILL_INSTALLER }}
+          timestamp-rfc3161: "http://timestamp.acs.microsoft.com"
+      - name: Verify setup signature (fail closed)
+        if: env.SIGNING_CONFIGURED == 'true'
+        shell: pwsh
+        run: |
+          $signature = Get-AuthenticodeSignature $env:SCADMILL_INSTALLER
+          Write-Host "Status: $($signature.Status); Signer: $($signature.SignerCertificate.Subject)"
+          if ($signature.Status -ne 'Valid') {
+            Write-Error "Setup signature is not valid: $($signature.Status)."
+            exit 1
+          }
+      - name: Record unsigned-artifact status
+        if: env.SIGNING_CONFIGURED != 'true'
+        shell: pwsh
+        run: Write-Host "Signing credentials are unavailable; retaining the required unsigned CI artifact."
+      - name: Hash final setup bytes
+        shell: pwsh
+        run: |
+          $hash = Get-FileHash -Algorithm SHA256 -LiteralPath $env:SCADMILL_INSTALLER
+          $sidecar = "$env:SCADMILL_INSTALLER.sha256"
+          "$($hash.Hash.ToLowerInvariant())  $([IO.Path]::GetFileName($env:SCADMILL_INSTALLER))" |
+            Set-Content -LiteralPath $sidecar -Encoding utf8NoBOM
+          Get-Content -LiteralPath $sidecar
+      - name: Upload Windows setup
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: scadmill-windows-setup
+          path: |
+            ${{ env.SCADMILL_INSTALLER }}
+            ${{ env.SCADMILL_INSTALLER }}.sha256
+          if-no-files-found: error

@@ -33,7 +33,9 @@ export interface WorkbenchProps {
   recoveryPersistence?: RecoveryPersistence;
   projectPortability?: ProjectPortabilityController;
   scratchAutosavePersistence?: ScratchAutosavePersistence;
+  showWelcomeOnLaunch?: boolean;
   onThemePreferenceChange(preference: ThemePreference): void;
+  onWelcomePreferenceChange?(show: boolean): void;
   configuredEnginePath?: string;
   onConfigureEnginePath?(path: string): void;
 }
