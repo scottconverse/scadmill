@@ -319,7 +319,7 @@ describe("packaged desktop evidence helpers", () => {
         commands: [
           "pnpm.cmd install --frozen-lockfile",
           "pnpm.cmd build",
-          "cargo.exe clean --manifest-path src/desktop-shell/src-tauri/Cargo.toml --target-dir src/desktop-shell/src-tauri/target --package scadmill-desktop",
+          "cargo.exe clean --manifest-path src/desktop-shell/src-tauri/Cargo.toml --target-dir src/desktop-shell/src-tauri/target",
           "cargo.exe build --release --locked --manifest-path src/desktop-shell/src-tauri/Cargo.toml --target-dir src/desktop-shell/src-tauri/target",
         ],
         toolVersions: {
@@ -370,7 +370,7 @@ describe("packaged desktop evidence helpers", () => {
         commands: [
           "pnpm.cmd install --frozen-lockfile",
           "pnpm.cmd build",
-          "cargo.exe clean --manifest-path src/desktop-shell/src-tauri/Cargo.toml --target-dir src/desktop-shell/src-tauri/target --package scadmill-desktop",
+          "cargo.exe clean --manifest-path src/desktop-shell/src-tauri/Cargo.toml --target-dir src/desktop-shell/src-tauri/target",
           "cargo.exe build --release --locked --manifest-path src/desktop-shell/src-tauri/Cargo.toml --target-dir src/desktop-shell/src-tauri/target",
         ],
         toolVersions: {
@@ -416,6 +416,10 @@ describe("packaged desktop evidence helpers", () => {
     expect(wrapper).toContain(
       '$canonicalApplication = "src/desktop-shell/src-tauri/target/release/scadmill.exe"',
     );
+    expect(wrapper).toContain(
+      '-Arguments @("clean", "--manifest-path", $desktopManifest, "--target-dir", $desktopTarget) -WorkingDirectory $repo -LogPath $desktopCleanLog',
+    );
+    expect(wrapper).not.toContain('"--package", "scadmill-desktop"');
     for (const marker of [
       cleanBefore,
       emptyOutput,

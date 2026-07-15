@@ -205,7 +205,7 @@ $rustcVersion = Get-ToolVersion $rustcPath "rustc"
 $buildStartedAt = Format-IsoInstant (Get-Date)
 Invoke-LoggedCommand -Executable $pnpmPath -Arguments @("install", "--frozen-lockfile") -WorkingDirectory $repo -LogPath $dependencyInstallLog
 Invoke-LoggedCommand -Executable $pnpmPath -Arguments @("build") -WorkingDirectory $repo -LogPath $frontendBuildLog
-Invoke-LoggedCommand -Executable $cargoPath -Arguments @("clean", "--manifest-path", $desktopManifest, "--target-dir", $desktopTarget, "--package", "scadmill-desktop") -WorkingDirectory $repo -LogPath $desktopCleanLog
+Invoke-LoggedCommand -Executable $cargoPath -Arguments @("clean", "--manifest-path", $desktopManifest, "--target-dir", $desktopTarget) -WorkingDirectory $repo -LogPath $desktopCleanLog
 if (Test-Path -LiteralPath $applicationPath) {
   throw "Canonical release executable survived cargo clean; refusing a potentially stale build."
 }
@@ -272,7 +272,7 @@ try {
       commands = @(
         "pnpm.cmd install --frozen-lockfile",
         "pnpm.cmd build",
-        "cargo.exe clean --manifest-path src/desktop-shell/src-tauri/Cargo.toml --target-dir src/desktop-shell/src-tauri/target --package scadmill-desktop",
+        "cargo.exe clean --manifest-path src/desktop-shell/src-tauri/Cargo.toml --target-dir src/desktop-shell/src-tauri/target",
         "cargo.exe build --release --locked --manifest-path src/desktop-shell/src-tauri/Cargo.toml --target-dir src/desktop-shell/src-tauri/target"
       )
       toolVersions = [ordered]@{
