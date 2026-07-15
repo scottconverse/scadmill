@@ -19,6 +19,20 @@ foreach ($mapping in @(
   }
 }
 
+$aclLog = Join-Path $output "sandbox-webview-acl.txt"
+foreach ($grant in @(
+  "*S-1-15-2-2:(OI)(CI)(RX)",
+  "*S-1-15-2-1:(OI)(CI)(RX)"
+)) {
+  & icacls.exe "$local\webview" /grant $grant /T /C /Q *>> $aclLog
+  $aclExitCode = $LASTEXITCODE
+  if ($aclExitCode -ne 0) {
+    Set-Content -LiteralPath (Join-Path $output "sandbox-exit-code.txt") -Value $aclExitCode -Encoding ascii
+    shutdown.exe /s /t 5 /f
+    exit $aclExitCode
+  }
+}
+
 $arguments = @(
   "$local\scripts\run-packaged-desktop-evidence.mjs",
   "--app", "$local\app\scadmill.exe",

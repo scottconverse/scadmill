@@ -150,6 +150,59 @@ function Get-ExactSandboxSessions([string] $ConfigPath) {
   })
 }
 
+function ConvertTo-SandboxSessionIdentity([object] $Process) {
+  if (
+    [int]$Process.ProcessId -le 0 -or
+    [string]::IsNullOrWhiteSpace([string]$Process.ExecutablePath) -or
+    $null -eq $Process.CreationDate
+  ) {
+    throw "Cannot capture Windows Sandbox session identity because a stable property is missing."
+  }
+  return [pscustomobject]@{
+    ProcessId = [int]$Process.ProcessId
+    ExecutablePath = [string]$Process.ExecutablePath
+    CreationTicks = ([DateTime]$Process.CreationDate).ToUniversalTime().Ticks
+  }
+}
+
+function Wait-ExactSandboxSession([string] $ConfigPath, [int] $TimeoutSeconds = 30) {
+  $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+  do {
+    [object[]] $matches = @(Get-ExactSandboxSessions -ConfigPath $ConfigPath)
+    if ($matches.Count -gt 1) {
+      throw "More than one Windows Sandbox session used the exact retained config path."
+    }
+    if ($matches.Count -eq 1) {
+      return ConvertTo-SandboxSessionIdentity -Process $matches[0]
+    }
+    Start-Sleep -Milliseconds 100
+  } while ((Get-Date) -lt $deadline)
+  throw "Timed out capturing the exact Windows Sandbox session identity."
+}
+
+function Get-CapturedSandboxSession([object] $Identity) {
+  [object[]] $matches = @(
+    Get-CimInstance Win32_Process -ErrorAction Stop -Filter "ProcessId = $([int]$Identity.ProcessId)"
+  )
+  if ($matches.Count -eq 0) { return @() }
+  if ($matches.Count -ne 1) { throw "Captured Windows Sandbox process id is ambiguous." }
+  $candidate = $matches[0]
+  if (
+    $candidate.Name -ne "WindowsSandboxRemoteSession.exe" -or
+    [string]::IsNullOrWhiteSpace([string]$candidate.ExecutablePath) -or
+    $null -eq $candidate.CreationDate -or
+    -not [string]::Equals(
+      [string]$candidate.ExecutablePath,
+      [string]$Identity.ExecutablePath,
+      [StringComparison]::OrdinalIgnoreCase
+    ) -or
+    ([DateTime]$candidate.CreationDate).ToUniversalTime().Ticks -ne [long]$Identity.CreationTicks
+  ) {
+    throw "Captured Windows Sandbox session identity changed before cleanup."
+  }
+  return @($candidate)
+}
+
 if ($TimeoutSeconds -lt 60) { throw "TimeoutSeconds must be at least 60." }
 $canonicalApplication = "src/desktop-shell/src-tauri/target/release/scadmill.exe"
 $desktopManifest = "src/desktop-shell/src-tauri/Cargo.toml"
@@ -226,6 +279,8 @@ $stageRoot = Join-Path ([IO.Path]::GetTempPath()) "scadmill-packaged-evidence"
 $stage = Join-Path $stageRoot $runId
 $configPath = Join-Path $stage "scadmill-packaged-evidence.wsb"
 $session = $null
+$sessionIdentity = $null
+$sandboxLaunched = $false
 $guestValidated = $false
 
 try {
@@ -348,6 +403,8 @@ try {
     throw "Source identity changed before Sandbox launch."
   }
   Start-Process -FilePath "WindowsSandbox.exe" -ArgumentList @("`"$configPath`"") -WindowStyle Hidden | Out-Null
+  $sandboxLaunched = $true
+  $sessionIdentity = Wait-ExactSandboxSession -ConfigPath $configPath
 
   $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
   $exitFile = Join-Path $outputPath "sandbox-exit-code.txt"
@@ -384,11 +441,22 @@ try {
   }
   $guestValidated = $true
 } finally {
-  $session = Get-ExactSandboxSessions -ConfigPath $configPath
+  if ($sandboxLaunched -and $null -eq $sessionIdentity) {
+    $sessionIdentity = Wait-ExactSandboxSession -ConfigPath $configPath
+  }
+  $session = if ($null -eq $sessionIdentity) {
+    @()
+  } else {
+    Get-CapturedSandboxSession -Identity $sessionIdentity
+  }
   foreach ($process in $session) { Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue }
   $sessionDeadline = (Get-Date).AddSeconds(15)
   do {
-    $session = Get-ExactSandboxSessions -ConfigPath $configPath
+    $session = if ($null -eq $sessionIdentity) {
+      @()
+    } else {
+      Get-CapturedSandboxSession -Identity $sessionIdentity
+    }
     if ($session) { Start-Sleep -Milliseconds 250 }
   } while ($session -and (Get-Date) -lt $sessionDeadline)
   $sessionSurvived = [bool]$session

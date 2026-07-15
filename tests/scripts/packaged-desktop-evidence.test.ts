@@ -295,6 +295,22 @@ describe("packaged desktop evidence helpers", () => {
     );
   });
 
+  it("grants the copied fixed WebView runtime AppContainer access before driver launch", async () => {
+    const bootstrap = await readFile(
+      join(process.cwd(), "scripts", "windows", "run-packaged-desktop-sandbox.ps1"),
+      "utf8",
+    );
+    const allPackages = bootstrap.indexOf('"*S-1-15-2-2:(OI)(CI)(RX)"');
+    const restrictedPackages = bootstrap.indexOf('"*S-1-15-2-1:(OI)(CI)(RX)"');
+    const aclCommand = bootstrap.indexOf('& icacls.exe "$local\\webview" /grant $grant /T /C /Q');
+    const runnerLaunch = bootstrap.indexOf('& "$local\\tools\\node.exe" @arguments');
+
+    expect(allPackages).toBeGreaterThanOrEqual(0);
+    expect(restrictedPackages).toBeGreaterThan(allPackages);
+    expect(aclCommand).toBeGreaterThan(restrictedPackages);
+    expect(runnerLaunch).toBeGreaterThan(aclCommand);
+  });
+
   it("binds evidence metadata to one clean source tree and its locked same-step build", () => {
     const appSha256 = "82".repeat(32);
     const metadata = {
@@ -471,11 +487,21 @@ describe("packaged desktop evidence helpers", () => {
     const hostInspections = [...wrapper.matchAll(/Get-CimInstance Win32_Process[^\r\n]*/gu)]
       .map(([line]) => line);
 
-    expect(hostInspections).toHaveLength(1);
+    expect(hostInspections).toHaveLength(2);
     for (const inspection of hostInspections) {
       expect(inspection).toContain("-ErrorAction Stop");
       expect(inspection).not.toContain("SilentlyContinue");
     }
+    expect(
+      hostInspections.some((inspection) =>
+        inspection.includes("Name = 'WindowsSandboxRemoteSession.exe'"),
+      ),
+    ).toBe(true);
+    expect(
+      hostInspections.some((inspection) =>
+        inspection.includes('ProcessId = $([int]$Identity.ProcessId)'),
+      ),
+    ).toBe(true);
     expect(runner).toContain(
       "Get-CimInstance Win32_Process -ErrorAction Stop -Filter",
     );
@@ -533,7 +559,13 @@ describe("packaged desktop evidence helpers", () => {
     expect(wrapper).toContain(
       'throw "Cannot prove Windows Sandbox session identity because a CommandLine is missing."',
     );
-    expect(wrapper.match(/Get-ExactSandboxSessions -ConfigPath \$configPath/gu)).toHaveLength(2);
+    expect(wrapper).toContain("function Wait-ExactSandboxSession");
+    expect(wrapper).toContain("function Get-CapturedSandboxSession");
+    expect(wrapper).toContain(
+      "$sessionIdentity = Wait-ExactSandboxSession -ConfigPath $configPath",
+    );
+    expect(wrapper).toContain("Get-CapturedSandboxSession -Identity $sessionIdentity");
+    expect(wrapper.match(/Get-ExactSandboxSessions -ConfigPath \$ConfigPath/gu)).toHaveLength(1);
     expect(wrapper).not.toContain('-like "*$configPath*"');
     expect(wrapper).not.toContain(".CommandLine.IndexOf($ConfigPath");
   });
