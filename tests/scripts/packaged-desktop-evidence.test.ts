@@ -311,6 +311,20 @@ describe("packaged desktop evidence helpers", () => {
     expect(runnerLaunch).toBeGreaterThan(aclCommand);
   });
 
+  it("places the Visual C++ runtime beside the packaged app before launch", async () => {
+    const bootstrap = await readFile(
+      join(process.cwd(), "scripts", "windows", "run-packaged-desktop-sandbox.ps1"),
+      "utf8",
+    );
+    const runtimeCopy = bootstrap.indexOf(
+      'Copy-Item -LiteralPath "$local\\tools\\vcruntime140.dll" -Destination "$local\\app\\vcruntime140.dll" -Force -ErrorAction Stop',
+    );
+    const runnerLaunch = bootstrap.indexOf('& "$local\\tools\\node.exe" @arguments');
+
+    expect(runtimeCopy).toBeGreaterThanOrEqual(0);
+    expect(runnerLaunch).toBeGreaterThan(runtimeCopy);
+  });
+
   it("binds evidence metadata to one clean source tree and its locked same-step build", () => {
     const appSha256 = "82".repeat(32);
     const metadata = {
@@ -566,6 +580,12 @@ describe("packaged desktop evidence helpers", () => {
     );
     expect(wrapper).toContain("Get-CapturedSandboxSession -Identity $sessionIdentity");
     expect(wrapper.match(/Get-ExactSandboxSessions -ConfigPath \$ConfigPath/gu)).toHaveLength(1);
+    const capturedHelper = wrapper.slice(
+      wrapper.indexOf("function Get-CapturedSandboxSession"),
+      wrapper.indexOf("if ($TimeoutSeconds -lt 60)"),
+    );
+    expect(capturedHelper.match(/return @\(\)/gu)).toHaveLength(2);
+    expect(capturedHelper).not.toContain("identity changed before cleanup");
     expect(wrapper).not.toContain('-like "*$configPath*"');
     expect(wrapper).not.toContain(".CommandLine.IndexOf($ConfigPath");
   });

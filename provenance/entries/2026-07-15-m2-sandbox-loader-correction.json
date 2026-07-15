@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-15-m2-sandbox-loader-correction",
+  "createdAt": "2026-07-15T14:00:49-06:00",
+  "summary": "Place the staged Visual C++ runtime beside the packaged executable before the clean Sandbox launch and treat a reused Sandbox PID as proof that the originally captured process has exited, never as a cleanup target.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 M2 exit gate",
+    "AC-0.b packaged Windows evidence",
+    "M2-R02 packaged desktop evidence",
+    "N-2 reliability",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-15-m2-sandbox-loader-correction.json", "status": "added" },
+    { "path": "scripts/windows/run-packaged-desktop-evidence.ps1", "status": "modified" },
+    { "path": "scripts/windows/run-packaged-desktop-sandbox.ps1", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0230",
+      "topic": "Clean-machine Visual C++ loader boundary and reused Sandbox PIDs",
+      "decision": "Copy the already hashed and staged vcruntime140.dll from the guest tools directory beside scadmill.exe before invoking the evidence runner, fail closed if that copy fails, and return no captured session when a later process at the captured PID does not match the immutable name, executable path, and creation time.",
+      "rationale": "The clean guest displayed the concrete Windows loader error that VCRUNTIME140.dll was unavailable beside the packaged executable; EdgeDriver consequently reported that the app crashed before WebView2 created its DevTools port. A later process at the same numeric PID is not the captured Sandbox process and must neither be killed nor counted as a surviving session.",
+      "specBasis": ["AC-0.b packaged Windows evidence", "M2-R02", "N-2 reliability", "N-7 evidence honesty"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The clean guest can load the packaged executable and cleanup cannot target a reused PID",
+      "test": "Require a fail-closed adjacent Visual C++ runtime copy before Node launches the evidence runner, and require captured-process lookup to return no session when immutable identity no longer matches.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts --reporter=verbose --maxWorkers=1",
+        "observedAt": "2026-07-15T13:58:13-06:00",
+        "outcome": "RED: 1 test file failed; 2 tests failed and 21 passed. No adjacent Visual C++ runtime copy existed, and a reused PID identity was thrown as a cleanup error instead of being treated as the original process having exited. The preceding exact clean Sandbox run also retained exit code 1, no PASS markers, and the concrete VCRUNTIME140.dll loader failure observed in the guest."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts --reporter=verbose --maxWorkers=1",
+        "observedAt": "2026-07-15T13:58:47-06:00",
+        "outcome": "GREEN: 1 test file passed and all 23 tests passed in 737 ms."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "The exact committed candidate still requires a fresh retained Windows Sandbox run; this entry does not predeclare that external guest result."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

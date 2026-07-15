@@ -198,7 +198,7 @@ function Get-CapturedSandboxSession([object] $Identity) {
     ) -or
     ([DateTime]$candidate.CreationDate).ToUniversalTime().Ticks -ne [long]$Identity.CreationTicks
   ) {
-    throw "Captured Windows Sandbox session identity changed before cleanup."
+    return @()
   }
   return @($candidate)
 }
