@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  type ConsoleState,
   createConsoleState,
   formatConsoleHistory,
   reduceConsoleState,
@@ -8,6 +9,104 @@ import {
 import type { RenderFailure } from "../../../src/application/engine/contracts";
 
 describe("console state", () => {
+  it("formats exact localized running history with pending time and singular dropped output", () => {
+    const state: ConsoleState = {
+      retainedLineCount: 1,
+      runs: [{
+        jobId: "running",
+        entryFile: "main.scad",
+        quality: "preview",
+        startedAt: "2026-07-10T13:00:00.000Z",
+        status: "running",
+        diagnostics: [{
+          severity: "warning",
+          message: "preview warning",
+          file: "lib.scad",
+          line: 7,
+        }],
+        lines: [{
+          sequence: 0,
+          part: 0,
+          elapsedMs: 4,
+          stream: "stdout",
+          raw: "compiling\n",
+        }],
+        droppedLineCount: 1,
+      }],
+    };
+
+    expect(formatConsoleHistory(state)).toBe(
+      "=== main.scad · preview · pending · running ===\n"
+      + "[1 older line dropped]\n"
+      + "[Warning] lib.scad:7 preview warning\n"
+      + "[+0.004s stdout] compiling\n",
+    );
+  });
+
+  it("formats exact localized completed outcomes and plural dropped output", () => {
+    const state: ConsoleState = {
+      retainedLineCount: 2,
+      runs: [
+        {
+          jobId: "success",
+          entryFile: "done.scad",
+          quality: "full",
+          startedAt: "2026-07-10T13:00:00.000Z",
+          status: "success",
+          durationMs: 25,
+          diagnostics: [{ severity: "error", message: "failed", file: "done.scad", line: 9 }],
+          lines: [{
+            sequence: 0,
+            part: 0,
+            elapsedMs: 1_004,
+            stream: "stderr",
+            raw: "failure\n",
+          }],
+          droppedLineCount: 2,
+        },
+        {
+          jobId: "engine-error",
+          entryFile: "error.scad",
+          quality: "preview",
+          startedAt: "2026-07-10T13:00:01.000Z",
+          status: "engine-error",
+          durationMs: 30,
+          exitCode: 7,
+          diagnostics: [],
+          lines: [{
+            sequence: 0,
+            part: 0,
+            elapsedMs: 1_500,
+            stream: "unknown",
+            raw: "other\n",
+          }],
+          droppedLineCount: 0,
+        },
+        {
+          jobId: "timeout",
+          entryFile: "timeout.scad",
+          quality: "full",
+          startedAt: "2026-07-10T13:00:02.000Z",
+          status: "timeout",
+          durationMs: 30_000,
+          diagnostics: [],
+          lines: [],
+          droppedLineCount: 0,
+        },
+      ],
+    };
+
+    expect(formatConsoleHistory(state)).toBe(
+      "=== done.scad · full · 25 ms · exit 0 ===\n"
+      + "[2 older lines dropped]\n"
+      + "[Error] done.scad:9 failed\n"
+      + "[+1.004s stderr] failure\n"
+      + "\n=== error.scad · preview · 30 ms · exit 7 ===\n"
+      + "[+1.500s unknown] other\n"
+      + "\n=== timeout.scad · full · 30000 ms · timeout ===\n",
+    );
+  });
+
   it("retains ordered streamed output and finishes a run with metadata", () => {
     let state = createConsoleState();
     state = reduceConsoleState(state, {

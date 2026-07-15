@@ -50,6 +50,14 @@ projects that remain strictly off-limits). Scan-confirmed gaps are recorded so i
 don't burn search time: no CodeMirror-6 OpenSCAD mode, no permissively-licensed highlighting
 grammar, and no OpenSCAD grammar file for constrained AI decoding exist anywhere — those
 remain original work as the spec already assumed.
+**Amendment A-9 (owner benchmark update):** FR-2.5 no longer names a 2020-class integrated
+GPU as minimum hardware. Performance evidence remains hardware-disclosing and must still prove
+two-million-triangle orbit at ≥ 30 fps; the owner-designated benchmark baseline is AMD Radeon
+780M. This benchmark is an acceptance-evidence baseline, not a minimum supported-hardware
+claim. An earlier unbound Radeon checkpoint is diagnostic only.
+Per-candidate qualification is accepted only from retained external evidence bound to the exact
+candidate source tree and profiler harness. Static specification text does not predeclare a run
+verdict.
 
 ---
 
@@ -420,8 +428,10 @@ The default desktop workspace (≥ 1200 px wide):
   perspective/orthographic toggle, zoom-to-fit.
 - FR-2.4 Scene furniture, each independently toggleable: XY grid with adaptive spacing, RGB
   axis triad, edge overlay on the mesh, ground shadow (optional).
-- FR-2.5 Renders meshes up to 2 M triangles at interactive frame rates (≥ 30 fps orbit on a
-  2020-class integrated GPU); degrades gracefully (auto-disables edges/shadow) beyond that.
+- FR-2.5 Renders meshes up to 2 M triangles at interactive frame rates (≥ 30 fps orbit in a
+  disclosed hardware-accelerated run). The owner-designated benchmark baseline is AMD Radeon
+  780M; this is an acceptance-evidence baseline, not a minimum supported-hardware claim. The
+  viewer degrades gracefully (auto-disables edges/shadow) beyond that triangle count.
 - FR-2.6 **Measurement tools:** point-to-point distance; edge length; face-to-face distance;
   bounding-box dimensions readout. Measurements render as labeled overlays, survive camera
   moves, clear on model change, and are individually deletable.
@@ -1735,3 +1745,4 @@ difference() {
 | A-6 | 2026-07-09 | §8 | Owner decision: commitment scope = the complete product, M0–M6, architected for from day one |
 | A-7 | 2026-07-10 | §2.7, FR-6.4, FR-15.10, FR-15.14, FR-15.15 (new), AC-15.k/l/m (new) | Engine pin is the **2026.06.12 development snapshot** (first cross-platform build after upstream PR #6857 fixed multi-mesh 3MF color export; the 2021.01 stable has no color/multi-object 3MF export at all — the "stable by default" sentence is deleted as self-contradictory). Multi-object colored 3MF export is a first-class requirement with machine-checkable ACs; "Color" encoding mandated over "Base Material" (open upstream bug #6060); all engine color/multi-object flags isolated behind the EngineService adapter; UI must state plainly that slicers require per-object filament assignment (slicers ignore standard 3MF color metadata — upstream #5849) and never claim automatic filament mapping |
 | A-8 | 2026-07-10 | §2.2 (items 3/5 new), §6 (approved list + notes), FR-15.16 (new), FR-15.17 (new), AC-15.n/o (new), milestones M5/M6 | Verified open-source leverage from an owner-run 120-candidate scan (every license read from primary sources). Approved: the OpenSCAD org's official tree-sitter grammar (MIT — direct structural use permitted and licensed reference for the fresh CodeMirror grammar; use only the `@openscad/`-scoped npm package), Leathong openscad-LSP (treat as Apache-2.0 — its MIT license file is missing upstream; its GPL-3 VS Code companion stays prohibited; one-formatter-authority rule), Kiri:Moto engine (MIT) for new FR-15.16 design-time estimates with strict estimate-labeling honesty rules, llguidance (MIT, optional constrained-decode lane). New FR-15.17 library-aware completions. §2.2 gains a safety-classified reference reading list; scan-confirmed gaps recorded (no CodeMirror-6 mode, no permissive highlighting grammar, no OpenSCAD constrained-decode grammar file exists anywhere — original work as assumed). Decisions already recorded under §2.7 for M0–M1 stand; nothing in A-8 retroactively invalidates merged work |
+| A-9 | 2026-07-14 | FR-2.5, M2-R04 | Removed the obsolete 2020-class integrated-GPU minimum. The hardware-disclosing two-million-triangle orbit gate remains ≥ 30 fps; AMD Radeon 780M is the owner-designated benchmark baseline, not a minimum supported-hardware claim. Per-candidate qualification is accepted only from retained external evidence bound to the exact candidate source tree and profiler harness. |

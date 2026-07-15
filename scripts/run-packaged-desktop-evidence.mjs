@@ -422,7 +422,11 @@ async function exactAppProcesses(appPath) {
 async function exactExecutableProcesses(executablePath) {
   const executableName = basename(executablePath).replaceAll("'", "''");
   const escaped = executablePath.replaceAll("'", "''");
-  const command = `@(Get-CimInstance Win32_Process -Filter "Name = '${executableName}'" | Where-Object { $_.ExecutablePath -eq '${escaped}' } | Select-Object @{n='pid';e={[int]$_.ProcessId}},@{n='path';e={$_.ExecutablePath}}) | ConvertTo-Json -Compress`;
+  const command = [
+    `$candidates = @(Get-CimInstance Win32_Process -ErrorAction Stop -Filter "Name = '${executableName}'");`,
+    "if (@($candidates | Where-Object { [string]::IsNullOrWhiteSpace([string]$_.ExecutablePath) }).Count -ne 0) { throw 'Cannot prove process identity because an ExecutablePath is missing.' };",
+    `@($candidates | Where-Object { $_.ExecutablePath -eq '${escaped}' } | Select-Object @{n='pid';e={[int]$_.ProcessId}},@{n='path';e={$_.ExecutablePath}}) | ConvertTo-Json -Compress`,
+  ].join(" ");
   const result = await run("powershell.exe", ["-NoProfile", "-Command", command]);
   if (!result.stdout) return [];
   const parsed = JSON.parse(result.stdout);
@@ -1101,7 +1105,7 @@ try {
   if (client?.sessionId) await client.deleteSession().catch(() => undefined);
   if (driver) await driver.stop().catch(() => undefined);
   if (lastVerifiedAppProcess) {
-    const exact = await exactAppProcesses(args.app).catch(() => []);
+    const exact = await exactAppProcesses(args.app);
     const same = exact.find(({ pid, path }) => pid === lastVerifiedAppProcess.pid && normalize(path) === normalize(args.app));
     if (same) {
       try { process.kill(same.pid); } catch { /* already gone */ }

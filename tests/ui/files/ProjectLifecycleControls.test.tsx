@@ -4,11 +4,11 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { EngineService } from "../../../src/application/engine/contracts";
 import type { ProjectStorage } from "../../../src/application/files/project-file-service";
-import type { RecoveryPersistence } from "../../../src/application/files/recovery-state";
 import {
   createProjectSnapshot,
   type ProjectFileContent,
 } from "../../../src/application/files/project-snapshot";
+import type { RecoveryPersistence } from "../../../src/application/files/recovery-state";
 import { createWorkbenchRuntime } from "../../../src/application/runtime/workbench-runtime";
 import { ExternalChangeDiff } from "../../../src/ui/files/ExternalChangeDiff";
 import { ProjectLifecycleControls } from "../../../src/ui/files/ProjectLifecycleControls";
@@ -35,6 +35,12 @@ function recovery(initial: string | null = null): RecoveryPersistence & { value:
     save(serialized) { this.value = serialized; },
     clear() { this.value = null; },
   };
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => { resolve = resolvePromise; });
+  return { promise, resolve };
 }
 
 describe("ProjectLifecycleControls", () => {
@@ -320,11 +326,20 @@ describe("ProjectLifecycleControls", () => {
       ],
     }));
     const runtime = createWorkbenchRuntime(engine());
+    const liveEditor = document.createElement("textarea");
+    liveEditor.setAttribute("aria-label", "Live editor");
+    document.body.append(liveEditor);
+    liveEditor.focus();
     const view = render(
       <ProjectLifecycleControls recoveryPersistence={persisted} runtime={runtime} />,
     );
 
-    expect(view.getByRole("alertdialog", { name: "Unsaved work recovery" })).toBeVisible();
+    const prompt = view.getByRole("region", { name: "Unsaved work recovery" });
+    expect(prompt).toBeVisible();
+    expect(prompt).not.toHaveAttribute("aria-modal");
+    expect(view.queryByRole("alertdialog", { name: "Unsaved work recovery" }))
+      .not.toBeInTheDocument();
+    expect(liveEditor).toHaveFocus();
     fireEvent.click(view.getByRole("button", { name: "Restore unsaved work" }));
 
     await waitFor(() => expect(runtime.documents.getState().documents).toEqual([
@@ -340,7 +355,460 @@ describe("ProjectLifecycleControls", () => {
       }),
     ]));
     await waitFor(() => expect(persisted.value).toContain("cube(77);"));
+    liveEditor.remove();
   });
+
+  it("restores an opaque browser workspace under its captured display name", async () => {
+    const projectId = "workspace:opaque-indexeddb-key";
+    const persisted = recovery(JSON.stringify({
+      version: 1,
+      projectId,
+      displayName: "Gear configurator",
+      capturedAt: "2026-07-10T00:00:00.000Z",
+      buffers: [{
+        documentId: "recovered-main",
+        path: "main.scad",
+        source: "cube(77);",
+        savedSource: "cube(12);",
+      }],
+    }));
+    const files = new Map<string, ProjectFileContent>([["main.scad", "cube(12);"]]);
+    const projectStorage = storage(files);
+    const runtime = createWorkbenchRuntime(engine(), { projectStorage });
+    const view = render(
+      <ProjectLifecycleControls
+        projectLocatorKind="browser"
+        recoveryPersistence={persisted}
+        runtime={runtime}
+        storage={projectStorage}
+      />,
+    );
+
+    fireEvent.click(view.getByRole("button", { name: "Restore unsaved work" }));
+
+    await waitFor(() => expect(runtime.project.getState()).toMatchObject({
+      displayName: "Gear configurator",
+      recentProjects: [{
+        projectId,
+        displayName: "Gear configurator",
+      }],
+    }));
+    expect(view.getByRole("button", { name: "Reopen Gear configurator" })).toBeVisible();
+    expect(view.queryByRole("button", { name: /workspace:opaque-indexeddb-key/iu }))
+      .not.toBeInTheDocument();
+    runtime.dispose();
+  });
+
+  it("keeps restored dirty buffers continuously durable without clearing recovery first", async () => {
+    const serialized = JSON.stringify({
+      version: 1,
+      projectId: "scratch",
+      capturedAt: "2026-07-10T00:00:00.000Z",
+      buffers: [{
+        documentId: "document-main",
+        path: "main.scad",
+        source: "cube(77);",
+        savedSource: "cube(12);",
+      }],
+    });
+    const persisted = recovery(serialized);
+    const clear = vi.spyOn(persisted, "clear");
+    const runtime = createWorkbenchRuntime(engine());
+    const view = render(
+      <ProjectLifecycleControls recoveryPersistence={persisted} runtime={runtime} />,
+    );
+
+    fireEvent.click(view.getByRole("button", { name: "Restore unsaved work" }));
+
+    await waitFor(() => expect(runtime.documents.getState().documents[0]).toMatchObject({
+      source: "cube(77);",
+      savedSource: "cube(12);",
+    }));
+    await act(async () => { await Promise.resolve(); });
+    expect(clear).not.toHaveBeenCalled();
+    expect(persisted.value).not.toBeNull();
+    runtime.dispose();
+  });
+
+  it("atomically restores every text buffer from a project snapshot", async () => {
+    const serialized = JSON.stringify({
+      version: 1,
+      projectId: "project-a",
+      capturedAt: "2026-07-10T00:00:00.000Z",
+      buffers: [
+        {
+          documentId: "recovered-main",
+          path: "main.scad",
+          source: "cube(77);",
+          savedSource: "cube(12);",
+        },
+        {
+          documentId: "recovered-notes",
+          path: "notes.scad",
+          source: "sphere(9);",
+          savedSource: "sphere(4);",
+        },
+      ],
+    });
+    const persisted = recovery(serialized);
+    const clear = vi.spyOn(persisted, "clear");
+    const files = new Map<string, ProjectFileContent>([
+      ["main.scad", "cube(12);"],
+      ["notes.scad", "sphere(4);"],
+    ]);
+    const projectStorage = storage(files);
+    const runtime = createWorkbenchRuntime(engine(), { projectStorage });
+    const view = render(
+      <ProjectLifecycleControls
+        recoveryPersistence={persisted}
+        runtime={runtime}
+        storage={projectStorage}
+      />,
+    );
+
+    fireEvent.click(view.getByRole("button", { name: "Restore unsaved work" }));
+
+    await waitFor(() => expect(runtime.documents.getState().documents.map(
+      ({ path, source, savedSource }) => ({ path, source, savedSource }),
+    )).toEqual([
+      { path: "main.scad", source: "cube(77);", savedSource: "cube(12);" },
+      { path: "notes.scad", source: "sphere(9);", savedSource: "sphere(4);" },
+    ]));
+    expect(runtime.project.getState()).toMatchObject({
+      mode: "project",
+      snapshot: { projectId: "project-a" },
+    });
+    expect(clear).not.toHaveBeenCalled();
+    expect(persisted.value).toBe(serialized);
+    runtime.dispose();
+  });
+
+  it("preserves edits made while a project recovery snapshot is awaited", async () => {
+    const serialized = JSON.stringify({
+      version: 1,
+      projectId: "project-a",
+      capturedAt: "2026-07-10T00:00:00.000Z",
+      buffers: [{
+        documentId: "recovered-main",
+        path: "main.scad",
+        source: "cube(77);",
+        savedSource: "cube(12);",
+      }],
+    });
+    const persisted = recovery(serialized);
+    const releaseSnapshot = deferred<void>();
+    const files = new Map<string, ProjectFileContent>([["main.scad", "cube(12);"]]);
+    const projectStorage = storage(files);
+    const snapshot = vi.fn(async (projectId: string) => {
+      await releaseSnapshot.promise;
+      return createProjectSnapshot(projectId, files);
+    });
+    projectStorage.snapshot = snapshot;
+    const runtime = createWorkbenchRuntime(engine(), { projectStorage });
+    const view = render(
+      <ProjectLifecycleControls
+        recoveryPersistence={persisted}
+        runtime={runtime}
+        storage={projectStorage}
+      />,
+    );
+
+    fireEvent.click(view.getByRole("button", { name: "Restore unsaved work" }));
+    await waitFor(() => expect(snapshot).toHaveBeenCalledWith("project-a"));
+    await act(async () => {
+      await runtime.dispatch({
+        kind: "edit-document",
+        origin: "user",
+        documentId: "document-main",
+        source: "sphere(99);",
+      });
+      releaseSnapshot.resolve();
+      await releaseSnapshot.promise;
+    });
+
+    await waitFor(() => expect(runtime.documents.getState().documents.map(
+      ({ path, source }) => ({ path, source }),
+    )).toEqual([
+      { path: "main.scad", source: "cube(77);" },
+      { path: "main (recovery 2).scad", source: "sphere(99);" },
+    ]));
+    expect(persisted.value).toContain("sphere(99);");
+    runtime.dispose();
+  });
+
+  it("aborts project recovery when a clean workspace change occurs during snapshot load", async () => {
+    const serialized = JSON.stringify({
+      version: 1,
+      projectId: "project-a",
+      capturedAt: "2026-07-10T00:00:00.000Z",
+      buffers: [{
+        documentId: "recovered-main",
+        path: "main.scad",
+        source: "cube(77);",
+        savedSource: "cube(12);",
+      }],
+    });
+    const persisted = recovery(serialized);
+    const releaseSnapshot = deferred<void>();
+    const files = new Map<string, ProjectFileContent>([["main.scad", "cube(12);"]]);
+    const projectStorage = storage(files);
+    const snapshot = vi.fn(async (projectId: string) => {
+      await releaseSnapshot.promise;
+      return createProjectSnapshot(projectId, files);
+    });
+    projectStorage.snapshot = snapshot;
+    const runtime = createWorkbenchRuntime(engine(), { projectStorage });
+    const view = render(
+      <ProjectLifecycleControls
+        recoveryPersistence={persisted}
+        runtime={runtime}
+        storage={projectStorage}
+      />,
+    );
+
+    fireEvent.click(view.getByRole("button", { name: "Restore unsaved work" }));
+    await waitFor(() => expect(snapshot).toHaveBeenCalledWith("project-a"));
+    await act(async () => {
+      await runtime.dispatch({
+        kind: "open-document",
+        origin: "user",
+        document: { id: "clean-notes", path: "notes.scad", source: "sphere(2);" },
+      });
+      releaseSnapshot.resolve();
+      await releaseSnapshot.promise;
+    });
+
+    expect(await view.findByText(/workspace changed while restoration was prepared/iu)).toBeVisible();
+    expect(runtime.project.getState().mode).toBe("scratch");
+    expect(runtime.documents.getState().documents.map(({ path, source }) => ({ path, source })))
+      .toEqual([
+        { path: "main.scad", source: "cube(10);" },
+        { path: "notes.scad", source: "sphere(2);" },
+      ]);
+    expect(persisted.value).toBe(serialized);
+    runtime.dispose();
+  });
+
+  it("aborts project recovery when project state changes without changing open documents", async () => {
+    const serialized = JSON.stringify({
+      version: 1,
+      projectId: "project-a",
+      capturedAt: "2026-07-10T00:00:00.000Z",
+      buffers: [{
+        documentId: "recovered-main",
+        path: "main.scad",
+        source: "cube(77);",
+        savedSource: "cube(12);",
+      }],
+    });
+    const persisted = recovery(serialized);
+    const releaseSnapshot = deferred<void>();
+    const recoveredFiles = new Map<string, ProjectFileContent>([["main.scad", "cube(12);"]]);
+    const refreshedScratchFiles = new Map<string, ProjectFileContent>([
+      ["main.scad", "cube(10);"],
+      ["closed.scad", "sphere(3);"],
+    ]);
+    const snapshot = vi.fn(async (projectId: string) => {
+      if (projectId === "project-a") {
+        await releaseSnapshot.promise;
+        return createProjectSnapshot(projectId, recoveredFiles);
+      }
+      return createProjectSnapshot(projectId, refreshedScratchFiles);
+    });
+    const projectStorage: ProjectStorage = {
+      snapshot,
+      read: async () => undefined,
+      write: async () => undefined,
+      move: async () => undefined,
+      trash: async () => undefined,
+      reveal: async () => undefined,
+    };
+    const runtime = createWorkbenchRuntime(engine(), { projectStorage });
+    const view = render(
+      <ProjectLifecycleControls
+        recoveryPersistence={persisted}
+        runtime={runtime}
+        storage={projectStorage}
+      />,
+    );
+
+    fireEvent.click(view.getByRole("button", { name: "Restore unsaved work" }));
+    await waitFor(() => expect(snapshot).toHaveBeenCalledWith("project-a"));
+    const workspaceBeforeRefresh = runtime.documents.getState();
+    await act(async () => {
+      await runtime.dispatch({ kind: "refresh-project", origin: "system" });
+      releaseSnapshot.resolve();
+      await releaseSnapshot.promise;
+    });
+    const refreshedProject = runtime.project.getState();
+
+    expect(await view.findByText(/project changed while restoration was prepared/iu)).toBeVisible();
+    expect(runtime.project.getState()).toBe(refreshedProject);
+    expect(runtime.project.getState().snapshot.files.has("closed.scad" as never)).toBe(true);
+    expect(runtime.documents.getState()).toBe(workspaceBeforeRefresh);
+    expect(persisted.value).toBe(serialized);
+    runtime.dispose();
+  });
+
+  it("rejects an unsafe later scratch buffer without changing any workspace state", async () => {
+    const serialized = JSON.stringify({
+      version: 1,
+      projectId: "scratch",
+      capturedAt: "2026-07-10T00:00:00.000Z",
+      buffers: [
+        {
+          documentId: "safe-notes",
+          path: "notes.scad",
+          source: "sphere(7);",
+          savedSource: "sphere(2);",
+        },
+        {
+          documentId: "unsafe-notes",
+          path: "../escape.scad",
+          source: "cube(9);",
+          savedSource: "cube(3);",
+        },
+      ],
+    });
+    const persisted = recovery(serialized);
+    const runtime = createWorkbenchRuntime(engine());
+    const beforeProject = runtime.project.getState();
+    const beforeWorkspace = runtime.documents.getState();
+    const view = render(
+      <ProjectLifecycleControls recoveryPersistence={persisted} runtime={runtime} />,
+    );
+
+    fireEvent.click(view.getByRole("button", { name: "Restore unsaved work" }));
+
+    expect(await view.findByText(/Invalid project path.*escape\.scad/iu)).toBeVisible();
+    expect(runtime.project.getState()).toBe(beforeProject);
+    expect(runtime.documents.getState()).toBe(beforeWorkspace);
+    expect(persisted.value).toBe(serialized);
+    runtime.dispose();
+  });
+
+  it("allocates a collision-proof scratch document id before restoring", async () => {
+    const serialized = JSON.stringify({
+      version: 1,
+      projectId: "scratch",
+      capturedAt: "2026-07-10T00:00:00.000Z",
+      buffers: [{
+        documentId: "taken",
+        path: "recovered.scad",
+        source: "cube(77);",
+        savedSource: "cube(12);",
+      }],
+    });
+    const persisted = recovery(serialized);
+    const runtime = createWorkbenchRuntime(engine());
+    await runtime.dispatch({
+      kind: "open-document",
+      origin: "system",
+      document: { id: "taken", path: "existing.scad", source: "sphere(1);" },
+    });
+    await runtime.dispatch({
+      kind: "open-document",
+      origin: "system",
+      document: { id: "taken-recovery-2", path: "occupied-2.scad", source: "sphere(2);" },
+    });
+    await runtime.dispatch({
+      kind: "open-document",
+      origin: "system",
+      document: { id: "taken-recovery-3", path: "occupied-3.scad", source: "sphere(3);" },
+    });
+    const view = render(
+      <ProjectLifecycleControls recoveryPersistence={persisted} runtime={runtime} />,
+    );
+
+    fireEvent.click(view.getByRole("button", { name: "Restore unsaved work" }));
+
+    await waitFor(() => expect(runtime.documents.getState().documents).toContainEqual(
+      expect.objectContaining({ path: "recovered.scad", source: "cube(77);" }),
+    ));
+    const ids = runtime.documents.getState().documents.map(({ id }) => id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(runtime.documents.getState().documents.find(({ path }) => path === "recovered.scad")?.id)
+      .toBe("taken-recovery-4");
+    runtime.dispose();
+  });
+
+  it("leaves project and workspace untouched when the atomic recovery dispatch fails", async () => {
+    const serialized = JSON.stringify({
+      version: 1,
+      projectId: "scratch",
+      capturedAt: "2026-07-10T00:00:00.000Z",
+      buffers: [{
+        documentId: "recovered-notes",
+        path: "notes.scad",
+        source: "cube(77);",
+        savedSource: "cube(12);",
+      }],
+    });
+    const persisted = recovery(serialized);
+    const baseRuntime = createWorkbenchRuntime(engine());
+    const runtime = {
+      ...baseRuntime,
+      dispatch: vi.fn(async (command: Parameters<typeof baseRuntime.dispatch>[0]) => {
+        if ((command as { kind: string }).kind === "restore-recovery-confirmed") {
+          throw new Error("Simulated recovery transition failure.");
+        }
+        await baseRuntime.dispatch(command);
+      }),
+    };
+    const beforeProject = runtime.project.getState();
+    const beforeWorkspace = runtime.documents.getState();
+    const view = render(
+      <ProjectLifecycleControls recoveryPersistence={persisted} runtime={runtime} />,
+    );
+
+    fireEvent.click(view.getByRole("button", { name: "Restore unsaved work" }));
+
+    expect(await view.findByText(/Simulated recovery transition failure/u)).toBeVisible();
+    expect(runtime.project.getState()).toBe(beforeProject);
+    expect(runtime.documents.getState()).toBe(beforeWorkspace);
+    expect(persisted.value).toBe(serialized);
+    baseRuntime.dispose();
+  });
+
+  it.each([
+    ["missing", undefined],
+    ["binary", new Uint8Array([0, 1, 2])],
+  ] satisfies readonly (readonly [string, ProjectFileContent | undefined])[])(
+    "retains project recovery when a recovered path is now %s",
+    async (_caseName, recoveredContent) => {
+      const serialized = JSON.stringify({
+        version: 1,
+        projectId: "project-a",
+        capturedAt: "2026-07-10T00:00:00.000Z",
+        buffers: [{
+          documentId: "deleted-source",
+          path: "deleted.scad",
+          source: "cube(77);",
+          savedSource: "cube(12);",
+        }],
+      });
+      const persisted = recovery(serialized);
+      const files = new Map<string, ProjectFileContent>([["main.scad", "sphere(5);"]]);
+      if (recoveredContent !== undefined) files.set("deleted.scad", recoveredContent);
+      const projectStorage = storage(files);
+      const runtime = createWorkbenchRuntime(engine(), { projectStorage });
+      const view = render(
+        <ProjectLifecycleControls
+          recoveryPersistence={persisted}
+          runtime={runtime}
+          storage={projectStorage}
+        />,
+      );
+
+      fireEvent.click(view.getByRole("button", { name: "Restore unsaved work" }));
+
+      expect(await view.findByText(/deleted\.scad.*missing or binary/iu)).toBeVisible();
+      expect(view.getByRole("region", { name: "Unsaved work recovery" })).toBeVisible();
+      expect(persisted.value).toBe(serialized);
+      expect(runtime.project.getState().mode).toBe("scratch");
+      runtime.dispose();
+    },
+  );
 
   it("preserves pending recovery alongside newer dirty work when ids and paths collide", async () => {
     const persisted = recovery(JSON.stringify({
@@ -436,7 +904,9 @@ describe("ProjectLifecycleControls", () => {
       { path: "main.scad", source: "cube(77);" },
       { path: "main (recovery 2).scad", source: "sphere(99);" },
     ]));
-    expect(persisted.value).toBeNull();
+    expect(JSON.parse(persisted.value ?? "null").buffers.map(
+      ({ source }: { source: string }) => source,
+    )).toEqual(["cube(77);", "sphere(99);"]);
     runtime.dispose();
   });
 
@@ -473,7 +943,9 @@ describe("ProjectLifecycleControls", () => {
       { path: "main.scad", source: "cube(77);" },
       { path: "main (recovery 2).scad", source: "sphere(101);" },
     ]));
-    expect(persisted.value).toBeNull();
+    expect(JSON.parse(persisted.value ?? "null").buffers.map(
+      ({ source }: { source: string }) => source,
+    )).toEqual(["cube(77);", "sphere(101);"]);
     runtime.dispose();
   });
 
@@ -507,7 +979,7 @@ describe("ProjectLifecycleControls", () => {
     fireEvent.click(view.getByRole("button", { name: "Restore unsaved work" }));
 
     expect(await view.findByText(/4 MiB recovery limit/u)).toBeVisible();
-    expect(view.getByRole("alertdialog", { name: "Unsaved work recovery" })).toBeVisible();
+    expect(view.getByRole("region", { name: "Unsaved work recovery" })).toBeVisible();
     expect(runtime.documents.getState().documents[0]?.source).toBe(latestSource);
     expect(persisted.value).toBe(durable);
     runtime.dispose();
@@ -636,7 +1108,7 @@ describe("ProjectLifecycleControls", () => {
       expect(snapshot).not.toHaveBeenCalledWith("project-b");
       expect(view.queryByRole("dialog", { name: "Confirm project replacement" }))
         .not.toBeInTheDocument();
-      expect(view.getByRole("alertdialog", { name: "Unsaved work recovery" })).toBeVisible();
+      expect(view.getByRole("region", { name: "Unsaved work recovery" })).toBeVisible();
       expect(runtime.project.getState().mode).toBe("scratch");
     },
   );

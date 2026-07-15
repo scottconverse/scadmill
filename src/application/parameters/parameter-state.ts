@@ -6,7 +6,10 @@ import {
   type ParameterValue,
 } from "./customizer-schema";
 import { reconcileParameterOverrides } from "./parameter-overrides";
-import type { NamedParameterSet } from "./parameter-set-codec";
+import {
+  type NamedParameterSet,
+  snapshotParameterSets,
+} from "./parameter-set-codec";
 
 export interface ParameterDocumentSeed {
   readonly documentId: string;
@@ -63,16 +66,6 @@ function defineValue(
     value: cloneParameterValue(value),
     writable: true,
   });
-}
-
-function cloneParameterValues(
-  values: Readonly<Record<string, ParameterValue>>,
-): Readonly<Record<string, ParameterValue>> {
-  const cloned: Record<string, ParameterValue> = {};
-  for (const name of Object.keys(values)) {
-    defineValue(cloned, name, values[name] as ParameterValue);
-  }
-  return cloned;
 }
 
 function valuesEqual(left: ParameterValue, right: ParameterValue): boolean {
@@ -278,10 +271,7 @@ export function reduceParameterState(state: ParameterState, action: ParameterAct
     case "replace-sets":
       return setDocument(state, action.documentId, {
         ...document,
-        sets: action.sets.map((set) => ({
-          name: set.name,
-          values: cloneParameterValues(set.values),
-        })),
+        sets: snapshotParameterSets(action.sets),
         selectedSet: undefined,
       });
   }

@@ -1,18 +1,24 @@
 // @vitest-environment happy-dom
 import { forwardRef, startTransition, Suspense, useImperativeHandle } from "react";
-import { act, fireEvent, render, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { RenderResult } from "../../../src/application/engine/contracts";
 import type { ViewerMode } from "../../../src/application/viewer/viewer-state";
 import { DEFAULT_KEYBINDINGS } from "../../../src/application/commands/default-keybindings";
+import { messages } from "../../../src/messages/en";
 import { ViewerPane } from "../../../src/ui/viewer/ViewerPane";
+import type { ViewerDegradation } from "../../../src/ui/viewer/viewer-furniture";
+
+let reportViewerDegradation: ((degradation: ViewerDegradation) => void) | undefined;
 
 vi.mock("../../../src/ui/viewer/ModelViewer", () => ({
-  ModelViewer: forwardRef(({ dimmed, emptyMessage, onPointPick }: {
+  ModelViewer: forwardRef(({ dimmed, emptyMessage, onDegradationChange, onPointPick }: {
     dimmed?: boolean;
     emptyMessage?: string;
+    onDegradationChange?: (degradation: ViewerDegradation) => void;
     onPointPick?: (point: readonly [number, number, number]) => void;
   }, ref) => {
+    reportViewerDegradation = onDegradationChange;
     useImperativeHandle(ref, () => ({
       capturePng: async () => new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]),
     }));
@@ -93,15 +99,15 @@ describe("ViewerPane result routing", () => {
       view = render(<ViewerPane {...common} renderJobId="job-a" />);
 
       act(() => vi.advanceTimersByTime(1_200));
-      expect(view.getByRole("status", { name: "Render progress" }))
+      expect(view.getByRole("group", { name: "Render progress" }))
         .toHaveTextContent("Rendering… 1.2 s");
 
       view.rerender(<ViewerPane {...common} renderJobId="job-b" />);
-      expect(view.getByRole("status", { name: "Render progress" }))
+      expect(view.getByRole("group", { name: "Render progress" }))
         .toHaveTextContent("Rendering… 0.0 s");
 
       act(() => vi.advanceTimersByTime(200));
-      expect(view.getByRole("status", { name: "Render progress" }))
+      expect(view.getByRole("group", { name: "Render progress" }))
         .toHaveTextContent("Rendering… 0.2 s");
     } finally {
       view?.unmount();
@@ -132,19 +138,121 @@ describe("ViewerPane result routing", () => {
     const view = render(tree("job-a", false));
     try {
       act(() => vi.advanceTimersByTime(300));
-      expect(view.getByRole("status", { name: "Render progress" }))
+      expect(view.getByRole("group", { name: "Render progress" }))
         .toHaveTextContent("Rendering… 0.3 s");
 
       act(() => startTransition(() => view.rerender(tree("job-b", true))));
       expect(view.queryByText("Outer fallback")).not.toBeInTheDocument();
 
       act(() => vi.advanceTimersByTime(400));
-      expect(view.getByRole("status", { name: "Render progress" }))
+      expect(view.getByRole("group", { name: "Render progress" }))
         .toHaveTextContent("Rendering… 0.7 s");
     } finally {
       view.unmount();
       vi.useRealTimers();
     }
+  });
+
+  it("retains elapsed time across a remount without repeatedly announcing timer ticks", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-11T12:00:00Z"));
+    let view: ReturnType<typeof render> | undefined;
+    try {
+      const startedAtMs = Date.now() - 2_300;
+      const props = {
+        colors,
+        maximized: false,
+        narrow: false,
+        renderJobId: "job-a",
+        renderStartedAtMs: startedAtMs,
+        renderStatus: "rendering" as const,
+        onLayoutAction: vi.fn(),
+      };
+      view = render(<ViewerPane {...props} />);
+      let progress = view.getByRole("group", { name: "Render progress" });
+
+      expect(progress).toHaveTextContent(messages.renderingElapsed(2.3));
+      expect(within(progress).getByText(messages.renderingElapsed(2.3)))
+        .not.toHaveAttribute("aria-hidden");
+      expect(within(progress).getByRole("status").textContent).toBe(messages.rendering);
+
+      view.unmount();
+      act(() => vi.advanceTimersByTime(500));
+      view = render(<ViewerPane {...props} documentId="document-b" />);
+      progress = view.getByRole("group", { name: "Render progress" });
+
+      expect(progress).toHaveTextContent(messages.renderingElapsed(2.8));
+      expect(within(progress).getByText(messages.renderingElapsed(2.8)))
+        .not.toHaveAttribute("aria-hidden");
+      expect(within(progress).getByRole("status").textContent).toBe(messages.rendering);
+    } finally {
+      view?.unmount();
+      vi.useRealTimers();
+    }
+  });
+
+  it("advances elapsed time monotonically while the wall clock moves backward and forward", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-11T12:00:00Z"));
+    let view: ReturnType<typeof render> | undefined;
+    try {
+      const progressText = () => view?.getByRole("group", { name: "Render progress" });
+      view = render(
+        <ViewerPane
+          colors={colors}
+          maximized={false}
+          narrow={false}
+          renderJobId="job-a"
+          renderStartedAtMs={Date.now() - 2_000}
+          renderStatus="rendering"
+          onLayoutAction={vi.fn()}
+        />,
+      );
+
+      expect(progressText()).toHaveTextContent(messages.renderingElapsed(2));
+      act(() => vi.advanceTimersByTime(400));
+      expect(progressText()).toHaveTextContent(messages.renderingElapsed(2.4));
+
+      vi.setSystemTime(new Date("2026-07-11T11:55:00Z"));
+      act(() => vi.advanceTimersByTime(300));
+      expect(progressText()).toHaveTextContent(messages.renderingElapsed(2.7));
+
+      vi.setSystemTime(new Date("2026-07-11T13:00:00Z"));
+      act(() => vi.advanceTimersByTime(200));
+      expect(progressText()).toHaveTextContent(messages.renderingElapsed(2.9));
+    } finally {
+      view?.unmount();
+      vi.useRealTimers();
+    }
+  });
+
+  it("stacks annotation recovery, render progress, and degradation in one transient region", async () => {
+    const view = render(
+      <ViewerPane
+        annotationPersistence={{ status: "unsaved" }}
+        colors={colors}
+        maximized={false}
+        narrow={false}
+        renderStatus="rendering"
+        result={threeD}
+        onLayoutAction={vi.fn()}
+      />,
+    );
+    await view.findByTestId("model-viewer");
+    act(() => reportViewerDegradation?.({ edges: true, shadow: false }));
+    const alert = view.getByRole("alert");
+    const progress = view.getByRole("group", { name: "Render progress" });
+    const degradation = view.getByText(messages.largeMeshDegraded);
+    const stack = progress.closest(".viewer-transient-stack");
+    const spinner = progress.querySelector(".viewer-spinner");
+
+    if (!stack) throw new Error("Viewer transient stack did not render.");
+    if (!spinner) throw new Error("Production render spinner did not render.");
+    expect(alert.parentElement).toBe(stack);
+    expect(progress.parentElement).toBe(stack);
+    expect(degradation.parentElement).toBe(stack);
+    expect([...stack.children]).toEqual([alert, progress, degradation]);
+    expect(spinner).toBeEmptyDOMElement();
   });
 
   it("keeps annotation persistence failures visible with retry and exact-JSON recovery actions", () => {
@@ -259,7 +367,7 @@ describe("ViewerPane result routing", () => {
     );
 
     expect(await view.findByTestId("model-viewer")).toHaveAttribute("data-dimmed", "true");
-    expect(view.getByRole("status", { name: "Render progress" })).toHaveTextContent(/rendering/i);
+    expect(view.getByRole("group", { name: "Render progress" })).toHaveTextContent(/rendering/i);
     fireEvent.click(view.getByRole("button", { name: /cancel render/i }));
     expect(onCancel).toHaveBeenCalledOnce();
   });

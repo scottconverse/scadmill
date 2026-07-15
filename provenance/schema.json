@@ -87,7 +87,7 @@
         "additionalProperties": false,
         "required": ["id", "topic", "decision", "rationale", "specBasis"],
         "properties": {
-          "id": { "$ref": "#/$defs/nonEmptyString" },
+          "id": { "$ref": "#/$defs/decisionId" },
           "topic": { "$ref": "#/$defs/nonEmptyString" },
           "decision": { "$ref": "#/$defs/nonEmptyString" },
           "rationale": { "$ref": "#/$defs/nonEmptyString" },
@@ -96,6 +96,30 @@
             "minItems": 1,
             "items": { "$ref": "#/$defs/nonEmptyString" }
           }
+        }
+      }
+    },
+    "decisionIdCorrections": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "duplicateId",
+          "declarationEntry",
+          "retainedEntry",
+          "correctedEntry",
+          "authoritativeId",
+          "authorityEntry"
+        ],
+        "properties": {
+          "duplicateId": { "$ref": "#/$defs/decisionId" },
+          "declarationEntry": { "$ref": "#/$defs/entryId" },
+          "retainedEntry": { "$ref": "#/$defs/entryId" },
+          "correctedEntry": { "$ref": "#/$defs/entryId" },
+          "authoritativeId": { "$ref": "#/$defs/decisionId" },
+          "authorityEntry": { "$ref": "#/$defs/entryId" }
         }
       }
     },
@@ -136,6 +160,8 @@
   },
   "$defs": {
     "nonEmptyString": { "type": "string", "minLength": 1 },
+    "decisionId": { "type": "string", "pattern": "^D-[0-9]{4,}$" },
+    "entryId": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
     "repoPath": {
       "type": "string",
       "minLength": 1,

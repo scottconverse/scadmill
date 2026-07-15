@@ -53,7 +53,10 @@ export interface ViewerPaneProps {
   readonly narrow: boolean;
   readonly quality?: Quality;
   readonly renderJobId?: string;
+  readonly renderStartedAtMonotonicMs?: number;
+  readonly renderStartedAtMs?: number;
   readonly renderStatus: "idle" | "rendering" | "success" | "failure";
+  readonly settingsDisabled?: boolean;
   readonly result?: RenderResult;
   readonly failure?: RenderFailure;
   readonly dimmed?: boolean;
@@ -90,7 +93,10 @@ export function ViewerPane({
   narrow,
   quality,
   renderJobId,
+  renderStartedAtMonotonicMs,
+  renderStartedAtMs,
   renderStatus,
+  settingsDisabled = false,
   result,
   failure,
   dimmed = false,
@@ -287,6 +293,7 @@ export function ViewerPane({
           bounds={bounds}
           camera={viewer.camera}
           furniture={viewer.furniture}
+          settingsDisabled={settingsDisabled}
           tool={tool}
           onCameraChange={(camera) => dispatchViewer({ kind: "set-camera", documentId, camera })}
           onFurnitureChange={(furniture, enabled) => dispatchViewer({ kind: "set-furniture", documentId, furniture, enabled })}
@@ -340,16 +347,18 @@ export function ViewerPane({
       </div>
       {mismatch && <p className="viewer-empty" role="status">{messages.viewerModeMismatch(mismatch)}</p>}
       {measuredBounds && <output className="bounds-readout">{measuredBounds}</output>}
-      {renderStatus === "rendering" && (
-        <RenderProgressOverlay key={renderJobId ?? "rendering"} onCancel={onCancel} />
-      )}
       {failure && (
         <button aria-label={messages.showRenderError} className="viewer-error-badge" onClick={onShowConsole} type="button">
           {messages.renderErrorBadge}
         </button>
       )}
-      {annotationPersistence.status !== "saved" && (
-        <section className="viewer-annotation-persistence" role="alert">
+      {(renderStatus === "rendering"
+        || annotationPersistence.status !== "saved"
+        || degradation.edges
+        || degradation.shadow) && (
+        <div className={`viewer-transient-stack${visibleGeometry?.kind === "3d" ? " viewer-transient-stack-with-toolbar" : ""}`}>
+        {annotationPersistence.status !== "saved" && (
+          <section className="viewer-annotation-persistence" role="alert">
           <p>{annotationPersistence.status === "unsaved"
             ? messages.annotationChangesUnsaved
             : annotationPersistence.status === "load-error-unsaved"
@@ -368,9 +377,21 @@ export function ViewerPane({
               </button>
             ) : <span>{messages.annotationExportUnavailable}</span>}
           </div>
-        </section>
+          </section>
+        )}
+        {renderStatus === "rendering" && (
+          <RenderProgressOverlay
+            key={renderJobId ?? "rendering"}
+            onCancel={onCancel}
+            startedAtMonotonicMs={renderStartedAtMonotonicMs}
+            startedAtMs={renderStartedAtMs}
+          />
+        )}
+        {(degradation.edges || degradation.shadow) && (
+          <p className="viewer-degradation" role="status">{messages.largeMeshDegraded}</p>
+        )}
+        </div>
       )}
-      {(degradation.edges || degradation.shadow) && <p className="viewer-degradation" role="status">{messages.largeMeshDegraded}</p>}
       {notice && <p className="viewer-notice" role="status">{notice}</p>}
     </section>
   );

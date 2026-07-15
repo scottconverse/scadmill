@@ -19,6 +19,7 @@ export interface ViewerToolbarProps {
   readonly bounds?: Bounds3;
   readonly camera: ViewerCameraState;
   readonly furniture: ViewerFurnitureState;
+  readonly settingsDisabled?: boolean;
   readonly tool: ViewerTool;
   readonly onCameraChange: (camera: ViewerCameraState) => void;
   readonly onFurnitureChange: (furniture: ViewerFurniture, enabled: boolean) => void;
@@ -46,6 +47,7 @@ export function ViewerToolbar({
   bounds,
   camera,
   furniture,
+  settingsDisabled = false,
   tool,
   onCameraChange,
   onFurnitureChange,
@@ -68,12 +70,13 @@ export function ViewerToolbar({
       ))}
       <button
         aria-label={camera.projection === "perspective" ? messages.useOrthographicProjection : messages.usePerspectiveProjection}
+        disabled={settingsDisabled}
         onClick={() => onCameraChange(toggleProjection(camera))}
         type="button"
       >{camera.projection === "perspective" ? messages.viewerOrthographicShort : messages.viewerPerspectiveShort}</button>
       {FURNITURE.map(({ key, label }) => (
         <label className="viewer-toggle" key={key}>
-          <input checked={furniture[key]} onChange={(event) => onFurnitureChange(key, event.currentTarget.checked)} type="checkbox" />
+          <input checked={furniture[key]} disabled={settingsDisabled} onChange={(event) => onFurnitureChange(key, event.currentTarget.checked)} type="checkbox" />
           <span>{label}</span>
         </label>
       ))}

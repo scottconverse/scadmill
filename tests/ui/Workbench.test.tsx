@@ -677,8 +677,11 @@ describe("Workbench", () => {
     });
     fireEvent.click(workbench.getByRole("button", { name: messages.renameParameterSet }));
 
-    expect(await workbench.findByText(/parameter command.*already exists/i))
-      .toHaveAttribute("role", "alert");
+    const alert = await workbench.findByText(
+      messages.parameterCommandFailed(messages.unknownParameterCommandError),
+    );
+    expect(alert).toHaveAttribute("role", "alert");
+    expect(alert).not.toHaveTextContent(/already exists/i);
     expect(runtime.parameters.getState().documents.get("document-main")?.sets.map(({ name }) => name))
       .toEqual(["existing", "selected"]);
   });

@@ -1,4 +1,5 @@
 import {
+  cloneParameterValue,
   type CustomizerParameter,
   type ParameterValue,
   parameterValueToSource,
@@ -24,11 +25,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function validSetName(name: string): boolean {
-  return name.trim().length > 0;
+  return typeof name === "string" && name.trim().length > 0;
 }
 
 function validParameterName(name: string): boolean {
-  return PARAMETER_NAME_PATTERN.test(name);
+  return typeof name === "string" && PARAMETER_NAME_PATTERN.test(name);
 }
 
 function defineOwn<T>(target: Record<string, T>, name: string, value: T): void {
@@ -49,6 +50,47 @@ function storedValue(value: ParameterValue): string {
       error instanceof Error ? error.message : "Parameter value is invalid.",
     );
   }
+}
+
+function snapshotValue(value: ParameterValue): ParameterValue {
+  try {
+    return cloneParameterValue(value);
+  } catch (error) {
+    throw new ParameterSetFormatError(
+      error instanceof Error ? error.message : "Parameter value is invalid.",
+    );
+  }
+}
+
+export function snapshotParameterSets(
+  sets: readonly NamedParameterSet[],
+): readonly NamedParameterSet[] {
+  const names = new Set<string>();
+  const snapshots: NamedParameterSet[] = [];
+  for (const set of sets) {
+    const name = set.name;
+    const sourceValues = set.values;
+    if (!validSetName(name) || names.has(name)) {
+      throw new ParameterSetFormatError(`Invalid or duplicate parameter-set name: "${name}".`);
+    }
+    if (!isRecord(sourceValues)) {
+      throw new ParameterSetFormatError(`Parameter set "${name}" must be an object.`);
+    }
+    names.add(name);
+    const values: Record<string, ParameterValue> = {};
+    for (const parameterName of Object.keys(sourceValues)) {
+      if (!validParameterName(parameterName)) {
+        throw new ParameterSetFormatError(`Invalid parameter name in set "${name}".`);
+      }
+      const value = sourceValues[parameterName];
+      if (value === undefined) {
+        throw new ParameterSetFormatError(`Missing value for parameter "${parameterName}".`);
+      }
+      defineOwn(values, parameterName, snapshotValue(value));
+    }
+    snapshots.push({ name, values });
+  }
+  return snapshots;
 }
 
 function finiteNumber(source: string): number | null {
@@ -73,20 +115,10 @@ function decodedValue(source: string, reference: ParameterValue): ParameterValue
 
 export function encodeParameterSets(sets: readonly NamedParameterSet[]): string {
   const parameterSets: Record<string, Record<string, string>> = {};
-  for (const set of sets) {
-    if (!validSetName(set.name) || Object.hasOwn(parameterSets, set.name)) {
-      throw new ParameterSetFormatError(`Invalid or duplicate parameter-set name: "${set.name}".`);
-    }
+  for (const set of snapshotParameterSets(sets)) {
     const values: Record<string, string> = {};
     for (const name of Object.keys(set.values)) {
-      if (!validParameterName(name)) {
-        throw new ParameterSetFormatError(`Invalid parameter name in set "${set.name}".`);
-      }
-      const value = set.values[name];
-      if (value === undefined) {
-        throw new ParameterSetFormatError(`Missing value for parameter "${name}".`);
-      }
-      defineOwn(values, name, storedValue(value));
+      defineOwn(values, name, storedValue(set.values[name] as ParameterValue));
     }
     defineOwn(parameterSets, set.name, values);
   }

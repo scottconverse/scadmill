@@ -1,8 +1,8 @@
-import {
-  isDocumentDirty,
-  type DocumentWorkspaceState,
-} from "../documents/document-workspace";
 import { messages } from "../../messages/en";
+import {
+  type DocumentWorkspaceState,
+  isDocumentDirty,
+} from "../documents/document-workspace";
 
 export const RECOVERY_BYTE_LIMIT = 4 * 1024 * 1024;
 
@@ -16,6 +16,8 @@ export interface RecoveryBuffer {
 export interface RecoverySnapshot {
   readonly version: 1;
   readonly projectId: string;
+  /** Absent only on legacy version-1 records written before display names were retained. */
+  readonly displayName?: string;
   readonly capturedAt: string;
   readonly buffers: readonly RecoveryBuffer[];
 }
@@ -78,6 +80,21 @@ function nonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+function isOpaqueWorkspaceIdentity(value: string): boolean {
+  return /^workspace:/iu.test(value.trim());
+}
+
+export function recoveryDisplayName(projectId: string, preferred?: string): string {
+  const requested = preferred?.trim();
+  if (requested && !isOpaqueWorkspaceIdentity(requested)) return requested;
+  if (projectId === "scratch") return messages.scratchProjectName;
+  if (isOpaqueWorkspaceIdentity(projectId)) return messages.recoveredProjectName;
+  const derived = projectId.split(/[\\/]/u).filter(Boolean).at(-1)?.trim();
+  return derived && !isOpaqueWorkspaceIdentity(derived)
+    ? derived
+    : messages.recoveredProjectName;
+}
+
 function parseBuffer(value: unknown): RecoveryBuffer | null {
   if (!object(value)) return null;
   const keys = Object.keys(value).sort().join(",");
@@ -101,12 +118,17 @@ export function parseRecoverySnapshot(serialized: string): RecoverySnapshot {
     throw new Error(messages.recoveryTooLarge);
   }
   const value: unknown = JSON.parse(serialized);
-  if (!object(value) || Object.keys(value).sort().join(",") !== "buffers,capturedAt,projectId,version") {
+  if (!object(value)) {
     throw new Error("Recovery data has an invalid shape.");
   }
+  const keys = Object.keys(value).sort().join(",");
+  const legacyShape = keys === "buffers,capturedAt,projectId,version";
+  const namedShape = keys === "buffers,capturedAt,displayName,projectId,version";
+  if (!legacyShape && !namedShape) throw new Error("Recovery data has an invalid shape.");
   if (
     value.version !== 1
     || !nonEmptyString(value.projectId)
+    || (namedShape && !nonEmptyString(value.displayName))
     || !nonEmptyString(value.capturedAt)
     || !Array.isArray(value.buffers)
   ) throw new Error("Recovery data is invalid.");
@@ -120,6 +142,10 @@ export function parseRecoverySnapshot(serialized: string): RecoverySnapshot {
   return {
     version: 1,
     projectId: value.projectId,
+    displayName: recoveryDisplayName(
+      value.projectId,
+      namedShape ? value.displayName as string : undefined,
+    ),
     capturedAt: value.capturedAt,
     buffers: valid,
   };
@@ -139,7 +165,11 @@ export class RecoveryCoordinator {
     private readonly now = () => new Date().toISOString(),
   ) {}
 
-  capture(projectId: string, workspace: DocumentWorkspaceState): void {
+  capture(
+    projectId: string,
+    workspace: DocumentWorkspaceState,
+    displayName?: string,
+  ): void {
     const buffers = dirtyBuffers(workspace);
     if (buffers.length === 0) {
       this.persistence.clear();
@@ -149,6 +179,7 @@ export class RecoveryCoordinator {
     this.persistence.save(serializeRecoverySnapshot({
       version: 1,
       projectId,
+      displayName: recoveryDisplayName(projectId, displayName),
       capturedAt: this.now(),
       buffers,
     }));
@@ -171,6 +202,7 @@ export class RecoveryCoordinator {
     const combined: RecoverySnapshot = {
       version: 1,
       projectId: "scratch",
+      displayName: messages.scratchProjectName,
       capturedAt: this.now(),
       buffers,
     };

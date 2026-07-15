@@ -13,7 +13,7 @@ export interface SecretStorage {
 }
 
 const UNAVAILABLE_STORAGE: SecretStorage = Object.freeze({
-  getItem: () => null,
+  getItem: () => { throw new Error("Browser storage is unavailable."); },
   setItem: () => { throw new Error("Browser storage is unavailable."); },
   removeItem: () => { throw new Error("Browser storage is unavailable."); },
 });
@@ -39,18 +39,18 @@ export function createBrowserSecretStore(
         return (persist ? localStorage : sessionStorage)
           .getItem(persist ? PERSISTED_KEY : SESSION_KEY) ?? "";
       } catch {
-        return "";
+        throw new Error("AI secret storage is unavailable.");
       }
     },
     async save(secret, persist) {
       assertSupportedSecretSize(secret);
       try {
         if (persist) {
-          sessionStorage.removeItem(SESSION_KEY);
           localStorage.setItem(PERSISTED_KEY, secret);
+          sessionStorage.removeItem(SESSION_KEY);
         } else {
-          localStorage.removeItem(PERSISTED_KEY);
           sessionStorage.setItem(SESSION_KEY, secret);
+          localStorage.removeItem(PERSISTED_KEY);
         }
       } catch {
         throw new Error("AI secret storage is unavailable.");

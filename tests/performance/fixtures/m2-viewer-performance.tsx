@@ -15,6 +15,9 @@ const TRIANGLE_COUNT = requestedTriangleCount;
 
 export interface ViewerPerformanceProfile {
   readonly averageFps: number;
+  readonly cameraDelta: number;
+  readonly cameraEnd: ViewerCameraState;
+  readonly cameraStart: ViewerCameraState;
   readonly degradation: ViewerDegradation;
   readonly durationMs: number;
   readonly frames: number;
@@ -29,6 +32,7 @@ export interface ViewerPerformanceProfile {
   readonly longestRenderMs: number;
   readonly renderer: string;
   readonly triangleCount: number;
+  readonly trustedOrbitPointerMoves: number;
   readonly userAgent: string;
   readonly vendor: string;
 }
@@ -47,7 +51,36 @@ let status = "starting";
 window.scadmillViewerProfileStatus = () => status;
 const renderDurations: number[] = [];
 let samplingRenders = false;
-let driveCamera: ((angle: number) => void) | undefined;
+let cameraChangeCount = 0;
+
+const INITIAL_CAMERA: ViewerCameraState = {
+  projection: "perspective",
+  position: [1_800, 1_300, 1_500],
+  target: [1_000, 500, 0],
+  up: [0, 0, 1],
+  zoom: 1,
+};
+
+function copyCamera(camera: ViewerCameraState): ViewerCameraState {
+  return {
+    projection: camera.projection,
+    position: [...camera.position],
+    target: [...camera.target],
+    up: [...camera.up],
+    zoom: camera.zoom,
+  };
+}
+
+let latestCamera = copyCamera(INITIAL_CAMERA);
+
+function measuredCameraDelta(start: ViewerCameraState, end: ViewerCameraState): number {
+  return Math.hypot(
+    ...start.position.map((value, axis) => value - end.position[axis]),
+    ...start.target.map((value, axis) => value - end.target[axis]),
+    ...start.up.map((value, axis) => value - end.up[axis]),
+    start.zoom - end.zoom,
+  );
+}
 
 async function generatedGeometry(_bytes: Uint8Array, signal: AbortSignal): Promise<ParsedBinaryStl> {
   await new Promise<void>((resolve) => globalThis.setTimeout(resolve, 0));
@@ -102,21 +135,7 @@ const RESULT: RenderSuccess3D = {
 };
 
 function Fixture() {
-  const [camera, setCamera] = useState<ViewerCameraState>({
-    projection: "perspective",
-    position: [1_800, 1_300, 1_500],
-    target: [1_000, 500, 0],
-    up: [0, 0, 1],
-    zoom: 1,
-  });
-  driveCamera = (angle) => setCamera({
-    ...camera,
-    position: [
-      1_000 + Math.cos(angle) * 1_500,
-      500 + Math.sin(angle) * 1_500,
-      1_200,
-    ],
-  });
+  const [camera, setCamera] = useState<ViewerCameraState>(INITIAL_CAMERA);
   return (
     <ModelViewer
       camera={camera}
@@ -134,6 +153,11 @@ function Fixture() {
       }}
       furniture={{ grid: false, axes: false, edges: true, shadow: true }}
       meshParser={generatedGeometry}
+      onCameraChange={(nextCamera) => {
+        latestCamera = copyCamera(nextCamera);
+        cameraChangeCount += 1;
+        setCamera(nextCamera);
+      }}
       onDegradationChange={(degradation) => {
         const expected = TRIANGLE_COUNT > 500_000;
         if (degradation.edges === expected && degradation.shadow === expected) {
@@ -174,7 +198,17 @@ window.runScadMillViewerProfile = async () => {
   });
   observer.observe({ type: "longtask", buffered: false });
   renderDurations.length = 0;
+  const cameraStart = copyCamera(latestCamera);
+  const startingCameraChangeCount = cameraChangeCount;
+  let trustedOrbitPointerMoves = 0;
+  const countTrustedOrbit = (event: PointerEvent) => {
+    if (samplingRenders && event.isTrusted && (event.buttons & 1) === 1) {
+      trustedOrbitPointerMoves += 1;
+    }
+  };
+  canvas.addEventListener("pointermove", countTrustedOrbit);
   samplingRenders = true;
+  status = "sampling";
 
   const intervals: number[] = [];
   const startedAt = await new Promise<number>((resolve) => requestAnimationFrame(resolve));
@@ -186,18 +220,33 @@ window.runScadMillViewerProfile = async () => {
       previous = now;
       frames += 1;
       const elapsed = now - startedAt;
-      driveCamera?.(elapsed / 750);
       if (elapsed < 3_000) requestAnimationFrame(sample);
       else resolve(elapsed);
     };
     requestAnimationFrame(sample);
   });
   samplingRenders = false;
+  status = "awaiting-orbit-end";
+  const cameraDeadline = performance.now() + 5_000;
+  while (cameraChangeCount === startingCameraChangeCount && performance.now() < cameraDeadline) {
+    await new Promise<void>((resolve) => globalThis.setTimeout(resolve, 16));
+  }
+  canvas.removeEventListener("pointermove", countTrustedOrbit);
+  if (cameraChangeCount === startingCameraChangeCount) {
+    observer.disconnect();
+    throw new Error("The trusted orbit did not report a completed camera change.");
+  }
+  const cameraEnd = copyCamera(latestCamera);
+  const cameraDelta = measuredCameraDelta(cameraStart, cameraEnd);
   await new Promise<void>((resolve) => globalThis.setTimeout(resolve, 100));
   observer.disconnect();
+  status = "complete";
 
   return {
     averageFps: frames / (durationMs / 1_000),
+    cameraDelta,
+    cameraEnd,
+    cameraStart,
     degradation,
     durationMs,
     frames,
@@ -212,6 +261,7 @@ window.runScadMillViewerProfile = async () => {
     longestRenderMs: Math.max(0, ...renderDurations),
     renderer,
     triangleCount: TRIANGLE_COUNT,
+    trustedOrbitPointerMoves,
     userAgent: navigator.userAgent,
     vendor,
   };

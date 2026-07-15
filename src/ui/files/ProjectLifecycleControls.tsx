@@ -2,20 +2,21 @@ import {
   type FormEvent,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
 import { isDocumentDirty } from "../../application/documents/document-workspace";
 import type { ProjectStorage } from "../../application/files/project-file-service";
+import type { ProjectSnapshot } from "../../application/files/project-snapshot";
 import {
   RecoveryCoordinator,
   type RecoveryPersistence,
   type RecoverySnapshot,
+  recoveryDisplayName,
 } from "../../application/files/recovery-state";
-import type { ProjectSnapshot } from "../../application/files/project-snapshot";
 import type {
   ProjectDirectoryPicker,
   WorkspaceDirectory,
@@ -118,11 +119,9 @@ export function ProjectLifecycleControls({
     : projectLocatorKind === "browser"
       ? messages.browserProjectNameHelp
       : null;
-
   useLayoutEffect(() => {
     if (monitor) onRecoveryPendingChange?.(Boolean(recovery));
   }, [monitor, onRecoveryPendingChange, recovery]);
-
   const run = useCallback(async (operation: () => Promise<void>) => {
     if (busy) return;
     setBusy(true);
@@ -137,7 +136,6 @@ export function ProjectLifecycleControls({
       setBusy(false);
     }
   }, [busy]);
-
   const inspectProject = useCallback(async (requestedId: string, displayName?: string) => {
     if (transitionsBlocked) return;
     if (!storage) throw new Error(messages.projectStorageUnavailable);
@@ -151,7 +149,6 @@ export function ProjectLifecycleControls({
     setEntryFile(entries[0] ?? "");
     setFirstFilePath("main.scad");
   }, [storage, transitionsBlocked]);
-
   useEffect(() => {
     if (transitionsBlocked || !requestedProject || handledRequest.current === requestedProject.sequence) return;
     handledRequest.current = requestedProject.sequence;
@@ -162,7 +159,7 @@ export function ProjectLifecycleControls({
     if (!monitor || busy) return;
     if (!recovery && !workspace.documents.some(isDocumentDirty)) {
       try {
-        coordinator.capture(project.snapshot.projectId, workspace);
+        coordinator.capture(project.snapshot.projectId, workspace, project.displayName);
       } catch (reason) {
         setError(reason instanceof Error
           ? `${messages.recoveryCouldNotBeSaved} ${reason.message}`
@@ -173,7 +170,7 @@ export function ProjectLifecycleControls({
     const capture = globalThis.setTimeout(() => {
       try {
         if (recovery) coordinator.captureAlongside(recovery, workspace);
-        else coordinator.capture(project.snapshot.projectId, workspace);
+        else coordinator.capture(project.snapshot.projectId, workspace, project.displayName);
       } catch (reason) {
         setError(reason instanceof Error
           ? `${messages.recoveryCouldNotBeSaved} ${reason.message}`
@@ -181,7 +178,15 @@ export function ProjectLifecycleControls({
       }
     }, RECOVERY_CAPTURE_DELAY_MS);
     return () => globalThis.clearTimeout(capture);
-  }, [busy, coordinator, monitor, project.snapshot.projectId, recovery, workspace]);
+  }, [
+    busy,
+    coordinator,
+    monitor,
+    project.displayName,
+    project.snapshot.projectId,
+    recovery,
+    workspace,
+  ]);
 
   const openProject = (event: FormEvent) => {
     event.preventDefault();
@@ -217,58 +222,45 @@ export function ProjectLifecycleControls({
   const restoreRecovery = () => {
     if (!recovery) return;
     void run(async () => {
-      const restoration = coordinator.captureAlongside(
+      let expectedProject = runtime.project.getState();
+      let expectedWorkspace = runtime.documents.getState();
+      let restoration = coordinator.captureAlongside(
         recovery,
-        runtime.documents.getState(),
+        expectedWorkspace,
       );
+      let snapshot: ProjectSnapshot | undefined;
       if (restoration.projectId !== "scratch") {
         if (!storage) throw new Error(messages.recoveryProjectStorageUnavailable);
-        const snapshot = await storage.snapshot(restoration.projectId);
-        const entry = restoration.buffers.find(({ path }) =>
-          path.toLowerCase().endsWith(".scad") && typeof snapshot.files.get(path as never) === "string"
-        )?.path ?? scadEntries(snapshot)[0];
-        if (!entry) throw new Error(messages.projectRequiresScadEntry);
-        await runtime.dispatch({
-          kind: "replace-project-confirmed",
-          origin: "system",
-          snapshot,
-          displayName: projectDisplayName(snapshot.projectId),
-          entryFile: entry,
-        });
-      }
-      for (const buffer of restoration.buffers) {
-        let target = runtime.documents.getState().documents.find(({ path }) => path === buffer.path);
-        if (!target && restoration.projectId === "scratch") {
-          const usedIds = new Set(runtime.documents.getState().documents.map(({ id }) => id));
-          const documentId = usedIds.has(buffer.documentId)
-            ? `recovery-${usedIds.size}-${buffer.documentId}`
-            : buffer.documentId;
-          await runtime.dispatch({
-            kind: "open-document",
-            origin: "system",
-            document: { id: documentId, path: buffer.path, source: buffer.savedSource },
-          });
-          target = runtime.documents.getState().documents.find(({ path }) => path === buffer.path);
-        } else if (!target) {
-          await runtime.dispatch({ kind: "open-project-file", origin: "system", path: buffer.path });
-          target = runtime.documents.getState().documents.find(({ path }) => path === buffer.path);
+        const projectBeforeSnapshot = expectedProject;
+        const workspaceBeforeSnapshot = expectedWorkspace;
+        snapshot = await storage.snapshot(restoration.projectId);
+        expectedProject = runtime.project.getState();
+        expectedWorkspace = runtime.documents.getState();
+        restoration = coordinator.captureAlongside(
+          restoration,
+          expectedWorkspace,
+        );
+        if (expectedProject !== projectBeforeSnapshot) {
+          throw new Error(messages.recoveryProjectStateChanged);
         }
-        if (!target) continue;
-        await runtime.dispatch({
-          kind: "resolve-external-change",
-          origin: "system",
-          documentId: target.id,
-          diskSource: buffer.savedSource,
-          choice: "reload",
-        });
-        await runtime.dispatch({
-          kind: "edit-document",
-          origin: "system",
-          documentId: target.id,
-          source: buffer.source,
-        });
+        if (
+          expectedWorkspace !== workspaceBeforeSnapshot
+          && restoration.projectId !== "scratch"
+        ) {
+          throw new Error(messages.recoveryWorkspaceChanged);
+        }
+        if (restoration.projectId === "scratch") snapshot = undefined;
       }
-      coordinator.discard();
+      await runtime.dispatch({
+        kind: "restore-recovery-confirmed",
+        origin: "system",
+        recovery: restoration,
+        expectedProject,
+        expectedWorkspace,
+        ...(snapshot
+          ? { snapshot, displayName: recoveryDisplayName(restoration.projectId, restoration.displayName) }
+          : {}),
+      });
       setRecovery(null);
     });
   };
@@ -375,8 +367,8 @@ export function ProjectLifecycleControls({
         />
       )}
       {monitor && recovery && (
-        <div aria-label={messages.recoveryTitle} role="alertdialog">
-          <p>{messages.recoveryMessage}</p>
+        <section aria-label={messages.recoveryTitle}>
+          <p aria-live="polite">{messages.recoveryMessage}</p>
           <button disabled={busy} onClick={restoreRecovery} type="button">
             {messages.restoreRecovery}
           </button>
@@ -388,7 +380,7 @@ export function ProjectLifecycleControls({
             })}
             type="button"
           >{messages.discardRecovery}</button>
-        </div>
+        </section>
       )}
       {error && <p role="alert">{error}</p>}
     </div>

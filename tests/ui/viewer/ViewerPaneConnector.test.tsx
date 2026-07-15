@@ -167,7 +167,15 @@ it("does not mutate viewer memory or history when a persisted projection change 
     />,
   );
 
+  expect(paneProps.settingsDisabled).toBe(true);
+
   await act(async () => {
+    (paneProps.onViewerAction as (action: unknown) => void)({
+      kind: "set-furniture",
+      documentId: "doc",
+      furniture: "grid",
+      enabled: false,
+    });
     (paneProps.onViewerAction as (action: unknown) => void)({
       kind: "set-camera",
       documentId: "doc",

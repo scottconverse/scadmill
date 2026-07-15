@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 
+import { createDocumentWorkspace, reduceDocumentWorkspace } from "../../../src/application/documents/document-workspace";
 import {
+  parseRecoverySnapshot,
   RecoveryCoordinator,
   type RecoveryPersistence,
 } from "../../../src/application/files/recovery-state";
-import { createDocumentWorkspace, reduceDocumentWorkspace } from "../../../src/application/documents/document-workspace";
 
 function memoryPersistence(initial: string | null = null) {
   let value = initial;
@@ -30,12 +31,13 @@ describe("crash recovery", () => {
       source: "// recovered λ 🚀\ncube(11);\n",
     });
 
-    coordinator.capture("project-a", edited);
+    coordinator.capture("project-a", edited, "Project A");
     const restarted = new RecoveryCoordinator(memory.persistence).load();
 
     expect(restarted).toEqual({
       version: 1,
       projectId: "project-a",
+      displayName: "Project A",
       capturedAt: "2026-07-10T12:00:00.000Z",
       buffers: [{
         documentId: "main",
@@ -44,6 +46,18 @@ describe("crash recovery", () => {
         savedSource: "cube(10);",
       }],
     });
+  });
+
+  it("uses a non-opaque display name when loading a legacy browser-workspace recovery", () => {
+    const parsed = parseRecoverySnapshot(JSON.stringify({
+      version: 1,
+      projectId: "workspace:opaque-indexeddb-key",
+      capturedAt: "2026-07-10T12:00:00.000Z",
+      buffers: [],
+    }));
+
+    expect((parsed as { readonly displayName?: string }).displayName).toBe("Recovered project");
+    expect((parsed as { readonly displayName?: string }).displayName).not.toContain("workspace:");
   });
 
   it("clears recovery on a clean session and rejects malformed persisted data", () => {

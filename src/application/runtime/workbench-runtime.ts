@@ -1,4 +1,5 @@
 import { createStore, type StoreApi } from "zustand/vanilla";
+import { messages } from "../../messages/en";
 
 import {
   createConsoleState,
@@ -269,21 +270,31 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     }
   }
 
-  function record(command: WorkbenchCommand, commandId: string, summary: string, undoable: boolean): void {
+  function createHistoryEntry(
+    command: WorkbenchCommand,
+    commandId: string,
+    summary: string,
+    undoable: boolean,
+  ): HistoryEntry {
+    return {
+      commandId,
+      timestamp: now().toISOString(),
+      origin: command.origin,
+      kind: command.kind,
+      summary,
+      undoable,
+    };
+  }
+
+  function appendHistory(entry: HistoryEntry): void {
     history.setState(
-      (entries) => [
-        ...entries,
-        {
-          commandId,
-          timestamp: now().toISOString(),
-          origin: command.origin,
-          kind: command.kind,
-          summary,
-          undoable,
-        },
-      ],
+      (entries) => [...entries, entry],
       true,
     );
+  }
+
+  function record(command: WorkbenchCommand, commandId: string, summary: string, undoable: boolean): void {
+    appendHistory(createHistoryEntry(command, commandId, summary, undoable));
   }
 
   function updateLayout(action: WorkspaceLayoutAction): boolean {
@@ -507,11 +518,24 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       );
       if (!transition) return;
       const currentProject = project.getState();
-      if (
+      const projectChanged =
         currentProject !== beforeProject
         || currentProject.snapshot.projectId !== beforeProject.snapshot.projectId
-        || currentProject.revision !== beforeProject.revision
-      ) return;
+        || currentProject.revision !== beforeProject.revision;
+      const workspaceChanged = documents.getState() !== beforeWorkspace;
+      if (projectChanged) {
+        if (command.kind === "restore-recovery-confirmed") {
+          throw new Error(messages.recoveryProjectStateChanged);
+        }
+        return;
+      }
+      if (command.kind === "restore-recovery-confirmed" && workspaceChanged) {
+        throw new Error(messages.recoveryWorkspaceChanged);
+      }
+      const replacementLayout = transition.replacementWorkspace
+        ? parseWorkspaceLayout(layoutPersistence.load(transition.project.snapshot.workspaceIdentity))
+        : undefined;
+      const historyEntry = createHistoryEntry(command, makeId(), transition.summary, false);
       applyProjectTransition(transition, {
         documents,
         parameters,
@@ -523,10 +547,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       });
       if (transition.replacementWorkspace) {
         activeWorkspaceIdentity = transition.project.snapshot.workspaceIdentity;
-        layout.setState(
-          parseWorkspaceLayout(layoutPersistence.load(activeWorkspaceIdentity)),
-          true,
-        );
+        layout.setState(replacementLayout as WorkspaceLayoutState, true);
         pendingAutoRenders.clear();
         autoRenderTimer.clear();
       }
@@ -539,8 +560,11 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
           // A metadata failure must not prevent an explicitly confirmed project open.
         }
       }
-      record(command, makeId(), transition.summary, false);
+      appendHistory(historyEntry);
       if (transition.project.revision !== beforeProject.revision) {
+        cancelActiveRender();
+        scheduleAutoRender();
+      } else if (command.kind === "restore-recovery-confirmed") {
         cancelActiveRender();
         scheduleAutoRender();
       }
@@ -783,6 +807,8 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     const parameterValues = engineParameterSnapshot(document.id);
     const rendering = settings.getState();
     const startedMs = nowMs();
+    const startedAt = now();
+    const startedAtMonotonicMs = performance.now();
     const job = engine.render({
       entryFile: document.path,
       files: sourceFiles,
@@ -800,7 +826,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       jobId: job.jobId,
       entryFile: document.path,
       quality: command.quality,
-      startedAt: now().toISOString(),
+      startedAt: startedAt.toISOString(),
     }), true);
     const unsubscribeOutput = typeof job.subscribeOutput === "function"
       ? job.subscribeOutput((event) => {
@@ -814,6 +840,8 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     render.setState({
       status: "rendering",
       jobId: job.jobId,
+      startedAtMs: startedAt.getTime(),
+      startedAtMonotonicMs,
       quality: command.quality,
       documentId: document.id,
       entryFile: document.path,

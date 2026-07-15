@@ -81,4 +81,34 @@ describe("ViewerToolbar", () => {
       position: [28, 24, 28],
     }));
   });
+
+  it("locks projection and furniture settings without disabling transient camera tools", () => {
+    const onCameraChange = vi.fn();
+    const onFurnitureChange = vi.fn();
+    const view = render(
+      <ViewerToolbar
+        bounds={{ min: [0, 0, 0], max: [10, 10, 10] }}
+        camera={createDefaultViewerCamera()}
+        furniture={{ grid: true, axes: true, edges: false, shadow: false }}
+        settingsDisabled
+        tool="navigate"
+        onCameraChange={onCameraChange}
+        onFurnitureChange={onFurnitureChange}
+        onScreenshot={vi.fn()}
+        onToolChange={vi.fn()}
+      />,
+    );
+
+    expect(view.getByRole("button", { name: "Use orthographic projection" })).toBeDisabled();
+    for (const name of ["Show XY grid", "Show RGB axes", "Show edge overlay", "Show ground shadow"]) {
+      expect(view.getByRole("checkbox", { name })).toBeDisabled();
+    }
+    expect(view.getByRole("button", { name: "Top view" })).toBeEnabled();
+    expect(view.getByRole("button", { name: "Fit model" })).toBeEnabled();
+
+    fireEvent.click(view.getByRole("button", { name: "Use orthographic projection" }));
+    fireEvent.click(view.getByRole("checkbox", { name: "Show edge overlay" }));
+    expect(onCameraChange).not.toHaveBeenCalled();
+    expect(onFurnitureChange).not.toHaveBeenCalled();
+  });
 });

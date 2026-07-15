@@ -7,10 +7,19 @@ Numbered questions are appended here under §2.7. Only the affected work item is
 | State | Questions | Milestone impact |
 |---|---|---|
 | Resolved — policy gate | Q-0001 | The owner allowed `Unicode-3.0`; the Rust and combined dependency-license checks are green. |
+| Resolved — performance baseline | Q-0032 | Amendment A-9 replaces the obsolete 2020-class minimum with the owner-designated AMD Radeon 780M benchmark. No policy question remains; candidate acceptance comes only from retained source-bound external evidence. |
 | Open/actionable — policy gate | Q-0002 | This question does not block product implementation. |
 | Open/actionable — scoped behavior | Q-0003, Q-0005–Q-0010, Q-0013, Q-0015–Q-0019, Q-0021–Q-0022, Q-0024–Q-0028, Q-0030–Q-0031 | Each blocks only the item named in its **Blocked** field; no question silently blocks unrelated work. |
 | Open/historical — delivered conservatively | Q-0004, Q-0011–Q-0012, Q-0014, Q-0020 | M2 delivered the later capability named by each question. The owner answer still governs the historical milestone interpretation. |
 | Open/later milestone | Q-0023, Q-0029 | These park M3 WebAssembly provenance or M3 welcome-screen placement, not M2 implementation. |
+
+## Q-0032 — Resolved 2026-07-14 — owner-directed
+
+- **Section:** FR-2.5; M2-R04 viewer performance evidence
+- **Question:** Should M2 retain the 2020-class integrated-GPU minimum, or should the disclosed current integrated GPU become the benchmark baseline?
+- **Blocked:** No policy question remains. Per-candidate M2 hardware acceptance is established only by a retained external artifact bound to the exact candidate tree and profiler harness.
+- **Owner decision (2026-07-14 / A-9):** Remove the 2020-class minimum. AMD Radeon 780M is the owner-designated benchmark baseline for the two-million-triangle orbit test. It is an evidence baseline, not a minimum supported-hardware claim.
+- **Resolution evidence:** The earlier unbound checkpoint is diagnostic only. The repaired harness invalidates stale output before preflight, recomputes reported FPS and camera motion from raw observations, and publishes an owner PASS only when the Radeon label, exact workload, timestamps, page/console observations, source tree, and profiler-harness hashes all validate without source drift. Run-specific status, metrics, and hashes live only in that external artifact, not in this static question record.
 
 ## Q-0001 — Resolved 2026-07-11 — opened 2026-07-09
 
@@ -19,7 +28,7 @@ Numbered questions are appended here under §2.7. Only the affected work item is
 - **Evidence:** Tauri 2.11.5's resolved Cargo graph contains 18 `Unicode-3.0` packages and one `(MIT OR Apache-2.0) AND Unicode-3.0` package. Other unfamiliar expressions offer an allowed MIT, Apache-2.0, BSD, ISC, MPL-2.0, or Zlib choice and therefore do not require a new license.
 - **Blocked:** Finalizing the Rust half of the V-2 license-policy CI job and declaring the first PR fully green. No product implementation item is blocked.
 - **Owner decision (2026-07-11):** Allow-list `Unicode-3.0`. Unicode License v3 is OSI-approved (November 2023), permissive, MIT-based with explicit data-file coverage, and genuinely open source under the project's open-source-first policy. The affected records are the transitive ICU4X family plus `unicode-ident`; this is a deliberate real-license policy addition, not a bypass.
-- **Resolution evidence:** `pnpm.cmd check:licenses rust` passes 478 Rust packages and `pnpm.cmd check:licenses all` passes 117 npm plus 478 Rust packages. The expression parser accepts `(MIT OR Apache-2.0) AND Unicode-3.0` while continuing to reject a compound expression if any required `AND` term is unapproved.
+- **Resolution evidence:** `pnpm.cmd check:licenses rust` passes 492 Rust packages and `pnpm.cmd check:licenses all` passes 119 npm plus 492 Rust packages. The expression parser accepts `(MIT OR Apache-2.0) AND Unicode-3.0` while continuing to reject a compound expression if any required `AND` term is unapproved.
 
 ## Q-0002 — Open — 2026-07-09
 

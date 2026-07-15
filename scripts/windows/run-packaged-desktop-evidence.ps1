@@ -12,6 +12,49 @@ param(
 $ErrorActionPreference = "Stop"
 $repo = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 
+if (-not ("ScadMill.NativeCommandLine" -as [type])) {
+  Add-Type -TypeDefinition @"
+using System;
+using System.ComponentModel;
+using System.Runtime.InteropServices;
+
+namespace ScadMill {
+  public static class NativeCommandLine {
+    [DllImport("shell32.dll", SetLastError = true)]
+    private static extern IntPtr CommandLineToArgvW(
+      [MarshalAs(UnmanagedType.LPWStr)] string commandLine,
+      out int argumentCount
+    );
+
+    [DllImport("kernel32.dll")]
+    private static extern IntPtr LocalFree(IntPtr memory);
+
+    public static string[] Split(string commandLine) {
+      int argumentCount;
+      IntPtr arguments = CommandLineToArgvW(commandLine, out argumentCount);
+      if (arguments == IntPtr.Zero) {
+        throw new Win32Exception(Marshal.GetLastWin32Error());
+      }
+      try {
+        var result = new string[argumentCount];
+        for (int index = 0; index < argumentCount; index++) {
+          IntPtr argument = Marshal.ReadIntPtr(arguments, index * IntPtr.Size);
+          string value = Marshal.PtrToStringUni(argument);
+          if (value == null) {
+            throw new InvalidOperationException("Command-line argument was null.");
+          }
+          result[index] = value;
+        }
+        return result;
+      } finally {
+        LocalFree(arguments);
+      }
+    }
+  }
+}
+"@
+}
+
 function Resolve-File([string] $Path, [string] $Label) {
   $resolved = (Resolve-Path -LiteralPath $Path -ErrorAction Stop).Path
   if (-not (Test-Path -LiteralPath $resolved -PathType Leaf)) { throw "$Label is not a file: $resolved" }
@@ -87,6 +130,24 @@ function Invoke-LoggedCommand {
     Pop-Location
   }
   if ($exitCode -ne 0) { throw "Command failed with exit code ${exitCode}: $display. See $LogPath." }
+}
+
+function Get-ExactSandboxSessions([string] $ConfigPath) {
+  [object[]] $candidates = @(
+    Get-CimInstance Win32_Process -ErrorAction Stop -Filter "Name = 'WindowsSandboxRemoteSession.exe'"
+  )
+  [object[]] $ambiguous = @(
+    $candidates | Where-Object { [string]::IsNullOrWhiteSpace([string]$_.CommandLine) }
+  )
+  if ($ambiguous.Count -ne 0) {
+    throw "Cannot prove Windows Sandbox session identity because a CommandLine is missing."
+  }
+  return @($candidates | Where-Object {
+    [string[]] $arguments = [ScadMill.NativeCommandLine]::Split([string]$_.CommandLine)
+    @($arguments | Where-Object {
+      [string]::Equals($_, $ConfigPath, [StringComparison]::OrdinalIgnoreCase)
+    }).Count -eq 1
+  })
 }
 
 if ($TimeoutSeconds -lt 60) { throw "TimeoutSeconds must be at least 60." }
@@ -323,15 +384,11 @@ try {
   }
   $guestValidated = $true
 } finally {
-  $session = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
-    $_.Name -eq "WindowsSandboxRemoteSession.exe" -and $_.CommandLine -like "*$configPath*"
-  }
+  $session = Get-ExactSandboxSessions -ConfigPath $configPath
   foreach ($process in $session) { Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue }
   $sessionDeadline = (Get-Date).AddSeconds(15)
   do {
-    $session = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
-      $_.Name -eq "WindowsSandboxRemoteSession.exe" -and $_.CommandLine -like "*$configPath*"
-    }
+    $session = Get-ExactSandboxSessions -ConfigPath $configPath
     if ($session) { Start-Sleep -Milliseconds 250 }
   } while ($session -and (Get-Date) -lt $sessionDeadline)
   $sessionSurvived = [bool]$session

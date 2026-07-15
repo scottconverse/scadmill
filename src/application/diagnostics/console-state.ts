@@ -6,6 +6,7 @@ import type {
   RenderResult,
   RenderStats,
 } from "../engine/contracts";
+import { messages } from "../../messages/en";
 
 export const CONSOLE_LINE_LIMIT = 10_000;
 
@@ -141,27 +142,31 @@ export function reduceConsoleState(state: ConsoleState, action: ConsoleAction): 
 }
 
 function runOutcome(run: ConsoleRun): string {
-  if (run.status === "running") return "running";
-  if (run.status === "success") return "exit 0";
-  if (run.status === "engine-error" && run.exitCode !== undefined) return `exit ${run.exitCode}`;
-  return run.status.replace("-", " ");
+  if (run.status === "running") return messages.consoleRunning;
+  if (run.status === "success") return messages.consoleExit(0);
+  if (run.status === "engine-error" && run.exitCode !== undefined) {
+    return messages.consoleExit(run.exitCode);
+  }
+  return messages.consoleOutcome(run.status);
 }
 
 export function formatConsoleHistory(state: ConsoleState): string {
   return state.runs.map((run) => {
-    const duration = run.durationMs === undefined ? "pending" : `${run.durationMs} ms`;
-    const header = `${run.entryFile} · ${run.quality} · ${duration} · ${runOutcome(run)}`;
+    const duration = run.durationMs === undefined
+      ? messages.consolePendingDuration
+      : messages.consoleDuration(run.durationMs);
+    const header = `${run.entryFile} · ${messages.consoleQuality(run.quality)} · ${duration} · ${runOutcome(run)}`;
     const dropped = run.droppedLineCount > 0
-      ? `[${run.droppedLineCount} older lines dropped]\n`
+      ? `[${messages.consoleLinesDropped(run.droppedLineCount)}]\n`
       : "";
     const diagnostics = run.diagnostics.map((diagnostic) => {
       const location = diagnostic.file && diagnostic.line
-        ? ` ${diagnostic.file}:${diagnostic.line}`
+        ? ` ${messages.diagnosticLocation(diagnostic.file, diagnostic.line)}`
         : "";
-      return `[${diagnostic.severity}]${location} ${diagnostic.message}\n`;
+      return `[${messages.consoleSeverity(diagnostic.severity)}]${location} ${diagnostic.message}\n`;
     }).join("");
     const output = run.lines.map((line) =>
-      `[+${(line.elapsedMs / 1000).toFixed(3)}s ${line.stream}] ${line.raw}`
+      `[${messages.consoleElapsedSeconds(line.elapsedMs / 1000)} ${messages.consoleStream(line.stream)}] ${line.raw}`
     ).join("");
     return `=== ${header} ===\n${dropped}${diagnostics}${output}`;
   }).join("\n");

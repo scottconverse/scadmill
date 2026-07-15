@@ -242,8 +242,8 @@ export const messages = {
   importSettings: "Import settings JSON",
   settingsImportFailed: "The settings file was rejected; current settings were not changed.",
   settingsLoadFailed:
-    "Saved settings could not be read safely. Defaults are in use, and settings changes are blocked to protect the existing file.",
-  settingsSaveFailed: "The setting could not be saved, so the last durable value was restored.",
+    "Saved settings could not be read safely. Defaults are in use, and settings changes are blocked to protect the saved settings.",
+  settingsSaveFailed: "The setting could not be saved. Review the current value before continuing.",
   restoreSectionDefaults: (section: string) => `Restore ${section.toLowerCase()} defaults`,
   restoreDefaults: "Restore defaults",
   settingsEditor: "Editor",
@@ -301,8 +301,12 @@ export const messages = {
   clearAiKey: "Clear AI key",
   aiKeyLoading: "Loading the saved AI key…",
   aiKeySaved: "AI key saved.",
+  aiKeyStorageChanged: "AI key storage changed. Unsaved key edits remain unsaved.",
   aiKeyCleared: "AI key cleared.",
-  aiKeyStorageFailed: "The AI key could not be stored. Your existing key was not changed.",
+  aiKeyStorageFailed:
+    "The AI key operation failed, and its stored state may be uncertain. Verify the key before using AI features.",
+  aiSecretRollbackFailed:
+    "The AI key or AI settings could not be rolled back completely. Review both before using AI features.",
   desktopKeychainNote: "The AI key is stored in your operating system keychain.",
   persistWebSecret: "Persist AI key in this browser",
   persistWebSecretWarning: "Persisting an AI key writes it to browser local storage on this device.",
@@ -413,6 +417,18 @@ export const messages = {
   projectStorageUnavailableForPortability:
     "Browser project storage is unavailable. Share links and ZIP export still work; ZIP import is disabled.",
   recoveryProjectStorageUnavailable: "Project storage is unavailable for recovery.",
+  recoveryProjectBufferUnavailable: (path: string) =>
+    `Recovered buffer ${path} is missing or binary in the current project. Recovery was retained without changing the workspace.`,
+  recoveryBufferCouldNotBeOpened: (path: string) =>
+    `Recovered buffer ${path} could not be opened. Recovery was retained.`,
+  recoveryProjectChanged:
+    "The recovered project changed while restoration was prepared. Recovery was retained.",
+  recoveryWorkspaceChanged:
+    "The workspace changed while restoration was prepared. Recovery was retained; restore again to include the latest edits.",
+  recoveryProjectStateChanged:
+    "The project changed while restoration was prepared. Recovery was retained; restore again from the current project state.",
+  recoveryInvalidDocumentIds:
+    "Recovery buffers require unique non-empty document ids. Recovery was retained.",
   reopenProject: (name: string) => `Reopen ${name}`,
   checkExternalChanges: "Check for external changes",
   externalChangeTitle: "File changed outside ScadMill",
@@ -437,6 +453,8 @@ export const messages = {
     : `${count} changes still need choices.`,
   recoveryTitle: "Unsaved work recovery",
   recoveryMessage: "ScadMill found unsaved buffers from an earlier session.",
+  recoveredProjectName: "Recovered project",
+  scratchProjectName: "Scratch",
   restoreRecovery: "Restore unsaved work",
   discardRecovery: "Discard recovery",
   recoveryCouldNotBeSaved: "Unsaved-work recovery could not be saved.",
@@ -600,6 +618,8 @@ export const messages = {
   consoleDuration: (durationMs: number) => `${durationMs} ms`,
   consoleExit: (exitCode: number) => `exit ${exitCode}`,
   consoleOutcome: (outcome: string) => outcome.replace("-", " "),
+  consoleQuality: (quality: "preview" | "full") => quality,
+  consoleStream: (stream: "stdout" | "stderr" | "unknown") => stream,
   consoleLinesDropped: (count: number) => `${count} older ${count === 1 ? "line" : "lines"} dropped`,
   consoleSeverity: (severity: string) => severity === "all"
     ? "All"

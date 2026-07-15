@@ -49,7 +49,31 @@ describe("browser AI secret storage", () => {
     await expect(laterSession.load(true)).resolves.toBe("persisted-by-choice");
   });
 
-  it("does not create a session copy when deleting the persisted key fails during opt-out", async () => {
+  it("retains the session key when the persisted destination write fails", async () => {
+    const session = storage();
+    const local = storage();
+    const secrets = createBrowserSecretStore(session, local);
+    await secrets.save("session-key", false);
+    local.setItem = () => { throw new Error("local storage blocked"); };
+
+    await expect(secrets.save("persisted-key", true)).rejects.toThrow("unavailable");
+    await expect(secrets.load(false)).resolves.toBe("session-key");
+    expect(local.values.size).toBe(0);
+  });
+
+  it("retains the persisted key when the session destination write fails", async () => {
+    const session = storage();
+    const local = storage();
+    const secrets = createBrowserSecretStore(session, local);
+    await secrets.save("persisted-key", true);
+    session.setItem = () => { throw new Error("session storage blocked"); };
+
+    await expect(secrets.save("session-key", false)).rejects.toThrow("unavailable");
+    await expect(secrets.load(true)).resolves.toBe("persisted-key");
+    expect(session.values.size).toBe(0);
+  });
+
+  it("retains both copies when deleting the persisted source fails during opt-out", async () => {
     const session = storage();
     const local = storage();
     const initial = createBrowserSecretStore(session, local);
@@ -58,18 +82,21 @@ describe("browser AI secret storage", () => {
     const secrets = createBrowserSecretStore(session, local);
 
     await expect(secrets.save("session-key", false)).rejects.toThrow("unavailable");
-    expect(session.values.size).toBe(0);
+    expect(session.values.size).toBe(1);
     expect(local.values.size).toBe(1);
   });
 
-  it("does not create a persisted copy when deleting the session key fails during opt-in", async () => {
+  it("retains both copies when deleting the session source fails during opt-in", async () => {
     const session = storage();
     const local = storage();
+    const initial = createBrowserSecretStore(session, local);
+    await initial.save("session-key", false);
     session.removeItem = () => { throw new Error("session storage blocked"); };
     const secrets = createBrowserSecretStore(session, local);
 
     await expect(secrets.save("persisted-key", true)).rejects.toThrow("unavailable");
-    expect(local.values.size).toBe(0);
+    expect(session.values.size).toBe(1);
+    expect(local.values.size).toBe(1);
   });
 
   it("attempts both removals and reports a partial clear instead of claiming success", async () => {
@@ -98,7 +125,7 @@ describe("browser AI secret storage", () => {
 
       const secrets = createBrowserSecretStore();
 
-      await expect(secrets.load(false)).resolves.toBe("");
+      await expect(secrets.load(false)).rejects.toThrow("unavailable");
       await expect(secrets.save("sentinel", false)).rejects.toThrow("unavailable");
       await expect(secrets.clear()).rejects.toThrow("unavailable");
     } finally {
@@ -107,6 +134,14 @@ describe("browser AI secret storage", () => {
       if (localDescriptor) Object.defineProperty(globalThis, "localStorage", localDescriptor);
       else Reflect.deleteProperty(globalThis, "localStorage");
     }
+  });
+
+  it("reports a transient secret read failure instead of treating it as an empty key", async () => {
+    const session = storage();
+    session.getItem = () => { throw new Error("transient read failure"); };
+    const secrets = createBrowserSecretStore(session, storage());
+
+    await expect(secrets.load(false)).rejects.toThrow("unavailable");
   });
 
   it("enforces the shared limit in UTF-8 bytes", async () => {

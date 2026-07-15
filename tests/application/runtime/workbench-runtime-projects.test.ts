@@ -613,6 +613,211 @@ describe("workbench project integration", () => {
     });
   });
 
+  it("rejects a recovery transition if the workspace changes before atomic apply", async () => {
+    const runtime = createWorkbenchRuntime(engine());
+    const beforeProject = runtime.project.getState();
+    const beforeWorkspace = runtime.documents.getState();
+    const restoring = runtime.dispatch({
+      kind: "restore-recovery-confirmed",
+      origin: "system",
+      expectedProject: beforeProject,
+      expectedWorkspace: beforeWorkspace,
+      recovery: {
+        version: 1,
+        projectId: "scratch",
+        capturedAt: "2026-07-10T00:00:00.000Z",
+        buffers: [{
+          documentId: "document-main",
+          path: "main.scad",
+          source: "cube(77);",
+          savedSource: "cube(10);",
+        }],
+      },
+    });
+    const rejected = expect(restoring).rejects.toThrow(/workspace changed/iu);
+
+    await runtime.dispatch({
+      kind: "open-document",
+      origin: "user",
+      document: { id: "clean-notes", path: "notes.scad", source: "sphere(2);" },
+    });
+
+    await rejected;
+    expect(runtime.project.getState()).toBe(beforeProject);
+    expect(runtime.documents.getState().documents.map(({ path, source }) => ({ path, source })))
+      .toEqual([
+        { path: "main.scad", source: "cube(10);" },
+        { path: "notes.scad", source: "sphere(2);" },
+      ]);
+    runtime.dispose();
+  });
+
+  it("does not apply recovery when replacement layout loading fails", async () => {
+    let loadCount = 0;
+    const runtime = createWorkbenchRuntime(engine(), {
+      layoutPersistence: {
+        load: () => {
+          loadCount += 1;
+          if (loadCount > 1) throw new Error("Layout storage failed.");
+          return null;
+        },
+        save: () => undefined,
+      },
+    });
+    const beforeProject = runtime.project.getState();
+    const beforeWorkspace = runtime.documents.getState();
+
+    await expect(runtime.dispatch({
+      kind: "restore-recovery-confirmed",
+      origin: "system",
+      expectedProject: beforeProject,
+      expectedWorkspace: beforeWorkspace,
+      recovery: {
+        version: 1,
+        projectId: "scratch",
+        capturedAt: "2026-07-10T00:00:00.000Z",
+        buffers: [{
+          documentId: "document-main",
+          path: "main.scad",
+          source: "cube(77);",
+          savedSource: "cube(10);",
+        }],
+      },
+    })).rejects.toThrow("Layout storage failed.");
+
+    expect(runtime.project.getState()).toBe(beforeProject);
+    expect(runtime.documents.getState()).toBe(beforeWorkspace);
+    runtime.dispose();
+  });
+
+  it("does not apply recovery when history metadata generation fails", async () => {
+    const runtime = createWorkbenchRuntime(engine(), {
+      makeId: () => { throw new Error("History id failed."); },
+    });
+    const beforeProject = runtime.project.getState();
+    const beforeWorkspace = runtime.documents.getState();
+
+    await expect(runtime.dispatch({
+      kind: "restore-recovery-confirmed",
+      origin: "system",
+      expectedProject: beforeProject,
+      expectedWorkspace: beforeWorkspace,
+      recovery: {
+        version: 1,
+        projectId: "scratch",
+        capturedAt: "2026-07-10T00:00:00.000Z",
+        buffers: [{
+          documentId: "document-main",
+          path: "main.scad",
+          source: "cube(77);",
+          savedSource: "cube(10);",
+        }],
+      },
+    })).rejects.toThrow("History id failed.");
+
+    expect(runtime.project.getState()).toBe(beforeProject);
+    expect(runtime.documents.getState()).toBe(beforeWorkspace);
+    runtime.dispose();
+  });
+
+  it("schedules auto-render after an atomic scratch recovery", async () => {
+    vi.useFakeTimers();
+    try {
+      const service = engine();
+      const runtime = createWorkbenchRuntime(service, {
+        rendering: { renderDebounceMs: 25 },
+      });
+      await runtime.dispatch({ kind: "engine-availability-changed", origin: "system", available: true });
+      const beforeProject = runtime.project.getState();
+      const beforeWorkspace = runtime.documents.getState();
+
+      await runtime.dispatch({
+        kind: "restore-recovery-confirmed",
+        origin: "system",
+        expectedProject: beforeProject,
+        expectedWorkspace: beforeWorkspace,
+        recovery: {
+          version: 1,
+          projectId: "scratch",
+          capturedAt: "2026-07-10T00:00:00.000Z",
+          buffers: [{
+            documentId: "document-main",
+            path: "main.scad",
+            source: "cube(77);",
+            savedSource: "cube(10);",
+          }],
+        },
+      });
+      await vi.advanceTimersByTimeAsync(25);
+
+      expect(service.render).toHaveBeenCalledOnce();
+      expect(runtime.project.getState()).toBe(beforeProject);
+      runtime.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("auto-renders the selected entry after multi-buffer project recovery", async () => {
+    vi.useFakeTimers();
+    try {
+      const service = engine();
+      const runtime = createWorkbenchRuntime(service, {
+        rendering: { renderDebounceMs: 25 },
+      });
+      await runtime.dispatch({ kind: "engine-availability-changed", origin: "system", available: true });
+      const beforeProject = runtime.project.getState();
+      const beforeWorkspace = runtime.documents.getState();
+      const snapshot = createProjectSnapshot("project-a", new Map([
+        ["main.scad", "cube(10);"],
+        ["parts.scad", "sphere(2);"],
+      ]));
+
+      await runtime.dispatch({
+        kind: "restore-recovery-confirmed",
+        origin: "system",
+        expectedProject: beforeProject,
+        expectedWorkspace: beforeWorkspace,
+        snapshot,
+        displayName: "Project A",
+        recovery: {
+          version: 1,
+          projectId: "project-a",
+          capturedAt: "2026-07-10T00:00:00.000Z",
+          buffers: [
+            {
+              documentId: "recovered-main",
+              path: "main.scad",
+              source: "cube(77);",
+              savedSource: "cube(10);",
+            },
+            {
+              documentId: "recovered-parts",
+              path: "parts.scad",
+              source: "sphere(9);",
+              savedSource: "sphere(2);",
+            },
+          ],
+        },
+      });
+      await vi.advanceTimersByTimeAsync(25);
+
+      expect(runtime.documents.getState().documents.find(
+        ({ id }) => id === runtime.documents.getState().activeDocumentId,
+      )?.path).toBe("main.scad");
+      expect(service.render).toHaveBeenCalledWith(expect.objectContaining({
+        entryFile: "main.scad",
+        files: new Map([
+          ["main.scad", "cube(77);"],
+          ["parts.scad", "sphere(9);"],
+        ]),
+      }));
+      runtime.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("persists and reloads recent projects across runtime sessions", async () => {
     let saved = [] as ReturnType<RecentProjectsPersistence["load"]>;
     const persistence: RecentProjectsPersistence = {

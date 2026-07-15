@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import {
   matchesKeybinding,
@@ -41,6 +42,13 @@ export function SettingsLauncher({ engineLabel, runtime, secretStore }: Settings
     globalThis.addEventListener?.("keydown", handleKeyDown);
     return () => globalThis.removeEventListener?.("keydown", handleKeyDown);
   }, [profile.keybindings.settings]);
+  useEffect(() => {
+    if (!open) return;
+    const workbench = launcher.current?.closest<HTMLElement>(".workbench");
+    if (!workbench) return;
+    workbench.inert = true;
+    return () => { workbench.inert = false; };
+  }, [open]);
   const persist = async (command: Parameters<WorkbenchRuntime["dispatch"]>[0]) => {
     const requestId = ++persistenceRequest.current;
     setPersistenceError(undefined);
@@ -63,7 +71,7 @@ export function SettingsLauncher({ engineLabel, runtime, secretStore }: Settings
         ref={launcher}
         type="button"
       >{messages.settingsTitle}</button>
-      {open && (
+      {open && createPortal(
         <SettingsDialog
           engineLabel={engineLabel}
           persistenceError={persistenceStatus.status === "load-error"
@@ -75,19 +83,25 @@ export function SettingsLauncher({ engineLabel, runtime, secretStore }: Settings
           onChange={(settings) => {
             void persist({ kind: "replace-settings", origin: "user", settings }).catch(() => undefined);
           }}
-          onCommit={(settings) => persist({ kind: "replace-settings", origin: "user", settings })}
+          onCommit={(update) => {
+            const current = runtime.settings.getState().profile;
+            const settings = update(current);
+            return settings === current
+              ? Promise.resolve()
+              : persist({ kind: "replace-settings", origin: "user", settings });
+          }}
           onClose={() => {
             setOpen(false);
             globalThis.setTimeout(() => returnFocus.current?.focus(), 0);
           }}
-          onRestore={(section) => {
-            void persist({
+          onRestore={(section) =>
+            persist({
               kind: "restore-settings-section",
               origin: "user",
               section,
-            }).catch(() => undefined);
-          }}
-        />
+            })}
+        />,
+        document.body,
       )}
     </>
   );

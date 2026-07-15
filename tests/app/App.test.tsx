@@ -98,10 +98,10 @@ describe("App", () => {
     const app = within(view.container);
     const launcher = app.getByRole("button", { name: messages.openSettings });
     fireEvent.click(launcher);
-    fireEvent.click(await app.findByRole("button", { name: messages.closeSettings }));
+    fireEvent.click(await screen.findByRole("button", { name: messages.closeSettings }));
 
     await waitFor(() =>
-      expect(app.queryByRole("dialog", { name: messages.settingsTitle })).not.toBeInTheDocument()
+      expect(screen.queryByRole("dialog", { name: messages.settingsTitle })).not.toBeInTheDocument()
     );
     expect(launcher).toHaveFocus();
   });
@@ -345,7 +345,7 @@ describe("App", () => {
     await app.findByRole("button", { name: messages.fixEngine });
     fireEvent.click(app.getByRole("button", { name: messages.openSettings }));
 
-    fireEvent.change(app.getByLabelText(messages.enginePath), {
+    fireEvent.change(screen.getByLabelText(messages.enginePath), {
       target: { value: "C:\\OpenSCAD\\openscad.exe" },
     });
 

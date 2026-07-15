@@ -14,6 +14,7 @@ export interface WorkbenchStatusBarProps {
   readonly consoleVisible: boolean;
   readonly consoleButtonRef: RefObject<HTMLButtonElement | null>;
   readonly themePreference: ThemePreference;
+  readonly themePreferenceDisabled?: boolean;
   readonly onFocusConsole: () => void;
   readonly onThemePreferenceChange: (preference: ThemePreference) => void;
 }
@@ -41,10 +42,13 @@ export function WorkbenchStatusBar(props: WorkbenchStatusBarProps) {
         <span>{messages.themeLabel}</span>
         <select
           aria-label={messages.themeLabel}
+          disabled={props.themePreferenceDisabled}
           value={props.themePreference}
-          onChange={(event) => props.onThemePreferenceChange(
-            event.currentTarget.value as ThemePreference,
-          )}
+          onChange={(event) => {
+            if (!props.themePreferenceDisabled) {
+              props.onThemePreferenceChange(event.currentTarget.value as ThemePreference);
+            }
+          }}
         >
           <option value="system">{messages.themeSystem}</option>
           <option value="light">{messages.themeLight}</option>

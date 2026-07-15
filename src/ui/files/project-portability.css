@@ -6,6 +6,10 @@
   color: var(--chrome-text);
 }
 
+.project-portability:empty {
+  display: none;
+}
+
 .project-portability-actions {
   display: flex;
   flex-wrap: wrap;

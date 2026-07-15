@@ -456,6 +456,84 @@ describe("packaged desktop evidence helpers", () => {
     ]);
   });
 
+  it("fails closed when packaged process inspection cannot complete", async () => {
+    const [runner, wrapper] = await Promise.all([
+      readFile(join(process.cwd(), "scripts", "run-packaged-desktop-evidence.mjs"), "utf8"),
+      readFile(
+        join(process.cwd(), "scripts", "windows", "run-packaged-desktop-evidence.ps1"),
+        "utf8",
+      ),
+    ]);
+    const hostInspections = [...wrapper.matchAll(/Get-CimInstance Win32_Process[^\r\n]*/gu)]
+      .map(([line]) => line);
+
+    expect(hostInspections).toHaveLength(1);
+    for (const inspection of hostInspections) {
+      expect(inspection).toContain("-ErrorAction Stop");
+      expect(inspection).not.toContain("SilentlyContinue");
+    }
+    expect(runner).toContain(
+      "Get-CimInstance Win32_Process -ErrorAction Stop -Filter",
+    );
+    expect(runner).toContain(
+      'const result = await run("powershell.exe", ["-NoProfile", "-Command", command]);',
+    );
+    expect(runner).not.toContain("exactAppProcesses(args.app).catch(() => [])");
+  });
+
+  it("rejects process rows whose identity properties cannot be read", async () => {
+    const [runner, wrapper] = await Promise.all([
+      readFile(join(process.cwd(), "scripts", "run-packaged-desktop-evidence.mjs"), "utf8"),
+      readFile(
+        join(process.cwd(), "scripts", "windows", "run-packaged-desktop-evidence.ps1"),
+        "utf8",
+      ),
+    ]);
+
+    const guestQuery = runner.indexOf("$candidates = @(Get-CimInstance Win32_Process");
+    const guestAmbiguityCheck = runner.indexOf(
+      "@($candidates | Where-Object { [string]::IsNullOrWhiteSpace([string]$_.ExecutablePath) }).Count -ne 0",
+    );
+    const guestExactPathFilter = runner.indexOf(
+      "$candidates | Where-Object { $_.ExecutablePath -eq '",
+    );
+    expect(guestQuery).toBeGreaterThanOrEqual(0);
+    expect(guestAmbiguityCheck).toBeGreaterThan(guestQuery);
+    expect(guestExactPathFilter).toBeGreaterThan(guestAmbiguityCheck);
+    expect(runner).toContain(
+      "throw 'Cannot prove process identity because an ExecutablePath is missing.'",
+    );
+
+    const hostHelper = wrapper.indexOf("function Get-ExactSandboxSessions");
+    const hostQuery = wrapper.indexOf(
+      "Get-CimInstance Win32_Process -ErrorAction Stop -Filter \"Name = 'WindowsSandboxRemoteSession.exe'\"",
+      hostHelper,
+    );
+    const hostAmbiguityCheck = wrapper.indexOf(
+      "[string]::IsNullOrWhiteSpace([string]$_.CommandLine)",
+      hostQuery,
+    );
+    const hostCommandLineSplit = wrapper.indexOf(
+      "[ScadMill.NativeCommandLine]::Split([string]$_.CommandLine)",
+      hostAmbiguityCheck,
+    );
+    const hostExactConfigFilter = wrapper.indexOf(
+      "[string]::Equals($_, $ConfigPath, [StringComparison]::OrdinalIgnoreCase)",
+      hostCommandLineSplit,
+    );
+    expect(hostHelper).toBeGreaterThanOrEqual(0);
+    expect(hostQuery).toBeGreaterThan(hostHelper);
+    expect(hostAmbiguityCheck).toBeGreaterThan(hostQuery);
+    expect(hostCommandLineSplit).toBeGreaterThan(hostAmbiguityCheck);
+    expect(hostExactConfigFilter).toBeGreaterThan(hostCommandLineSplit);
+    expect(wrapper).toContain(
+      'throw "Cannot prove Windows Sandbox session identity because a CommandLine is missing."',
+    );
+    expect(wrapper.match(/Get-ExactSandboxSessions -ConfigPath \$configPath/gu)).toHaveLength(2);
+    expect(wrapper).not.toContain('-like "*$configPath*"');
+    expect(wrapper).not.toContain(".CommandLine.IndexOf($ConfigPath");
+  });
+
   it("requires an exact isolated-Sandbox harness manifest", () => {
     const sha256 = "ab".repeat(32);
     const manifest = {

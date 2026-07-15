@@ -2,6 +2,7 @@ import { messages } from "../../messages/en";
 
 export interface RenderControlsProps {
   autoRender: boolean;
+  autoRenderDisabled?: boolean;
   renderDisabled: boolean;
   rendering: boolean;
   onAutoRenderChange(enabled: boolean): void;
@@ -11,6 +12,7 @@ export interface RenderControlsProps {
 
 export function RenderControls({
   autoRender,
+  autoRenderDisabled = false,
   renderDisabled,
   rendering,
   onAutoRenderChange,
@@ -19,10 +21,11 @@ export function RenderControls({
 }: RenderControlsProps) {
   return (
     <div className="titlebar-actions">
-      <label className="auto-render-toggle">
+      <label aria-disabled={autoRenderDisabled} className="auto-render-toggle">
         <input
           aria-label={messages.autoRender}
           checked={autoRender}
+          disabled={autoRenderDisabled}
           onChange={(event) => onAutoRenderChange(event.currentTarget.checked)}
           type="checkbox"
         />

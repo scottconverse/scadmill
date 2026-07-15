@@ -190,7 +190,6 @@ export function Workbench({
   const initialEditorSession = cachedEditorSession?.state.doc.toString() === document.source
     ? cachedEditorSession
     : undefined;
-
   const editor = (
     <section className="editor-panel" aria-label={messages.editorRegion}>
       <div className="panel-heading editor-tab-heading">
@@ -278,6 +277,8 @@ export function Workbench({
       narrow={narrow}
       quality={presentation.quality}
       renderJobId={presentation.status === "rendering" ? render.jobId : undefined}
+      renderStartedAtMonotonicMs={presentation.status === "rendering" ? render.startedAtMonotonicMs : undefined}
+      renderStartedAtMs={presentation.status === "rendering" ? render.startedAtMs : undefined}
       renderStatus={presentation.status}
       result={presentation.result}
       runtime={runtime}
@@ -286,24 +287,8 @@ export function Workbench({
       onShowConsole={focusConsole}
     />
   );
-
   return (
-    <main
-      className={`workbench${showWebMenu ? " workbench-with-web-menu" : ""}`}
-      ref={workbenchRoot}
-    >
-      <ProjectSessionHost
-        portability={projectPortability}
-        recoveryPersistence={recoveryPersistence}
-        requestedProject={requestedProject}
-        runtime={runtime}
-        scratchAutosavePersistence={scratchAutosavePersistence}
-        storage={projectStorage}
-        onRecoveryPendingChange={setRecoveryPending}
-      />
-      {fileCommands.notice && (
-        <p className="file-command-notice" role="alert">{fileCommands.notice}</p>
-      )}
+    <main className={`workbench${showWebMenu ? " workbench-with-web-menu" : ""}`} ref={workbenchRoot}>
       {showWebMenu && (
         <WebMenuBar
           closeDocumentDisabled={!canCloseDocument(documents, document.id)}
@@ -343,6 +328,7 @@ export function Workbench({
         <SettingsLauncher engineLabel={engineLabel} runtime={runtime} secretStore={secretStore} />
         <RenderControls
           autoRender={autoRender}
+          autoRenderDisabled={settingsPersistenceStatus.status === "load-error"}
           renderDisabled={!engineAvailable || render.status === "rendering"}
           rendering={render.status === "rendering"}
           onAutoRenderChange={(enabled) =>
@@ -359,9 +345,23 @@ export function Workbench({
         engineChecking={engineChecking}
         engineRecovery={effectiveEngineRecovery}
         settingsLoadError={settingsPersistenceStatus.status === "load-error"}
-        onConfigureEnginePath={onConfigureEnginePath}
-      />
-
+        onConfigureEnginePath={settingsPersistenceStatus.status === "load-error"
+          ? undefined
+          : onConfigureEnginePath}
+      >
+        {fileCommands.notice && (
+          <p className="file-command-notice" role="alert">{fileCommands.notice}</p>
+        )}
+        <ProjectSessionHost
+          portability={projectPortability}
+          recoveryPersistence={recoveryPersistence}
+          requestedProject={requestedProject}
+          runtime={runtime}
+          scratchAutosavePersistence={scratchAutosavePersistence}
+          storage={projectStorage}
+          onRecoveryPendingChange={setRecoveryPending}
+        />
+      </WorkbenchBanners>
       <WorkspaceFrame
         activityContent={{
           files: (
@@ -387,12 +387,12 @@ export function Workbench({
         viewer={viewer}
         onLayoutAction={dispatchLayout}
       />
-
       <WorkbenchStatusBar
         customThemes={customThemes} cursor={cursor}
         diagnosticStatus={diagnosticStatus} engineLabel={engineLabel} renderStatus={renderStatus}
         consoleVisible={consoleVisible} consoleButtonRef={statusConsoleButton}
         themePreference={themePreference} onFocusConsole={focusConsole}
+        themePreferenceDisabled={settingsPersistenceStatus.status === "load-error"}
         onThemePreferenceChange={onThemePreferenceChange}
       />
     </main>

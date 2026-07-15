@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { encodeParameterSets } from "../../../src/application/parameters/parameter-set-codec";
+import {
+  encodeParameterSets,
+  type NamedParameterSet,
+} from "../../../src/application/parameters/parameter-set-codec";
 import {
   createParameterState,
   parameterDocument,
@@ -204,6 +207,43 @@ describe("per-document customizer state", () => {
       ));
   });
 
+  it("snapshots each replaced set name and value map exactly once", () => {
+    let nameReads = 0;
+    let valuesReads = 0;
+    const firstValues: Readonly<Record<string, number>> = { width: 20 };
+    const changedValues: Readonly<Record<string, number>> = { "bad-name": 30 };
+    const changingSet: NamedParameterSet = {
+      get name() {
+        nameReads += 1;
+        return nameReads === 1 ? "Snapshot" : "Duplicate";
+      },
+      get values() {
+        valuesReads += 1;
+        return valuesReads === 1 ? firstValues : changedValues;
+      },
+    };
+    const state = createParameterState([{
+      documentId: "doc-a",
+      revision: 0,
+      source: "width = 10; cube(width);",
+    }]);
+    let next = state;
+
+    expect(() => {
+      next = reduceParameterState(state, {
+        kind: "replace-sets",
+        documentId: "doc-a",
+        sets: [changingSet, { name: "Duplicate", values: { width: 30 } }],
+      });
+    }).not.toThrow();
+    expect(nameReads).toBe(1);
+    expect(valuesReads).toBe(1);
+    expect(parameterDocument(next, "doc-a").sets).toEqual([
+      { name: "Snapshot", values: { width: 20 } },
+      { name: "Duplicate", values: { width: 30 } },
+    ]);
+  });
+
   it.each([
     ["a sparse vector", sparseSetVector],
     ["a non-finite vector", [6, 7, 8, 9, 10, Number.POSITIVE_INFINITY]],
@@ -222,6 +262,41 @@ describe("per-document customizer state", () => {
     })).toThrow(/valid parameter value/i);
     expect(parameterDocument(state, "doc-a").sets).toEqual([]);
   });
+
+  it.each([
+    ["an empty set name", [{ name: "   ", values: { width: 20 } }]],
+    [
+      "duplicate set names",
+      [
+        { name: "Duplicate", values: { width: 20 } },
+        { name: "Duplicate", values: { width: 30 } },
+      ],
+    ],
+    ["an invalid parameter name", [{ name: "Invalid", values: { "bad-name": 20 } }]],
+  ] satisfies readonly (readonly [string, readonly NamedParameterSet[]])[])(
+    "rejects a runtime replace-sets action containing %s without changing existing sets",
+    (_caseName, sets) => {
+      let state = createParameterState([{
+        documentId: "doc-a",
+        revision: 0,
+        source: "width = 10; cube(width);",
+      }]);
+      state = reduceParameterState(state, {
+        kind: "save-set",
+        documentId: "doc-a",
+        name: "Existing",
+      });
+      const before = parameterDocument(state, "doc-a");
+
+      expect(() => reduceParameterState(state, {
+        kind: "replace-sets",
+        documentId: "doc-a",
+        sets,
+      })).toThrow(/invalid|duplicate/i);
+      expect(parameterDocument(state, "doc-a")).toBe(before);
+      expect(before.sets).toEqual([{ name: "Existing", values: { width: 10 } }]);
+    },
+  );
 
   it("keeps forward-compatible set data and safely ignores stale members after a source edit", () => {
     let state = createParameterState([{

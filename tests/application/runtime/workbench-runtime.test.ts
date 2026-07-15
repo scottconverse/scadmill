@@ -322,6 +322,8 @@ describe("createWorkbenchRuntime", () => {
     expect(runtime.render.getState()).toEqual({
       status: "rendering",
       jobId: "render-wheel",
+      startedAtMonotonicMs: expect.any(Number),
+      startedAtMs: expect.any(Number),
       quality: "preview",
       documentId: "document-wheel",
       entryFile: "parts/wheel.scad",

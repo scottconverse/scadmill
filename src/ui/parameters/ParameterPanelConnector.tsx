@@ -19,9 +19,8 @@ export function ParameterPanelConnector({
   const [error, setError] = useState<string>();
   const run = useCallback((command: Parameters<typeof runtime.dispatch>[0]) => {
     setError(undefined);
-    void runtime.dispatch(command).catch((reason: unknown) => {
-      const detail = reason instanceof Error ? reason.message : messages.unknownParameterCommandError;
-      setError(messages.parameterCommandFailed(detail));
+    void runtime.dispatch(command).catch(() => {
+      setError(messages.parameterCommandFailed(messages.unknownParameterCommandError));
     });
   }, [runtime]);
 

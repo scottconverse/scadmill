@@ -3,9 +3,12 @@ import type {
   DocumentWorkspaceState,
 } from "../documents/document-workspace";
 import { createDocumentWorkspace } from "../documents/document-workspace";
+import { messages } from "../../messages/en";
 import { ProjectFileService, type ProjectStorage } from "./project-file-service";
 import { parseProjectPath } from "./project-path";
 import { recordRecentProject, type RecentProject, validateRecentProjects } from "./recent-projects";
+import { planRecoveryRestoration } from "./recovery-restoration";
+import type { RecoverySnapshot } from "./recovery-state";
 import { createProjectSnapshot, type ProjectFileContent, type ProjectSnapshot } from "./project-snapshot";
 
 export interface ProjectSessionState {
@@ -20,6 +23,14 @@ export interface ProjectSessionState {
 export type ProjectCommand =
   | { readonly kind: "new-scratch-document" }
   | { readonly kind: "replace-project-confirmed"; readonly snapshot: ProjectSnapshot; readonly displayName: string; readonly entryFile: string }
+  | {
+      readonly kind: "restore-recovery-confirmed";
+      readonly recovery: RecoverySnapshot;
+      readonly expectedProject: ProjectSessionState;
+      readonly expectedWorkspace: DocumentWorkspaceState;
+      readonly snapshot?: ProjectSnapshot;
+      readonly displayName?: string;
+    }
   | { readonly kind: "open-project-file"; readonly path: string }
   | { readonly kind: "save-document"; readonly documentId: string }
   | { readonly kind: "save-document-as-confirmed"; readonly documentId: string; readonly path: string }
@@ -33,6 +44,7 @@ export type ProjectCommand =
 const PROJECT_COMMAND_KINDS = new Set<ProjectCommand["kind"]>([
   "new-scratch-document",
   "replace-project-confirmed",
+  "restore-recovery-confirmed",
   "open-project-file",
   "save-document",
   "save-document-as-confirmed",
@@ -167,6 +179,44 @@ export async function executeProjectCommand(
           path: entryFile,
           source,
         }]),
+      );
+    }
+    case "restore-recovery-confirmed": {
+      if (state !== command.expectedProject) {
+        throw new Error(messages.recoveryProjectStateChanged);
+      }
+      if (workspace !== command.expectedWorkspace) {
+        throw new Error(messages.recoveryWorkspaceChanged);
+      }
+      const plan = planRecoveryRestoration(command.recovery, workspace, command.snapshot);
+      if (command.recovery.projectId === "scratch") {
+        return transition(
+          state,
+          "Restore unsaved work",
+          [],
+          plan.workspace,
+        );
+      }
+      const snapshot = command.snapshot;
+      const displayName = command.displayName;
+      if (!snapshot || !displayName?.trim()) {
+        throw new Error(messages.recoveryProjectChanged);
+      }
+      const project = updatedProject(snapshot, {
+        mode: "project",
+        displayName,
+        recentProjects: recordRecentProject(state.recentProjects, {
+          projectId: snapshot.projectId,
+          displayName,
+          openedAt: context.now().toISOString(),
+        }),
+        selectedBinaryPath: undefined,
+      });
+      return transition(
+        project,
+        `Restore project ${displayName}`,
+        [],
+        plan.workspace,
       );
     }
     case "open-project-file": {

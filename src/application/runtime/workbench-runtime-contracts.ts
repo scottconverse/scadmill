@@ -29,6 +29,8 @@ export type CommandOrigin = "user" | "ai-panel" | "external-agent" | "system";
 export interface RenderState {
   status: "idle" | "rendering" | "success" | "failure";
   jobId?: string;
+  startedAtMs?: number;
+  startedAtMonotonicMs?: number;
   quality?: Quality;
   documentId?: string;
   entryFile?: string;

@@ -26,21 +26,24 @@ export function applyProjectTransition(
   transition: ProjectTransition,
   stores: ProjectTransitionStores,
 ): void {
-  stores.project.setState(transition.project, true);
   if (transition.replacementWorkspace) {
-    stores.cancelActiveRender();
-    stores.documents.setState(transition.replacementWorkspace, true);
-    stores.parameters.setState(createParameterState(
+    const parameters = createParameterState(
       transition.replacementWorkspace.documents.map((document) => ({
         documentId: document.id,
         revision: document.revision,
         source: document.source,
       })),
-    ), true);
+    );
+    const viewer = createViewerState();
+    stores.cancelActiveRender();
+    stores.project.setState(transition.project, true);
+    stores.documents.setState(transition.replacementWorkspace, true);
+    stores.parameters.setState(parameters, true);
     stores.render.setState({ status: "idle" }, true);
-    stores.viewer.setState(createViewerState(), true);
+    stores.viewer.setState(viewer, true);
     return;
   }
+  stores.project.setState(transition.project, true);
   if (transition.documentActions.length === 0) return;
   let workspace = stores.documents.getState();
   for (const action of transition.documentActions) {

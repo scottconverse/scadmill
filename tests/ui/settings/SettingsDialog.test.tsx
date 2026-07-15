@@ -205,6 +205,44 @@ describe("SettingsDialog", () => {
     ]) expect(view.getByLabelText(label)).toBeInTheDocument();
   });
 
+  it("locks every settings mutation surface after durable settings fail to load", () => {
+    const onChange = vi.fn();
+    const onRestore = vi.fn();
+    const view = render(
+      <SettingsDialog
+        engineLabel="OpenSCAD 2026.06.12"
+        secretStore={emptySecrets}
+        settings={createDefaultPersistedSettings()}
+        settingsMutationsBlocked
+        onChange={onChange}
+        onClose={vi.fn()}
+        onRestore={onRestore}
+      />,
+    );
+
+    expect(view.getByLabelText("Search settings")).toBeEnabled();
+    expect(view.getByRole("button", { name: "Export settings" })).toBeEnabled();
+    const settingsImport = view.getByLabelText("Import settings JSON");
+    expect(settingsImport).toBeDisabled();
+    expect(settingsImport.closest("label")).toHaveAttribute("aria-disabled", "true");
+    expect(view.container.querySelector(".settings-feedback")).not.toHaveAttribute("aria-live");
+    for (const label of [
+      "Editor font size",
+      "Auto-render",
+      "Engine executable path",
+      "Default projection",
+      "Formatter indent size",
+      "AI provider",
+      "Keybinding: Render preview",
+      "Check for updates",
+    ]) expect(view.getByLabelText(label)).toBeDisabled();
+    for (const restore of view.getAllByRole("button", { name: /Restore .* defaults/u })) {
+      expect(restore).toBeDisabled();
+    }
+    expect(onChange).not.toHaveBeenCalled();
+    expect(onRestore).not.toHaveBeenCalled();
+  });
+
   it("loads and saves the AI key through the secret store without adding it to settings", async () => {
     const settings = createDefaultPersistedSettings();
     const secretStore: SecretStore = {
@@ -234,6 +272,141 @@ describe("SettingsDialog", () => {
     await waitFor(() => expect(secretStore.save).toHaveBeenCalledWith("replacement-key", false));
     expect(onChange).not.toHaveBeenCalled();
     expect(JSON.stringify(settings)).not.toContain("replacement-key");
+  });
+
+  it("shows the local-storage warning before browser persistence is selected", () => {
+    const view = render(
+      <SettingsDialog
+        engineLabel="OpenSCAD 2026.06.12"
+        secretStore={emptySecrets}
+        settings={createDefaultPersistedSettings()}
+        onChange={vi.fn()}
+        onClose={vi.fn()}
+        onRestore={vi.fn()}
+      />,
+    );
+
+    expect(view.getByLabelText("Persist AI key in this browser")).not.toBeChecked();
+    expect(view.getByRole("note")).toHaveTextContent(
+      "Persisting an AI key writes it to browser local storage on this device.",
+    );
+  });
+
+  it("reports a failed secret write without promising that stored data was unchanged", async () => {
+    const secretStore: SecretStore = {
+      persistence: "web-session",
+      load: vi.fn().mockResolvedValue("existing-key"),
+      save: vi.fn().mockRejectedValue(new Error("storage interrupted")),
+      clear: vi.fn().mockResolvedValue(undefined),
+    };
+    const view = render(
+      <SettingsDialog
+        engineLabel="OpenSCAD 2026.06.12"
+        secretStore={secretStore}
+        settings={createDefaultPersistedSettings()}
+        onChange={vi.fn()}
+        onClose={vi.fn()}
+        onRestore={vi.fn()}
+      />,
+    );
+    const key = await view.findByDisplayValue("existing-key");
+
+    fireEvent.change(key, { target: { value: "replacement-key" } });
+    fireEvent.click(view.getByRole("button", { name: "Save AI key" }));
+
+    expect(await view.findByRole("alert")).toHaveTextContent(/stored state may be uncertain/iu);
+    expect(view.getByRole("alert")).not.toHaveTextContent(/was not changed/iu);
+  });
+
+  it("keeps secret input and actions locked until an in-flight save settles", async () => {
+    const pendingSave = deferred<void>();
+    const onClose = vi.fn();
+    const secretStore: SecretStore = {
+      persistence: "web-session",
+      load: vi.fn().mockResolvedValue("existing-key"),
+      save: vi.fn(() => pendingSave.promise),
+      clear: vi.fn().mockResolvedValue(undefined),
+    };
+    const view = render(
+      <SettingsDialog
+        engineLabel="OpenSCAD 2026.06.12"
+        secretStore={secretStore}
+        settings={createDefaultPersistedSettings()}
+        onChange={vi.fn()}
+        onClose={onClose}
+        onRestore={vi.fn()}
+      />,
+    );
+    const key = await view.findByDisplayValue("existing-key");
+    const save = view.getByRole("button", { name: "Save AI key" });
+    fireEvent.change(key, { target: { value: "first-key" } });
+    fireEvent.click(save);
+
+    expect(key).toBeDisabled();
+    expect(save).toBeDisabled();
+    const close = view.getByRole("button", { name: "Close settings" });
+    expect(close).toBeDisabled();
+    fireEvent.keyDown(view.getByRole("dialog"), { key: "Escape" });
+    fireEvent.click(close);
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.change(key, { target: { value: "second-key" } });
+    fireEvent.click(save);
+    expect(secretStore.save).toHaveBeenCalledTimes(1);
+    expect(secretStore.save).toHaveBeenCalledWith("first-key", false);
+
+    pendingSave.resolve(undefined);
+    expect(await view.findByText("AI key saved.")).toBeVisible();
+    expect(key).toHaveValue("first-key");
+    expect(key).toBeEnabled();
+    expect(close).toBeEnabled();
+    fireEvent.click(close);
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("cancels pending settings import while a secret mutation owns persistence", async () => {
+    const pendingSave = deferred<void>();
+    const pendingImport = deferred<string>();
+    const settings = createDefaultPersistedSettings();
+    const imported = {
+      ...settings,
+      ai: { ...settings.ai, persistWebSecret: true },
+    };
+    const secretStore: SecretStore = {
+      persistence: "web-session",
+      load: vi.fn().mockResolvedValue("existing-key"),
+      save: vi.fn(() => pendingSave.promise),
+      clear: vi.fn().mockResolvedValue(undefined),
+    };
+    const onChange = vi.fn();
+    const view = render(
+      <SettingsDialog
+        engineLabel="OpenSCAD 2026.06.12"
+        secretStore={secretStore}
+        settings={settings}
+        onChange={onChange}
+        onClose={vi.fn()}
+        onRestore={vi.fn()}
+      />,
+    );
+    const key = await view.findByDisplayValue("existing-key");
+    const importInput = view.getByLabelText("Import settings JSON");
+    const pendingFile = {
+      size: 100,
+      text: () => pendingImport.promise,
+    } as unknown as File;
+
+    fireEvent.change(importInput, { target: { files: [pendingFile] } });
+    fireEvent.change(key, { target: { value: "replacement-key" } });
+    fireEvent.click(view.getByRole("button", { name: "Save AI key" }));
+
+    expect(importInput).toBeDisabled();
+    pendingImport.resolve(JSON.stringify(imported));
+    await Promise.resolve();
+    expect(onChange).not.toHaveBeenCalled();
+
+    pendingSave.resolve(undefined);
+    expect(await view.findByText("AI key saved.")).toBeVisible();
+    expect(importInput).toBeEnabled();
   });
 
   it("shows the exact UTF-8 loading status while the secret store is pending", () => {

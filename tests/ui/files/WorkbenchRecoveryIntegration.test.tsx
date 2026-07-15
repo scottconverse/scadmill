@@ -4,11 +4,11 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { EngineService } from "../../../src/application/engine/contracts";
 import type { ProjectStorage } from "../../../src/application/files/project-file-service";
-import type { RecoveryPersistence } from "../../../src/application/files/recovery-state";
 import {
   createProjectSnapshot,
   type ProjectFileContent,
 } from "../../../src/application/files/project-snapshot";
+import type { RecoveryPersistence } from "../../../src/application/files/recovery-state";
 import { createWorkbenchRuntime } from "../../../src/application/runtime/workbench-runtime";
 import { SHIPPED_THEMES } from "../../../src/application/theme/shipped-themes";
 import { messages } from "../../../src/messages/en";
@@ -83,7 +83,7 @@ describe("Workbench recovery ownership", () => {
     expect(openProject).toBeDisabled();
     expect(reopenProject).toBeDisabled();
     expect(snapshot).not.toHaveBeenCalled();
-    expect(view.getByRole("alertdialog", { name: messages.recoveryTitle })).toBeVisible();
+    expect(view.getByRole("region", { name: messages.recoveryTitle })).toBeVisible();
     expect(view.queryByRole("dialog", { name: messages.confirmProjectReplacement }))
       .not.toBeInTheDocument();
 

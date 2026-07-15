@@ -21,14 +21,18 @@ import type { SecretStore } from "../../application/settings/secret-store";
 import { messages } from "../../messages/en";
 import { CustomThemeSettings } from "./CustomThemeSettings";
 import { KeybindingSettingsFields } from "./KeybindingSettingsFields";
+import {
+  type SettingsUpdater,
+  useAiSecretController,
+} from "./use-ai-secret";
 export interface SettingsDialogProps {
   readonly engineLabel: string;
   readonly secretStore: SecretStore;
   readonly settings: PersistedSettings;
   readonly onChange: (settings: PersistedSettings) => void;
-  readonly onCommit?: (settings: PersistedSettings) => Promise<void>;
+  readonly onCommit?: (update: SettingsUpdater) => Promise<void>;
   readonly onClose: () => void;
-  readonly onRestore: (section: SettingsSection) => void;
+  readonly onRestore: (section: SettingsSection) => void | Promise<void>;
   readonly persistenceError?: string;
   readonly settingsMutationsBlocked?: boolean;
 }
@@ -98,65 +102,20 @@ export function SettingsDialog({
   const importRequest = useRef(0);
   const [importError, setImportError] = useState(false);
   const [keybindingError, setKeybindingError] = useState<string | null>(null);
-  const [secret, setSecret] = useState("");
-  const [secretStatus, setSecretStatus] = useState<"loading" | "idle" | "saving" | "saved" | "cleared" | "error">("loading");
-  useEffect(() => {
-    let active = true;
-    setSecretStatus("loading");
-    void secretStore.load(settings.ai.persistWebSecret).then((loaded) => {
-      if (!active) return;
-      setSecret(loaded);
-      setSecretStatus("idle");
-    }).catch(() => {
-      if (active) setSecretStatus("error");
-    });
-    return () => { active = false; };
-  }, [secretStore, settings.ai.persistWebSecret]);
+  const aiSecret = useAiSecretController({
+    blocked: settingsMutationsBlocked,
+    onChange,
+    onCommit,
+    onMutationStart: () => { importRequest.current += 1; },
+    onRestore,
+    secretStore,
+    settings,
+  });
+  const importBlocked = settingsMutationsBlocked || aiSecret.mutationInFlight;
   useEffect(() => searchInput.current?.focus(), []);
-  const saveSecret = () => {
-    setSecretStatus("saving");
-    void secretStore.save(secret, settings.ai.persistWebSecret)
-      .then(() => setSecretStatus("saved"))
-      .catch(() => setSecretStatus("error"));
-  };
-  const clearSecret = () => {
-    setSecretStatus("saving");
-    void secretStore.clear().then(() => {
-      setSecret("");
-      setSecretStatus("cleared");
-    }).catch(() => setSecretStatus("error"));
-  };
-  const changeSecretPersistence = (persistWebSecret: boolean) => {
-    if (settingsMutationsBlocked) return;
-    const previousPersistence = settings.ai.persistWebSecret;
-    const nextSettings = { ...settings, ai: { ...settings.ai, persistWebSecret } };
-    setSecretStatus("saving");
-    void secretStore.save(secret, persistWebSecret).then(async () => {
-      try {
-        if (onCommit) await onCommit(nextSettings);
-        else onChange(nextSettings);
-        setSecretStatus("saved");
-      } catch {
-        try {
-          await secretStore.save(secret, previousPersistence);
-        } finally {
-          setSecretStatus("error");
-        }
-      }
-    }).catch(() => setSecretStatus("error"));
-  };
   const restoreSection = (section: SettingsSection) => {
-    if (settingsMutationsBlocked && section === "ai") return;
-    if (section !== "ai") {
-      onRestore(section);
-      return;
-    }
-    setSecretStatus("saving");
-    void secretStore.clear().then(() => {
-      setSecret("");
-      setSecretStatus("cleared");
-      onRestore(section);
-    }).catch(() => setSecretStatus("error"));
+    if (section === "ai") aiSecret.restore();
+    else void Promise.resolve(onRestore(section)).catch(() => undefined);
   };
   const visible = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -183,14 +142,15 @@ export function SettingsDialog({
     URL.revokeObjectURL(url);
   };
   const handleDialogKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    event.stopPropagation();
     if (event.key === "Escape") {
       event.preventDefault();
-      onClose();
+      if (!aiSecret.mutationInFlight) onClose();
       return;
     }
     if (event.key !== "Tab") return;
     const focusable = [...event.currentTarget.querySelectorAll<HTMLElement>(
-      "button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex='0']",
+      "button:not(:disabled), input:not(:disabled), select:not(:disabled), [tabindex='0']:not(:disabled)",
     )];
     const first = focusable[0];
     const last = focusable.at(-1);
@@ -204,10 +164,16 @@ export function SettingsDialog({
   };
 
   return (
+    <div className="settings-modal-layer">
     <div aria-label={messages.settingsTitle} aria-modal="true" className="settings-dialog" onKeyDown={handleDialogKeyDown} role="dialog">
       <header className="settings-dialog-header">
         <h2>{messages.settingsTitle}</h2>
-        <button aria-label={messages.closeSettings} onClick={onClose} type="button">×</button>
+        <button
+          aria-label={messages.closeSettings}
+          disabled={aiSecret.mutationInFlight}
+          onClick={onClose}
+          type="button"
+        >×</button>
       </header>
       <div className="settings-portability">
         <label>
@@ -223,12 +189,14 @@ export function SettingsDialog({
         <button aria-label={messages.exportSettings} onClick={exportSettings} type="button">
           {messages.exportSettings}
         </button>
-        <label className="settings-import">
+        <label aria-disabled={importBlocked} className="settings-import">
           <span>{messages.importSettings}</span>
           <input
             accept="application/json,.json"
             aria-label={messages.importSettings}
+            disabled={importBlocked}
             onChange={(event) => {
+              if (importBlocked) return;
               const requestId = ++importRequest.current;
               const file = event.currentTarget.files?.[0];
               if (!file) return;
@@ -253,9 +221,11 @@ export function SettingsDialog({
           />
         </label>
       </div>
-      {importError && <p role="alert">{messages.settingsImportFailed}</p>}
-      {persistenceError && <p role="alert">{persistenceError}</p>}
-      <div className="settings-sections">
+      <div className="settings-feedback">
+        {importError && <p role="alert">{messages.settingsImportFailed}</p>}
+        {persistenceError && <p role="alert">{persistenceError}</p>}
+      </div>
+      <fieldset className="settings-sections" disabled={settingsMutationsBlocked}>
         {show("editor") && (
           <Section section="editor" onRestore={restoreSection}>
             <Setting label={messages.editorFontFamily}><input aria-label={messages.editorFontFamily} maxLength={512} onChange={(event) => onChange({ ...settings, editor: { ...settings.editor, fontFamily: event.currentTarget.value } })} value={settings.editor.fontFamily} /></Setting>
@@ -364,20 +334,25 @@ export function SettingsDialog({
           </Section>
         )}
         {show("ai") && (
-          <Section section="ai" onRestore={restoreSection} restoreDisabled={settingsMutationsBlocked}>
+          <Section section="ai" onRestore={restoreSection} restoreDisabled={aiSecret.locked || aiSecret.busy}>
             <Setting label={messages.aiProvider}><select aria-label={messages.aiProvider} value={settings.ai.provider} onChange={(event) => onChange({ ...settings, ai: { ...settings.ai, provider: event.currentTarget.value as PersistedSettings["ai"]["provider"] } })}><option value="none">{messages.aiProviderNone}</option><option value="openai">{messages.aiProviderOpenAi}</option><option value="anthropic">{messages.aiProviderAnthropic}</option><option value="compatible">{messages.aiProviderCompatible}</option><option value="local">{messages.aiProviderLocal}</option></select></Setting>
             <Setting label={messages.aiEndpoint}><input aria-label={messages.aiEndpoint} type="url" value={settings.ai.endpoint} onChange={(event) => onChange({ ...settings, ai: { ...settings.ai, endpoint: event.currentTarget.value } })} /></Setting>
             <Setting label={messages.aiModel}><input aria-label={messages.aiModel} type="text" value={settings.ai.model} onChange={(event) => onChange({ ...settings, ai: { ...settings.ai, model: event.currentTarget.value } })} /></Setting>
-            <Setting label={messages.aiApiKey}><input aria-label={messages.aiApiKey} autoComplete="off" disabled={secretStatus === "loading"} onChange={(event) => { setSecret(event.currentTarget.value); setSecretStatus("idle"); }} type="password" value={secret} /></Setting>
-            <div className="settings-secret-actions"><button disabled={secretStatus === "loading" || secretStatus === "saving"} onClick={saveSecret} type="button">{messages.saveAiKey}</button><button disabled={secretStatus === "loading" || secretStatus === "saving" || secret.length === 0} onClick={clearSecret} type="button">{messages.clearAiKey}</button></div>
+            <Setting label={messages.aiApiKey}><input aria-label={messages.aiApiKey} autoComplete="off" disabled={aiSecret.locked || aiSecret.busy} onChange={(event) => aiSecret.change(event.currentTarget.value)} type="password" value={aiSecret.secret} /></Setting>
+            <div className="settings-secret-actions"><button disabled={aiSecret.locked || aiSecret.busy} onClick={aiSecret.save} type="button">{messages.saveAiKey}</button><button disabled={aiSecret.locked || aiSecret.busy || aiSecret.secret.length === 0} onClick={aiSecret.clear} type="button">{messages.clearAiKey}</button></div>
             {secretStore.persistence === "web-session" ? <>
-              <Setting label={messages.persistWebSecret}><input checked={settings.ai.persistWebSecret} disabled={settingsMutationsBlocked || secretStatus === "loading" || secretStatus === "saving"} onChange={(event) => changeSecretPersistence(event.currentTarget.checked)} type="checkbox" /></Setting>
-              {settings.ai.persistWebSecret && <p role="note">{messages.persistWebSecretWarning}</p>}
+              <Setting label={messages.persistWebSecret}><input checked={settings.ai.persistWebSecret} disabled={aiSecret.locked || aiSecret.busy} onChange={(event) => aiSecret.changePersistence(event.currentTarget.checked)} type="checkbox" /></Setting>
+              <p role="note">{messages.persistWebSecretWarning}</p>
             </> : <p role="note">{messages.desktopKeychainNote}</p>}
-            {secretStatus === "loading" && <p role="status">{messages.aiKeyLoading}</p>}
-            {secretStatus === "saved" && <p role="status">{messages.aiKeySaved}</p>}
-            {secretStatus === "cleared" && <p role="status">{messages.aiKeyCleared}</p>}
-            {secretStatus === "error" && <p role="alert">{messages.aiKeyStorageFailed}</p>}
+            {aiSecret.status === "loading" && <p role="status">{messages.aiKeyLoading}</p>}
+            {aiSecret.status === "saved" && <p role="status">{messages.aiKeySaved}</p>}
+            {aiSecret.status === "migrated" && <p role="status">{messages.aiKeyStorageChanged}</p>}
+            {aiSecret.status === "cleared" && <p role="status">{messages.aiKeyCleared}</p>}
+            {(aiSecret.status === "error" || aiSecret.status === "load-error") && <p role="alert">{messages.aiKeyStorageFailed}</p>}
+            {aiSecret.status === "settings-error" && !persistenceError && (
+              <p role="alert">{messages.settingsSaveFailed}</p>
+            )}
+            {aiSecret.status === "rollback-error" && <p role="alert">{messages.aiSecretRollbackFailed}</p>}
           </Section>
         )}
         {show("keybindings") && (
@@ -394,7 +369,8 @@ export function SettingsDialog({
             <Setting label={messages.updateChecks}><input checked={settings.privacy.updateChecks} onChange={(event) => onChange({ ...settings, privacy: { updateChecks: event.currentTarget.checked } })} type="checkbox" /></Setting>
           </Section>
         )}
-      </div>
+      </fieldset>
+    </div>
     </div>
   );
 }

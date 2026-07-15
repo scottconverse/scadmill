@@ -21,6 +21,7 @@ export async function validateProvenanceLedger(root) {
 
   const errors = [];
   const ids = new Set();
+  const ledgerEntries = new Map();
   for (const filename of filenames) {
     const displayPath = `provenance/entries/${filename}`;
     let entry;
@@ -41,6 +42,85 @@ export async function validateProvenanceLedger(root) {
         errors.push(`${displayPath}: duplicate id ${entry.id}`);
       }
       ids.add(entry.id);
+      ledgerEntries.set(entry.id, entry);
+    }
+  }
+  errors.push(...validateDecisionIdCorrections(ledgerEntries));
+  return errors;
+}
+
+function validateDecisionIdCorrections(entries) {
+  const occurrences = new Map();
+  const corrections = [];
+
+  for (const [entryId, entry] of entries) {
+    for (const decision of Array.isArray(entry.decisions) ? entry.decisions : []) {
+      if (!isRecord(decision) || !isNonEmptyString(decision.id)) {
+        continue;
+      }
+      const existing = occurrences.get(decision.id) ?? [];
+      existing.push(entryId);
+      occurrences.set(decision.id, existing);
+    }
+    for (const correction of Array.isArray(entry.decisionIdCorrections)
+      ? entry.decisionIdCorrections
+      : []) {
+      if (isCompleteDecisionIdCorrection(correction)) {
+        corrections.push({ declarationHost: entryId, correction });
+      }
+    }
+  }
+
+  const errors = [];
+  for (const [decisionId, decisionEntries] of occurrences) {
+    if (decisionEntries.length < 2) {
+      continue;
+    }
+    const matchingCorrections = corrections.filter(
+      ({ correction }) => correction.duplicateId === decisionId,
+    );
+    const registeredCorrection =
+      matchingCorrections.length === 1 ? matchingCorrections[0] : undefined;
+    const correction = registeredCorrection?.correction;
+    const referencedDuplicates = correction
+      ? [correction.retainedEntry, correction.correctedEntry]
+      : [];
+    const duplicateEntriesMatch =
+      correction !== undefined &&
+      decisionEntries.length === 2 &&
+      new Set(decisionEntries).size === 2 &&
+      correction.retainedEntry !== correction.correctedEntry &&
+      referencedDuplicates.every((entryId) => decisionEntries.includes(entryId)) &&
+      decisionEntries.every((entryId) => referencedDuplicates.includes(entryId));
+    const declarationMatches =
+      correction !== undefined &&
+      registeredCorrection.declarationHost === correction.declarationEntry;
+    const authoritativeOccurrences = correction
+      ? (occurrences.get(correction.authoritativeId) ?? [])
+      : [];
+    const authorityMatches =
+      correction !== undefined &&
+      correction.authoritativeId !== decisionId &&
+      entries.has(correction.authorityEntry) &&
+      authoritativeOccurrences.length === 1 &&
+      authoritativeOccurrences[0] === correction.authorityEntry;
+
+    if (!duplicateEntriesMatch || !declarationMatches || !authorityMatches) {
+      const entryList =
+        decisionEntries.length === 2
+          ? `${decisionEntries[0]} and ${decisionEntries[1]}`
+          : decisionEntries.join(", ");
+      errors.push(
+        `decision id ${decisionId} is duplicated by ${entryList} without a valid append-only correction`,
+      );
+    }
+  }
+
+  for (const { correction } of corrections) {
+    if ((occurrences.get(correction.duplicateId) ?? []).length < 2) {
+      errors.push(
+        `decisionIdCorrections references non-duplicated decision id ${correction.duplicateId}`,
+      );
     }
   }
   return errors;
@@ -80,6 +160,7 @@ const TOP_LEVEL_FIELDS = new Set([
   "externalInputs",
   "providedInputs",
   "decisions",
+  "decisionIdCorrections",
   "testEvidence",
   "nearMisses",
   "questions",
@@ -92,6 +173,22 @@ function isRecord(value) {
 
 function isNonEmptyString(value) {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+function isDecisionId(value) {
+  return typeof value === "string" && /^D-\d{4,}$/u.test(value);
+}
+
+function isCompleteDecisionIdCorrection(value) {
+  return (
+    isRecord(value) &&
+    isNonEmptyString(value.duplicateId) &&
+    isNonEmptyString(value.declarationEntry) &&
+    isNonEmptyString(value.retainedEntry) &&
+    isNonEmptyString(value.correctedEntry) &&
+    isNonEmptyString(value.authoritativeId) &&
+    isNonEmptyString(value.authorityEntry)
+  );
 }
 
 function requireArray(entry, field, errors, { nonEmpty = false } = {}) {
@@ -262,6 +359,9 @@ export function validateProvenanceEntry(entry, filename) {
       `decisions[${index}]`,
       errors,
     );
+    if (!isDecisionId(decision.id)) {
+      errors.push(`decisions[${index}].id must be a decision id`);
+    }
     decision.specBasis.forEach((basis, basisIndex) => {
       if (!isNonEmptyString(basis)) {
         errors.push(`decisions[${index}].specBasis[${basisIndex}] must be a non-empty string`);
@@ -271,6 +371,51 @@ export function validateProvenanceEntry(entry, filename) {
       errors.push(`decisions[${index}].specBasis must be a non-empty array`);
     }
   });
+
+  if (entry.decisionIdCorrections !== undefined) {
+    if (!Array.isArray(entry.decisionIdCorrections) || entry.decisionIdCorrections.length === 0) {
+      errors.push("decisionIdCorrections must be a non-empty array when present");
+    } else {
+      entry.decisionIdCorrections.forEach((correction, index) => {
+        if (!isRecord(correction)) {
+          errors.push(`decisionIdCorrections[${index}] must be an object`);
+          return;
+        }
+        rejectUnknownFields(
+          correction,
+          new Set([
+            "duplicateId",
+            "declarationEntry",
+            "retainedEntry",
+            "correctedEntry",
+            "authoritativeId",
+            "authorityEntry",
+          ]),
+          `decisionIdCorrections[${index}]`,
+          errors,
+        );
+        if (!isCompleteDecisionIdCorrection(correction)) {
+          errors.push(`decisionIdCorrections[${index}] is incomplete`);
+          return;
+        }
+        for (const field of ["duplicateId", "authoritativeId"]) {
+          if (!isDecisionId(correction[field])) {
+            errors.push(`decisionIdCorrections[${index}].${field} must be a decision id`);
+          }
+        }
+        for (const field of [
+          "declarationEntry",
+          "retainedEntry",
+          "correctedEntry",
+          "authorityEntry",
+        ]) {
+          if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(correction[field])) {
+            errors.push(`decisionIdCorrections[${index}].${field} must be a ledger entry id`);
+          }
+        }
+      });
+    }
+  }
 
   const testEvidence = requireArray(entry, "testEvidence", errors);
   testEvidence.forEach((evidence, index) => {

@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import { messages } from "../messages/en";
 import {
   EngineUnavailableBanner,
@@ -10,6 +12,7 @@ export interface WorkbenchBannersProps {
   readonly engineChecking: boolean;
   readonly engineRecovery?: EngineRecoveryState;
   readonly settingsLoadError: boolean;
+  readonly children?: ReactNode;
   readonly onConfigureEnginePath?: (path: string) => void;
 }
 
@@ -19,11 +22,12 @@ export function WorkbenchBanners({
   engineChecking,
   engineRecovery,
   settingsLoadError,
+  children,
   onConfigureEnginePath,
 }: WorkbenchBannersProps) {
   const showEngineRecovery = !engineAvailable && onConfigureEnginePath && engineRecovery;
   const showEngineUnavailable = !engineAvailable && !engineChecking && !onConfigureEnginePath;
-  if (!settingsLoadError && !showEngineRecovery && !showEngineUnavailable) return null;
+  if (!settingsLoadError && !showEngineRecovery && !showEngineUnavailable && !children) return null;
   return (
     <div className="workbench-banners">
       {settingsLoadError && (
@@ -39,6 +43,7 @@ export function WorkbenchBanners({
       {showEngineUnavailable && (
         <div className="engine-banner" role="status">{messages.engineUnavailable}</div>
       )}
+      {children}
     </div>
   );
 }

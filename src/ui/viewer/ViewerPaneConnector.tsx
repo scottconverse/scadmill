@@ -26,6 +26,8 @@ export interface ViewerPaneConnectorProps {
   readonly narrow: boolean;
   readonly quality?: Quality;
   readonly renderJobId?: string;
+  readonly renderStartedAtMonotonicMs?: number;
+  readonly renderStartedAtMs?: number;
   readonly renderStatus: "idle" | "rendering" | "success" | "failure";
   readonly result?: RenderResult;
   readonly runtime: WorkbenchRuntime;
@@ -45,6 +47,8 @@ export function ViewerPaneConnector({
   narrow,
   quality,
   renderJobId,
+  renderStartedAtMonotonicMs,
+  renderStartedAtMs,
   renderStatus,
   result,
   runtime,
@@ -54,6 +58,10 @@ export function ViewerPaneConnector({
 }: ViewerPaneConnectorProps) {
   const preferences = useReadonlyStore(runtime.settings, (state) => state.profile.viewer);
   const profile = useReadonlyStore(runtime.settings, (state) => state.profile);
+  const settingsDisabled = useReadonlyStore(
+    runtime.settings,
+    (state) => state.persistenceStatus.status === "load-error",
+  );
   const annotationPersistence = useReadonlyStore(
     runtime.annotationPersistence,
     (state) => state,
@@ -69,6 +77,10 @@ export function ViewerPaneConnector({
     },
   }), [preferences, viewer]);
   const dispatchViewer = useCallback((action: ViewerAction) => {
+    if (settingsDisabled && (
+      action.kind === "set-furniture"
+      || (action.kind === "set-camera" && action.camera.projection !== preferences.projection)
+    )) return;
     if (action.kind === "set-furniture") {
       const setting = {
         grid: "showGrid",
@@ -101,7 +113,7 @@ export function ViewerPaneConnector({
       return;
     }
     void runtime.dispatch({ kind: "update-viewer", origin: "user", action });
-  }, [preferences.projection, profile, runtime]);
+  }, [preferences.projection, profile, runtime, settingsDisabled]);
   const cancel = useCallback(() => {
     void runtime.dispatch({ kind: "cancel-render", origin: "user" });
   }, [runtime]);
@@ -129,8 +141,11 @@ export function ViewerPaneConnector({
       narrow={narrow}
       quality={quality}
       renderJobId={renderJobId}
+      renderStartedAtMonotonicMs={renderStartedAtMonotonicMs}
+      renderStartedAtMs={renderStartedAtMs}
       renderStatus={renderStatus}
       result={result}
+      settingsDisabled={settingsDisabled}
       viewer={effectiveViewer}
       annotationPersistence={annotationPersistence}
       onRetryAnnotationPersistence={retryAnnotationPersistence}
