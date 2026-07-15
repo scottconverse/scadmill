@@ -607,6 +607,23 @@ describe("packaged desktop evidence helpers", () => {
     expect(wrapper).not.toContain(".CommandLine.IndexOf($ConfigPath");
   });
 
+  it("submits the enabled desktop project form through native form semantics", async () => {
+    const runner = await readFile(
+      join(process.cwd(), "scripts", "run-packaged-desktop-evidence.mjs"),
+      "utf8",
+    );
+    const helperStart = runner.indexOf("async function openDesktopProject");
+    const helperEnd = runner.indexOf("\nconst args = parseArguments", helperStart);
+    const helper = runner.slice(helperStart, helperEnd);
+
+    expect(helperStart).toBeGreaterThanOrEqual(0);
+    expect(helperEnd).toBeGreaterThan(helperStart);
+    expect(helper).toContain("form instanceof HTMLFormElement");
+    expect(helper).toContain("button instanceof HTMLButtonElement && !button.disabled");
+    expect(helper).toContain("form.requestSubmit(button);");
+    expect(helper).not.toContain("client.clickElement(projectOpenButton)");
+  });
+
   it("requires an exact isolated-Sandbox harness manifest", () => {
     const sha256 = "ab".repeat(32);
     const manifest = {

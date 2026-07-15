@@ -571,8 +571,15 @@ async function openDesktopProject(client, projectDirectory, expectedSource) {
     const button = document.querySelector('.project-locator-form button[type="submit"]');
     return button instanceof HTMLButtonElement && !button.disabled;
   `)) === true, "enabled project-locator submit", 15_000, 100);
-  const projectOpenButton = await client.find('.project-locator-form button[type="submit"]');
-  await client.clickElement(projectOpenButton);
+  const projectSubmitted = await client.execute(`
+    const form = document.querySelector('.project-locator-form');
+    const button = form?.querySelector('button[type="submit"]');
+    if (!(form instanceof HTMLFormElement)
+      || !(button instanceof HTMLButtonElement && !button.disabled)) return false;
+    form.requestSubmit(button);
+    return true;
+  `);
+  assert.equal(projectSubmitted, true, "The enabled project-locator form could not be submitted.");
   const projectOpenOutcome = await waitFor(async () => {
     if ((await bodyText(client)).includes("Confirm project replacement")) return { kind: "dialog" };
     const alerts = await visibleAlerts(client);

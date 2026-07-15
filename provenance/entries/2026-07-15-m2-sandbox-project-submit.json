@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-15-m2-sandbox-project-submit",
+  "createdAt": "2026-07-15T15:25:00-06:00",
+  "summary": "Submit the verified desktop project-locator form through native form semantics when EdgeDriver cannot physically click its enabled submit button inside Windows Sandbox.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 M2 exit gate",
+    "AC-0.b packaged Windows evidence",
+    "M2-R02 packaged desktop evidence",
+    "N-2 reliability",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-15-m2-sandbox-project-submit.json", "status": "added" },
+    { "path": "scripts/run-packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0234",
+      "topic": "Sandbox project-form activation",
+      "decision": "After proving the project-locator form is visible and its submit button is enabled, require the exact form and button element types and invoke HTMLFormElement.requestSubmit with that button once. Fail closed if those preconditions no longer hold.",
+      "rationale": "The retained exact Sandbox journey passed launch, render, binary STL export, OS-credential persistence, normal restart, and recursive secret scanning, then EdgeDriver returned element not interactable while clicking the already-visible and enabled submit button. requestSubmit(button) preserves the browser's normal submit event, submitter, and constraint-validation semantics without relying on the failing physical-click implementation.",
+      "specBasis": ["AC-0.b packaged Windows evidence", "M2-R02", "N-2 reliability", "N-7 evidence honesty"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The packaged project-open journey uses the real form-submit path without an EdgeDriver physical-click dependency",
+      "test": "Require the packaged runner to prove the exact form and enabled submit-button element types, invoke requestSubmit with that button, and remove the failing clickElement call from the helper.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts --reporter=verbose --maxWorkers=1",
+        "observedAt": "2026-07-15T15:23:25-06:00",
+        "outcome": "RED: 1 test file failed; the new form-semantics test failed and 23 tests passed. The runner still used WebDriver clickElement. The retained full Sandbox evidence exited 1 at that exact call with element not interactable after all preceding journey checks passed."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts --reporter=verbose --maxWorkers=1",
+        "observedAt": "2026-07-15T15:23:52-06:00",
+        "outcome": "GREEN: 1 test file passed and all 24 tests passed in 592 ms."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "The amended exact committed candidate requires the one permitted replacement Windows Sandbox run; this entry does not predeclare that external guest result."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
