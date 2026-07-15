@@ -367,9 +367,8 @@ describe("packaged desktop evidence helpers", () => {
         completedAt: "2026-07-11T23:02:00.000Z",
         commands: [
           "pnpm.cmd install --frozen-lockfile",
-          "pnpm.cmd build",
           "cargo.exe clean --manifest-path src/desktop-shell/src-tauri/Cargo.toml --target-dir src/desktop-shell/src-tauri/target",
-          "cargo.exe build --release --locked --manifest-path src/desktop-shell/src-tauri/Cargo.toml --target-dir src/desktop-shell/src-tauri/target",
+          "pnpm.cmd exec tauri build --no-bundle --ci -- --locked",
         ],
         toolVersions: {
           node: "v24.17.0",
@@ -418,9 +417,8 @@ describe("packaged desktop evidence helpers", () => {
         completedAt: "2026-07-11T23:02:00.000Z",
         commands: [
           "pnpm.cmd install --frozen-lockfile",
-          "pnpm.cmd build",
           "cargo.exe clean --manifest-path src/desktop-shell/src-tauri/Cargo.toml --target-dir src/desktop-shell/src-tauri/target",
-          "cargo.exe build --release --locked --manifest-path src/desktop-shell/src-tauri/Cargo.toml --target-dir src/desktop-shell/src-tauri/target",
+          "pnpm.cmd exec tauri build --no-bundle --ci -- --locked",
         ],
         toolVersions: {
           node: "v24.17.0",
@@ -444,11 +442,10 @@ describe("packaged desktop evidence helpers", () => {
       "Get-ChildItem -LiteralPath $outputPath -Force -ErrorAction Stop",
     );
     const install = wrapper.indexOf('-Arguments @("install", "--frozen-lockfile")');
-    const frontendBuild = wrapper.indexOf(
-      '-Arguments @("build") -WorkingDirectory $repo -LogPath $frontendBuildLog',
-    );
     const cargoClean = wrapper.indexOf('-Arguments @("clean", "--manifest-path"');
-    const cargoBuild = wrapper.indexOf('-Arguments @("build", "--release", "--locked"');
+    const tauriBuild = wrapper.indexOf(
+      '-Arguments @("exec", "tauri", "build", "--no-bundle", "--ci", "--", "--locked")',
+    );
     const cleanAfter = wrapper.indexOf("Assert-CleanWorktree \"after build\"");
     const stageApplication = wrapper.indexOf(
       'Copy-Item -LiteralPath $applicationPath -Destination (Join-Path $stage "app\\scadmill.exe")',
@@ -473,9 +470,8 @@ describe("packaged desktop evidence helpers", () => {
       cleanBefore,
       emptyOutput,
       install,
-      frontendBuild,
       cargoClean,
-      cargoBuild,
+      tauriBuild,
       cleanAfter,
       stageApplication,
       retainedConfig,
@@ -487,9 +483,8 @@ describe("packaged desktop evidence helpers", () => {
       cleanBefore,
       emptyOutput,
       install,
-      frontendBuild,
       cargoClean,
-      cargoBuild,
+      tauriBuild,
       cleanAfter,
       stageApplication,
     ])
@@ -497,13 +492,13 @@ describe("packaged desktop evidence helpers", () => {
         cleanBefore,
         emptyOutput,
         install,
-        frontendBuild,
         cargoClean,
-        cargoBuild,
+        tauriBuild,
         cleanAfter,
         stageApplication,
       ]].sort((left, right) => left - right));
     expect(stageApplication).toBeGreaterThan(cleanAfter);
+    expect(wrapper).not.toContain('-Arguments @("build", "--release", "--locked"');
     expect([retainedConfig, launchClean, launchTree, sandboxLaunch]).toEqual([
       ...[retainedConfig, launchClean, launchTree, sandboxLaunch].sort((left, right) => left - right),
     ]);

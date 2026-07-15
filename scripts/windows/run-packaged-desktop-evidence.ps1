@@ -208,6 +208,7 @@ if ($TimeoutSeconds -lt 60) { throw "TimeoutSeconds must be at least 60." }
 $canonicalApplication = "src/desktop-shell/src-tauri/target/release/scadmill.exe"
 $desktopManifest = "src/desktop-shell/src-tauri/Cargo.toml"
 $desktopTarget = "src/desktop-shell/src-tauri/target"
+$desktopShellDirectory = Join-Path $repo "src\desktop-shell"
 $applicationPath = Join-Path $repo ($canonicalApplication.Replace('/', '\'))
 $enginePath = Resolve-Directory $EngineDirectory "OpenSCAD directory"
 $tauriDriverPath = Resolve-File $TauriDriver "tauri-driver"
@@ -250,7 +251,6 @@ if (Test-Path -LiteralPath $outputPath) {
 }
 
 $dependencyInstallLog = Join-Path $outputPath "dependency-install.log"
-$frontendBuildLog = Join-Path $outputPath "frontend-build.log"
 $desktopCleanLog = Join-Path $outputPath "desktop-release-clean.log"
 $desktopBuildLog = Join-Path $outputPath "desktop-release-build.log"
 $nodeVersion = Get-ToolVersion $nodePath "Node.js"
@@ -259,12 +259,11 @@ $cargoVersion = Get-ToolVersion $cargoPath "Cargo"
 $rustcVersion = Get-ToolVersion $rustcPath "rustc"
 $buildStartedAt = Format-IsoInstant (Get-Date)
 Invoke-LoggedCommand -Executable $pnpmPath -Arguments @("install", "--frozen-lockfile") -WorkingDirectory $repo -LogPath $dependencyInstallLog
-Invoke-LoggedCommand -Executable $pnpmPath -Arguments @("build") -WorkingDirectory $repo -LogPath $frontendBuildLog
 Invoke-LoggedCommand -Executable $cargoPath -Arguments @("clean", "--manifest-path", $desktopManifest, "--target-dir", $desktopTarget) -WorkingDirectory $repo -LogPath $desktopCleanLog
 if (Test-Path -LiteralPath $applicationPath) {
   throw "Canonical release executable survived cargo clean; refusing a potentially stale build."
 }
-Invoke-LoggedCommand -Executable $cargoPath -Arguments @("build", "--release", "--locked", "--manifest-path", $desktopManifest, "--target-dir", $desktopTarget) -WorkingDirectory $repo -LogPath $desktopBuildLog
+Invoke-LoggedCommand -Executable $pnpmPath -Arguments @("exec", "tauri", "build", "--no-bundle", "--ci", "--", "--locked") -WorkingDirectory $desktopShellDirectory -LogPath $desktopBuildLog
 $buildCompletedAt = Format-IsoInstant (Get-Date)
 Assert-CleanWorktree "after build"
 $builtCommit = Get-GitValue @("rev-parse", "HEAD") "post-build source commit"
@@ -329,9 +328,8 @@ try {
       completedAt = $buildCompletedAt
       commands = @(
         "pnpm.cmd install --frozen-lockfile",
-        "pnpm.cmd build",
         "cargo.exe clean --manifest-path src/desktop-shell/src-tauri/Cargo.toml --target-dir src/desktop-shell/src-tauri/target",
-        "cargo.exe build --release --locked --manifest-path src/desktop-shell/src-tauri/Cargo.toml --target-dir src/desktop-shell/src-tauri/target"
+        "pnpm.cmd exec tauri build --no-bundle --ci -- --locked"
       )
       toolVersions = [ordered]@{
         node = $nodeVersion

@@ -61,9 +61,8 @@ export interface SourceMetadata {
     completedAt: string;
     commands: readonly [
       "pnpm.cmd install --frozen-lockfile",
-      "pnpm.cmd build",
-      "cargo.exe clean --manifest-path src/desktop-shell/src-tauri/Cargo.toml --target-dir src/desktop-shell/src-tauri/target --package scadmill-desktop",
-      "cargo.exe build --release --locked --manifest-path src/desktop-shell/src-tauri/Cargo.toml --target-dir src/desktop-shell/src-tauri/target",
+      "cargo.exe clean --manifest-path src/desktop-shell/src-tauri/Cargo.toml --target-dir src/desktop-shell/src-tauri/target",
+      "pnpm.cmd exec tauri build --no-bundle --ci -- --locked",
     ];
     toolVersions: {
       node: string;
