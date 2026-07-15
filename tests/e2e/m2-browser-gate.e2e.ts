@@ -5,6 +5,8 @@ import { basename, join, resolve } from "node:path";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { gzipSync, strToU8, zipSync } from "fflate";
 
+import { dismissWelcome } from "./helpers/welcome";
+
 const DATABASE_NAME = "scadmill-projects-v1";
 const SCRATCH_AUTOSAVE_KEY = "scadmill.scratch-autosave.v1";
 const GATE_ARTIFACT_DIR = process.env.SCADMILL_GATE_ARTIFACT_DIR?.trim()
@@ -12,6 +14,7 @@ const GATE_ARTIFACT_DIR = process.env.SCADMILL_GATE_ARTIFACT_DIR?.trim()
   : null;
 const RUNNER_PATHS = [
   "tests/e2e/m2-browser-gate.e2e.ts",
+  "tests/e2e/helpers/welcome.ts",
   "tests/e2e/m2-storage-fallback.e2e.ts",
   "tests/e2e/m2-svg-viewer.e2e.ts",
   "tests/e2e/m2-portability-profile.e2e.ts",
@@ -155,6 +158,7 @@ test.describe("M2 real-browser gate", () => {
     });
 
     await page.goto("/");
+    await dismissWelcome(page);
     await expect(page.getByRole("status").filter({ hasText: "OpenSCAD is unavailable" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Render preview", exact: true })).toBeDisabled();
     await expect(page.getByRole("button", { name: "Full render", exact: true })).toBeDisabled();
@@ -195,10 +199,12 @@ test.describe("M2 real-browser gate", () => {
     await expect(page.getByRole("tab", { name: "Untitled", exact: true })).toBeVisible();
 
     await page.reload();
+    await dismissWelcome(page);
     await expect.poll(() => editorSource(page)).toBe(persistedSource);
 
     const sharedSource = "// shared startup source\nsphere(13);";
     await page.goto(`/?gate-share-session=1${sourceShareFragment(sharedSource)}`);
+    await dismissWelcome(page);
     const tabs = page.getByRole("tablist", { name: "Open documents" });
     await expect(tabs.getByRole("tab")).toHaveCount(2);
     await expect(page.getByRole("complementary", { name: "Shared-source notice" })).toBeVisible();
@@ -208,6 +214,7 @@ test.describe("M2 real-browser gate", () => {
     await expect.poll(() => editorSource(page)).toBe(sharedSource);
 
     await page.goto("/");
+    await dismissWelcome(page);
     await expect(tabs.getByRole("tab")).toHaveCount(1);
     await expect.poll(() => editorSource(page)).toBe(persistedSource);
     expect(pageErrors).toEqual([]);
@@ -258,6 +265,7 @@ test.describe("M2 real-browser gate", () => {
     const binaryBytes = Uint8Array.from([0, 255, 137, 80, 78, 71, 10, 42]);
 
     await page.goto("/");
+    await dismissWelcome(page);
     const files = await openFilesPanel(page);
     await files.getByRole("button", { name: "Create workspace" }).click();
     await files.getByRole("textbox", { name: "Workspace name" }).fill(projectName);
@@ -319,6 +327,7 @@ test.describe("M2 real-browser gate", () => {
       .toEqual([...binaryBytes]);
 
     await page.reload();
+    await dismissWelcome(page);
     const reloadedFiles = await openFilesPanel(page);
     await reloadedFiles.getByRole("button", { name: "Open workspace" }).click();
     await reloadedFiles.getByRole("button", { name: `Open ${projectName}`, exact: true }).click();
@@ -364,6 +373,7 @@ test.describe("M2 compact first run", () => {
       if (message.type() === "error") consoleErrors.push(message.text());
     });
     await page.goto("/");
+    await dismissWelcome(page);
     await expect(page.getByRole("tab", { name: "Untitled", exact: true })).toBeVisible();
     expect(await editorSource(page)).toBe("");
     await expect(page.getByRole("button", { name: "Render preview", exact: true })).toBeDisabled();

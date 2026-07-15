@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
+import { dismissWelcome } from "./helpers/welcome";
+
 async function editorSource(page: Page): Promise<string> {
   return (await page.locator(".cm-line").allTextContents()).join("\n");
 }
@@ -21,6 +23,7 @@ test("browser Create workspace is discoverable and reopens without an internal i
   });
 
   await page.goto("/");
+  await dismissWelcome(page);
   const files = page.getByRole("region", { name: "Files panel" });
   await expect(files.getByRole("button", { name: "Create workspace" })).toBeVisible();
   await expect(files.getByRole("button", { name: "Open workspace" })).toBeVisible();
@@ -52,6 +55,7 @@ test("browser Create workspace is discoverable and reopens without an internal i
   await expect(page.getByRole("tab", { name: "main.scad", exact: true })).toBeVisible();
 
   await page.reload();
+  await dismissWelcome(page);
   const reloadedFiles = page.getByRole("region", { name: "Files panel" });
   await expect(reloadedFiles.getByRole("button", { name: "Reopen Gear Lab" })).toBeVisible();
   await reloadedFiles.getByRole("button", { name: "Open workspace" }).click();

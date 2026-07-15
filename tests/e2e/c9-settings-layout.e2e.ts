@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { dismissWelcome } from "./helpers/welcome";
+
 test.describe("C9 settings layout", () => {
   test.use({ viewport: { width: 1280, height: 720 } });
 
@@ -7,6 +9,7 @@ test.describe("C9 settings layout", () => {
     page,
   }) => {
     await page.goto("/");
+    await dismissWelcome(page);
     await page.getByRole("button", { name: "Open settings" }).click();
 
     const dialog = page.getByRole("dialog", { name: "Settings" });
@@ -35,6 +38,7 @@ test.describe("C9 settings layout", () => {
     ]) {
       await page.setViewportSize(viewport);
       await page.goto("/");
+      await dismissWelcome(page);
       await page.getByRole("button", { name: "Open settings" }).click();
 
       const dialog = page.getByRole("dialog", { name: "Settings" });
@@ -60,6 +64,7 @@ test.describe("C9 settings layout", () => {
 
   test("keeps load failures visible inside a modal that isolates the workbench", async ({ page }) => {
     await page.goto("/");
+    await dismissWelcome(page);
     await page.getByRole("button", { name: "Open settings" }).click();
     const enabledDialog = page.getByRole("dialog", { name: "Settings" });
     const readAppearance = (label: string) => enabledDialog.getByLabel(label).locator("..")
@@ -78,6 +83,7 @@ test.describe("C9 settings layout", () => {
       localStorage.setItem("scadmill:settings:v1", "{malformed");
     });
     await page.reload();
+    await dismissWelcome(page);
     const workbench = page.locator(".workbench");
     await page.getByRole("button", { name: "Open settings" }).click();
 
@@ -136,6 +142,7 @@ test.describe("C9 settings layout", () => {
 
   test("does not reserve a blank project strip below the visible banner", async ({ page }) => {
     await page.goto("/");
+    await dismissWelcome(page);
     const banners = page.locator(".workbench-banners");
     const engineBanner = banners.locator(".engine-banner");
     const lifecycle = banners.locator(".project-lifecycle-controls");
@@ -157,6 +164,7 @@ test.describe("C9 settings layout", () => {
 
   test("animates the production render spinner while respecting reduced motion", async ({ page }) => {
     await page.goto("/");
+    await dismissWelcome(page);
     await page.evaluate(async () => {
       const importModule = new Function(
         "specifier",

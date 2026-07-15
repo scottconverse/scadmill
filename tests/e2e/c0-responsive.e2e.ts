@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { dismissWelcome } from "./helpers/welcome";
+
 test.describe("AC-0.c responsive workspace", () => {
   test.use({ viewport: { width: 800, height: 700 } });
 
@@ -9,6 +11,7 @@ test.describe("AC-0.c responsive workspace", () => {
     const pageErrors: string[] = [];
     page.on("pageerror", (error) => pageErrors.push(error.message));
     await page.goto("/");
+    await dismissWelcome(page);
 
     const frame = page.locator(".workspace-frame");
     const code = page.getByRole("button", { name: "Code", exact: true });
@@ -37,6 +40,7 @@ test.describe("AC-0.c responsive workspace", () => {
   }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
     await page.goto("/");
+    await dismissWelcome(page);
 
     await expect(page.getByRole("region", { name: "Console" })).toBeHidden();
     const viewer = page.locator(".workspace-viewer-surface");
@@ -55,6 +59,7 @@ test.describe("AC-0.c responsive workspace", () => {
     });
     await page.setViewportSize({ width: 900, height: 700 });
     await page.goto("/");
+    await dismissWelcome(page);
 
     const splitter = page.getByRole("separator", { name: "Resize viewer column" });
     const viewer = page.locator(".workspace-viewer-column");
@@ -95,6 +100,7 @@ test.describe("FR-0.6 mobile-web default", () => {
 
   test("uses the complete narrow presentation above the width breakpoint", async ({ page }) => {
     await page.goto("/");
+    await dismissWelcome(page);
 
     const frame = page.locator('.workspace-frame[data-layout-mode="narrow"]');
     const switcher = page.getByRole("group", { name: "Workspace view" });
@@ -122,6 +128,7 @@ test.describe("AC-0.c compact mobile chrome", () => {
     ]) {
       await page.setViewportSize(viewport);
       await page.goto("/");
+      await dismissWelcome(page);
 
       const settings = page.getByRole("button", { name: "Open settings" });
       const engineStatus = page.locator(".engine-banner");
@@ -145,6 +152,7 @@ test.describe("Appendix D editor pointer bindings", () => {
 
   test("adds an Alt+Click cursor without replacing native multi-selection", async ({ page }) => {
     await page.goto("/");
+    await dismissWelcome(page);
     const content = page.locator(".cm-content");
     await content.click();
     await page.keyboard.press("Control+A");
