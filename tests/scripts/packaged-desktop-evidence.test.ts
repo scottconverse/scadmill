@@ -530,9 +530,9 @@ describe("packaged desktop evidence helpers", () => {
         inspection.includes('ProcessId = $([int]$Identity.ProcessId)'),
       ),
     ).toBe(true);
-    expect(runner).toContain(
-      "Get-CimInstance Win32_Process -ErrorAction Stop -Filter",
-    );
+    expect(runner).toContain("Get-Process -ErrorAction Stop | Where-Object");
+    expect(runner).not.toContain("Get-CimInstance Win32_Process");
+    expect(runner).not.toContain("Get-Process -ErrorAction SilentlyContinue");
     expect(runner).toContain(
       'const result = await run("powershell.exe", ["-NoProfile", "-Command", command]);',
     );
@@ -548,19 +548,22 @@ describe("packaged desktop evidence helpers", () => {
       ),
     ]);
 
-    const guestQuery = runner.indexOf("$candidates = @(Get-CimInstance Win32_Process");
+    const guestQuery = runner.indexOf("$candidates = @(Get-Process -ErrorAction Stop");
     const guestAmbiguityCheck = runner.indexOf(
-      "@($candidates | Where-Object { [string]::IsNullOrWhiteSpace([string]$_.ExecutablePath) }).Count -ne 0",
+      "@($candidates | Where-Object { [string]::IsNullOrWhiteSpace([string]$_.Path) -or $null -eq $_.StartTime }).Count -ne 0",
     );
     const guestExactPathFilter = runner.indexOf(
-      "$candidates | Where-Object { $_.ExecutablePath -eq '",
+      "$candidates | Where-Object { $_.Path -eq '",
     );
     expect(guestQuery).toBeGreaterThanOrEqual(0);
     expect(guestAmbiguityCheck).toBeGreaterThan(guestQuery);
     expect(guestExactPathFilter).toBeGreaterThan(guestAmbiguityCheck);
     expect(runner).toContain(
-      "throw 'Cannot prove process identity because an ExecutablePath is missing.'",
+      "throw 'Cannot prove process identity because Path or StartTime is missing.'",
     );
+    expect(runner).toContain("@{n='startedAt';e={$_.StartTime.ToUniversalTime().ToString('o')}}");
+    expect(runner).toContain("startedAt === processToKill.startedAt");
+    expect(runner).toContain("startedAt === lastVerifiedAppProcess.startedAt");
 
     const hostHelper = wrapper.indexOf("function Get-ExactSandboxSessions");
     const hostQuery = wrapper.indexOf(

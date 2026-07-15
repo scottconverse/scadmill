@@ -421,12 +421,12 @@ async function exactAppProcesses(appPath) {
 }
 
 async function exactExecutableProcesses(executablePath) {
-  const executableName = basename(executablePath).replaceAll("'", "''");
+  const processName = basename(executablePath).replace(/\.exe$/iu, "").replaceAll("'", "''");
   const escaped = executablePath.replaceAll("'", "''");
   const command = [
-    `$candidates = @(Get-CimInstance Win32_Process -ErrorAction Stop -Filter "Name = '${executableName}'");`,
-    "if (@($candidates | Where-Object { [string]::IsNullOrWhiteSpace([string]$_.ExecutablePath) }).Count -ne 0) { throw 'Cannot prove process identity because an ExecutablePath is missing.' };",
-    `@($candidates | Where-Object { $_.ExecutablePath -eq '${escaped}' } | Select-Object @{n='pid';e={[int]$_.ProcessId}},@{n='path';e={$_.ExecutablePath}}) | ConvertTo-Json -Compress`,
+    `$candidates = @(Get-Process -ErrorAction Stop | Where-Object { $_.ProcessName -eq '${processName}' });`,
+    "if (@($candidates | Where-Object { [string]::IsNullOrWhiteSpace([string]$_.Path) -or $null -eq $_.StartTime }).Count -ne 0) { throw 'Cannot prove process identity because Path or StartTime is missing.' };",
+    `@($candidates | Where-Object { $_.Path -eq '${escaped}' } | Select-Object @{n='pid';e={[int]$_.Id}},@{n='path';e={$_.Path}},@{n='startedAt';e={$_.StartTime.ToUniversalTime().ToString('o')}}) | ConvertTo-Json -Compress`,
   ].join(" ");
   const result = await run("powershell.exe", ["-NoProfile", "-Command", command]);
   if (!result.stdout) return [];
@@ -718,6 +718,7 @@ try {
   await record("fresh-release-executable-started", {
     pid: lastVerifiedAppProcess.pid,
     executablePath: lastVerifiedAppProcess.path,
+    startedAt: lastVerifiedAppProcess.startedAt,
     capabilities,
     devToolsPortMirror: client.lastPortMirror,
   });
@@ -1001,8 +1002,10 @@ try {
     "The in-renderer ordering sentinel was not readable immediately before forced kill.",
   );
   assert.equal(await readFile(recoveryProjectFile, "utf8"), cubeSource, "The unsaved project edit reached disk before kill.");
-  const killTarget = (await exactExecutableProcesses(args.app)).find(({ pid, path }) => (
-    pid === processToKill.pid && normalize(path) === normalize(args.app)
+  const killTarget = (await exactExecutableProcesses(args.app)).find(({ pid, path, startedAt }) => (
+    pid === processToKill.pid
+    && normalize(path) === normalize(args.app)
+    && startedAt === processToKill.startedAt
   ));
   assert.ok(killTarget, "The exact release process changed before the forced-kill step.");
   assert.equal(await fileSha256(killTarget.path), appSha256, "The forced-kill target hash changed.");
@@ -1011,6 +1014,7 @@ try {
   await record("dirty-release-process-force-killed", {
     pid: processToKill.pid,
     executablePath: processToKill.path,
+    startedAt: processToKill.startedAt,
     executableSha256: appSha256,
     expectedRecoverySourceSha256: dirtySourceSha256,
     savedProjectSourceSha256: fingerprint(cubeSource),
@@ -1119,7 +1123,11 @@ try {
   if (driver) await driver.stop().catch(() => undefined);
   if (lastVerifiedAppProcess) {
     const exact = await exactAppProcesses(args.app);
-    const same = exact.find(({ pid, path }) => pid === lastVerifiedAppProcess.pid && normalize(path) === normalize(args.app));
+    const same = exact.find(({ pid, path, startedAt }) => (
+      pid === lastVerifiedAppProcess.pid
+      && normalize(path) === normalize(args.app)
+      && startedAt === lastVerifiedAppProcess.startedAt
+    ));
     if (same) {
       try { process.kill(same.pid); } catch { /* already gone */ }
     }
