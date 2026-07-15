@@ -124,9 +124,11 @@ pub(crate) fn validate_project_layout(
 #[cfg(test)]
 mod tests {
     use super::validate_project_layout;
+    #[cfg(windows)]
     use crate::EngineError;
     use std::collections::BTreeMap;
 
+    #[cfg(windows)]
     fn project_with(logical_path: &str) -> BTreeMap<String, Vec<u8>> {
         BTreeMap::from([
             ("main.scad".to_string(), b"cube(1);".to_vec()),
