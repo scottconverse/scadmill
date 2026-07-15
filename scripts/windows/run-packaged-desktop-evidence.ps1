@@ -2,6 +2,7 @@ param(
   [Parameter(Mandatory = $true)] [string] $EngineDirectory,
   [Parameter(Mandatory = $true)] [string] $TauriDriver,
   [Parameter(Mandatory = $true)] [string] $VisualCppRuntime,
+  [Parameter(Mandatory = $true)] [string] $VisualCppRuntimeCompanion,
   [Parameter(Mandatory = $true)] [string] $EdgeDriver,
   [Parameter(Mandatory = $true)] [string] $FixedWebViewDirectory,
   [Parameter(Mandatory = $true)] [string] $OutputDirectory,
@@ -211,6 +212,7 @@ $applicationPath = Join-Path $repo ($canonicalApplication.Replace('/', '\'))
 $enginePath = Resolve-Directory $EngineDirectory "OpenSCAD directory"
 $tauriDriverPath = Resolve-File $TauriDriver "tauri-driver"
 $visualCppRuntimePath = Resolve-File $VisualCppRuntime "Visual C++ runtime"
+$visualCppRuntimeCompanionPath = Resolve-File $VisualCppRuntimeCompanion "Visual C++ runtime companion"
 $edgeDriverPath = Resolve-File $EdgeDriver "Microsoft EdgeDriver"
 $webViewPath = Resolve-Directory $FixedWebViewDirectory "fixed WebView2 runtime"
 $nodeCommand = Get-Command $Node -CommandType Application -ErrorAction Stop
@@ -292,6 +294,7 @@ try {
   Copy-Item -LiteralPath $edgeDriverPath -Destination (Join-Path $stage "tools\msedgedriver.exe")
   Copy-Item -LiteralPath $nodePath -Destination (Join-Path $stage "tools\node.exe")
   Copy-Item -LiteralPath $visualCppRuntimePath -Destination (Join-Path $stage "tools\vcruntime140.dll")
+  Copy-Item -LiteralPath $visualCppRuntimeCompanionPath -Destination (Join-Path $stage "tools\vcruntime140_1.dll")
   Copy-Item -LiteralPath (Join-Path $repo "scripts\run-packaged-desktop-evidence.mjs") -Destination (Join-Path $stage "scripts")
   Copy-Item -LiteralPath (Join-Path $repo "scripts\lib\packaged-desktop-evidence.mjs") -Destination (Join-Path $stage "scripts\lib")
   Copy-Item -LiteralPath (Join-Path $repo "scripts\windows\credential-probe.ps1") -Destination (Join-Path $stage "scripts")

@@ -37,6 +37,7 @@ const EXPECTED_ENGINE_SHA256 = "DE9A0C732C23C3FEB0B49CF938777AA0AEE3E206DB9E9857
 const EXPECTED_ENGINE_VERSION = "2026.06.12";
 const EXPECTED_WEBVIEW_SHA256 = "CA3D481F5E049CA550989D49C87D2AF9A3D0C1BED97CB080D15339899B0E241F";
 const EXPECTED_VCRUNTIME_SHA256 = "D5E4D9A3E835FA679450145D6A7D94E36573A509317111904D9B3712C30D9066";
+const EXPECTED_VCRUNTIME_COMPANION_SHA256 = "1F2D41C4AA5DB0BC33EBF7B66D72943A817D7CE6CBE880502A9403823633093F";
 const EXPECTED_TAURI_DRIVER_SHA256 = "37EAF254088A75612A08235B7E5FCA11A900ABAF8B2475AA02B0A137A85ED2E9";
 const EXPECTED_EDGE_DRIVER_SHA256 = "735A749DF7538EEB15ACB116B2B5307A8C0B01C8F606167F84C6702911847719";
 const CREDENTIAL_TARGET = "ai-api-key.dev.scadmill.app";
@@ -654,6 +655,13 @@ try {
   const visualCppRuntime = join(dirname(args["tauri-driver"]), "vcruntime140.dll");
   const visualCppRuntimeSha256 = await fileSha256(visualCppRuntime);
   assert.equal(visualCppRuntimeSha256, EXPECTED_VCRUNTIME_SHA256, "Visual C++ runtime hash mismatch.");
+  const visualCppRuntimeCompanion = join(dirname(args["tauri-driver"]), "vcruntime140_1.dll");
+  const visualCppRuntimeCompanionSha256 = await fileSha256(visualCppRuntimeCompanion);
+  assert.equal(
+    visualCppRuntimeCompanionSha256,
+    EXPECTED_VCRUNTIME_COMPANION_SHA256,
+    "Visual C++ runtime companion hash mismatch.",
+  );
   const nodeSha256 = await fileSha256(process.execPath);
   const nodeMajor = Number(/^v(\d+)\./u.exec(process.version)?.[1]);
   assert.ok(Number.isSafeInteger(nodeMajor) && nodeMajor >= 24, `Node.js 24+ is required, found ${process.version}.`);
@@ -668,7 +676,12 @@ try {
     app: { path: args.app, sha256: appSha256 },
     source: sourceMetadata,
     node: { path: process.execPath, sha256: nodeSha256, version: process.version },
-    visualCppRuntime: { path: visualCppRuntime, sha256: visualCppRuntimeSha256 },
+    visualCppRuntime: {
+      path: visualCppRuntime,
+      sha256: visualCppRuntimeSha256,
+      companionPath: visualCppRuntimeCompanion,
+      companionSha256: visualCppRuntimeCompanionSha256,
+    },
     harness: {
       manifestPath: args["harness-manifest"],
       manifestSha256: fingerprint(harnessManifestBytes),

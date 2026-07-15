@@ -312,17 +312,36 @@ describe("packaged desktop evidence helpers", () => {
   });
 
   it("places the Visual C++ runtime beside the packaged app before launch", async () => {
-    const bootstrap = await readFile(
-      join(process.cwd(), "scripts", "windows", "run-packaged-desktop-sandbox.ps1"),
-      "utf8",
-    );
+    const [bootstrap, wrapper, runner] = await Promise.all([
+      readFile(
+        join(process.cwd(), "scripts", "windows", "run-packaged-desktop-sandbox.ps1"),
+        "utf8",
+      ),
+      readFile(
+        join(process.cwd(), "scripts", "windows", "run-packaged-desktop-evidence.ps1"),
+        "utf8",
+      ),
+      readFile(join(process.cwd(), "scripts", "run-packaged-desktop-evidence.mjs"), "utf8"),
+    ]);
     const runtimeCopy = bootstrap.indexOf(
       'Copy-Item -LiteralPath "$local\\tools\\vcruntime140.dll" -Destination "$local\\app\\vcruntime140.dll" -Force -ErrorAction Stop',
+    );
+    const companionCopy = bootstrap.indexOf(
+      'Copy-Item -LiteralPath "$local\\tools\\vcruntime140_1.dll" -Destination "$local\\app\\vcruntime140_1.dll" -Force -ErrorAction Stop',
     );
     const runnerLaunch = bootstrap.indexOf('& "$local\\tools\\node.exe" @arguments');
 
     expect(runtimeCopy).toBeGreaterThanOrEqual(0);
-    expect(runnerLaunch).toBeGreaterThan(runtimeCopy);
+    expect(companionCopy).toBeGreaterThan(runtimeCopy);
+    expect(runnerLaunch).toBeGreaterThan(companionCopy);
+    expect(wrapper).toContain(
+      '[Parameter(Mandatory = $true)] [string] $VisualCppRuntimeCompanion',
+    );
+    expect(wrapper).toContain(
+      'Copy-Item -LiteralPath $visualCppRuntimeCompanionPath -Destination (Join-Path $stage "tools\\vcruntime140_1.dll")',
+    );
+    expect(runner).toContain('join(dirname(args["tauri-driver"]), "vcruntime140_1.dll")');
+    expect(runner).toContain("1F2D41C4AA5DB0BC33EBF7B66D72943A817D7CE6CBE880502A9403823633093F");
   });
 
   it("binds evidence metadata to one clean source tree and its locked same-step build", () => {

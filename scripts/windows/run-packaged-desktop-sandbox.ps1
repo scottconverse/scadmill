@@ -20,6 +20,7 @@ foreach ($mapping in @(
 }
 
 Copy-Item -LiteralPath "$local\tools\vcruntime140.dll" -Destination "$local\app\vcruntime140.dll" -Force -ErrorAction Stop
+Copy-Item -LiteralPath "$local\tools\vcruntime140_1.dll" -Destination "$local\app\vcruntime140_1.dll" -Force -ErrorAction Stop
 
 $aclLog = Join-Path $output "sandbox-webview-acl.txt"
 foreach ($grant in @(
