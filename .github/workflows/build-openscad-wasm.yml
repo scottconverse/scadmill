@@ -4,7 +4,6 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - ENGINE_VERSION
       - .github/workflows/build-openscad-wasm.yml
 
 permissions:

@@ -15,10 +15,10 @@ describe("official-source OpenSCAD WASM build workflow", () => {
   it("passes the parsed workflow contract and records the reproducible recipe", () => {
     expect(validateWasmWorkflow(workflow, engineVersion)).toBeTruthy();
     expect(engineVersion).toContain("wasm.build_workflow: .github/workflows/build-openscad-wasm.yml");
-    expect(engineVersion).toContain("wasm.build_status: required at M3; not yet produced");
+    expect(engineVersion).toContain("wasm.build_status: produced and checksum-verified from the exact official source build");
   });
 
-  it("has manual and tightly path-scoped pull-request triggers", () => {
+  it("has manual and artifact-affecting pull-request triggers", () => {
     const parsed = validateWasmWorkflow(workflow, engineVersion);
     expect(parsed.on.workflow_dispatch).toBeDefined();
     expect(parsed.on.pull_request.paths).toEqual(wasmWorkflowContract.requiredPaths);
@@ -28,6 +28,7 @@ describe("official-source OpenSCAD WASM build workflow", () => {
     ["malformed YAML", workflow.replace("jobs:\n", "jobs: [\n"), /malformed YAML/],
     ["unscoped push trigger", workflow.replace("on:\n", "on:\n  push:\n"), /triggers must be exactly/],
     ["extra pull-request event filter", workflow.replace("  pull_request:\n", "  pull_request:\n    types: [opened]\n"), /pull_request fields must contain only paths/],
+    ["metadata-only ENGINE_VERSION trigger", workflow.replace("      - .github/workflows/build-openscad-wasm.yml", "      - ENGINE_VERSION\n      - .github/workflows/build-openscad-wasm.yml"), /pull_request.paths must be exactly scoped/],
     ["root command defaults", workflow.replace("permissions:\n", "defaults:\n  run:\n    working-directory: /tmp\n\npermissions:\n"), /root fields must be exact/],
     ["Git clone redirect environment", workflow.replace("  OPENSCAD_COMMIT:", "  GIT_CONFIG_COUNT: 1\n  GIT_CONFIG_KEY_0: url.https://attacker.invalid/.insteadOf\n  GIT_CONFIG_VALUE_0: https://github.com/\n  OPENSCAD_COMMIT:"), /workflow environment fields must be exact/],
     ["commented HEAD verification", workflow.replace('          test "$(git -C openscad rev-parse HEAD)" = "$OPENSCAD_COMMIT"', '          # test "$(git -C openscad rev-parse HEAD)" = "$OPENSCAD_COMMIT"'), /source verification commands must be exact/],

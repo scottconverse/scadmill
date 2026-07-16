@@ -5,7 +5,6 @@ const requiredSourceCommit = "0a66508c67374febcfc814a73b5b948dd84a1ca3";
 const requiredImage = "openscad/wasm-base@sha256:f73d33d5f2fd4c7ae4d3aaacb1e2e2deb193b878b38bb80c8235c933ac340c66";
 const artifactName = "openscad-wasm-$" + "{{ env.OPENSCAD_COMMIT }}";
 const requiredPaths = [
-  "ENGINE_VERSION",
   ".github/workflows/build-openscad-wasm.yml",
 ];
 const artifactPaths = [
