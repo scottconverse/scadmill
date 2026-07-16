@@ -4,6 +4,7 @@ export interface WasmWorkflowContract {
   uploadAction: string;
   checkoutAction: string;
   requiredSourceCommit: string;
+  requiredVersion: string;
   requiredImage: string;
 }
 
