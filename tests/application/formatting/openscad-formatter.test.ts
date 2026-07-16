@@ -10,6 +10,67 @@ interface GoldenFixture {
 
 const lines = (...source: readonly string[]) => source.join("\n");
 
+function seededRandom(seed: number) {
+  let state = seed >>> 0;
+
+  return () => {
+    state += 0x6d2b79f5;
+    let value = state;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4_294_967_296;
+  };
+}
+
+function fixtureSeed(id: string) {
+  let hash = 2_166_136_261;
+
+  for (const character of id) {
+    hash ^= character.codePointAt(0) ?? 0;
+    hash = Math.imul(hash, 16_777_619);
+  }
+
+  return hash >>> 0;
+}
+
+function seededWhitespaceMutations(source: string, seed: number, count: number) {
+  const protectedSegments: string[] = [];
+  const masked = source.replace(
+    /"(?:\\.|[^"\\])*"|\/\*[\s\S]*?\*\/|\/\/[^\n]*/gu,
+    (segment) => {
+      const placeholder = `__SCADMILL_PROTECTED_${protectedSegments.length}__`;
+      protectedSegments.push(segment);
+      return placeholder;
+    },
+  );
+  const random = seededRandom(seed);
+  const spaces = (minimum = 0) =>
+    " ".repeat(minimum + Math.floor(random() * (5 - minimum)));
+  const mutations = new Set<string>();
+
+  for (let attempt = 0; mutations.size < count && attempt < 128; attempt += 1) {
+    const mutated = masked
+      .replace(/[ \t]*([=+*])[ \t]*/gu, (_match, operator: string) =>
+        `${spaces()}${operator}${spaces()}`,
+      )
+      .replace(/[ \t]*,[ \t]*/gu, () => `${spaces()},${spaces()}`)
+      .replace(/[ \t]*(?=\{)/gu, () => spaces())
+      .replace(/\b(include|use)[ \t]*(?=<)/gu, (_match, keyword: string) =>
+        `${keyword}${spaces(1)}`,
+      )
+      .replace(/([#!])[ \t]*/gu, (_match, modifier: string) => `${modifier}${spaces()}`)
+      .replace(/__SCADMILL_PROTECTED_(\d+)__/gu, (_match, index: string) =>
+        protectedSegments[Number(index)] ?? "",
+      );
+
+    if (mutated !== source) {
+      mutations.add(mutated);
+    }
+  }
+
+  return [...mutations];
+}
+
 const FIXTURES: readonly GoldenFixture[] = [
   {
     id: "E1 operator and comma spacing",
@@ -130,19 +191,16 @@ describe("OpenSCAD formatter Appendix E goldens", () => {
     });
   });
 
-  it("normalizes a deterministic mutation corpus back to the same goldens", () => {
-    for (const fixture of FIXTURES.filter(({ id }) =>
-      !id.startsWith("E6 ") && !id.startsWith("E12 ") && !id.startsWith("E15 ")
-    )) {
-      const mutation = fixture.expected
-        .replaceAll(" = ", "=")
-        .replaceAll(", ", ",")
-        .replaceAll(" + ", "+")
-        .replace(/\n {4}/gu, "\n        ");
-      expect(formatOpenScad(mutation, { indentSize: 4 })).toEqual({
-        status: "formatted",
-        source: fixture.expected,
-      });
+  it("normalizes a seeded fuzzed mutation set back to the same goldens", () => {
+    for (const fixture of FIXTURES) {
+      const mutations = seededWhitespaceMutations(fixture.expected, fixtureSeed(fixture.id), 4);
+
+      expect(mutations, `${fixture.id} mutation diversity`).toHaveLength(4);
+      for (const mutation of mutations) {
+        const formatted = formatOpenScad(mutation, { indentSize: 4 });
+        expect(formatted).toEqual({ status: "formatted", source: fixture.expected });
+        expect(formatOpenScad(formatted.source, { indentSize: 4 })).toEqual(formatted);
+      }
     }
   });
 

@@ -28,7 +28,6 @@ test("Format document runs through the real menu and reports syntax refusal", as
   await replaceEditorSource(page, malformed);
   await runFormatDocument(page);
   await expect(page.locator(".cm-content")).toHaveText(malformed);
-  await expect(page.getByRole("status")).toContainText(
-    "Formatting was not applied because the source contains a syntax error.",
-  );
+  const refusal = "Formatting was not applied because the source contains a syntax error.";
+  await expect(page.getByRole("status").filter({ hasText: refusal })).toHaveText(refusal);
 });

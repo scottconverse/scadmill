@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-16-m3-formatter-verification-hardening",
+  "createdAt": "2026-07-16T01:02:00-06:00",
+  "summary": "Correct the C7 browser refusal assertion and replace the incomplete mutation corpus with reproducibly seeded fuzzed whitespace coverage over every Appendix E fixture.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 M3 delivery protocol",
+    "AC-7.b formatter idempotence over the fixture corpus and a fuzzed mutation set",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-16-m3-formatter-verification-hardening.json", "status": "added" },
+    { "path": "tests/application/formatting/openscad-formatter.test.ts", "status": "modified" },
+    { "path": "tests/e2e/c7-formatter.e2e.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0240",
+      "topic": "C7 fuzzed mutation coverage",
+      "decision": "Generate four distinct whitespace mutations per Appendix E fixture from a stable fixture-specific seed, mask and restore strings and comments byte-for-byte, and require every mutation to normalize to the exact golden and remain idempotent on a second formatting pass.",
+      "rationale": "The prior single replacement mutation excluded three fixtures and did not satisfy AC-7.b's fuzzed-set requirement. Stable seeds keep failures reproducible while multi-dimensional whitespace changes exercise every fixture without changing protected literal or comment contents.",
+      "specBasis": ["AC-7.b", "Appendix E", "N-7"]
+    },
+    {
+      "id": "D-0241",
+      "topic": "C7 browser refusal assertion",
+      "decision": "Locate the syntax-refusal status by its exact catalog text within the semantic status role instead of assuming the page has only one status region.",
+      "rationale": "The workbench legitimately exposes engine, document, and editor-command status regions. Text-scoping preserves the accessibility assertion and selects the observable refusal without positional coupling.",
+      "specBasis": ["FR-7.3", "AC-7.c", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Every Appendix E fixture participates in a reproducibly seeded, diverse mutation set whose exact output is idempotent",
+      "test": "Run the focused formatter fixture file after first proving the old single-mutation corpus cannot satisfy the diversity contract.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/formatting/openscad-formatter.test.ts -t \"normalizes a deterministic mutation corpus back to the same goldens\"",
+        "observedAt": "2026-07-16T00:48:32-06:00",
+        "outcome": "RED: 1 test failed and 17 were skipped; the diversity assertion expected 30 cases but the old excluded corpus produced only 12."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/formatting/openscad-formatter.test.ts",
+        "observedAt": "2026-07-16T00:58:32-06:00",
+        "outcome": "GREEN: 1 test file passed and 18 tests passed in 676 ms; all 15 fixtures produced four distinct seeded mutations, exact goldens, and second-pass idempotence."
+      }
+    },
+    {
+      "criterion": "The real browser formatter journey reports syntax refusal through the correct live status region",
+      "test": "Run the focused C7 Playwright journey after reproducing the hosted cross-platform strict-locator failure.",
+      "red": {
+        "command": "GitHub Actions run 29463110142: Browser acceptance (ubuntu-latest) and Browser acceptance (windows-latest)",
+        "observedAt": "2026-07-15T19:04:00-06:00",
+        "outcome": "RED: both operating-system jobs failed the same assertion because getByRole('status') resolved to three legitimate regions; each lane otherwise passed 21 of 22 tests."
+      },
+      "green": {
+        "command": "pnpm.cmd exec playwright test tests/e2e/c7-formatter.e2e.ts",
+        "observedAt": "2026-07-16T00:58:33-06:00",
+        "outcome": "GREEN: 1 Playwright test passed in 7.1 seconds through the real Edit menu, valid formatting path, unchanged malformed source, and exact refusal notice."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
