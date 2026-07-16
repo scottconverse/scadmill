@@ -2,14 +2,14 @@
 
 Numbered questions are appended here under §2.7. Only the affected work item is parked while the remaining milestone work continues.
 
-## Queue index — 2026-07-11
+## Queue index — 2026-07-16
 
 | State | Questions | Milestone impact |
 |---|---|---|
 | Resolved — policy gate | Q-0001 | The owner allowed `Unicode-3.0`; the Rust and combined dependency-license checks are green. |
 | Resolved — performance baseline | Q-0032 | Amendment A-9 replaces the obsolete 2020-class minimum with the owner-designated AMD Radeon 780M benchmark. No policy question remains; candidate acceptance comes only from retained source-bound external evidence. |
-| Open/actionable — policy gate | Q-0002 | This question does not block product implementation. |
-| Open/actionable — scoped behavior | Q-0003, Q-0005–Q-0010, Q-0013, Q-0015–Q-0019, Q-0021–Q-0022, Q-0024–Q-0028, Q-0030–Q-0031 | Each blocks only the item named in its **Blocked** field; no question silently blocks unrelated work. |
+| Open/actionable — policy gate | Q-0002, Q-0033 | Q-0002 does not block product implementation. Q-0033 blocks only public distribution/deployment of the web engine bytes. |
+| Open/actionable — scoped behavior | Q-0003, Q-0005–Q-0010, Q-0013, Q-0015–Q-0019, Q-0021–Q-0022, Q-0024–Q-0028, Q-0030–Q-0031, Q-0034 | Each blocks only the item named in its **Blocked** field; no question silently blocks unrelated work. |
 | Open/historical — delivered conservatively | Q-0004, Q-0011–Q-0012, Q-0014, Q-0020 | M2 delivered the later capability named by each question. The owner answer still governs the historical milestone interpretation. |
 | Open/later milestone | Q-0023, Q-0029 | These park M3 WebAssembly provenance or M3 welcome-screen placement, not M2 implementation. |
 
@@ -20,6 +20,20 @@ Numbered questions are appended here under §2.7. Only the affected work item is
 - **Blocked:** No policy question remains. Per-candidate M2 hardware acceptance is established only by a retained external artifact bound to the exact candidate tree and profiler harness.
 - **Owner decision (2026-07-14 / A-9):** Remove the 2020-class minimum. AMD Radeon 780M is the owner-designated benchmark baseline for the two-million-triangle orbit test. It is an evidence baseline, not a minimum supported-hardware claim.
 - **Resolution evidence:** The earlier unbound checkpoint is diagnostic only. The repaired harness invalidates stale output before preflight, recomputes reported FPS and camera motion from raw observations, and publishes an owner PASS only when the Radeon label, exact workload, timestamps, page/console observations, source tree, and profiler-harness hashes all validate without source drift. Run-specific status, metrics, and hashes live only in that external artifact, not in this static question record.
+
+## Q-0033 — Open — 2026-07-16
+
+- **Section:** §2.5 owner-side dependencies; Architecture A-2; §6 engine license; §9.2 web-target counsel decision; M3
+- **Question:** Has owner counsel approved public distribution of the separately fetched OpenSCAD WASM pair from this public repository, and what exact GPL-2.0-or-later license/source-offer materials must accompany those bytes before they are committed or deployed?
+- **Evidence:** The exact source-built `openscad.js` and `openscad.wasm` pair is locally staged and hash-verified against `ENGINE_VERSION`, with its source-build manifest and CI build recipe retained. `scottconverse/scadmill` is currently public, so committing the 10,760,714-byte engine binary would itself publish a GPL-2.0-or-later artifact. ScadMill's current root `LICENSE` remains all-rights-reserved, and A-2 explicitly assigns the web-boundary licensing decision to owner counsel before any non-GPL license is applied to the web distribution.
+- **Blocked:** Only committing/deploying/publishing the OpenSCAD WASM bytes and closing the M3 web-license gate. The browser worker/service/loader/cache code, native product, static-host mechanics, parity harness preparation, and all unrelated milestones continue.
+
+## Q-0034 — Open — 2026-07-16
+
+- **Section:** A-1; AC-4.a; V-3; M3 native/WASM parity
+- **Question:** May AC-4.a compare a canonical SVG byte stream that converts only `CRLF` to `LF` before hashing, while retaining the original native and WASM artifacts and their raw hashes as evidence? If not, what amended parity rule should govern platform-native SVG line endings?
+- **Evidence:** The bounded real-engine parity lane used the exact pinned native executable and the verified source-built WASM worker. Appendix F1 and F2 produced byte-identical binary STL. Appendix F3 reached the required raw SVG comparison and failed: native Windows output was 7,617 bytes with SHA-256 `245607A17E3EDB938B5729DF1A959FE470996B40C69B71C4243B06A959F51628`; WASM output was 7,542 bytes with SHA-256 `C431C4A240E51316DDDCAF452D50D6E1F605FB31D8689A1159A1E6A44E221973`. The first difference was offset 37, native `0x0D` versus WASM `0x0A`, and the 75-byte total length delta is consistent with one extra carriage return on each native SVG line. No normalization or semantic comparison was applied. The three official example cases were not reached after this fail-fast mismatch.
+- **Blocked:** Only declaring AC-4.a/V-3 green and closing M3. The exact-byte harness, all native/WASM implementation work, C13 shell work, and later capabilities that do not depend on a parity verdict continue. Per A-1, no fallback comparison will be implemented without an amendment.
 
 ## Q-0001 — Resolved 2026-07-11 — opened 2026-07-09
 

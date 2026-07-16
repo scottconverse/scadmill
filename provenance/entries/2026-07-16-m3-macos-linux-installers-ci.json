@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-16-m3-macos-linux-installers-ci",
+  "createdAt": "2026-07-16T13:35:30-06:00",
+  "summary": "Add hosted macOS DMG and Linux AppImage build, exact-artifact selection, SHA-256, and upload lanes while preserving owner-side signing and notarization as external dependencies.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 M3 delivery protocol",
+    "FR-13.4 cross-platform installers",
+    "AC-13.c static web target",
+    "N-4 cross-platform delivery",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": ".github/workflows/ci.yml", "status": "modified" },
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-16-m3-macos-linux-installers-ci.json", "status": "added" },
+    { "path": "tests/scripts/ci-workflow.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0262",
+      "topic": "Unsigned-capable hosted DMG and AppImage production",
+      "decision": "Build DMG on macos-latest and AppImage on ubuntu-22.04 through a fail-independent matrix. Verify Rust 1.96.0, install Linux desktop prerequisites only on Linux, use Tauri's platform bundle override, require exactly one expected artifact, generate a SHA-256 sidecar with Node, record the external signing status, and upload both files with fail-on-missing semantics.",
+      "rationale": "FR-13.4 requires all three desktop installer families from CI and explicitly permits signing/notarization lag. Hosted platform runners are the correct build boundary; exact selection and hashing prevent an ambiguous or stale bundle from being published as evidence. A Linux failure must not hide the macOS result or vice versa.",
+      "specBasis": ["FR-13.4", "N-4", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Regular CI defines pinned, unsigned-capable DMG and AppImage jobs that hash and upload exactly one artifact per platform.",
+      "test": "Parse the workflow by job boundary and assert both matrix entries, Linux-only prerequisites, pinned Rust check, Tauri bundle override, hash ordering, upload action pin, and fail-on-missing behavior; separately parse the complete YAML document.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/ci-workflow.test.ts",
+        "observedAt": "2026-07-16T13:34:07-06:00",
+        "outcome": "RED: 1 new workflow-contract test failed and 4 existing tests passed because no desktop-installers job existed."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/ci-workflow.test.ts; node -e <YAML parse>; pnpm.cmd exec biome check tests/scripts/ci-workflow.test.ts; git diff --check",
+        "observedAt": "2026-07-16T13:34:56-06:00",
+        "outcome": "GREEN: all 5 focused workflow-contract tests passed in 430 ms; the complete CI YAML parsed successfully. After removing two static string-lint warnings, scoped Biome and diff checks exited 0. First hosted DMG/AppImage build evidence remains explicitly pending."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

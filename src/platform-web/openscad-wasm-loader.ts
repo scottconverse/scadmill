@@ -24,7 +24,7 @@ export const OPENSCAD_WASM_ARTIFACTS = {
   },
   "openscad.wasm": {
     path: "2026.06.12/openscad.wasm",
-    sha256: "64124667A8E54EAF20324A0B1BF707FC5E338D7C92187BB411982FE5F69EF82F",
+    sha256: "F908AAFA32FEBE9A3A20F76ACA6B8101051BF2FC7655F094F18C6D99B52683EA",
     bytes: 10_760_714,
   },
 } as const satisfies Readonly<Record<ArtifactName, OpenScadWasmArtifact>>;

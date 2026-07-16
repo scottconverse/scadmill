@@ -70,4 +70,30 @@ describe("regular CI workflow contract", () => {
     );
     expect(build).toBeGreaterThanOrEqual(0);
   });
+
+  it("builds and hashes unsigned-capable macOS DMG and Linux AppImage artifacts", () => {
+    const installers = jobBlock("desktop-installers");
+    const build = installers.indexOf(
+      `pnpm exec tauri build --bundles "\${{ matrix.bundle }}" --ci -- --locked`,
+    );
+    const hash = installers.indexOf('createHash("sha256")');
+    const upload = installers.indexOf(
+      "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+    );
+
+    expect(installers).toContain(`runs-on: \${{ matrix.os }}`);
+    expect(installers).toContain("os: macos-latest");
+    expect(installers).toContain("bundle: dmg");
+    expect(installers).toContain("pattern: '*.dmg'");
+    expect(installers).toContain("os: ubuntu-22.04");
+    expect(installers).toContain("bundle: appimage");
+    expect(installers).toContain("pattern: '*.AppImage'");
+    expect(installers).toContain("if: runner.os == 'Linux'");
+    expect(installers).toContain("rustc --version | grep '^rustc 1.96.0 '");
+    expect(installers).toContain("if-no-files-found: error");
+    expect([build, hash, upload]).toEqual(
+      [...[build, hash, upload]].sort((left, right) => left - right),
+    );
+    expect(build).toBeGreaterThanOrEqual(0);
+  });
 });

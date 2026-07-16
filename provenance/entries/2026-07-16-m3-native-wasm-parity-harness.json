@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-16-m3-native-wasm-parity-harness",
+  "createdAt": "2026-07-16T14:27:00-06:00",
+  "summary": "Add the real-engine AC-4.a exact-byte harness and retain the native-Windows versus WASM SVG line-ending mismatch without unauthorized normalization.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 M3 delivery protocol",
+    "A-1 cross-path parity",
+    "AC-4.a exact native/WASM bytes",
+    "V-3 golden geometry suite",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "package.json", "status": "modified" },
+    { "path": "playwright.ac4.config.ts", "status": "added" },
+    { "path": "provenance/entries/2026-07-16-m3-native-wasm-parity-harness.json", "status": "added" },
+    { "path": "spec/QUESTIONS.md", "status": "modified" },
+    { "path": "src/application/engine/engine-load-progress.ts", "status": "added" },
+    { "path": "src/platform-web/browser-wasm-engine.ts", "status": "added" },
+    { "path": "tests/parity/ac4-native-wasm-parity.parity.ts", "status": "added" },
+    { "path": "tests/parity/fixtures/ac4-parity.html", "status": "added" },
+    { "path": "tests/parity/fixtures/ac4-parity.ts", "status": "added" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/openscad/openscad/blob/0a66508c67374febcfc814a73b5b948dd84a1ca3/examples/Basics/CSG.scad",
+      "purpose": "Use the pinned official CC0 CSG example as one of the three public AC-4.a fixtures.",
+      "accessedOn": "2026-07-16"
+    },
+    {
+      "url": "https://github.com/openscad/openscad/blob/0a66508c67374febcfc814a73b5b948dd84a1ca3/examples/Basics/linear_extrude.scad",
+      "purpose": "Use the pinned official CC0 linear-extrude example as one of the three public AC-4.a fixtures.",
+      "accessedOn": "2026-07-16"
+    },
+    {
+      "url": "https://github.com/openscad/openscad/blob/0a66508c67374febcfc814a73b5b948dd84a1ca3/examples/Advanced/offset.scad",
+      "purpose": "Use the pinned official CC0 offset example as one of the three public AC-4.a fixtures.",
+      "accessedOn": "2026-07-16"
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0266",
+      "topic": "Literal AC-4.a cross-path evidence",
+      "decision": "Drive the real browser worker and exact pinned native executable against the same six sources, compare raw STL/SVG bytes without normalization, and report raw lengths, hashes, and the first differing byte on failure.",
+      "rationale": "A mocked worker or semantic mesh comparison cannot satisfy the amended byte-identical acceptance criterion. Fail-fast raw evidence prevents a plausible-looking but nonconforming parity claim.",
+      "specBasis": ["A-1", "AC-4.a", "V-3", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The real-engine harness fails honestly with exact raw-byte diagnostics when native and WASM output diverge.",
+      "test": "Verify the native executable hash/version, export each source directly through native OpenSCAD and the real browser WASM worker, then compare the returned byte arrays exactly without normalization.",
+      "red": {
+        "command": "SCADMILL_AC4_OPENSCAD=<verified 2026.06.12 executable> pnpm.cmd test:parity",
+        "observedAt": "2026-07-16T14:27:00-06:00",
+        "outcome": "RED before the final reporter correction: the first equal case reached firstDifference=-1, but eager failure-message construction called byteAt(-1) and crashed instead of completing the assertion."
+      },
+      "green": {
+        "command": "SCADMILL_AC4_OPENSCAD=<verified 2026.06.12 executable> pnpm.cmd test:parity",
+        "observedAt": "2026-07-16T14:27:00-06:00",
+        "outcome": "GREEN harness behavior / RED AC-4.a verdict: the corrected reporter proved F1 and F2 binary STL equal, then failed honestly on F3 SVG at byte 37 (native Windows 0x0D, WASM 0x0A), retaining both lengths and hashes. No normalization was applied; Q-0034 records the required amendment request."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": ["Q-0034"],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

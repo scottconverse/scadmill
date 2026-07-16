@@ -132,6 +132,84 @@ jobs:
       - name: Rust license policy
         run: node scripts/check-licenses.mjs rust
 
+  desktop-installers:
+    name: Desktop installer (${{ matrix.bundle }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            bundle: dmg
+            pattern: '*.dmg'
+            artifact_name: scadmill-macos-dmg
+          - os: ubuntu-22.04
+            bundle: appimage
+            pattern: '*.AppImage'
+            artifact_name: scadmill-linux-appimage
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 11.7.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install Linux desktop build prerequisites
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes \
+            build-essential \
+            curl \
+            file \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev \
+            patchelf \
+            wget
+      - run: pnpm install --frozen-lockfile
+      - name: Build platform installer
+        run: |
+          rustc --version | grep '^rustc 1.96.0 '
+          cd src/desktop-shell
+          pnpm exec tauri build --bundles "${{ matrix.bundle }}" --ci -- --locked
+      - name: Locate and hash platform installer
+        shell: bash
+        run: |
+          bundle_dir="src/desktop-shell/src-tauri/target/release/bundle/${{ matrix.bundle }}"
+          artifact_count="$(find "$bundle_dir" -type f -name "${{ matrix.pattern }}" | wc -l | tr -d ' ')"
+          if [ "$artifact_count" -ne 1 ]; then
+            echo "Expected exactly one ${{ matrix.pattern }} artifact; found $artifact_count." >&2
+            exit 1
+          fi
+          artifact="$(find "$bundle_dir" -type f -name "${{ matrix.pattern }}" -print -quit)"
+          echo "SCADMILL_DESKTOP_INSTALLER=$artifact" >> "$GITHUB_ENV"
+          SCADMILL_DESKTOP_INSTALLER="$artifact" node --input-type=module -e '
+            import { createHash } from "node:crypto";
+            import { basename } from "node:path";
+            import { readFileSync, writeFileSync } from "node:fs";
+            const path = process.env.SCADMILL_DESKTOP_INSTALLER;
+            if (!path) throw new Error("Installer path is missing.");
+            const digest = createHash("sha256").update(readFileSync(path)).digest("hex");
+            writeFileSync(`${path}.sha256`, `${digest}  ${basename(path)}\n`, "utf8");
+          '
+          cat "$artifact.sha256"
+      - name: Record external signing status
+        run: echo "Signing/notarization credentials are owner-side; retaining the required unsigned CI artifact."
+      - name: Upload platform installer
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: |
+            ${{ env.SCADMILL_DESKTOP_INSTALLER }}
+            ${{ env.SCADMILL_DESKTOP_INSTALLER }}.sha256
+          if-no-files-found: error
+
   windows-installer:
     name: Windows setup
     runs-on: windows-latest

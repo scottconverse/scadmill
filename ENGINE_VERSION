@@ -20,25 +20,27 @@ artifact.macos.url: https://files.openscad.org/snapshots/OpenSCAD-2026.06.12.dmg
 artifact.macos.sha256: 555BE2ED313E67657B3D8BA3E1DE0ACD6141B982FD458776C52D3EDA748F57C4
 
 wasm.required_source_commit: 0a66508c67374febcfc814a73b5b948dd84a1ca3
-wasm.build_status: produced and checksum-verified from the exact official source build
+wasm.build_status: produced, embedded-version-verified, checksum-verified, and reproduced from the exact official source build
 wasm.container_image: openscad/wasm-base@sha256:f73d33d5f2fd4c7ae4d3aaacb1e2e2deb193b878b38bb80c8235c933ac340c66
 wasm.build_workflow: .github/workflows/build-openscad-wasm.yml
-wasm.reference_toolchain: openscad/openscad-wasm; Emscripten 4.0.10; -DEXPERIMENTAL=ON -DSNAPSHOT=ON
-wasm.source_build.run: https://github.com/scottconverse/scadmill/actions/runs/29495964243
-wasm.source_build.commit: 08514e7828b96988d7b333baf7c5c3359b7dc447
-wasm.source_build.artifact.id: 8374641324
-wasm.source_build.artifact.archive_bytes: 3330001
-wasm.source_build.manifest.sha256: 225A99E4F2956839E23FAA0640F12C8BD17A90B04EC0A50904B91FFA886D759C
+wasm.reference_toolchain: openscad/openscad-wasm; Emscripten 4.0.10; -DEXPERIMENTAL=ON -DSNAPSHOT=ON -DOPENSCAD_VERSION=2026.06.12
+wasm.source_build.run: https://github.com/scottconverse/scadmill/actions/runs/29529789154
+wasm.source_build.commit: 001432505cbcefc4ea138fd5014170cce5e7a9ac
+wasm.source_build.artifact.id: 8388445492
+wasm.source_build.artifact.archive_bytes: 3330014
+wasm.source_build.manifest.bytes: 599
+wasm.source_build.manifest.sha256: AB195992B8316002D07D7630AE33CE276EB86A06BE320BE9F1604CA81A8787C4
 wasm.source_build.openscad_js.bytes: 100027
 wasm.source_build.openscad_js.sha256: E458673D46D506D77B780C526D6E5492250F353D582057C6F912724A9586D86E
 wasm.source_build.openscad_wasm.bytes: 10760714
-wasm.source_build.openscad_wasm.sha256: 64124667A8E54EAF20324A0B1BF707FC5E338D7C92187BB411982FE5F69EF82F
+wasm.source_build.openscad_wasm.sha256: F908AAFA32FEBE9A3A20F76ACA6B8101051BF2FC7655F094F18C6D99B52683EA
 wasm.source_build.external_assets: openscad.wasm only; no .data, pthread, generated worker, or source-map sidecars
-wasm.reproducibility_confirmation.run: https://github.com/scottconverse/scadmill/actions/runs/29498231330
-wasm.reproducibility_confirmation.commit: 8132f3702101c70065296d8a1a40db8f903995cf
-wasm.reproducibility_confirmation.artifact.id: 8375563808
-wasm.reproducibility_confirmation.artifact.archive_bytes: 3330001
-wasm.reproducibility_confirmation.result: manifest, openscad.js, and openscad.wasm are byte-for-byte identical to source build run 29495964243
+wasm.reproducibility_confirmation.run: https://github.com/scottconverse/scadmill/actions/runs/29530713214
+wasm.reproducibility_confirmation.commit: dfcbf26242f4a9a6745fcc27572b0aaca9393d59
+wasm.reproducibility_confirmation.artifact.id: 8388787405
+wasm.reproducibility_confirmation.artifact.archive_bytes: 3330014
+wasm.reproducibility_confirmation.result: manifest, openscad.js, and openscad.wasm are byte-for-byte identical to source build run 29529789154
+wasm.version_correction: the first retained source build inherited the runner date because official CMake defaults OPENSCAD_VERSION to today; the corrected workflow explicitly pins 2026.06.12, passes it through Docker, and verifies the unique embedded version before upload
 wasm.manifest_observation: the official snapshot index currently exposes exact-date WebAssembly web and node archives despite the v0.6 statement that prebuilt publication stalled; Q-0023 asks whether either may replace the mandated source build
 wasm.manifest.web.url: https://files.openscad.org/snapshots/OpenSCAD-2026.06.12-WebAssembly-web.zip
 wasm.manifest.web.sha256: 509879DD6813F2C4E5CF2CE1DA6420928CE9BB212CD08491CA5EC9D5BFFC700B

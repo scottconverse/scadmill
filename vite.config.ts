@@ -1,7 +1,12 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
-export default defineConfig({
+export function publicDirectoryForMode(mode: string): string | false {
+  return mode === "desktop" ? false : "public";
+}
+
+export default defineConfig(({ mode }) => ({
+  publicDir: publicDirectoryForMode(mode),
   plugins: [react()],
   clearScreen: false,
   build: {
@@ -19,4 +24,4 @@ export default defineConfig({
     environment: "node",
     setupFiles: ["./tests/setup.ts"],
   },
-});
+}));

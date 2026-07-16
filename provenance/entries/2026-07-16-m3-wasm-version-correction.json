@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-16-m3-wasm-version-correction",
+  "createdAt": "2026-07-16T14:25:00-06:00",
+  "summary": "Pin and verify the embedded OpenSCAD version in the official-source WASM build, replace the runner-date artifact, and prove the corrected bytes reproduce exactly.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 A-7 engine pin",
+    "FR-4.1 native and WebAssembly engine implementations",
+    "FR-4.7 verified fetch/cache/offline behavior",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": ".github/workflows/build-openscad-wasm.yml", "status": "modified" },
+    { "path": "ENGINE_VERSION", "status": "modified" },
+    { "path": "provenance/entries/2026-07-16-m3-wasm-static-assets.json", "status": "modified" },
+    { "path": "provenance/entries/2026-07-16-m3-wasm-version-correction.json", "status": "added" },
+    { "path": "public/openscad-engine/2026.06.12/manifest.json", "status": "modified" },
+    { "path": "public/openscad-engine/2026.06.12/openscad.wasm", "status": "modified" },
+    { "path": "src/platform-web/openscad-wasm-loader.ts", "status": "modified" },
+    { "path": "tests/platform-web/openscad-wasm-static-assets.test.ts", "status": "modified" },
+    { "path": "tests/scripts/wasm-build-workflow.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/openscad/openscad/blob/0a66508c67374febcfc814a73b5b948dd84a1ca3/cmake/Modules/openscad_version.cmake",
+      "purpose": "Confirm from the permitted pinned official source that an unset OPENSCAD_VERSION defaults to the build date.",
+      "accessedOn": "2026-07-16"
+    },
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29529789154",
+      "purpose": "Retain the corrected exact-source build and embedded-version verification evidence for artifact 8388445492.",
+      "accessedOn": "2026-07-16"
+    },
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29530713214",
+      "purpose": "Independently reproduce the corrected manifest, JavaScript, and WASM bytes in artifact 8388787405.",
+      "accessedOn": "2026-07-16"
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0265",
+      "topic": "Fail-closed embedded WASM engine version pin",
+      "decision": "Set OPENSCAD_VERSION=2026.06.12 at workflow scope, propagate it into the pinned build container and CMake configuration, require exactly one embedded date equal to the pin before upload, and bind the loader and ledger to the resulting reproduced bytes.",
+      "rationale": "The first source build silently inherited the runner date 2026.07.16 from official CMake defaults and was correctly rejected by runtime pin enforcement. Explicit propagation plus pre-upload inspection prevents a source-commit-correct but version-contract-wrong artifact from being shipped.",
+      "specBasis": ["A-7", "FR-4.1", "FR-4.7", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The hosted artifact embeds exactly 2026.06.12 and reproduces byte-for-byte from the pinned official source and toolchain.",
+      "test": "Mutation-test the workflow contract, run the digest-pinned hosted source build twice, verify the embedded version and manifest fields, download both retained artifacts, and compare exact lengths and SHA-256 values.",
+      "red": {
+        "command": "pnpm.cmd test:e2e",
+        "observedAt": "2026-07-16T13:48:00-06:00",
+        "outcome": "RED: browser acceptance reported the staged WASM engine as unsupported because it embedded 2026.07.16 instead of the required 2026.06.12."
+      },
+      "green": {
+        "command": "Hosted runs 29529789154 and 29530713214; focused workflow/static-asset tests; corrected CI 29530244289",
+        "observedAt": "2026-07-16T14:25:00-06:00",
+        "outcome": "GREEN: both source builds succeeded. Their 599-byte manifest (AB195992...), 100,027-byte openscad.js (E458673D...), and 10,760,714-byte openscad.wasm (F908AAFA...) are exactly identical; the unique embedded version is 2026.06.12. Corrected CI passed all five jobs, including both browser OS lanes and signed Windows setup."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": ["Q-0033"],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
