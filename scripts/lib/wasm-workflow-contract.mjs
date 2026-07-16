@@ -4,6 +4,7 @@ const uploadAction = "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f436
 const checkoutAction = "actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5";
 const actionExpression = (value) => `\u0024{{ ${value} }}`;
 const requiredSourceCommit = "0a66508c67374febcfc814a73b5b948dd84a1ca3";
+const requiredVersion = "2026.06.12";
 const requiredImage = "openscad/wasm-base@sha256:f73d33d5f2fd4c7ae4d3aaacb1e2e2deb193b878b38bb80c8235c933ac340c66";
 const artifactName = "openscad-wasm-$" + "{{ env.OPENSCAD_COMMIT }}";
 const requiredPaths = [
@@ -85,11 +86,13 @@ export function validateWasmWorkflow(source, engineVersionSource) {
   requireContract(paths.length === requiredPaths.length && requiredPaths.every((path, index) => paths[index] === path), "pull_request.paths must be exactly scoped");
   requireContract(hasExactKeys(workflow.permissions, ["contents"]) && workflow.permissions.contents === "read", "permissions must contain only contents: read");
   requireContract(hasExactKeys(workflow.jobs, ["detector", "build"]), "jobs must contain only detector and build");
-  requireContract(hasExactKeys(workflow.env, ["OPENSCAD_COMMIT", "WASM_IMAGE"]), "workflow environment fields must be exact");
+  requireContract(hasExactKeys(workflow.env, ["OPENSCAD_COMMIT", "OPENSCAD_VERSION", "WASM_IMAGE"]), "workflow environment fields must be exact");
 
   const image = workflow.env?.WASM_IMAGE;
   requireContract(image === requiredImage, "WASM_IMAGE must match the approved digest");
   requireContract(workflow.env?.OPENSCAD_COMMIT === requiredSourceCommit, "OPENSCAD_COMMIT must match the approved source commit");
+  requireContract(workflow.env?.OPENSCAD_VERSION === requiredVersion, "OPENSCAD_VERSION must match the approved snapshot version");
+  requireEngineValue(engineVersionSource, "version", requiredVersion);
   requireEngineValue(engineVersionSource, "wasm.required_source_commit", requiredSourceCommit);
   requireEngineValue(engineVersionSource, "wasm.container_image", requiredImage);
 
@@ -146,12 +149,13 @@ export function validateWasmWorkflow(source, engineVersionSource) {
 
   const buildStep = stepByName(steps, "Build release WASM in the pinned official image");
   const buildLines = executableLines(buildStep.run);
-  const exactCmake = "emcmake cmake -S . -B build-web -DCMAKE_BUILD_TYPE=Release -DEXPERIMENTAL=ON -DSNAPSHOT=ON";
+  const exactCmake = 'emcmake cmake -S . -B build-web -DCMAKE_BUILD_TYPE=Release -DEXPERIMENTAL=ON -DSNAPSHOT=ON -DOPENSCAD_VERSION="$OPENSCAD_VERSION"';
   requireExactLines(buildLines, [
     "set -euo pipefail",
     "docker run --rm --platform linux/amd64 \\",
     '--volume "$PWD:/work" \\',
     "--workdir /work/openscad \\",
+    "--env OPENSCAD_VERSION \\",
     '"$WASM_IMAGE" \\',
     "bash -euo pipefail -c '",
     "emcc --version | tee /tmp/emcc-version.txt",
@@ -166,16 +170,18 @@ export function validateWasmWorkflow(source, engineVersionSource) {
     "set -euo pipefail",
     "test -f openscad/build-web/openscad.js",
     "test -f openscad/build-web/openscad.wasm",
+    'test "$(grep -aoE \'20[0-9]{2}\\.[0-9]{2}\\.[0-9]{2}\' openscad/build-web/openscad.wasm | sort -u)" = "$OPENSCAD_VERSION"',
     'JS_SHA256="$(sha256sum openscad/build-web/openscad.js | cut -d \' \' -f1)"',
     'WASM_SHA256="$(sha256sum openscad/build-web/openscad.wasm | cut -d \' \' -f1)"',
     "jq -n \\",
     '--arg source_commit "$OPENSCAD_COMMIT" \\',
+    '--arg openscad_version "$OPENSCAD_VERSION" \\',
     '--arg container_image "$WASM_IMAGE" \\',
     '--arg emcc_version "4.0.10" \\',
-    '--arg cmake_flags "-DCMAKE_BUILD_TYPE=Release -DEXPERIMENTAL=ON -DSNAPSHOT=ON" \\',
+    '--arg cmake_flags "-DCMAKE_BUILD_TYPE=Release -DEXPERIMENTAL=ON -DSNAPSHOT=ON -DOPENSCAD_VERSION=$OPENSCAD_VERSION" \\',
     '--arg js_sha256 "$JS_SHA256" \\',
     '--arg wasm_sha256 "$WASM_SHA256" \\',
-    "'{source_commit: $source_commit, container_image: $container_image, emcc_version: $emcc_version, cmake_flags: $cmake_flags, artifacts: {\"openscad.js\": {sha256: $js_sha256}, \"openscad.wasm\": {sha256: $wasm_sha256}}}' \\",
+    "'{source_commit: $source_commit, openscad_version: $openscad_version, container_image: $container_image, emcc_version: $emcc_version, cmake_flags: $cmake_flags, artifacts: {\"openscad.js\": {sha256: $js_sha256}, \"openscad.wasm\": {sha256: $wasm_sha256}}}' \\",
     "> openscad-wasm-manifest.json",
   ], "output verification and manifest commands must be exact");
 
@@ -189,4 +195,4 @@ export function validateWasmWorkflow(source, engineVersionSource) {
   return workflow;
 }
 
-export const wasmWorkflowContract = { requiredPaths, artifactPaths, uploadAction, checkoutAction, requiredSourceCommit, requiredImage };
+export const wasmWorkflowContract = { requiredPaths, artifactPaths, uploadAction, checkoutAction, requiredSourceCommit, requiredVersion, requiredImage };
