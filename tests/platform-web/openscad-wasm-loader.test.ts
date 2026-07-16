@@ -362,22 +362,37 @@ describe("verified OpenSCAD WASM loader", () => {
     expect(setup.value.importModule).not.toHaveBeenCalled();
   });
 
-  it("passes the caller's abort signal to both fetches and remains fail closed when aborted", async () => {
+  it("rejects a pre-aborted load before network access and remains fail closed", async () => {
     const controller = new AbortController();
     controller.abort();
-    const fetch_ = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
-      expect(init?.signal).toBe(controller.signal);
-      throw new DOMException("This operation was aborted", "AbortError");
-    });
+    const fetch_ = vi.fn();
     const setup = environment({ fetch: fetch_ });
 
     await expect(loadVerifiedOpenScadWasm({
       artifactBaseUrl: "https://cdn.example/engines/",
       signal: controller.signal,
     }, setup.value)).rejects.toMatchObject({ name: "AbortError" });
-    expect(fetch_).toHaveBeenCalledTimes(2);
+    expect(fetch_).not.toHaveBeenCalled();
     expect(setup.value.importModule).not.toHaveBeenCalled();
     expect(setup.createRuntime).not.toHaveBeenCalled();
+  });
+
+  it("passes a live caller abort signal to both asset fetches", async () => {
+    const controller = new AbortController();
+    const fetch_ = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      expect(init?.signal).toBe(controller.signal);
+      return String(url).endsWith("openscad.js")
+        ? fixtureResponse(javascriptBytes)
+        : fixtureResponse(wasmBytes);
+    });
+    const setup = environment({ fetch: fetch_ });
+
+    await loadVerifiedOpenScadWasm({
+      artifactBaseUrl: "https://cdn.example/engines/",
+      signal: controller.signal,
+    }, setup.value);
+
+    expect(fetch_).toHaveBeenCalledTimes(2);
   });
 
   it.each([

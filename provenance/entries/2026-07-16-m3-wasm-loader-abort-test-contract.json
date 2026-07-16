@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-16-m3-wasm-loader-abort-test-contract",
+  "createdAt": "2026-07-16T12:39:01-06:00",
+  "summary": "Align the hosted WebAssembly loader abort test with the fail-fast production contract while retaining direct proof that a live caller signal is forwarded to both artifact fetches.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 M3 delivery protocol",
+    "FR-4.7 separate fetch, cache, progress, and offline operation",
+    "FR-4.9 bounded worker lifecycle",
+    "N-2 bounded resource use",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-16-m3-wasm-loader-abort-test-contract.json", "status": "added" },
+    { "path": "tests/platform-web/openscad-wasm-loader.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0259",
+      "topic": "Pre-aborted verified WebAssembly loads",
+      "decision": "Treat an already-aborted caller signal as a fail-fast condition before cache or network access. Test live-signal forwarding independently so the no-network pre-abort contract cannot be weakened to preserve an obsolete fetch-count assertion.",
+      "rationale": "A pre-aborted operation has no useful work to perform and should not touch cache or network resources. The prior test expected two fetch calls even after the loader was hardened to reject before side effects, causing deterministic hosted CI failure while asserting behavior contrary to bounded cancellation.",
+      "specBasis": ["FR-4.7", "FR-4.9", "N-2", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "A pre-aborted load performs no network or runtime work, and a live signal is forwarded to both exact artifact requests.",
+      "test": "Inspect the hosted CI failure, split the stale combined assertion into fail-fast pre-abort and live-signal forwarding cases, and run only the affected loader test file once.",
+      "red": {
+        "command": "gh run view 29522734366 --log-failed",
+        "observedAt": "2026-07-16T12:36:00-06:00",
+        "outcome": "RED: hosted CI ran 1,082 tests; 1 failed and 1,081 passed. The loader correctly performed zero fetches for an already-aborted signal, but the stale test expected two."
+      },
+      "green": {
+        "command": "pnpm.cmd vitest run tests/platform-web/openscad-wasm-loader.test.ts",
+        "observedAt": "2026-07-16T12:38:56-06:00",
+        "outcome": "GREEN: the one focused file ran once after a non-executing PowerShell-shim invocation; all 19 tests passed in 1.14 seconds."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "urn:scadmill:local-tooling:powershell-pnpm-shim",
+      "sought": "Run the one focused WebAssembly loader test file through the repository package manager.",
+      "confirmation": "PowerShell blocked pnpm.ps1 before any test executed. The single mechanical replacement used pnpm.cmd and ran the focused file once; no additional test cycle was introduced."
+    }
+  ],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

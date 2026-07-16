@@ -69,6 +69,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Changed
 
+- Corrected the WebAssembly loader abort contract test to require a pre-aborted request to fail before network access, while retaining explicit coverage that a live caller signal reaches both artifact fetches.
 - Narrowed the Appendix C TypeScript/TSX color-variable policy to real CSS contexts, so OpenSCAD CLI options no longer fail CI while `var(...)`, CSSOM calls, and style-object custom properties remain enforced.
 - Replaced FR-2.5's obsolete 2020-class minimum with the owner-designated AMD Radeon 780M benchmark baseline under amendment A-9. The benchmark is evidence hardware, not a minimum supported-hardware claim; each candidate qualifies only through retained external evidence bound to its exact source tree and profiler harness.
 - Hardened the final M2 settings and secret boundary with functional, field-scoped compensation that preserves concurrent edits, distinguishes settings failures from secret-storage failures, reports any incomplete recovery without guaranteeing rollback, keeps the dialog mounted until an active secret mutation settles, and invalidates whole-profile import while that transaction owns the persistence target.
