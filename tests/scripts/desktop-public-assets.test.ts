@@ -20,6 +20,7 @@ describe("desktop public-asset isolation", () => {
     };
     const tauriConfig = JSON.parse(tauriSource) as {
       build?: { beforeBuildCommand?: string };
+      bundle?: { icon?: string[] };
     };
 
     expect(publicDirectoryForMode("desktop")).toBe(false);
@@ -27,5 +28,6 @@ describe("desktop public-asset isolation", () => {
     expect(packageJson.scripts?.["build:desktop"])
       .toBe("tsc --noEmit && vite build --mode desktop");
     expect(tauriConfig.build?.beforeBuildCommand).toBe("pnpm --dir ../.. build:desktop");
+    expect(tauriConfig.bundle?.icon).toContain("icons/128x128.png");
   });
 });

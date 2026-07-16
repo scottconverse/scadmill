@@ -22,6 +22,8 @@
     { "path": "CHANGELOG.md", "status": "modified" },
     { "path": "README.md", "status": "modified" },
     { "path": "provenance/entries/2026-07-16-m3-macos-linux-installers-ci.json", "status": "added" },
+    { "path": "src/desktop-shell/src-tauri/tauri.conf.json", "status": "modified" },
+    { "path": "tests/scripts/desktop-public-assets.test.ts", "status": "modified" },
     { "path": "tests/scripts/ci-workflow.test.ts", "status": "modified" }
   ],
   "externalInputs": [],
@@ -48,6 +50,20 @@
         "command": "pnpm.cmd exec vitest run tests/scripts/ci-workflow.test.ts; node -e <YAML parse>; pnpm.cmd exec biome check tests/scripts/ci-workflow.test.ts; git diff --check",
         "observedAt": "2026-07-16T13:34:56-06:00",
         "outcome": "GREEN: all 5 focused workflow-contract tests passed in 430 ms; the complete CI YAML parsed successfully. After removing two static string-lint warnings, scoped Biome and diff checks exited 0. First hosted DMG/AppImage build evidence remains explicitly pending."
+      }
+    },
+    {
+      "criterion": "The Linux AppImage bundler receives an explicitly configured square PNG icon while retaining native macOS and Windows icon formats.",
+      "test": "Require the Tauri bundle icon list to contain a square 128×128 PNG and retain the generated ICNS/ICO files before the hosted replacement build.",
+      "red": {
+        "command": "Hosted CI 29532805294 Desktop installer (appimage)",
+        "observedAt": "2026-07-16T14:41:42-06:00",
+        "outcome": "RED: the release executable compiled, but tauri-bundler aborted before packaging with 'couldn't find a square icon to use as AppImage icon'."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/desktop-public-assets.test.ts",
+        "observedAt": "2026-07-16T14:43:16-06:00",
+        "outcome": "GREEN locally: the focused config contract passed 1/1 in 554 ms and requires icons/128x128.png. Hosted AppImage replacement evidence remains pending."
       }
     }
   ],
