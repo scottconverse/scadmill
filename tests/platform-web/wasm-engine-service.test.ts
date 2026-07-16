@@ -80,6 +80,63 @@ afterEach(() => {
 });
 
 describe("WasmEngineService", () => {
+  it("reports only active-job progress and isolates throwing progress observers", async () => {
+    const workers: FakeWorker[] = [];
+    const progress = vi.fn(() => { throw new Error("observer failed"); });
+    const service = new WasmEngineService({
+      workerFactory: () => {
+        const worker = new FakeWorker();
+        workers.push(worker);
+        return worker;
+      },
+      makeJobId: () => "active",
+      onProgress: progress,
+    });
+    const job = service.render(renderRequest());
+
+    workers[0].emit({
+      kind: "progress",
+      jobId: "stale",
+      progress: { asset: "openscad.js", loadedBytes: 1, totalBytes: 10 },
+    });
+    workers[0].emit({
+      kind: "progress",
+      jobId: job.jobId,
+      progress: { asset: "openscad.wasm", loadedBytes: 5, totalBytes: 10 },
+    });
+    workers[0].emit({ kind: "render-result", jobId: job.jobId, result: success() });
+
+    await expect(job.done).resolves.toMatchObject({ kind: "3d" });
+    expect(progress).toHaveBeenCalledOnce();
+    expect(progress).toHaveBeenCalledWith({
+      asset: "openscad.wasm",
+      loadedBytes: 5,
+      totalBytes: 10,
+    });
+  });
+
+  it("isolates exceptions while replaying buffered output and during later output", async () => {
+    const { service, workers } = serviceHarness();
+    const job = service.render(renderRequest());
+    const listener = vi.fn(() => { throw new Error("output observer failed"); });
+    workers[0].emit({
+      kind: "output",
+      jobId: job.jobId,
+      event: { sequence: 0, elapsedMs: 1, stream: "stderr", raw: "first\n" },
+    });
+
+    expect(() => job.subscribeOutput(listener)).not.toThrow();
+    workers[0].emit({
+      kind: "output",
+      jobId: job.jobId,
+      event: { sequence: 1, elapsedMs: 2, stream: "stdout", raw: "second\n" },
+    });
+    workers[0].emit({ kind: "render-result", jobId: job.jobId, result: success() });
+
+    await expect(job.done).resolves.toMatchObject({ kind: "3d" });
+    expect(listener).toHaveBeenCalledTimes(2);
+  });
+
   it("uses a dedicated worker for version and render while preserving binary inputs and early output", async () => {
     const { service, workers } = serviceHarness();
     const version = service.version();

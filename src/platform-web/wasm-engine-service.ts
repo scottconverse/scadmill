@@ -12,6 +12,7 @@ import {
   decodeWasmEngineWorkerResponse,
   exportWorkerPayload,
   renderWorkerPayload,
+  type WasmEngineLoadProgress,
   type WasmEngineWorkerFactory,
   type WasmEngineWorkerLike,
   type WasmEngineWorkerPayload,
@@ -21,6 +22,7 @@ export interface WasmEngineServiceOptions {
   readonly workerFactory: WasmEngineWorkerFactory;
   readonly makeJobId?: () => string;
   readonly versionTimeoutMs?: number;
+  readonly onProgress?: (progress: WasmEngineLoadProgress) => void;
 }
 
 export const DEFAULT_WASM_ENGINE_VERSION_TIMEOUT_MS = 30_000;
@@ -65,10 +67,22 @@ function outputSubscription(): OutputSubscription {
   return {
     emit: (event) => {
       events.push(event);
-      for (const listener of listeners) listener(event);
+      for (const listener of listeners) {
+        try {
+          listener(event);
+        } catch {
+          // Output observers are outside the worker operation lifecycle.
+        }
+      }
     },
     subscribe: (listener) => {
-      for (const event of events) listener(event);
+      for (const event of events) {
+        try {
+          listener(event);
+        } catch {
+          // Buffered output observers are outside the worker operation lifecycle.
+        }
+      }
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
@@ -230,6 +244,14 @@ export class WasmEngineService implements EngineService {
     if (response.jobId !== worker.activeJobId) return;
     const pending = this.pending.get(response.jobId);
     if (!pending || pending.worker !== worker) return;
+    if (response.kind === "progress") {
+      try {
+        this.options.onProgress?.(response.progress);
+      } catch {
+        // Download observers cannot interrupt an engine operation.
+      }
+      return;
+    }
     if (response.kind === "output") {
       if (pending.kind !== "version") pending.output.emit(response.event);
       return;
