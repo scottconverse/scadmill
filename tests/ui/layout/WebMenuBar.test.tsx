@@ -90,6 +90,8 @@ describe("WebMenuBar", () => {
       ["Replace", "replace"],
       ["Go to line", "go-to-line"],
       ["Toggle comment", "toggle-comment"],
+      ["Format document", "format-document"],
+      ["Format selection", "format-selection"],
       ["Undo", "undo"],
       ["Redo", "redo"],
     ] as const) {

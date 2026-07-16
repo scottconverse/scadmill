@@ -58,10 +58,8 @@ export function Workbench({
   const document = activeDocument(documents);
   const render = useReadonlyStore(runtime.render, (state) => state);
   const consoleState = useReadonlyStore(runtime.console, (state) => state);
-  const autoRender = useReadonlyStore(runtime.settings, (state) => state.autoRender);
-  const editorSettings = useReadonlyStore(runtime.settings, (state) => state.editor);
-  const keybindings = useReadonlyStore(runtime.settings, (state) => state.keybindings);
-  const settingsPersistenceStatus = useReadonlyStore(runtime.settings, (state) => state.persistenceStatus);
+  const { autoRender, editor: editorSettings, keybindings, persistenceStatus: settingsPersistenceStatus, profile } = useReadonlyStore(runtime.settings, (state) => state);
+  const formatterSettings = profile.formatter;
   const layout = useReadonlyStore(runtime.layout, (state) => state);
   const viewerState = useReadonlyStore(runtime.viewer, (state) => state);
   const parameterState = useReadonlyStore(runtime.parameters, (state) => state);
@@ -131,6 +129,7 @@ export function Workbench({
     runtime, workspace: documents, layout, projectMode: projectState.mode,
     scratchPersistence: scratchAutosavePersistence,
     narrow, onLayoutAction: dispatchLayout, directoryPicker,
+    formatter: formatterSettings,
     onProjectSelected: (selection) => setRequestedProject((current) =>
       ({ sequence: (current?.sequence ?? 0) + 1, ...selection })),
   });
@@ -228,6 +227,7 @@ export function Workbench({
             commandRequest={editorCommands.request}
             diagnostics={diagnosticNavigation.editorDiagnostics}
             editorSettings={editorSettings}
+            formatterSettings={formatterSettings}
             keybindings={keybindings}
             language={projectState.mode === "scratch" || document.path.toLowerCase().endsWith(".scad")
               ? "openscad"

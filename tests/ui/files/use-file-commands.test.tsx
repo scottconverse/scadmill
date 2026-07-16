@@ -164,4 +164,70 @@ describe("useFileCommands", () => {
     )).toMatchObject({ source: "sphere(7);", savedSource: "" });
     expect(saved).toBe("cube(11);");
   });
+
+  it("formats a dirty OpenSCAD scratch document before saving when enabled", async () => {
+    const persistence = { load: vi.fn(() => null), save: vi.fn() };
+    const runtime = createWorkbenchRuntime(engine(), {
+      initialScratchPath: "Untitled.scad",
+      initialScratchSource: "",
+    });
+    await runtime.dispatch({
+      kind: "edit-document",
+      origin: "user",
+      documentId: "document-main",
+      source: "module part(){cube(1);}",
+    });
+    const view = renderHook(() => useFileCommands({
+      formatter: { formatOnSave: true, indentSize: 2 },
+      runtime,
+      workspace: runtime.documents.getState(),
+      projectMode: runtime.project.getState().mode,
+      scratchPersistence: persistence,
+      layout: DEFAULT_WORKSPACE_LAYOUT,
+      narrow: false,
+      onLayoutAction: vi.fn(),
+    }));
+
+    act(() => view.result.current.save());
+
+    const expected = "module part() {\n  cube(1);\n}";
+    await waitFor(() => expect(persistence.save).toHaveBeenCalledWith(expected));
+    expect(runtime.documents.getState().documents[0]).toMatchObject({
+      savedSource: expected,
+      source: expected,
+    });
+  });
+
+  it("reports format-on-save refusal but still saves malformed source unchanged", async () => {
+    const persistence = { load: vi.fn(() => null), save: vi.fn() };
+    const source = "module broken( { cube(1);";
+    const runtime = createWorkbenchRuntime(engine(), {
+      initialScratchPath: "Untitled.scad",
+      initialScratchSource: "",
+    });
+    await runtime.dispatch({
+      kind: "edit-document",
+      origin: "user",
+      documentId: "document-main",
+      source,
+    });
+    const view = renderHook(() => useFileCommands({
+      formatter: { formatOnSave: true, indentSize: 4 },
+      runtime,
+      workspace: runtime.documents.getState(),
+      projectMode: runtime.project.getState().mode,
+      scratchPersistence: persistence,
+      layout: DEFAULT_WORKSPACE_LAYOUT,
+      narrow: false,
+      onLayoutAction: vi.fn(),
+    }));
+
+    act(() => view.result.current.save());
+
+    await waitFor(() => expect(view.result.current.notice).toContain(
+      "Formatting was not applied because the source contains a syntax error.",
+    ));
+    expect(persistence.save).toHaveBeenCalledWith(source);
+    expect(runtime.documents.getState().documents[0]).toMatchObject({ source, savedSource: source });
+  });
 });

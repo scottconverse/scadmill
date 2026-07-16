@@ -1,0 +1,122 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-15-m3-source-formatter",
+  "createdAt": "2026-07-15T18:33:00-06:00",
+  "summary": "Implement the M3 parse-gated OpenSCAD source formatter, document and selection commands, format-on-save behavior, exact Appendix E output, and native geometry-preservation evidence.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 M3 delivery protocol",
+    "FR-7.1 formatter commands and normative style",
+    "FR-7.2 idempotence",
+    "FR-7.3 parse-gated refusal",
+    "FR-7.4 Customizer annotation preservation",
+    "FR-7.5 format on save",
+    "AC-7.a through AC-7.d",
+    "Appendix E formatter golden fixtures"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-15-m3-source-formatter.json", "status": "added" },
+    { "path": "src/application/commands/editor-commands.ts", "status": "modified" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/native-engine/tests/formatter_geometry.rs", "status": "added" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/editor/CodeEditor.tsx", "status": "modified" },
+    { "path": "src/ui/editor/editor-command-execution.ts", "status": "modified" },
+    { "path": "src/ui/editor/openscad-formatter.ts", "status": "added" },
+    { "path": "src/ui/editor/use-editor-command-coordinator.ts", "status": "modified" },
+    { "path": "src/ui/files/use-file-commands.ts", "status": "modified" },
+    { "path": "src/ui/layout/WebMenuBar.tsx", "status": "modified" },
+    { "path": "tests/application/formatting/openscad-formatter.test.ts", "status": "added" },
+    { "path": "tests/e2e/c7-formatter.e2e.ts", "status": "added" },
+    { "path": "tests/ui/editor/CodeEditor.formatting.test.tsx", "status": "added" },
+    { "path": "tests/ui/files/use-file-commands.test.tsx", "status": "modified" },
+    { "path": "tests/ui/layout/WebMenuBar.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0238",
+      "topic": "Formatter parser and rendering architecture",
+      "decision": "Use ScadMill's existing Lezer OpenSCAD parser as the mandatory syntax gate, then render a deterministic token stream that preserves comment bytes and positions. Keep the formatter beside the language service so application code does not depend on the UI layer, and add no external formatter dependency.",
+      "rationale": "The existing fresh grammar already covers the normative fixtures and supplies the parse-error signal FR-7.3 requires. Reusing it avoids another parser, keeps the clean-room implementation original, and makes exact comments, Customizer annotations, spacing, transform chains, and line wrapping independently testable.",
+      "specBasis": ["FR-7.1", "FR-7.3", "FR-7.4", "Appendix E"]
+    },
+    {
+      "id": "D-0239",
+      "topic": "Format-on-save syntax refusal",
+      "decision": "When format-on-save encounters malformed OpenSCAD, report the formatter refusal but continue saving the exact unchanged source. Explicit Format document and Format selection commands instead leave the editor unchanged and report an unavailable syntax-error outcome.",
+      "rationale": "FR-7.3 prohibits mangling malformed source but does not authorize blocking the user's save. Preserving the source and completing the save protects user work while still making the failed formatting operation visible.",
+      "specBasis": ["FR-7.3", "FR-7.5", "N-2", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Appendix E output is exact, idempotent, mutation-stable, parse-gated, and fully wired through editor, menu, and save paths",
+      "test": "Run the formatter core, CodeEditor command, WebMenuBar, and file-command tests serially.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/formatting/openscad-formatter.test.ts tests/ui/editor/CodeEditor.formatting.test.tsx tests/ui/layout/WebMenuBar.test.tsx tests/ui/files/use-file-commands.test.tsx --reporter=verbose --maxWorkers=1",
+        "observedAt": "2026-07-15T18:14:00-06:00",
+        "outcome": "RED: the bounded command retained seven expected failures before its output ceiling: format-on-save saved unformatted text, formatter command ids reached no handler, the normative shortcut did nothing, and the Edit menu lacked both formatter commands."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/formatting/openscad-formatter.test.ts tests/ui/editor/CodeEditor.formatting.test.tsx tests/ui/layout/WebMenuBar.test.tsx tests/ui/files/use-file-commands.test.tsx --reporter=verbose --maxWorkers=1",
+        "observedAt": "2026-07-15T18:19:43-06:00",
+        "outcome": "GREEN: 4 test files passed and 32 tests passed in 12.77 seconds with one worker."
+      }
+    },
+    {
+      "criterion": "Formatting preserves native geometry for every renderable Appendix E pair",
+      "test": "Render E4, E7, E8, and E11 before and after formatting with the exact pinned OpenSCAD build and compare exact binary STL bytes.",
+      "red": {
+        "command": "cargo test --locked --manifest-path src/native-engine/Cargo.toml --test formatter_geometry formatter_goldens_preserve_byte_identical_stl_geometry -- --exact --nocapture",
+        "observedAt": "2026-07-15T18:44:00-06:00",
+        "outcome": "RED: the initial environment attempt did not execute because Rust was absent from PATH and was not counted. After the pinned path was supplied and the real case passed, a deliberate E8 mutation from cube(10) to cube(11) made this exact verifier fail with `E8 single transform inline changed the exact STL bytes`; the fixture was then restored."
+      },
+      "green": {
+        "command": "$env:PATH='<rust-1.96.0-toolchain>;' + $env:PATH; $env:SCADMILL_OPENSCAD='<pinned-openscad-2026.06.12>'; cargo test --locked --manifest-path src/native-engine/Cargo.toml --test formatter_geometry formatter_goldens_preserve_byte_identical_stl_geometry -- --exact --nocapture",
+        "observedAt": "2026-07-15T18:26:00-06:00",
+        "outcome": "GREEN: rustc 1.96.0 and OpenSCAD 2026.06.12 were observed; 1 test passed, 0 failed, and all four fixture pairs produced byte-identical STL output."
+      }
+    },
+    {
+      "criterion": "Review corrections preserve nested selection indentation and never block saving malformed user source",
+      "test": "Run the two affected UI test files once after the adversarial review correction.",
+      "red": {
+        "command": "Serial adversarial code-path review after the 32-test focused GREEN",
+        "observedAt": "2026-07-15T18:28:00-06:00",
+        "outcome": "RED by inspection: a selection beginning at an indented line boundary would lose its base indentation, and syntax refusal in format-on-save threw before persistence could save the unchanged source."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/CodeEditor.formatting.test.tsx tests/ui/files/use-file-commands.test.tsx --reporter=verbose --maxWorkers=1",
+        "observedAt": "2026-07-15T18:29:51-06:00",
+        "outcome": "GREEN: 2 test files passed and 9 tests passed in 16.60 seconds with one worker."
+      }
+    },
+    {
+      "criterion": "Long-line wrapping never changes string or comment contents that resemble operators",
+      "test": "Format all Appendix E cases plus a long string and trailing comment containing repeated operator-like text.",
+      "red": {
+        "command": "Serial adversarial formatter review after the static gate",
+        "observedAt": "2026-07-15T18:36:00-06:00",
+        "outcome": "RED by inspection: the rendered-line wrapper searched raw text for spaced operators and could therefore split a sufficiently long string literal internally."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/formatting/openscad-formatter.test.ts --reporter=verbose --maxWorkers=1",
+        "observedAt": "2026-07-15T18:37:58-06:00",
+        "outcome": "GREEN: 1 test file passed and 18 tests passed in 610 ms; operator-like text inside strings and comments remained byte-exact."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

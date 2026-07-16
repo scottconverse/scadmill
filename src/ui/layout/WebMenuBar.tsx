@@ -228,6 +228,15 @@ export function WebMenuBar({
             onClick={() => runEditorCommand("toggle-comment")}
           />
           <MenuCommand
+            label={messages.formatDocument}
+            shortcut={keybindings.formatDocument}
+            onClick={() => runEditorCommand("format-document")}
+          />
+          <MenuCommand
+            label={messages.formatSelection}
+            onClick={() => runEditorCommand("format-selection")}
+          />
+          <MenuCommand
             label={messages.undo}
             shortcut={keybindings.undo}
             onClick={() => runEditorCommand("undo")}

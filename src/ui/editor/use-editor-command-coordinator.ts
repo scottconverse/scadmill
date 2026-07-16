@@ -43,7 +43,9 @@ export function useEditorCommandCoordinator(
     setNotice((current) => outcome.status === "unavailable"
       ? {
           sequence: (current?.sequence ?? 0) + 1,
-          message: messages.goToDefinitionUnavailable,
+          message: outcome.reason === "syntax-error"
+            ? messages.formatSyntaxError
+            : messages.goToDefinitionUnavailable,
         }
       : null);
     void runtime.dispatch({ kind: "editor-command", origin: "user", outcome });

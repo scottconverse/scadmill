@@ -6,6 +6,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Added
 
+- The M3 parse-gated OpenSCAD formatter with exact Appendix E output, document and selection commands, configurable indentation, format-on-save, syntax-refusal notices, deterministic idempotence coverage, and byte-identical native geometry evidence.
 - An offline Windows NSIS setup executable with standard per-user uninstall support, a statically linked Visual C++ runtime, and a CI lane that signs with Azure Artifact Signing when credentials are available, verifies the signature, and only then generates the published checksum.
 - An M3 first-run welcome surface with recent-project access, a durable suppress-on-launch preference, confirmation before replacing existing work, and the three exact Appendix F OpenSCAD samples wired through the command bus, Customizer, and normal render pipeline.
 - M0 repository and clean-room provenance foundation.

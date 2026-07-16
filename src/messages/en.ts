@@ -339,6 +339,8 @@ export const messages = {
   findInProject: "Find in project",
   goToDefinition: "Go to definition",
   formatDocument: "Format document",
+  formatSelection: "Format selection",
+  formatSyntaxError: "Formatting was not applied because the source contains a syntax error.",
   redoAlternate: "Redo (alternate)",
   multiCursorAdd: "Add cursor",
   exportModel: "Export model",
