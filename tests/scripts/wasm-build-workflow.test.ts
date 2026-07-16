@@ -7,6 +7,7 @@ import { validateWasmWorkflow, wasmWorkflowContract } from "../../scripts/lib/wa
 const workflowUrl = new URL("../../.github/workflows/build-openscad-wasm.yml", import.meta.url);
 const workflow = readFileSync(workflowUrl, "utf8").replaceAll("\r\n", "\n");
 const engineVersion = readFileSync(new URL("../../ENGINE_VERSION", import.meta.url), "utf8");
+const actionExpression = (value: string) => `\u0024{{ ${value} }}`;
 function rejected(source: string, message: RegExp, versionSource = engineVersion) {
   expect(() => validateWasmWorkflow(source, versionSource)).toThrow(message);
 }
@@ -22,6 +23,13 @@ describe("official-source OpenSCAD WASM build workflow", () => {
     const parsed = validateWasmWorkflow(workflow, engineVersion);
     expect(parsed.on.workflow_dispatch).toBeDefined();
     expect(parsed.on.pull_request.paths).toEqual(wasmWorkflowContract.requiredPaths);
+  });
+
+  it("debounces cumulative pull-request path matches before the heavyweight build", () => {
+    const parsed = validateWasmWorkflow(workflow, engineVersion);
+    expect(parsed.jobs.detector.outputs.should_build).toBe(actionExpression("steps.detect.outputs.should_build"));
+    expect(parsed.jobs.build.needs).toBe("detector");
+    expect(parsed.jobs.build.if).toBe("needs.detector.outputs.should_build == 'true'");
   });
 
   it.each<[string, string, RegExp]>([
@@ -43,8 +51,13 @@ describe("official-source OpenSCAD WASM build workflow", () => {
     ["WASM hash not passed to jq", workflow.replace('--arg wasm_sha256 "$WASM_SHA256"', '--arg wasm_sha256 "missing"'), /manifest commands must be exact/],
     ["JavaScript hash overwritten", workflow.replace("          jq -n \\", '          JS_SHA256="not-the-output-hash"\n          jq -n \\'), /manifest commands must be exact/],
     ["extra write permission", workflow.replace("  contents: read", "  contents: read\n  id-token: write"), /permissions must contain only contents: read/],
-    ["job permission override", workflow.replace("  build:\n    runs-on:", "  build:\n    permissions:\n      contents: write\n    runs-on:"), /build job fields must be exact/],
+    ["job permission override", workflow.replace("  build:\n    needs: detector", "  build:\n    permissions:\n      contents: write\n    needs: detector"), /build job fields must be exact/],
     ["extra executable step", workflow.replace("      - name: Upload reproducible WASM artifact", "      - name: Injected command\n        shell: bash\n        run: echo injected\n\n      - name: Upload reproducible WASM artifact"), /step names and order must be exact/],
+    ["detector checkout on every event", workflow.replace("        if: github.event_name == 'pull_request' && github.event.action == 'synchronize'", "        if: always()"), /checkout must run only for synchronize events/],
+    ["detector base-to-head range", workflow.replace(`          BEFORE_SHA: ${actionExpression("github.event.before")}`, `          BEFORE_SHA: ${actionExpression("github.event.pull_request.base.sha")}`), /commit-range bindings must be exact/],
+    ["detector broad source diff", workflow.replace("-- .github/workflows/build-openscad-wasm.yml; then", "-- src; then"), /detector decision commands must be exact/],
+    ["detector suppresses manual dispatch", workflow.replace('if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then\n            echo "should_build=true"', 'if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then\n            echo "should_build=false"'), /detector decision commands must be exact/],
+    ["heavy build detached from detector", workflow.replace("    needs: detector\n", ""), /build job fields must be exact/],
   ])("rejects %s", (_name, mutation, message) => rejected(mutation, message));
 
   it.each<[string, string, RegExp]>([

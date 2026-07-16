@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-16-m3-wasm-ci-debounce",
+  "createdAt": "2026-07-16T08:20:00-06:00",
+  "summary": "Prevent cumulative pull-request path matching from repeatedly launching the heavyweight OpenSCAD WebAssembly source build while preserving every intentional build path.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7/A-5 permitted official-source engine build",
+    "FR-4.1 WebAssembly worker engine implementation",
+    "N-2 reproducible builds",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": ".github/workflows/build-openscad-wasm.yml", "status": "modified" },
+    { "path": "scripts/lib/wasm-workflow-contract.mjs", "status": "modified" },
+    { "path": "scripts/lib/wasm-workflow-contract.d.mts", "status": "modified" },
+    { "path": "tests/scripts/wasm-build-workflow.test.ts", "status": "modified" },
+    { "path": "provenance/entries/2026-07-16-m3-wasm-ci-debounce.json", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0251",
+      "topic": "Latest-commit debounce for heavyweight WASM CI",
+      "decision": "Keep the pull-request path filter as the cheap outer selector, then make a read-only detector job build unconditionally for workflow_dispatch and non-synchronize pull-request actions while allowing synchronize events to reach the heavyweight job only when github.event.before..github.event.after changes .github/workflows/build-openscad-wasm.yml.",
+      "rationale": "GitHub evaluates pull-request path filters against the cumulative base-to-head diff, so every later synchronize event continued to match after the workflow entered the branch. An exact latest-range detector removes redundant source builds without suppressing manual builds, the initial/reopened path-selected build, or a synchronize event that actually changes the build recipe.",
+      "specBasis": ["Section 2.7/A-5", "FR-4.1", "N-2", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The heavyweight build runs for manual dispatch and path-selected non-synchronize actions, but an unrelated synchronize event does not retrigger it from the cumulative PR diff",
+      "test": "Statically require the reviewed exact read-only detector job, before/after event bindings, workflow-file-only git diff, and detector dependency on the heavyweight build, with selected adversarial mutations for the security-sensitive bindings and branches.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/wasm-build-workflow.test.ts",
+        "observedAt": "2026-07-16T08:01:26-06:00",
+        "outcome": "RED: 1 failed and 26 passed. The regression assertion failed because jobs.detector did not exist, statically detecting the missing debounce after hosted run 29503768070 exposed the cumulative path-filter retrigger."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/wasm-build-workflow.test.ts; pnpm.cmd check:wasm-workflow; pnpm.cmd typecheck; pnpm.cmd lint",
+        "observedAt": "2026-07-16T08:55:22-06:00",
+        "outcome": "GREEN on the exact final reviewed tree: 1 focused file and all 32 tests passed in 549 ms; the production workflow contract passed; TypeScript exited 0; lint and source policy checked 343 files with zero diagnostics."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
