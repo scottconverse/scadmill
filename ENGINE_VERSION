@@ -21,6 +21,8 @@ artifact.macos.sha256: 555BE2ED313E67657B3D8BA3E1DE0ACD6141B982FD458776C52D3EDA7
 
 wasm.required_source_commit: 0a66508c67374febcfc814a73b5b948dd84a1ca3
 wasm.build_status: required at M3; not yet produced
+wasm.container_image: openscad/wasm-base@sha256:f73d33d5f2fd4c7ae4d3aaacb1e2e2deb193b878b38bb80c8235c933ac340c66
+wasm.build_workflow: .github/workflows/build-openscad-wasm.yml
 wasm.reference_toolchain: openscad/openscad-wasm; Emscripten 4.0.10; -DEXPERIMENTAL=ON -DSNAPSHOT=ON
 wasm.manifest_observation: the official snapshot index currently exposes exact-date WebAssembly web and node archives despite the v0.6 statement that prebuilt publication stalled; Q-0023 asks whether either may replace the mandated source build
 wasm.manifest.web.url: https://files.openscad.org/snapshots/OpenSCAD-2026.06.12-WebAssembly-web.zip

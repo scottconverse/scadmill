@@ -1,0 +1,73 @@
+name: Build pinned OpenSCAD WASM
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ENGINE_VERSION
+      - .github/workflows/build-openscad-wasm.yml
+
+permissions:
+  contents: read
+
+env:
+  OPENSCAD_COMMIT: 0a66508c67374febcfc814a73b5b948dd84a1ca3
+  WASM_IMAGE: openscad/wasm-base@sha256:f73d33d5f2fd4c7ae4d3aaacb1e2e2deb193b878b38bb80c8235c933ac340c66
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Clone and verify official source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --no-checkout --recurse-submodules https://github.com/openscad/openscad.git openscad
+          git -C openscad fetch --depth 1 origin "$OPENSCAD_COMMIT"
+          git -C openscad checkout --detach "$OPENSCAD_COMMIT"
+          git -C openscad submodule update --init --recursive
+          test "$(git -C openscad rev-parse HEAD)" = "$OPENSCAD_COMMIT"
+
+      - name: Build release WASM in the pinned official image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --platform linux/amd64 \
+            --volume "$PWD:/work" \
+            --workdir /work/openscad \
+            "$WASM_IMAGE" \
+            bash -euo pipefail -c '
+              emcc --version | tee /tmp/emcc-version.txt
+              grep -Eq "(^|[^0-9.])4\.0\.10([^0-9.]|$)" /tmp/emcc-version.txt
+              emcmake cmake -S . -B build-web -DCMAKE_BUILD_TYPE=Release -DEXPERIMENTAL=ON -DSNAPSHOT=ON
+              cmake --build build-web --config Release -j2
+            '
+
+      - name: Verify outputs and create provenance manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f openscad/build-web/openscad.js
+          test -f openscad/build-web/openscad.wasm
+          JS_SHA256="$(sha256sum openscad/build-web/openscad.js | cut -d ' ' -f1)"
+          WASM_SHA256="$(sha256sum openscad/build-web/openscad.wasm | cut -d ' ' -f1)"
+          jq -n \
+            --arg source_commit "$OPENSCAD_COMMIT" \
+            --arg container_image "$WASM_IMAGE" \
+            --arg emcc_version "4.0.10" \
+            --arg cmake_flags "-DCMAKE_BUILD_TYPE=Release -DEXPERIMENTAL=ON -DSNAPSHOT=ON" \
+            --arg js_sha256 "$JS_SHA256" \
+            --arg wasm_sha256 "$WASM_SHA256" \
+            '{source_commit: $source_commit, container_image: $container_image, emcc_version: $emcc_version, cmake_flags: $cmake_flags, artifacts: {"openscad.js": {sha256: $js_sha256}, "openscad.wasm": {sha256: $wasm_sha256}}}' \
+            > openscad-wasm-manifest.json
+
+      - name: Upload reproducible WASM artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: openscad-wasm-${{ env.OPENSCAD_COMMIT }}
+          if-no-files-found: error
+          path: |
+            openscad/build-web/openscad.js
+            openscad/build-web/openscad.wasm
+            openscad-wasm-manifest.json

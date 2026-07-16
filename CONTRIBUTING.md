@@ -6,7 +6,7 @@ Before proposing a change:
 
 1. Read `spec/scadmill-spec-v0.6.md` and `PROVENANCE.md`.
 2. Write and observe a failing test before changing behavior.
-3. Run `pnpm check:generated`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm check:provenance`, and `pnpm check:licenses all` plus Rust format, clippy, engine tests, and the desktop-shell check for both Cargo manifests.
+3. Run `pnpm check:generated`, `pnpm check:wasm-workflow`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm check:provenance`, and `pnpm check:licenses all` plus Rust format, clippy, engine tests, and the desktop-shell check for both Cargo manifests.
 4. Add one machine-readable provenance entry for the coherent capability slice.
 
 Changes to `src/ui/editor/openscad.grammar` must be followed by `pnpm generate:openscad-parser`; commit both generated TypeScript outputs with the grammar.

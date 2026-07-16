@@ -38,6 +38,8 @@ jobs:
         run: pnpm build
       - name: npm license policy
         run: pnpm check:licenses npm
+      - name: OpenSCAD WASM workflow contract
+        run: pnpm check:wasm-workflow
       - name: Provenance ledger
         run: pnpm check:provenance
         env:
