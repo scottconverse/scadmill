@@ -68,6 +68,20 @@
         "observedAt": "2026-07-16T14:25:00-06:00",
         "outcome": "GREEN: both source builds succeeded. Their 599-byte manifest (AB195992...), 100,027-byte openscad.js (E458673D...), and 10,760,714-byte openscad.wasm (F908AAFA...) are exactly identical; the unique embedded version is 2026.06.12. Corrected CI passed all five jobs, including both browser OS lanes and signed Windows setup."
       }
+    },
+    {
+      "criterion": "The workflow contract test recognizes the stronger corrected build-status evidence instead of pinning obsolete status copy.",
+      "test": "Run the focused 35-test workflow contract after replacing its stale exact string with the embedded-version/reproducibility status and explicit version flag.",
+      "red": {
+        "command": "Hosted CI 29532805294 Web checks",
+        "observedAt": "2026-07-16T14:37:58-06:00",
+        "outcome": "RED: 1 of 1,097 tests failed because the test still required the superseded 'produced and checksum-verified' wording although ENGINE_VERSION now records stronger verified and reproduced evidence."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/wasm-build-workflow.test.ts",
+        "observedAt": "2026-07-16T14:40:17-06:00",
+        "outcome": "GREEN: the focused workflow file passed all 35 tests in 533 ms, including the exact embedded-version flag and corrected status contract."
+      }
     }
   ],
   "nearMisses": [],

@@ -16,7 +16,10 @@ describe("official-source OpenSCAD WASM build workflow", () => {
   it("passes the parsed workflow contract and records the reproducible recipe", () => {
     expect(validateWasmWorkflow(workflow, engineVersion)).toBeTruthy();
     expect(engineVersion).toContain("wasm.build_workflow: .github/workflows/build-openscad-wasm.yml");
-    expect(engineVersion).toContain("wasm.build_status: produced and checksum-verified from the exact official source build");
+    expect(engineVersion).toContain(
+      "wasm.build_status: produced, embedded-version-verified, checksum-verified, and reproduced from the exact official source build",
+    );
+    expect(engineVersion).toContain("-DOPENSCAD_VERSION=2026.06.12");
   });
 
   it("has manual and artifact-affecting pull-request triggers", () => {
