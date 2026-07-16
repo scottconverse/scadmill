@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-16-m3-wasm-reproducibility-confirmation",
+  "createdAt": "2026-07-16T06:39:00-06:00",
+  "summary": "Confirm that a second isolated official-source OpenSCAD WebAssembly build produces byte-for-byte identical manifest, JavaScript, and WASM outputs.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7/A-5 official-source engine build and checksums",
+    "AC-4.a fixed same-build parity",
+    "V-3 golden geometry and engine pin",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": "ENGINE_VERSION", "status": "modified" },
+    { "path": "provenance/entries/2026-07-16-m3-wasm-reproducibility-confirmation.json", "status": "added" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29498231330",
+      "accessedOn": "2026-07-16",
+      "purpose": "Download the second exact-SHA artifact and compare every retained file against the first verified source-build artifact."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0247",
+      "topic": "Deterministic OpenSCAD WASM source build",
+      "decision": "Retain the second isolated build identity in ENGINE_VERSION as reproducibility confirmation while keeping the first successful run as the canonical source-build artifact record.",
+      "rationale": "The workflow-only trigger correction caused one final build from the same approved commit, image, toolchain, and flags. All three retained files are exactly identical in size and SHA-256, converting deterministic-build confidence from a recipe claim into observed two-run evidence without launching another cycle.",
+      "specBasis": ["Section 2.7/A-5", "AC-4.a", "V-3", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The pinned official-source build is byte-deterministic across two isolated hosted runners",
+      "test": "Download both exact-run artifacts outside the repository, require identical file sets, and independently compare byte counts and SHA-256 for the manifest, JavaScript module, and WASM binary.",
+      "red": {
+        "command": "Reproducibility assessment after run 29495964243 only",
+        "observedAt": "2026-07-16T06:05:31-06:00",
+        "outcome": "RED: one verified artifact established integrity but could not demonstrate cross-run byte determinism."
+      },
+      "green": {
+        "command": "gh run download 29498231330; Get-FileHash -Algorithm SHA256 and file-set/length comparison against scadmill-wasm-evidence-08514e7",
+        "observedAt": "2026-07-16T06:39:00-06:00",
+        "outcome": "GREEN: both directories contain the same three files. The 533-byte manifest, 100,027-byte openscad.js, and 10,760,714-byte openscad.wasm match byte-for-byte with identical SHA-256 values 225A99E4F2956839E23FAA0640F12C8BD17A90B04EC0A50904B91FFA886D759C, E458673D46D506D77B780C526D6E5492250F353D582057C6F912724A9586D86E, and 64124667A8E54EAF20324A0B1BF707FC5E338D7C92187BB411982FE5F69EF82F."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

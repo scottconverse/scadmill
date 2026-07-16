@@ -34,6 +34,11 @@ wasm.source_build.openscad_js.sha256: E458673D46D506D77B780C526D6E5492250F353D58
 wasm.source_build.openscad_wasm.bytes: 10760714
 wasm.source_build.openscad_wasm.sha256: 64124667A8E54EAF20324A0B1BF707FC5E338D7C92187BB411982FE5F69EF82F
 wasm.source_build.external_assets: openscad.wasm only; no .data, pthread, generated worker, or source-map sidecars
+wasm.reproducibility_confirmation.run: https://github.com/scottconverse/scadmill/actions/runs/29498231330
+wasm.reproducibility_confirmation.commit: 8132f3702101c70065296d8a1a40db8f903995cf
+wasm.reproducibility_confirmation.artifact.id: 8375563808
+wasm.reproducibility_confirmation.artifact.archive_bytes: 3330001
+wasm.reproducibility_confirmation.result: manifest, openscad.js, and openscad.wasm are byte-for-byte identical to source build run 29495964243
 wasm.manifest_observation: the official snapshot index currently exposes exact-date WebAssembly web and node archives despite the v0.6 statement that prebuilt publication stalled; Q-0023 asks whether either may replace the mandated source build
 wasm.manifest.web.url: https://files.openscad.org/snapshots/OpenSCAD-2026.06.12-WebAssembly-web.zip
 wasm.manifest.web.sha256: 509879DD6813F2C4E5CF2CE1DA6420928CE9BB212CD08491CA5EC9D5BFFC700B
