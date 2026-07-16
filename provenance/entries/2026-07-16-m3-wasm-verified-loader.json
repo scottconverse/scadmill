@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-16-m3-wasm-verified-loader",
+  "createdAt": "2026-07-16T09:41:00-06:00",
+  "summary": "Add the verified, bounded loading boundary for separately fetched OpenSCAD JavaScript and WebAssembly artifacts without bundling or statically importing engine bytes.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7/A-5 official-source engine build",
+    "FR-4.1 WebAssembly worker engine implementation",
+    "FR-4.7 separately fetched and cached web engine",
+    "AC-4.a fixed-build path parity",
+    "N-2 bounded resource use",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-16-m3-wasm-verified-loader.json", "status": "added" },
+    { "path": "src/platform-web/openscad-wasm-loader.ts", "status": "added" },
+    { "path": "tests/platform-web/openscad-wasm-loader.test.ts", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0252",
+      "topic": "Verified separate OpenSCAD WASM execution boundary",
+      "decision": "Fetch the exact versioned JavaScript and WASM paths as separate assets, enforce their pinned decoded byte lengths and SHA-256 values before any module execution, import verified JavaScript through a revocable Blob URL, pass a defensive WASM copy, and constrain any generated-module locateFile request to a second revocable Blob made from the already verified WASM bytes.",
+      "rationale": "The GPL engine artifacts must remain outside the ScadMill application bundle, while executable JavaScript and WASM still require a complete integrity boundary. Exact decoded lengths bound streamed memory before hashing, an AbortSignal lets the worker lifecycle stop stalled transfers, both digests settle before import, and verified Blob URLs prevent a fallback from reopening an unverified network path.",
+      "specBasis": ["Section 2.7/A-5", "FR-4.1", "FR-4.7", "AC-4.a", "N-2", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Only the exact pinned artifact pair can execute, downloads are decoded-length bounded and abortable, and every executable Blob URL is lifecycle bounded",
+      "test": "Exercise unique ENGINE_VERSION pin binding, HTTP and decoded-length failures, streamed overflow cancellation, truncation, AbortSignal propagation, both hash mismatches, digest failure, deferred dual verification, exact SHA-256 selection, defensive WASM ownership, verified locateFile fallback, module/runtime failure cleanup, progress-observer isolation, and unsupported URLs.",
+      "red": {
+        "command": "Independent loader audit; pnpm.cmd exec vitest run tests/platform-web/openscad-wasm-loader.test.ts",
+        "observedAt": "2026-07-16T09:38:16-06:00",
+        "outcome": "RED: the independent review found 0/0/3/0/0 in the repaired loader; the strengthened focused suite then failed 2 of 18 tests, proving compressed transfer lengths were rejected and an inherited test manifest could displace the production trust anchor. An earlier exact-tree run also exposed and removed a 26-second large-fixture timeout by retaining production-pin assertions while moving behavioral tests to a trusted small-artifact seam."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/platform-web/openscad-wasm-loader.test.ts; pnpm.cmd exec biome check src/platform-web/openscad-wasm-loader.ts tests/platform-web/openscad-wasm-loader.test.ts; pnpm.cmd typecheck",
+        "observedAt": "2026-07-16T09:38:44-06:00",
+        "outcome": "GREEN: 1 focused file and all 18 tests passed in 559 ms; focused Biome checked both files with zero diagnostics; TypeScript exited 0."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
