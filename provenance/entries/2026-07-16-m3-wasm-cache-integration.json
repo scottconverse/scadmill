@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-16-m3-wasm-cache-integration",
+  "createdAt": "2026-07-16T12:05:00-06:00",
+  "summary": "Integrate the atomic IndexedDB artifact cache into the verified OpenSCAD WASM loader with fresh integrity checks, offline use, and fail-closed recovery.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 M3 delivery protocol",
+    "FR-4.7 HTTP plus IndexedDB cache, progress, and offline operation",
+    "N-2 bounded resource use",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-16-m3-wasm-cache-integration.json", "status": "added" },
+    { "path": "src/platform-web/openscad-wasm-loader.ts", "status": "modified" },
+    { "path": "tests/platform-web/openscad-wasm-loader-cache.test.ts", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0257",
+      "topic": "Freshly verified all-or-nothing offline artifact pairs",
+      "decision": "Derive the cache key from the schema marker plus both exact artifact paths, decoded lengths, and SHA-256 values; accept a cached pair only after both bytes are copied, length-checked, and freshly hashed; emit cache completion only after both pass; evict only deterministic integrity failures; otherwise fetch and verify both network artifacts before one paired write.",
+      "rationale": "The cache is persistent executable storage and cannot become a trust oracle. A complete identity prevents cross-build reuse, fresh dual hashing detects storage corruption, pair-level progress avoids claiming success for discarded bytes, operational WebCrypto failures preserve the only offline copy, and cancellation is enforced before cache access and again before module execution.",
+      "specBasis": ["FR-4.7", "N-2", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "A valid pair runs offline, an invalid pair refreshes both assets, and cache availability cannot weaken a verified online load",
+      "test": "Exercise offline hits, verified paired writes, corrupt-pair eviction, offline corruption refusal, read failures, and write failures through injected cache and loader seams.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/platform-web/openscad-wasm-loader-cache.test.ts",
+        "observedAt": "2026-07-16T10:08:50-06:00",
+        "outcome": "RED: all 5 focused cache-integration tests failed because the loader did not consult, write, or evict the cache."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/platform-web/openscad-wasm-loader-cache.test.ts",
+        "observedAt": "2026-07-16T10:09:34-06:00",
+        "outcome": "GREEN: 1 focused file and all 5 initial integration tests passed in 524 ms."
+      }
+    },
+    {
+      "criterion": "Cache-hit cancellation, operational hash failures, same-length tampering, version identity, and pair-level progress survive adversarial review",
+      "test": "Add an already-aborted hit, content-sensitive digest fake and same-length tamper, WebCrypto rejection, exact production-key parse, and independent mutations of each path, length, and hash field.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/platform-web/openscad-wasm-loader-cache.test.ts",
+        "observedAt": "2026-07-16T12:02:12-06:00",
+        "outcome": "RED after independent 0/0/4/1/0 review: 4 of 9 tests failed and 5 passed, reproducing cache-hit cancellation bypass, premature partial-pair progress, destructive WebCrypto-failure eviction, and the absent exported key-derivation proof."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/platform-web/openscad-wasm-loader-cache.test.ts; pnpm.cmd exec biome check src/platform-web/openscad-wasm-loader.ts tests/platform-web/openscad-wasm-loader-cache.test.ts; pnpm.cmd typecheck",
+        "observedAt": "2026-07-16T12:02:45-06:00",
+        "outcome": "GREEN: 1 focused file and all 9 tests passed in 631 ms; focused Biome checked both files with zero diagnostics after one import-order correction; TypeScript exited 0."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

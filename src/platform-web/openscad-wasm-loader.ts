@@ -1,3 +1,7 @@
+import type {
+  OpenScadWasmArtifactCache,
+  StoredOpenScadWasmBundle,
+} from "./openscad-wasm-cache";
 import {
   createOpenScadWasmRuntime,
   type OpenScadWasmRuntime,
@@ -6,7 +10,7 @@ import {
 
 type ArtifactName = "openscad.js" | "openscad.wasm";
 
-interface OpenScadWasmArtifact {
+export interface OpenScadWasmArtifact {
   readonly path: string;
   readonly sha256: string;
   readonly bytes: number;
@@ -33,6 +37,7 @@ export interface OpenScadWasmProgress {
 
 export interface OpenScadWasmLoaderOptions {
   readonly artifactBaseUrl: string | URL;
+  readonly cache?: OpenScadWasmArtifactCache;
   readonly onProgress?: (progress: OpenScadWasmProgress) => void;
   readonly signal?: AbortSignal;
 }
@@ -59,9 +64,12 @@ export interface OpenScadWasmLoaderEnvironment {
 
 interface DownloadedAsset {
   readonly name: ArtifactName;
-  readonly url: string;
   readonly bytes: Uint8Array<ArrayBuffer>;
 }
+
+type DownloadedPair = readonly [DownloadedAsset, DownloadedAsset];
+
+class OpenScadWasmIntegrityError extends Error {}
 
 function defaultEnvironment(): OpenScadWasmLoaderEnvironment {
   return {
@@ -170,7 +178,7 @@ async function download(
       `OpenSCAD engine asset ${name} has length ${bytes.byteLength}; expected ${expectedBytes}.`,
     );
   }
-  return { name, url, bytes };
+  return { name, bytes };
 }
 
 function hex(bytes: Uint8Array): string {
@@ -186,7 +194,110 @@ async function verify(
   const actual = hex(new Uint8Array(digest));
   const expected = artifacts[artifact.name].sha256;
   if (actual !== expected) {
-    throw new Error(`OpenSCAD engine asset ${artifact.name} failed SHA-256 verification.`);
+    throw new OpenScadWasmIntegrityError(
+      `OpenSCAD engine asset ${artifact.name} failed SHA-256 verification.`,
+    );
+  }
+}
+
+export function openScadWasmArtifactCacheKey(
+  artifacts: Readonly<Record<ArtifactName, OpenScadWasmArtifact>>,
+): string {
+  return JSON.stringify([
+    "scadmill-openscad-wasm-v1",
+    artifacts["openscad.js"].path,
+    artifacts["openscad.js"].bytes,
+    artifacts["openscad.js"].sha256,
+    artifacts["openscad.wasm"].path,
+    artifacts["openscad.wasm"].bytes,
+    artifacts["openscad.wasm"].sha256,
+  ]);
+}
+
+export const OPENSCAD_WASM_CACHE_KEY = openScadWasmArtifactCacheKey(OPENSCAD_WASM_ARTIFACTS);
+
+function throwIfAborted(signal: AbortSignal | undefined): void {
+  if (!signal?.aborted) return;
+  if (signal.reason instanceof Error) throw signal.reason;
+  throw new DOMException("The OpenSCAD engine load was aborted.", "AbortError");
+}
+
+function cachedAsset(
+  name: ArtifactName,
+  bytes: Uint8Array,
+  artifacts: Readonly<Record<ArtifactName, OpenScadWasmArtifact>>,
+): DownloadedAsset {
+  if (bytes.byteLength !== artifacts[name].bytes) {
+    throw new OpenScadWasmIntegrityError(
+      `Cached OpenSCAD engine asset ${name} has an invalid length.`,
+    );
+  }
+  return { name, bytes: bytes.slice() };
+}
+
+async function verifiedCachedPair(
+  cache: OpenScadWasmArtifactCache,
+  key: string,
+  artifacts: Readonly<Record<ArtifactName, OpenScadWasmArtifact>>,
+  options: OpenScadWasmLoaderOptions,
+  environment: OpenScadWasmLoaderEnvironment,
+): Promise<DownloadedPair | null> {
+  let stored: StoredOpenScadWasmBundle | null;
+  try {
+    stored = await cache.read(key);
+  } catch {
+    return null;
+  }
+  if (stored === null) return null;
+  try {
+    throwIfAborted(options.signal);
+    if (stored.key !== key) {
+      throw new OpenScadWasmIntegrityError("Cached OpenSCAD engine identity mismatch.");
+    }
+    const javascript = cachedAsset("openscad.js", stored.javascript, artifacts);
+    const wasm = cachedAsset("openscad.wasm", stored.wasm, artifacts);
+    await Promise.all([
+      verify(javascript, environment, artifacts),
+      verify(wasm, environment, artifacts),
+    ]);
+    throwIfAborted(options.signal);
+    notify(options.onProgress, {
+      asset: "openscad.js",
+      loadedBytes: javascript.bytes.byteLength,
+      totalBytes: artifacts["openscad.js"].bytes,
+    });
+    notify(options.onProgress, {
+      asset: "openscad.wasm",
+      loadedBytes: wasm.bytes.byteLength,
+      totalBytes: artifacts["openscad.wasm"].bytes,
+    });
+    return [javascript, wasm];
+  } catch (error) {
+    if (!(error instanceof OpenScadWasmIntegrityError)) throw error;
+    try {
+      await cache.remove(key);
+    } catch {
+      // A failed eviction cannot make unverified cached bytes executable.
+    }
+    return null;
+  }
+}
+
+async function storeVerifiedPair(
+  cache: OpenScadWasmArtifactCache | undefined,
+  key: string,
+  javascript: DownloadedAsset,
+  wasm: DownloadedAsset,
+): Promise<void> {
+  if (!cache) return;
+  try {
+    await cache.write({
+      key,
+      javascript: javascript.bytes.slice(),
+      wasm: wasm.bytes.slice(),
+    });
+  } catch {
+    // Cache availability never weakens a currently verified online load.
   }
 }
 
@@ -213,19 +324,28 @@ export async function loadVerifiedOpenScadWasm(
   options: OpenScadWasmLoaderOptions,
   environment: OpenScadWasmLoaderEnvironment = defaultEnvironment(),
 ): Promise<OpenScadWasmRuntime> {
+  throwIfAborted(options.signal);
   const artifacts = Object.hasOwn(environment, "artifacts") && environment.artifacts
     ? environment.artifacts
     : OPENSCAD_WASM_ARTIFACTS;
+  const key = openScadWasmArtifactCacheKey(artifacts);
   const urls = artifactUrls(options.artifactBaseUrl, artifacts);
-  const [javascript, wasm] = await Promise.all([
+  const cached = options.cache
+    ? await verifiedCachedPair(options.cache, key, artifacts, options, environment)
+    : null;
+  const [javascript, wasm] = cached ?? await Promise.all([
     download("openscad.js", urls["openscad.js"], options, environment, artifacts),
     download("openscad.wasm", urls["openscad.wasm"], options, environment, artifacts),
   ]);
-  await Promise.all([
-    verify(javascript, environment, artifacts),
-    verify(wasm, environment, artifacts),
-  ]);
+  if (!cached) {
+    await Promise.all([
+      verify(javascript, environment, artifacts),
+      verify(wasm, environment, artifacts),
+    ]);
+    await storeVerifiedPair(options.cache, key, javascript, wasm);
+  }
 
+  throwIfAborted(options.signal);
   const namespace = await importVerifiedJavascript(javascript.bytes, environment);
   const wasmObjectUrl = environment.createObjectUrl(
     new Blob([wasm.bytes], { type: "application/wasm" }),
