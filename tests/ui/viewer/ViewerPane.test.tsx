@@ -10,6 +10,7 @@ import { ViewerPane } from "../../../src/ui/viewer/ViewerPane";
 import type { ViewerDegradation } from "../../../src/ui/viewer/viewer-furniture";
 
 let reportViewerDegradation: ((degradation: ViewerDegradation) => void) | undefined;
+const capturePng = vi.fn(async () => new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]));
 
 vi.mock("../../../src/ui/viewer/ModelViewer", () => ({
   ModelViewer: forwardRef(({ dimmed, emptyMessage, onDegradationChange, onPointPick }: {
@@ -20,7 +21,7 @@ vi.mock("../../../src/ui/viewer/ModelViewer", () => ({
   }, ref) => {
     reportViewerDegradation = onDegradationChange;
     useImperativeHandle(ref, () => ({
-      capturePng: async () => new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]),
+      capturePng,
     }));
     return (
       <button
@@ -522,6 +523,27 @@ describe("ViewerPane result routing", () => {
       new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]),
     ));
     expect(view.getByText(/scene-only png captured/i)).toBeVisible();
+  });
+
+  it("registers a requested-size screenshot capture seam for the desktop MCP adapter", async () => {
+    let capture: ((width: number, height: number) => Promise<Uint8Array>) | undefined;
+    render(
+      <ViewerPane
+        colors={colors}
+        maximized={false}
+        narrow={false}
+        renderStatus="success"
+        result={threeD}
+        viewer={{ camera: { position: [0, 0, 10], target: [0, 0, 0], up: [0, 1, 0], zoom: 1, projection: "perspective" }, mode: "auto", furniture: { grid: true, axes: true, edges: false, shadow: false }, measurements: [], annotations: [] }}
+        onLayoutAction={vi.fn()}
+        onMcpScreenshotCaptureAvailable={(next) => { capture = next; }}
+      />,
+    );
+
+    await waitFor(() => expect(capture).toBeDefined());
+    if (!capture) throw new Error("Expected the MCP capture seam.");
+    await expect(capture(640, 480)).resolves.toEqual(new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]));
+    expect(capturePng).toHaveBeenLastCalledWith(640, 480);
   });
 
   it("routes viewer-scoped Appendix D camera shortcuts while the viewer is focused", () => {

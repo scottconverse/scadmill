@@ -19,6 +19,7 @@ import type { McpPendingReview } from "./mcp-review-queue";
 export interface WorkbenchMcpHandlerOptions {
   readonly runtime: WorkbenchRuntime;
   readonly engine?: EngineService;
+  readonly captureScreenshot?: (width: number, height: number) => Promise<Uint8Array>;
   readonly reviewId?: () => string;
   readonly onPendingReview?: (review: McpPendingReview) => void;
 }
@@ -26,6 +27,20 @@ export interface WorkbenchMcpHandlerOptions {
 function defaultReviewId(): string {
   return globalThis.crypto?.randomUUID?.()
     ?? `review-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function screenshotDimension(value: unknown, fallback: number, label: string): number {
+  if (value === undefined) return fallback;
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    throw new Error(`${label} must be a positive finite number.`);
+  }
+  return Math.floor(value);
+}
+
+function pngBase64(bytes: Uint8Array): string {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return globalThis.btoa(binary);
 }
 
 interface TargetDocument {
@@ -108,7 +123,7 @@ function extension(format: ExportFormat): string {
   return format === "stl-binary" || format === "stl-ascii" ? "stl" : format;
 }
 
-export function createWorkbenchMcpHandler({ runtime, engine, reviewId = defaultReviewId, onPendingReview }: WorkbenchMcpHandlerOptions): McpToolHandler {
+export function createWorkbenchMcpHandler({ runtime, engine, captureScreenshot, reviewId = defaultReviewId, onPendingReview }: WorkbenchMcpHandlerOptions): McpToolHandler {
   let lastPreview = new Map<string, PreviewRecord>();
 
   const documents = () => runtime.documents.getState().documents;
@@ -217,8 +232,13 @@ export function createWorkbenchMcpHandler({ runtime, engine, reviewId = defaultR
           onPendingReview?.({ commandId, tool: "set_parameters", arguments: { ...args }, createdAt: new Date().toISOString() });
           return { status: "pending_review", commandId, unknownNames };
         }
-        case "take_screenshot":
-          throw new Error("Viewport screenshots require the desktop renderer and are unavailable through the web handler.");
+        case "take_screenshot": {
+          if (!captureScreenshot) throw new Error("Viewport screenshots are unavailable in this session.");
+          const width = screenshotDimension(args.width, 1024, "Screenshot width");
+          const height = screenshotDimension(args.height, 768, "Screenshot height");
+          const bytes = await captureScreenshot(width, height);
+          return { mimeType: "image/png", data: pngBase64(bytes) };
+        }
         case "get_history": {
           const limit = finiteLimit(args.limit, 50, 200);
           return { entries: runtime.history.getState().slice(0, limit) };

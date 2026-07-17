@@ -24,6 +24,7 @@ import { messages } from "../../messages/en";
 import type { ModelViewerHandle } from "./ModelViewer";
 import { RenderProgressOverlay } from "./RenderProgressOverlay";
 import { useViewerThumbnail } from "./use-viewer-thumbnail";
+import { useMcpScreenshotCapture } from "./use-mcp-screenshot-capture";
 import { ViewerDetailsPanel } from "./ViewerDetailsPanel";
 import { type ViewerTool, ViewerToolbar } from "./ViewerToolbar";
 import { boundsLabel } from "./viewer-bounds-label";
@@ -77,6 +78,7 @@ export interface ViewerPaneProps {
   readonly onLayoutAction: (action: WorkspaceLayoutAction) => void;
   readonly onModeChange?: (mode: ViewerMode) => void;
   readonly onScreenshot?: (bytes: Uint8Array) => void | Promise<void>;
+  readonly onMcpScreenshotCaptureAvailable?: (capture: ((width: number, height: number) => Promise<Uint8Array>) | undefined) => void;
   readonly onThumbnail?: (bytes: Uint8Array) => void | Promise<void>;
   readonly onShowConsole?: () => void;
   readonly onViewerAction?: (action: ViewerAction) => void;
@@ -109,6 +111,7 @@ export function ViewerPane({
   onLayoutAction,
   onModeChange,
   onScreenshot,
+  onMcpScreenshotCaptureAvailable,
   onThumbnail,
   onShowConsole,
   onViewerAction,
@@ -207,6 +210,7 @@ export function ViewerPane({
       setNotice(messages.screenshotFailed);
     }
   }, [onScreenshot]);
+  useMcpScreenshotCapture(modelViewer, visibleKind, onMcpScreenshotCaptureAvailable);
   const updateDegradation = (next: ViewerDegradation) => {
     setDegradation((current) => current.edges === next.edges && current.shadow === next.shadow
       ? current

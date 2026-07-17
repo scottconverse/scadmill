@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-mcp-viewport-screenshot",
+  "createdAt": "2026-07-17T07:01:05-06:00",
+  "summary": "Complete the MCP take_screenshot route with a current 3D viewport capture at the requested dimensions and a normative base64 PNG response.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "C11", "FR-11.4", "Appendix B", "N-2", "N-7"],
+  "filesTouched": [
+    { "path": "src/application/mcp/workbench-mcp-handler.ts", "status": "modified" },
+    { "path": "src/ui/mcp/use-mcp-stdio.ts", "status": "modified" },
+    { "path": "src/ui/mcp/use-mcp-viewport-capture.ts", "status": "added" },
+    { "path": "src/ui/viewer/model-viewer-runtime.ts", "status": "modified" },
+    { "path": "src/ui/viewer/ModelViewer.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/ViewerPane.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/ViewerPaneConnector.tsx", "status": "modified" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-17-m4-mcp-viewport-screenshot.json", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0366", "topic": "MCP screenshot source", "decision": "Capture only the current Three.js 3D scene canvas through the existing viewer seam, resize it for the requested dimensions, restore the interactive canvas immediately afterward, and return its PNG bytes as base64.", "rationale": "This reuses the established scene-only screenshot boundary while honoring Appendix B dimensions. DOM overlay rasterization remains governed by Q-0026 and is not implied by this result.", "specBasis": ["FR-11.4", "Appendix B", "Q-0026", "N-2", "N-7"] }
+  ],
+  "testEvidence": [
+    { "criterion": "MCP screenshot calls pass requested dimensions to the live viewer seam and return the normative PNG response without leaving the interactive renderer resized.", "test": "Write the handler and viewer seam assertions first; run the focused handler, stdio, viewer-pane, and resize/restore tests once, then lint/build and one aggregate suite once.", "red": { "command": "pnpm.cmd exec vitest run tests/application/mcp/workbench-mcp-handler.test.ts --reporter=dot", "observedAt": "2026-07-17T06:56:18-06:00", "outcome": "RED: take_screenshot correctly reported the prior unavailable placeholder before the capture dependency was implemented." }, "green": { "command": "pnpm.cmd exec vitest run tests/application/mcp/workbench-mcp-handler.test.ts tests/ui/mcp/use-mcp-stdio.test.tsx tests/ui/viewer/ViewerPane.test.tsx tests/ui/viewer/model-viewer-runtime-thumbnail.test.ts --reporter=dot; pnpm.cmd lint; pnpm.cmd build; pnpm.cmd test -- --reporter=dot", "observedAt": "2026-07-17T07:01:46-06:00", "outcome": "GREEN: focused coverage passed 4 files and 26 tests; lint/source policy and production build passed (250 modules); the one aggregate passed 176 files and 1279 tests in 20.64 seconds." } }
+  ],
+  "nearMisses": [
+    { "url": "local://src/ui/viewer/model-viewer-runtime.ts", "sought": "Requested-size rendering without permanently changing the interactive viewer", "confirmation": "The capture helper stores the current dimensions, renders/encodes at the requested size, then restores dimensions and renders the interactive scene before returning or propagating an encoding failure." }
+  ],
+  "questions": ["Q-0026 remains open for DOM-overlay composition. Real desktop subprocess walkthrough and hosted AC-11.b/c evidence remain pending."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

@@ -12,6 +12,7 @@ export function useMcpStdio(
   runtime: WorkbenchRuntime,
   engine: EngineService | undefined,
   mcpPort: McpServerPort | undefined,
+  captureScreenshot?: (width: number, height: number) => Promise<Uint8Array>,
 ) {
   const [enabled, setEnabled] = useState(false);
   const [, setReviewVersion] = useState(0);
@@ -31,12 +32,12 @@ export function useMcpStdio(
     return review;
   }, [reviewQueue]);
   const controller = useMemo(() => mcpPort ? createMcpStdioController({
-    handler: createWorkbenchMcpHandler({ engine, runtime, onPendingReview: enqueueReview }),
+    handler: createWorkbenchMcpHandler({ engine, runtime, captureScreenshot, onPendingReview: enqueueReview }),
     // The handler, rather than the transport, is the mutation gate: it always queues
     // write_file and set_parameters for explicit in-app review.
     permissions: { ...DEFAULT_MCP_PERMISSIONS, write_file: "allow-session", set_parameters: "allow-session" },
     onResponse: (line) => { void mcpPort.writeResponse(line).catch(() => undefined); },
-  }) : undefined, [engine, enqueueReview, mcpPort, runtime]);
+  }) : undefined, [captureScreenshot, engine, enqueueReview, mcpPort, runtime]);
   useEffect(() => {
     if (!mcpPort || !controller) return;
     let disposed = false;

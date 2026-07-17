@@ -144,6 +144,20 @@ export function canvasPng(canvas: HTMLCanvasElement): Promise<Uint8Array> {
   return Promise.resolve(Uint8Array.from(binary, (character) => character.charCodeAt(0)));
 }
 
+export async function captureViewportPng(
+  viewer: ViewerResources,
+  canvas: HTMLCanvasElement,
+  width?: number,
+  height?: number,
+): Promise<Uint8Array> {
+  if (width !== undefined || height !== undefined) {
+    if (width === undefined || height === undefined) throw new Error("Screenshot dimensions must be paired.");
+    return sizedPng(viewer, canvas, width, height);
+  }
+  viewer.renderer.render(viewer.scene, viewer.camera);
+  return canvasPng(canvas);
+}
+
 export async function thumbnailPng(
   viewer: ViewerResources,
   canvas: HTMLCanvasElement,
@@ -156,6 +170,29 @@ export async function thumbnailPng(
     return await canvasPng(canvas);
   } finally {
     viewer.renderer.setSize(previousWidth, previousHeight, false);
+    viewer.renderer.render(viewer.scene, viewer.camera);
+  }
+}
+
+export async function sizedPng(
+  viewer: ViewerResources,
+  canvas: HTMLCanvasElement,
+  width: number,
+  height: number,
+): Promise<Uint8Array> {
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0) {
+    throw new Error("Screenshot dimensions must be positive integers.");
+  }
+  const previousWidth = viewer.width;
+  const previousHeight = viewer.height;
+  viewer.renderer.setSize(width, height, false);
+  updateProjection(viewer.camera, viewer.controls.target, width, height);
+  try {
+    viewer.renderer.render(viewer.scene, viewer.camera);
+    return await canvasPng(canvas);
+  } finally {
+    viewer.renderer.setSize(previousWidth, previousHeight, false);
+    updateProjection(viewer.camera, viewer.controls.target, previousWidth, previousHeight);
     viewer.renderer.render(viewer.scene, viewer.camera);
   }
 }

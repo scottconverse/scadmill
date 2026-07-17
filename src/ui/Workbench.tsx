@@ -18,7 +18,7 @@ import { ProjectSessionHost } from "./files/ProjectSessionHost";
 import { useFileCommands } from "./files/use-file-commands";
 import { useProjectOpenQueue } from "./files/use-project-open-queue";
 import { useLayoutKeybindings, useNarrowLayout, useNativeMenuState, usePlatformMenuCommands, WebMenuBar, WorkbenchStatusBar, WorkspaceFrame } from "./layout";
-import { McpReviewPanel, useMcpReviewApproval, useMcpStdio } from "./mcp";
+import { McpReviewPanel, useMcpReviewApproval, useMcpStdio, useMcpViewportCapture } from "./mcp";
 import { ParameterPanelConnector } from "./parameters/ParameterPanelConnector";
 import { RenderControls } from "./render/RenderControls";
 import { useWorkbenchRenderCommands } from "./render/use-workbench-render-commands";
@@ -64,8 +64,8 @@ export function Workbench({
   const parameterState = useReadonlyStore(runtime.parameters, (state) => state);
   const currentParameters = parameterDocument(parameterState, document.id);
   const aiPersistence = useMemo(() => createLocalConversationPersistence(document.id), [document.id]);
-  const [viewerScreenshotDataUrl, setViewerScreenshotDataUrl] = useState<string>();
-  const { enabled: mcpEnabled, setEnabled: setMcpEnabled, pendingReviews, approveReview, dismissReview } = useMcpStdio(runtime, engine, mcpPort);
+  const [viewerScreenshotDataUrl, setViewerScreenshotDataUrl] = useState<string>(); const { capture: captureMcpScreenshot, setCapture: setMcpScreenshotCapture } = useMcpViewportCapture();
+  const { enabled: mcpEnabled, setEnabled: setMcpEnabled, pendingReviews, approveReview, dismissReview } = useMcpStdio(runtime, engine, mcpPort, captureMcpScreenshot);
   useEffect(() => { if (document.id) setViewerScreenshotDataUrl(undefined); }, [document.id]);
   const projectState = useReadonlyStore(runtime.project, (state) => state);
   const history = useReadonlyStore(runtime.history, (state) => state);
@@ -301,7 +301,7 @@ export function Workbench({
       renderStartedAtMs={presentation.status === "rendering" ? render.startedAtMs : undefined}
       renderStatus={presentation.status} result={presentation.result} runtime={runtime}
       viewer={activeViewer} onLayoutAction={dispatchLayout} onShowConsole={focusConsole}
-      onScreenshotCaptured={(bytes) => setViewerScreenshotDataUrl(pngDataUrl(bytes))}
+      onScreenshotCaptured={(bytes) => setViewerScreenshotDataUrl(pngDataUrl(bytes))} onMcpScreenshotCaptureAvailable={setMcpScreenshotCapture}
     />
   );
   return (

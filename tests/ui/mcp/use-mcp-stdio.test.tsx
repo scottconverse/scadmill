@@ -51,4 +51,23 @@ describe("useMcpStdio", () => {
     expect(view.result.current.pendingReviews).toHaveLength(0);
     runtime.dispose();
   });
+
+  it("routes a live viewport capture through stdio as the normative base64 PNG response", async () => {
+    let receive: ((chunk: string) => void) | undefined;
+    const port: McpServerPort = {
+      setEnabled: vi.fn().mockResolvedValue(undefined),
+      subscribeRequests: vi.fn().mockImplementation(async (listener) => { receive = listener; return () => undefined; }),
+      writeResponse: vi.fn().mockResolvedValue(undefined),
+    };
+    const runtime = createWorkbenchRuntime({} as EngineService, { initialScratchSource: "cube(1);" });
+    const capture = vi.fn().mockResolvedValue(Uint8Array.of(137, 80, 78, 71, 13, 10, 26, 10));
+    const view = renderHook(() => useMcpStdio(runtime, undefined, port, capture));
+    act(() => view.result.current.setEnabled(true));
+    await waitFor(() => expect(receive).toBeDefined());
+    receive?.('{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"take_screenshot","arguments":{"width":640,"height":480}}}\n');
+
+    await waitFor(() => expect(port.writeResponse).toHaveBeenLastCalledWith(expect.stringContaining("iVBORw0KGgo=")));
+    expect(capture).toHaveBeenCalledWith(640, 480);
+    runtime.dispose();
+  });
 });

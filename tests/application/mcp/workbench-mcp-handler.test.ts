@@ -51,4 +51,17 @@ describe("workbench MCP handler", () => {
     expect(destination.save).toHaveBeenCalledOnce();
     runtime.dispose();
   });
+
+  it("returns a requested-size viewport PNG through the MCP screenshot contract", async () => {
+    const runtime = createWorkbenchRuntime(engine(), { initialScratchSource: "cube(1);" });
+    const captureScreenshot = vi.fn().mockResolvedValue(Uint8Array.of(137, 80, 78, 71, 13, 10, 26, 10));
+    const handler = createWorkbenchMcpHandler({ runtime, captureScreenshot });
+
+    await expect(handler.call("take_screenshot", { width: 640, height: 480 })).resolves.toEqual({
+      mimeType: "image/png",
+      data: "iVBORw0KGgo=",
+    });
+    expect(captureScreenshot).toHaveBeenCalledWith(640, 480);
+    runtime.dispose();
+  });
 });

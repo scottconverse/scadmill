@@ -32,7 +32,7 @@ import { messages } from "../../messages/en";
 import { DEFAULT_CAMERA, DEFAULT_FURNITURE, DEFAULT_MESH_PARSER, DEFAULT_MOUSE_MAPPING, type ModelMeshParser } from "./model-viewer-defaults";
 import { ModelViewerOverlays, type SpatialOverlays } from "./model-viewer-overlays";
 import {
-  canvasPng,
+  captureViewportPng,
   configureMouse,
   controlsCameraState,
   type MouseButton,
@@ -48,7 +48,7 @@ import {
 import type { ViewerTool } from "./ViewerToolbar";
 import { rebuildFurniture, type ViewerDegradation } from "./viewer-furniture";
 import { applyViewerTheme, type ViewerThemeColors } from "./viewer-theme";
-export interface ModelViewerHandle { capturePng(): Promise<Uint8Array>; captureThumbnailPng(): Promise<Uint8Array>; }
+export interface ModelViewerHandle { capturePng(width?: number, height?: number): Promise<Uint8Array>; captureThumbnailPng(): Promise<Uint8Array>; }
 export type { ModelMeshParser } from "./model-viewer-defaults";
 export interface ModelViewerProps {
   readonly result?: RenderSuccess3D;
@@ -344,12 +344,11 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
   }, [overlayKey]);
 
   useImperativeHandle(forwardedRef, () => ({
-    async capturePng() {
+    async capturePng(width, height) {
       const viewer = resources.current;
       const element = canvas.current;
       if (!viewer || !element) throw new Error(messages.modelViewportUnavailable);
-      viewer.renderer.render(viewer.scene, viewer.camera);
-      return canvasPng(element);
+      return captureViewportPng(viewer, element, width, height);
     },
     async captureThumbnailPng() {
       const viewer = resources.current;

@@ -36,6 +36,7 @@ export interface ViewerPaneConnectorProps {
   readonly onLayoutAction: (action: WorkspaceLayoutAction) => void;
   readonly onShowConsole: () => void;
   readonly onScreenshotCaptured?: (bytes: Uint8Array) => void;
+  readonly onMcpScreenshotCaptureAvailable?: (capture: ((width: number, height: number) => Promise<Uint8Array>) | undefined) => void;
 }
 
 export function ViewerPaneConnector({
@@ -58,6 +59,7 @@ export function ViewerPaneConnector({
   onLayoutAction,
   onShowConsole,
   onScreenshotCaptured,
+  onMcpScreenshotCaptureAvailable,
 }: ViewerPaneConnectorProps) {
   const preferences = useReadonlyStore(runtime.settings, (state) => state.profile.viewer);
   const profile = useReadonlyStore(runtime.settings, (state) => state.profile);
@@ -167,6 +169,7 @@ export function ViewerPaneConnector({
             }).then(() => undefined);
           }
         : undefined}
+      onMcpScreenshotCaptureAvailable={onMcpScreenshotCaptureAvailable}
       onThumbnail={runtime.renderThumbnails
         ? (bytes) => {
             const result = viewer.presentation?.result;

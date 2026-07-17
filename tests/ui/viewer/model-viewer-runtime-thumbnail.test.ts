@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from "vitest";
 
-import { thumbnailPng, type ViewerResources } from "../../../src/ui/viewer/model-viewer-runtime";
+import { sizedPng, thumbnailPng, type ViewerResources } from "../../../src/ui/viewer/model-viewer-runtime";
 
 function resources(events: string[]): ViewerResources {
   return {
@@ -10,8 +10,8 @@ function resources(events: string[]): ViewerResources {
       render: vi.fn(() => events.push("render")),
     } as never,
     scene: {} as never,
-    camera: {} as never,
-    controls: {} as never,
+    camera: { position: { distanceTo: () => 1 }, updateProjectionMatrix: vi.fn() } as never,
+    controls: { target: {} } as never,
     keyLight: {} as never,
     frame: null,
     width: 640,
@@ -38,5 +38,16 @@ describe("thumbnailPng", () => {
     canvas.toBlob = (callback) => { events.push("encode"); callback(null); };
     await expect(thumbnailPng(resources(events), canvas)).rejects.toThrow();
     expect(events).toEqual(["size:240x160", "render", "encode", "size:640x480", "render"]);
+  });
+});
+
+describe("sizedPng", () => {
+  it("renders at the requested MCP viewport size and restores the interactive viewport", async () => {
+    const events: string[] = [];
+    const canvas = document.createElement("canvas");
+    canvas.toBlob = (callback) => { events.push("encode"); callback(new Blob([new Uint8Array([1, 2, 3])])); };
+
+    await expect(sizedPng(resources(events), canvas, 640, 360)).resolves.toEqual(new Uint8Array([1, 2, 3]));
+    expect(events).toEqual(["size:640x360", "render", "encode", "size:640x480", "render"]);
   });
 });
