@@ -619,6 +619,8 @@ export const messages = {
   aiReady: "AI provider configured. Start a conversation when you are ready.",
   aiMessageLabel: "Message",
   aiSend: "Send",
+  aiCopy: "Copy",
+  aiInsertAtCursor: "Insert at cursor",
   aiRequestFailed: "The AI request failed.",
   applyEdit: "Apply edit",
   aiContextLegend: "Send context",

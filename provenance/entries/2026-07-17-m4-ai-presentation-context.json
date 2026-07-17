@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-ai-presentation-context",
+  "createdAt": "2026-07-17T04:14:00-06:00",
+  "summary": "Complete the bounded C10 presentation/context slice: fixed OpenSCAD system prompt, configured model label, assistant/proposal copy actions, insert-at-cursor dispatch, and live diagnostics/parameter context wiring.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "FR-10.2", "FR-10.3", "FR-10.4", "N-7 evidence and status honesty"],
+  "filesTouched": [
+    { "path": "src/application/ai/ai-provider.ts", "status": "modified" },
+    { "path": "src/ui/ai/AiConversationPanel.tsx", "status": "modified" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "tests/ui/ai/AiConversationPanel.test.tsx", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-17-m4-ai-presentation-context.json", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0342", "topic": "Fixed AI system prompt", "decision": "Prepend every configured conversation request with one app-owned OpenSCAD system instruction; context toggles remain separate system content so user source cannot replace the fixed instruction.", "rationale": "FR-10.2 requires a per-conversation app-fixed prompt that instructs the model to produce OpenSCAD.", "specBasis": ["FR-10.2", "N-7"] },
+    { "id": "D-0343", "topic": "AI presentation actions", "decision": "Expose copy for assistant prose and code, and insert-at-cursor for extracted code; insertion dispatches one ai-panel edit command using the active CodeMirror selection when available.", "rationale": "FR-10.4 requires copy and insert-at-cursor alongside the already reviewable apply-as-edit flow; the runtime command bus remains the single mutation boundary.", "specBasis": ["FR-10.4", "FR-11.1"] },
+    { "id": "D-0344", "topic": "Live context wiring", "decision": "Send the active render diagnostics and extracted parameter defaults from Workbench to the AI context toggles; screenshot capture remains pending until a viewer-owned capture port is connected.", "rationale": "This closes the available source/diagnostics/parameters context without inventing a second viewer capture owner.", "specBasis": ["FR-10.3", "N-7"] }
+  ],
+  "testEvidence": [
+    { "criterion": "The AI panel sends the fixed prompt and exposes copy/insert actions while preserving existing diff review.", "test": "Run the focused AI application/UI tests once after implementation.", "red": { "command": "pnpm.cmd exec vitest run tests/ui/ai/AiConversationPanel.test.tsx tests/application/ai tests/ui/ai", "observedAt": "2026-07-17T04:13:36-06:00", "outcome": "RED: the initial new assertion expected code without the extractor's preserved trailing newline; the product behavior was correct and the expectation was corrected to assert the code content." }, "green": { "command": "pnpm.cmd exec vitest run tests/ui/ai/AiConversationPanel.test.tsx tests/application/ai tests/ui/ai", "observedAt": "2026-07-17T04:13:47-06:00", "outcome": "GREEN: 8 files and 22 tests passed." } }
+  ],
+  "nearMisses": [],
+  "questions": ["C10 agent tool rounds, conversation hydration/deletion, viewer screenshot context, and hosted AC-10.c/d evidence remain pending."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-mcp-appendix-b-schemas",
+  "createdAt": "2026-07-17T04:09:40-06:00",
+  "summary": "Replace placeholder MCP metadata with the normative Appendix B descriptions and input schemas, and reject missing or unknown arguments at the validation boundary.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "Appendix B", "C11", "FR-11.4", "N-7 evidence and status honesty"],
+  "filesTouched": [
+    { "path": "src/application/mcp/mcp-tools.ts", "status": "modified" },
+    { "path": "tests/application/mcp/mcp-tools.test.ts", "status": "modified" },
+    { "path": "provenance/entries/2026-07-17-m4-mcp-appendix-b-schemas.json", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0340", "topic": "Normative MCP schema publication", "decision": "Publish each Appendix B description and closed input schema through tools/list, while retaining open nested parameter/value objects exactly where the specification permits them.", "rationale": "Generic placeholder metadata could mislead external agents and could not communicate required fields or the export allow-list; the normative schema is the authoritative contract.", "specBasis": ["Appendix B", "FR-11.4", "N-7"] },
+    { "id": "D-0341", "topic": "MCP argument validation", "decision": "Reject missing required fields, unknown top-level arguments, invalid path shapes, non-object parameter values, non-boolean createIfMissing, and non-finite numeric dimensions before dispatch.", "rationale": "Validation must fail closed at the protocol boundary so handlers never receive ambiguous or out-of-contract requests.", "specBasis": ["Appendix B", "FR-11.4", "N-7"] }
+  ],
+  "testEvidence": [
+    { "criterion": "Appendix B MCP contracts and validation remain correct.", "test": "Run focused MCP tool, dispatcher, and stdio tests once; run lint and provenance validation once.", "red": { "command": "pnpm.cmd exec vitest run tests/application/mcp/mcp-tools.test.ts tests/application/mcp/mcp-dispatcher.test.ts tests/application/mcp/mcp-stdio.test.ts", "observedAt": "2026-07-17T04:08:50-06:00", "outcome": "RED: no pre-change red test was required for metadata-only contract completion; the new assertions were written against the normative contract before implementation." }, "green": { "command": "pnpm.cmd exec vitest run tests/application/mcp/mcp-tools.test.ts tests/application/mcp/mcp-dispatcher.test.ts tests/application/mcp/mcp-stdio.test.ts; pnpm.cmd lint; pnpm.cmd check:provenance", "observedAt": "2026-07-17T04:09:15-06:00", "outcome": "GREEN: 3 files and 8 tests passed; lint and source policy passed; provenance ledger passed validation." } }
+  ],
+  "nearMisses": [],
+  "questions": ["Desktop stdio lifecycle, Appendix B response handlers, permission UI, and AC-11.b/c remain pending."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

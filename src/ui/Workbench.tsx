@@ -63,6 +63,7 @@ export function Workbench({
   const layout = useReadonlyStore(runtime.layout, (state) => state);
   const viewerState = useReadonlyStore(runtime.viewer, (state) => state);
   const parameterState = useReadonlyStore(runtime.parameters, (state) => state);
+  const currentParameters = parameterDocument(parameterState, document.id);
   const projectState = useReadonlyStore(runtime.project, (state) => state);
   const editorProjectCompletion = useProjectCompletionContext(projectState, documents);
   const narrow = useNarrowLayout(undefined, forceNarrowLayout);
@@ -74,6 +75,8 @@ export function Workbench({
     render,
     viewer: activeViewer,
   });
+  const aiDiagnostics = (presentation.currentResult?.diagnostics ?? []).map((diagnostic) => `${diagnostic.severity}: ${diagnostic.message}`);
+  const aiParameters = currentParameters.parameters.map((parameter) => `${parameter.name} = ${String(parameter.defaultValue)}`);
   const diagnosticNavigation = useDiagnosticNavigation({
     diagnostics: presentation.currentResult?.diagnostics,
     entryFile: render.entryFile,
@@ -362,27 +365,14 @@ export function Workbench({
         />
       </WorkbenchBanners>
       <WorkspaceFrame aiConfigured={profile.ai.provider !== "none"} activityContent={{
-          ai: <AiConversationPanel configured={profile.ai.provider !== "none"} contextInputs={{ source: document.source, diagnostics: [], parameters: [] }} currentSource={document.source} documentId={document.id} onApplyEdit={aiBridge.applyEdit} requestStream={profile.ai.provider === "none" ? undefined : aiBridge.requestStream} />,
-          files: (
-            <FilesActivity
-              canReveal={canRevealProjectFiles} canTrash={canTrashProjectFiles}
-              directoryPicker={directoryPicker}
-              engine={engineAvailable ? engine : undefined}
-              portability={projectPortability}
-              recoveryPersistence={recoveryPersistence}
-              projectTransitionsBlocked={recoveryPending}
-              requestedExport={fileCommands.requestedExport}
-              requestedNewFile={fileCommands.requestedNewFile}
-              runtime={runtime}
-              storage={projectStorage} workspaceDirectory={workspaceDirectory}
-            />
-          ),
+          ai: <AiConversationPanel configured={profile.ai.provider !== "none"} contextInputs={{ source: document.source, diagnostics: aiDiagnostics, parameters: aiParameters }} currentSource={document.source} documentId={document.id} model={profile.ai.model} onApplyEdit={aiBridge.applyEdit} onCopy={clipboard?.writeText} onInsertAtCursor={(code) => { const session = editorSessions.current.get(document.id); const head = session?.state.selection.main.head ?? document.source.length; const offset = Math.max(0, Math.min(document.source.length, head)); void runtime.dispatch({ kind: "edit-document", origin: "ai-panel", documentId: document.id, source: `${document.source.slice(0, offset)}${code}${document.source.slice(offset)}` }).catch(() => undefined); }} requestStream={profile.ai.provider === "none" ? undefined : aiBridge.requestStream} />,
+          files: <FilesActivity canReveal={canRevealProjectFiles} canTrash={canTrashProjectFiles} directoryPicker={directoryPicker} engine={engineAvailable ? engine : undefined} portability={projectPortability} recoveryPersistence={recoveryPersistence} projectTransitionsBlocked={recoveryPending} requestedExport={fileCommands.requestedExport} requestedNewFile={fileCommands.requestedNewFile} runtime={runtime} storage={projectStorage} workspaceDirectory={workspaceDirectory} />,
         }}
         layout={layout}
         narrow={narrow}
         consoleContent={consoleContent} editor={editor}
         parameterContent={<ParameterPanelConnector documentId={document.id} runtime={runtime}
-          state={parameterDocument(parameterState, document.id)} />}
+          state={currentParameters} />}
         viewer={viewer}
         onLayoutAction={dispatchLayout}
       />

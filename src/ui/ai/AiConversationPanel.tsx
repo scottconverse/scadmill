@@ -1,6 +1,6 @@
 import { type FormEvent, useReducer, useRef, useState } from "react";
 import { type AiContextInputs, type AiContextToggles, buildAiContextMessage, DEFAULT_AI_CONTEXT_TOGGLES } from "../../application/ai/ai-context";
-import type { AiMessage } from "../../application/ai/ai-provider";
+import { DEFAULT_AI_SYSTEM_PROMPT, type AiMessage } from "../../application/ai/ai-provider";
 import type { ProposedEdit } from "../../application/ai/conversation";
 import { conversationReducer, createConversationState, extractCodeBlocks } from "../../application/ai/conversation";
 import { messages } from "../../messages/en";
@@ -14,9 +14,12 @@ export interface AiConversationPanelProps {
   readonly documentId: string;
   readonly requestStream?: (messages: readonly AiMessage[], signal: AbortSignal) => AsyncIterable<string>;
   readonly onApplyEdit?: (proposal: ProposedEdit) => void;
+  readonly onCopy?: (text: string) => Promise<void>;
+  readonly onInsertAtCursor?: (text: string) => void;
+  readonly model?: string;
 }
 
-export function AiConversationPanel({ configured, contextInputs, currentSource, documentId, requestStream, onApplyEdit }: AiConversationPanelProps) {
+export function AiConversationPanel({ configured, contextInputs, currentSource, documentId, requestStream, onApplyEdit, onCopy, onInsertAtCursor, model }: AiConversationPanelProps) {
   const [state, dispatch] = useReducer(conversationReducer, undefined, createConversationState);
   const [input, setInput] = useState("");
   const [error, setError] = useState<string>();
@@ -39,7 +42,7 @@ export function AiConversationPanel({ configured, contextInputs, currentSource, 
     let reply = "";
     try {
       const context = contextInputs ? buildAiContextMessage(contextInputs, contextToggles) : "";
-      const requestMessages: AiMessage[] = [...state.messages.filter(({ role }) => role !== "system").map(({ role, content }) => ({ role, content })), ...(context ? [{ role: "system" as const, content: context }] : []), userMessage];
+      const requestMessages: AiMessage[] = [{ role: "system", content: DEFAULT_AI_SYSTEM_PROMPT }, ...state.messages.filter(({ role }) => role !== "system").map(({ role, content: messageContent }) => ({ role, content: messageContent })), ...(context ? [{ role: "system" as const, content: context }] : []), userMessage];
       for await (const chunk of requestStream(requestMessages, controller.signal)) {
         reply += chunk;
         dispatch({ kind: "assistant-delta", requestId, content: chunk });
@@ -58,7 +61,7 @@ export function AiConversationPanel({ configured, contextInputs, currentSource, 
   return (
     <section aria-label={messages.activityAi} className="ai-conversation">
       <div aria-live="polite" className="ai-conversation-messages">
-        {state.messages.map((message) => <div data-role={message.role} key={message.id}>{message.role === "assistant" ? <AiMarkdown content={message.content} /> : <p>{message.content}</p>}{message.streaming ? " …" : ""}</div>)}
+        {state.messages.map((message) => <div data-role={message.role} key={message.id}>{message.role === "assistant" ? <AiMarkdown content={message.content} /> : <p>{message.content}</p>}{message.streaming ? " …" : ""}{message.role === "assistant" && !message.streaming && <button onClick={() => void onCopy?.(message.content)} type="button">{messages.aiCopy}</button>}</div>)}
       </div>
       {error && <p role="alert">{error}</p>}
       {state.proposals.map((proposal) => (
@@ -71,10 +74,12 @@ export function AiConversationPanel({ configured, contextInputs, currentSource, 
               onApplyEdit?.({ ...proposal, code: source });
             }}
           /> : <pre><code>{proposal.code}</code></pre>}
+          <div className="ai-proposal-actions"><button onClick={() => void onCopy?.(proposal.code)} type="button">{messages.aiCopy}</button><button onClick={() => onInsertAtCursor?.(proposal.code)} type="button">{messages.aiInsertAtCursor}</button></div>
           {proposal.status !== "pending" && <span>{proposal.status}</span>}
         </div>
       ))}
       <form onSubmit={(event) => void submit(event)}>
+        {model && <p><span>{messages.aiModel}: </span>{model}</p>}
         {contextInputs && <fieldset className="ai-context-toggles"><legend>{messages.aiContextLegend}</legend>
           <label><input checked={contextToggles.source} onChange={(event) => setContextToggles((current) => ({ ...current, source: event.currentTarget.checked }))} type="checkbox" />{messages.aiContextSource}</label>
           <label><input checked={contextToggles.diagnostics} onChange={(event) => setContextToggles((current) => ({ ...current, diagnostics: event.currentTarget.checked }))} type="checkbox" />{messages.aiContextDiagnostics}</label>
