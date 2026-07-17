@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-mcp-stdio-controller",
+  "createdAt": "2026-07-17T04:36:05-06:00",
+  "summary": "Add an explicit off/running lifecycle controller around MCP stdio framing and JSON-RPC dispatch without claiming a desktop process or socket.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "FR-11.4", "FR-11.6", "AC-11.c", "N-7 evidence and status honesty"],
+  "filesTouched": [
+    { "path": "src/application/mcp/mcp-stdio-controller.ts", "status": "added" },
+    { "path": "tests/application/mcp/mcp-stdio-controller.test.ts", "status": "added" },
+    { "path": "provenance/entries/2026-07-17-m4-mcp-stdio-controller.json", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [{ "id": "D-0356", "topic": "MCP lifecycle boundary", "decision": "Model MCP as an explicit off/running controller that drops input while off, clears partial frames on stop, and emits newline-delimited responses only while running.", "rationale": "This creates a deterministic seam for the eventual desktop child-process lifecycle and proves the toggle-off invariant without opening a local socket or pretending web availability.", "specBasis": ["FR-11.4", "AC-11.c", "N-7"] }],
+  "testEvidence": [{ "criterion": "The controller enforces off/running lifecycle and routes framed JSON-RPC requests without losing partial-frame state.", "test": "Run focused controller/handler tests once, lint once, and production build once.", "red": { "command": "pnpm.cmd exec vitest run tests/application/mcp/mcp-stdio-controller.test.ts tests/application/mcp/workbench-mcp-handler.test.ts --reporter=dot", "observedAt": "2026-07-17T04:35:40-06:00", "outcome": "No red run was required; tests were authored against the existing framing and dispatcher contracts before implementation." }, "green": { "command": "pnpm.cmd exec vitest run tests/application/mcp/mcp-stdio-controller.test.ts tests/application/mcp/workbench-mcp-handler.test.ts --reporter=dot; pnpm.cmd lint; pnpm.cmd build", "observedAt": "2026-07-17T04:35:40-06:00", "outcome": "GREEN: 2 test files and 5 tests passed; lint/source policy passed; TypeScript and Vite production build passed with 235 modules transformed." } }],
+  "nearMisses": [],
+  "questions": ["The actual desktop child process, settings toggle, process inspection proof, and hosted AC-11.c evidence remain pending."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
