@@ -13,6 +13,7 @@ import { parseProjectPath } from "../files/project-path";
 import type { ProjectFileContent } from "../files/project-snapshot";
 import { parameterDocument } from "../parameters/parameter-state";
 import type { ParameterValue } from "../parameters/customizer-schema";
+import { extractCustomizerParameters } from "../parameters/customizer-parser";
 
 export interface WorkbenchMcpHandlerOptions {
   readonly runtime: WorkbenchRuntime;
@@ -140,7 +141,7 @@ export function createWorkbenchMcpHandler({ runtime, engine, reviewId = () => gl
         }
         case "read_file": {
           const found = target(args.path);
-          if (!found || found.documentId === "") throw new Error(`Project file ${String(args.path)} is not an open text buffer.`);
+          if (!found) throw new Error(`Project file ${String(args.path)} is not a text file.`);
           return { path: found.path, content: found.source, dirty: found.dirty };
         }
         case "write_file": {
@@ -191,14 +192,16 @@ export function createWorkbenchMcpHandler({ runtime, engine, reviewId = () => gl
         }
         case "get_parameters": {
           const found = target(args.path);
-          if (!found?.documentId) return { parameters: [], activeSet: undefined };
-          const state = parameterDocument(runtime.parameters.getState(), found.documentId);
-          return { parameters: state.parameters.filter(({ hidden }) => !hidden).map((parameter) => ({ name: parameter.name, type: Array.isArray(parameter.defaultValue) ? "vector" : typeof parameter.defaultValue, default: parameter.defaultValue, current: state.overrides[parameter.name] ?? parameter.defaultValue, section: parameter.group ?? undefined, description: parameter.description, ...controlDescription(parameter.control) })), activeSet: state.selectedSet };
+          if (!found) return { parameters: [], activeSet: undefined };
+          const state = found.documentId ? parameterDocument(runtime.parameters.getState(), found.documentId) : undefined;
+          const extracted = state?.parameters ?? extractCustomizerParameters(found.source);
+          const overrides: Readonly<Record<string, ParameterValue>> = state?.overrides ?? {};
+          return { parameters: extracted.filter(({ hidden }) => !hidden).map((parameter) => ({ name: parameter.name, type: Array.isArray(parameter.defaultValue) ? "vector" : typeof parameter.defaultValue, default: parameter.defaultValue, current: overrides[parameter.name] ?? parameter.defaultValue, section: parameter.group ?? undefined, description: parameter.description, ...controlDescription(parameter.control) })), activeSet: state?.selectedSet };
         }
         case "set_parameters": {
           const found = target(args.path);
-          if (!found?.documentId) throw new Error("Customizer parameters require an open text buffer.");
-          const state = parameterDocument(runtime.parameters.getState(), found.documentId);
+          if (!found) throw new Error(`Project file ${String(args.path)} does not exist.`);
+          const state = found.documentId ? parameterDocument(runtime.parameters.getState(), found.documentId) : { parameters: extractCustomizerParameters(found.source) };
           const known = new Set(state.parameters.filter(({ hidden }) => !hidden).map(({ name }) => name));
           const unknownNames = Object.keys(args.values as Record<string, unknown>).filter((name) => !known.has(name));
           return { status: "pending_review", unknownNames };
