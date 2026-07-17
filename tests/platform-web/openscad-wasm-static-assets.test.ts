@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
@@ -17,7 +18,7 @@ function sha256(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
-describe("static OpenSCAD WebAssembly artifacts", () => {
+describe.skipIf(!existsSync(STATIC_ENGINE_ROOT))("static OpenSCAD WebAssembly artifacts", () => {
   it.each(Object.entries(OPENSCAD_WASM_ARTIFACTS))(
     "stages the exact verified %s bytes at the worker URL",
     async (_name, artifact) => {

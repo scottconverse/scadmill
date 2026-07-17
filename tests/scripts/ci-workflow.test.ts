@@ -47,6 +47,20 @@ describe("regular CI workflow contract", () => {
     expect(acceptance.includes("run: pnpm test:e2e")).toBe(true);
   });
 
+  it("stages the source-built WASM only inside ephemeral verification jobs", () => {
+    const expectedArtifact = "openscad-wasm-0a66508c67374febcfc814a73b5b948dd84a1ca3";
+    const expectedAction =
+      "actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093";
+    for (const job of ["web", "e2e", "parity"]) {
+      const workflowJob = jobBlock(job);
+      expect(workflowJob).toContain(expectedAction);
+      expect(workflowJob).toContain(expectedArtifact);
+      expect(workflowJob).toContain("path: public/openscad-engine/2026.06.12");
+      expect(workflowJob).toContain("run-id: 29529789154");
+    }
+    expect(jobBlock("e2e")).toContain("if: runner.os == 'Linux'");
+  });
+
   it("preflights signing before build, then signs, verifies, hashes, and uploads Windows setup", () => {
     const installer = jobBlock("windows-installer");
     const preflight = installer.indexOf("Signing credential preflight (fail fast)");
