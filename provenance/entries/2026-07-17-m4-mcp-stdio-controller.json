@@ -8,6 +8,7 @@
   "filesTouched": [
     { "path": "src/application/mcp/mcp-stdio-controller.ts", "status": "added" },
     { "path": "tests/application/mcp/mcp-stdio-controller.test.ts", "status": "added" },
+    { "path": "README.md", "status": "modified" },
     { "path": "provenance/entries/2026-07-17-m4-mcp-stdio-controller.json", "status": "added" }
   ],
   "externalInputs": [],
