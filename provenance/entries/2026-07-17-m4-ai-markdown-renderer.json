@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-ai-markdown-renderer",
+  "createdAt": "2026-07-17T03:58:00-06:00",
+  "summary": "Add a safe React markdown-lite renderer for AI prose and fenced code blocks, avoiding HTML injection while retaining proposal extraction and diff review.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "FR-10.4", "AC-10.b", "N-7 evidence and status honesty"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-17-m4-ai-markdown-renderer.json", "status": "added" },
+    { "path": "src/ui/ai/AiConversationPanel.tsx", "status": "modified" },
+    { "path": "src/ui/ai/AiMarkdown.tsx", "status": "added" },
+    { "path": "src/ui/ai/index.ts", "status": "modified" },
+    { "path": "tests/ui/ai/AiMarkdown.test.tsx", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0332", "topic": "AI markdown trust boundary", "decision": "Render prose and fenced code as React text nodes and pre/code elements only; do not evaluate or inject assistant HTML.", "rationale": "AI responses are untrusted provider content. A small renderer satisfies the visible markdown/code-block surface without introducing an unsafe HTML path.", "specBasis": ["FR-10.4", "AC-10.b", "N-7"] }
+  ],
+  "testEvidence": [
+    { "criterion": "Markdown-lite rendering and the diff-reviewed conversation panel remain green.", "test": "Run the focused markdown and conversation panel suites once after the renderer integration.", "red": { "command": "pnpm.cmd exec tsc --noEmit --pretty false", "observedAt": "2026-07-17T03:56:20-06:00", "outcome": "RED: the safe renderer module was not yet present before this unit began." }, "green": { "command": "pnpm.cmd exec vitest run tests/ui/ai/AiMarkdown.test.tsx tests/ui/ai/AiConversationPanel.test.tsx", "observedAt": "2026-07-17T03:56:59-06:00", "outcome": "GREEN: Test Files 2 passed (2); Tests 3 passed (3); Duration 953ms." } },
+    { "criterion": "The renderer remains type-safe and source-policy clean.", "test": "Run TypeScript and repository lint/source policy once after integration.", "red": { "command": "pnpm.cmd lint", "observedAt": "2026-07-17T03:56:20-06:00", "outcome": "RED: markdown rendering was not yet integrated." }, "green": { "command": "pnpm.cmd exec tsc --noEmit --pretty false; pnpm.cmd lint", "observedAt": "2026-07-17T03:56:59-06:00", "outcome": "GREEN: TypeScript exited 0; Checked 431 files in 237ms with source policy passed." } }
+  ],
+  "nearMisses": [],
+  "questions": ["Full CommonMark parity, copy/insert actions, and hosted AI walkthrough remain separate acceptance work."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

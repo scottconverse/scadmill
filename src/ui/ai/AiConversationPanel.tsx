@@ -5,6 +5,7 @@ import type { ProposedEdit } from "../../application/ai/conversation";
 import { conversationReducer, createConversationState, extractCodeBlocks } from "../../application/ai/conversation";
 import { messages } from "../../messages/en";
 import { ExternalChangeDiff } from "../files/ExternalChangeDiff";
+import { AiMarkdown } from "./AiMarkdown";
 
 export interface AiConversationPanelProps {
   readonly configured: boolean;
@@ -57,7 +58,7 @@ export function AiConversationPanel({ configured, contextInputs, currentSource, 
   return (
     <section aria-label={messages.activityAi} className="ai-conversation">
       <div aria-live="polite" className="ai-conversation-messages">
-        {state.messages.map((message) => <p key={message.id} data-role={message.role}>{message.content}{message.streaming ? " …" : ""}</p>)}
+        {state.messages.map((message) => <div data-role={message.role} key={message.id}>{message.role === "assistant" ? <AiMarkdown content={message.content} /> : <p>{message.content}</p>}{message.streaming ? " …" : ""}</div>)}
       </div>
       {error && <p role="alert">{error}</p>}
       {state.proposals.map((proposal) => (
