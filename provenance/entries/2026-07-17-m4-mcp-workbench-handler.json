@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-mcp-workbench-handler",
+  "createdAt": "2026-07-17T04:30:20-06:00",
+  "summary": "Add the transport-neutral workbench MCP handler for project files, diagnostics, parameters, history, preview, export, and review-gated mutations.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "Appendix B", "FR-11.4", "FR-11.6", "AC-11.b", "N-7 evidence and status honesty"],
+  "filesTouched": [
+    { "path": "src/application/mcp/workbench-mcp-handler.ts", "status": "added" },
+    { "path": "tests/application/mcp/workbench-mcp-handler.test.ts", "status": "added" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-17-m4-mcp-workbench-handler.json", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0352", "topic": "MCP handler boundary", "decision": "Keep MCP tool execution transport-neutral and inject the runtime plus engine explicitly; do not claim a desktop process or platform availability from this handler alone.", "rationale": "The web and desktop platform seams remain capability-aware, while a shared handler makes Appendix B behavior testable without opening a socket or bypassing platform permissions.", "specBasis": ["FR-11.4", "FR-13.3", "N-7"] },
+    { "id": "D-0353", "topic": "Review-gated mutation behavior", "decision": "write_file and set_parameters return pending_review records and do not mutate runtime state until a future in-app approval path consumes them.", "rationale": "External agents must not bypass the same diff-review gate required for AI and MCP mutations; this slice establishes the honest pending state before the desktop review UI is wired.", "specBasis": ["FR-10.5", "FR-11.6", "Appendix B"] }
+  ],
+  "testEvidence": [
+    { "criterion": "The MCP handler produces Appendix B-shaped file, parameter, preview, diagnostic, export, history, and pending-review results.", "test": "Run the focused handler test once after the implementation, lint/provenance checks once, and the production build once after the type correction.", "red": { "command": "pnpm.cmd exec vitest run tests/application/mcp/workbench-mcp-handler.test.ts --reporter=dot", "observedAt": "2026-07-17T04:29:14-06:00", "outcome": "RED: the new fixture asserted an incorrect UTF-8 byte count (test-only expectation defect); the handler and two other cases passed." }, "green": { "command": "pnpm.cmd exec vitest run tests/application/mcp/workbench-mcp-handler.test.ts --reporter=dot; pnpm.cmd lint; pnpm.cmd check:provenance; pnpm.cmd build", "observedAt": "2026-07-17T04:30:47-06:00", "outcome": "GREEN: focused handler coverage passed 1 file and 3 tests; lint/source policy and provenance validation passed; TypeScript and Vite production build passed with 235 modules transformed." } }
+  ],
+  "nearMisses": [],
+  "questions": ["Desktop MCP stdio lifecycle, permission UI, screenshot capture, and hosted AC-11.b/c evidence remain pending; export saving remains platform-destination dependent."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
