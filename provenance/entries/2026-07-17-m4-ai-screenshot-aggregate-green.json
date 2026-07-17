@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-ai-screenshot-aggregate-green",
+  "createdAt": "2026-07-17T04:40:25-06:00",
+  "summary": "Record the bounded aggregate verification after wiring AI viewer screenshot context: 171 files and 1266 tests pass.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "verifier" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "C10", "FR-10.3", "N-7 evidence and status honesty"],
+  "filesTouched": [{ "path": "provenance/entries/2026-07-17-m4-ai-screenshot-aggregate-green.json", "status": "added" }],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [{ "id": "D-0359", "topic": "Bounded AI screenshot aggregate verification", "decision": "Run one aggregate suite after screenshot context crossed Workbench, viewer, and AI panel seams; stop while green.", "rationale": "Focused tests, lint, build, and provenance were green; this single aggregate run falsifies regressions without a repeated test loop.", "specBasis": ["C10", "N-7"] }],
+  "testEvidence": [{ "criterion": "Existing application behavior remains green after the AI screenshot context addition.", "test": "Run the complete Vitest suite once after the screenshot context commit.", "red": { "command": "pnpm.cmd test -- --reporter=dot", "observedAt": "2026-07-17T04:40:05-06:00", "outcome": "No red run was required; focused UI/AI tests, lint, and production build were green before this bounded aggregate." }, "green": { "command": "pnpm.cmd test -- --reporter=dot", "observedAt": "2026-07-17T04:40:25-06:00", "outcome": "GREEN: 171 test files passed and 1266 tests passed in 19.64s." } }],
+  "nearMisses": [],
+  "questions": ["Provider-secret redaction review, UI agent-mode/tool-handler wiring, auto-apply policy, and hosted AC-10.c/d evidence remain pending."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
