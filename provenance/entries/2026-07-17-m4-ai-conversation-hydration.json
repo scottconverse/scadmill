@@ -11,6 +11,7 @@
     { "path": "src/ui/Workbench.tsx", "status": "modified" },
     { "path": "src/messages/en.ts", "status": "modified" },
     { "path": "tests/application/ai/conversation-persistence.test.ts", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
     { "path": "provenance/entries/2026-07-17-m4-ai-conversation-hydration.json", "status": "added" }
   ],
   "externalInputs": [],
