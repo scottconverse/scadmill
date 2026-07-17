@@ -79,6 +79,8 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Changed
 
+- Scratch autosave now stores a strict versioned path-and-source snapshot, migrates legacy source-only profiles to a renderable filename, persists clean welcome-sample identity immediately, and restores cached production renders under the exact entry path.
+- Installer evidence now quotes the Windows association executable, binds Linux visibility to the exact AppImage child runtime, fails closed on candidate removal, and waits for causally identified stable Windows window restoration with exact diagnostics.
 - Corrected web-engine privacy and quick-start claims: browser rendering fetches a same-origin, integrity-verified JavaScript/WASM pair and caches it in IndexedDB, but the public repository quarantines those bytes while Q-0033 remains unresolved.
 - Updated clean-room contribution guidance for A-8's explicitly named permissive dependency/reference whitelist while preserving the prohibition on unapproved OpenSCAD editor sources.
 
@@ -145,17 +147,17 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Q-0034 blocks declaring AC-4.a parity green until the owner specifies whether canonical SVG comparison may normalize only CRLF to LF; the retained raw Windows/native and WASM artifacts and hashes remain unchanged.
 - Q-0003 leaves the final preview facet-cap algorithm open; the preview-only configuration seam is implemented without claiming that a global `$fn` override is a true cap.
 - Q-0021 parks only explicit-camera PNG exports because the pinned snapshot CLI cannot preserve Appendix A's `CameraPose.up`; default-camera PNG and all non-PNG exports continue.
-- Q-0023 asks whether the exact-date official WebAssembly archives now visible in the snapshot manifest may replace v0.6's mandated same-commit source build; M2 native work is unaffected.
+- Q-0023 remains a historical provenance interpretation: M3 conservatively completed the stricter same-commit source build, so no current implementation is parked.
 - Q-0022 asks whether Appendix A may replace its complete in-memory `rawLog: string` with a bounded/file-backed contract; live capture is bounded without truncating the normative result, but final string materialization and spill-file growth remain size-proportional.
 - Q-0024/Q-0025/Q-0026/Q-0028 isolate incompatible pinned-viewer behavior, edge/face measurement topology, screenshot overlay composition, and keyboard geometry-picking semantics; the independent viewer behavior continues conservatively.
 - Q-0027 records the settings-export/secret contradiction; the implementation follows the stronger AC-9.c rule and never writes the secret into settings files.
-- Q-0029 parks only recent-project duplication on the M3 welcome screen.
+- Q-0029 remains a historical milestone-split interpretation: the M3 welcome screen now presents the durable recent-project list, so no current behavior is parked.
 - Q-0030 parks only the autosave-control and multi-untitled store semantics; default-on original-scratch autosave and multi-buffer recovery remain active without overwriting additional tabs.
 - Q-0031 parks only an application-owned cross-platform destination picker; the dialog truthfully names the real browser or desktop destination and reports the saved location.
 - Q-0006 keeps custom-theme values conservatively limited to opaque six-digit sRGB colors until the owner defines normalization for the complete CSS color grammar.
 
-### Known verification gaps
+### Verification status
 
-- The post-review M3 exact tree still requires one bounded aggregate verification pass and hosted exact-candidate installer lifecycle evidence; earlier green totals are retained as historical evidence, not the final verdict.
+- Exact-head candidate `1a5b38a` passed web, native, Ubuntu and Windows browser, production-static, DMG, AppImage, signed Windows install/association/window-state/uninstall, isolated similarity, and retained-WASM gates. Its only failed job is raw SVG parity under Q-0034: the first difference is native `CR` versus WASM `LF` and the length delta is consistent with line endings, but fail-fast comparison leaves later differences and examples unproven. Q-0033 separately blocks publishing the quarantined web-engine bytes.
 - FR-2.5 per-candidate qualification is intentionally external: accept it only from a retained Radeon 780M evidence envelope bound to the exact candidate source tree and profiler harness.
 - `cargo audit` reports zero vulnerability failures but 17 pre-existing informational warnings in the current Tauri dependency graph, including the GTK3/glib unsoundness advisory and unmaintained GTK3, proc-macro-error, and UNIC families; current compatible upstream releases do not remove them.
