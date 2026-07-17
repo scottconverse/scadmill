@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-ai-wiring-aggregate-green",
+  "createdAt": "2026-07-17T03:49:00-06:00",
+  "summary": "Record the post-runtime-wiring aggregate suite: all repository tests remain green with the AI activity bridge and per-hunk proposal review present.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "verifier" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "C10", "N-7 evidence and status honesty"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-17-m4-ai-wiring-aggregate-green.json", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0326", "topic": "Post-wiring aggregate proof", "decision": "Retain one bounded repository-wide test run after runtime wiring; do not treat focused AI tests as a substitute for the aggregate suite.", "rationale": "The new Workbench bridge crosses the application/UI boundary, so the full 163-file suite is the relevant falsification pass while preserving the no-loop rule.", "specBasis": ["C10", "N-7"] }
+  ],
+  "testEvidence": [
+    { "criterion": "The full repository Vitest suite remains green after the AI runtime bridge and per-hunk diff wiring.", "test": "Run the one bounded aggregate test command after focused bridge/UI verification.", "red": { "command": "pnpm.cmd test -- --reporter=dot", "observedAt": "2026-07-17T03:39:03-06:00", "outcome": "RED: the earlier aggregate run had two unrelated regression failures before the cache/localization repairs." }, "green": { "command": "pnpm.cmd test -- --reporter=dot", "observedAt": "2026-07-17T03:48:04-06:00", "outcome": "GREEN: Test Files 163 passed (163); Tests 1246 passed (1246); Duration 19.30s." } }
+  ],
+  "nearMisses": [],
+  "questions": ["Hosted clean-browser AI evidence and remaining M4 release gates are still pending; aggregate local tests do not claim those external gates."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
