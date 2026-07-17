@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-final-build-green",
+  "createdAt": "2026-07-17T03:56:30-06:00",
+  "summary": "Record the production web build after AI context toggles and the deterministic aggregate timing-test correction.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "verifier" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "N-7 evidence and status honesty"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-17-m4-final-build-green.json", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0331", "topic": "M4 local build evidence", "decision": "Retain the successful production bundle as local compile/package evidence only; hosted browser, native, Windows Sandbox, and owner similarity gates remain separate.", "rationale": "A local Vite bundle cannot prove clean-host lifecycle or isolated similarity behavior, and N-7 forbids conflating those evidence classes.", "specBasis": ["N-7", "Section 2.7 M4 delivery protocol"] }
+  ],
+  "testEvidence": [
+    { "criterion": "The current committed tree compiles and bundles for the production web target.", "test": "Run the production build once after the final aggregate-green correction.", "red": { "command": "pnpm.cmd build", "observedAt": "2026-07-17T03:55:50-06:00", "outcome": "RED: no failed build was observed before this verification; the final post-correction build had not yet run." }, "green": { "command": "pnpm.cmd build", "observedAt": "2026-07-17T03:56:02-06:00", "outcome": "GREEN: tsc exited 0; Vite transformed 233 modules and completed in 348ms." } }
+  ],
+  "nearMisses": [],
+  "questions": ["M4 still requires the hosted/clean-host evidence gates and any remaining C11/MCP acceptance before milestone closure."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
