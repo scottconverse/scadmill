@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-ai-runtime-build-green",
+  "createdAt": "2026-07-17T03:50:00-06:00",
+  "summary": "Record the production web bundle after connecting the AI panel to WorkbenchRuntime and the async platform SecretStore bridge.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "verifier" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "C10", "N-7 evidence and status honesty"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-17-m4-ai-runtime-build-green.json", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0327", "topic": "Runtime-wired bundle boundary", "decision": "Treat the successful production bundle as compile/package evidence for the AI runtime bridge only; do not infer hosted provider or clean-browser acceptance from it.", "rationale": "The bundle validates module graph and TypeScript integration, while provider credentials, network policy, and external lifecycle remain separate evidence gates.", "specBasis": ["C10", "N-7"] }
+  ],
+  "testEvidence": [
+    { "criterion": "The runtime-wired AI surface compiles and bundles for the production web target.", "test": "Run the production build once after the runtime bridge aggregate green.", "red": { "command": "pnpm.cmd build", "observedAt": "2026-07-17T03:49:20-06:00", "outcome": "RED: no failed build was observed before this verification; the prior bundle predates the runtime bridge and is not used as evidence for this commit." }, "green": { "command": "pnpm.cmd build", "observedAt": "2026-07-17T03:49:44-06:00", "outcome": "GREEN: tsc exited 0; Vite transformed 232 modules and completed in 352ms." } }
+  ],
+  "nearMisses": [],
+  "questions": ["MCP server work, hosted AI walkthrough, and remaining M4 acceptance gates remain pending."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
