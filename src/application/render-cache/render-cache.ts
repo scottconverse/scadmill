@@ -20,6 +20,8 @@ export interface CachedRenderResult {
 export interface RenderCache {
   get(projectIdentity: string, key: string): Promise<CachedRenderResult | undefined>;
   put(projectIdentity: string, key: string, result: CacheableRenderResult): Promise<void>;
+  /** Disk-backed tiers need a cold-start key before the first engine invocation. */
+  readonly requiresColdLookup?: boolean;
 }
 
 function lexicalOrder(left: string, right: string): number {
@@ -41,6 +43,56 @@ function canonicalParameter(value: ParamValue): readonly unknown[] {
   return ["string", value];
 }
 
+function relevantRenderFiles(request: RenderRequest): readonly [string, string | Uint8Array][] | undefined {
+  const files = new Map(request.files);
+  const visited = new Set<string>();
+  const queue = [request.entryFile];
+  const result: Array<[string, string | Uint8Array]> = [];
+  const dependencyPattern = /\b(?:include|use)\s*<([^>]+)>|\bimport\s*\(\s*["']([^"']+)["']\s*\)/gu;
+  const resolve = (from: string, reference: string): string => {
+    const normalized = reference.replaceAll("\\", "/");
+    const base = from.includes("/") ? from.slice(0, from.lastIndexOf("/")) : "";
+    const segments = `${base}/${normalized}`.split("/");
+    const resolved: string[] = [];
+    for (const segment of segments) {
+      if (!segment || segment === ".") continue;
+      if (segment === "..") { resolved.pop(); continue; }
+      resolved.push(segment);
+    }
+    return resolved.join("/");
+  };
+  while (queue.length > 0) {
+    const path = queue.shift();
+    if (!path || visited.has(path)) continue;
+    visited.add(path);
+    const content = files.get(path);
+    if (content === undefined) continue;
+    result.push([path, content]);
+    if (typeof content !== "string") continue;
+    // Do not strip comments with a regex: quoted URLs and string literals can
+    // contain comment markers. The conservative directive scan safely over-
+    // invalidates in ambiguous cases instead of dropping a real asset.
+    const source = content;
+    // Dynamic import paths cannot be resolved safely here; fall back to the
+    // complete request below rather than risking a stale asset hit.
+    if (/\bimport\s*\(\s*(?!["'])/u.test(source)) return [...files];
+    dependencyPattern.lastIndex = 0;
+    for (const match of source.matchAll(dependencyPattern)) {
+      const reference = match[1] ?? match[2];
+      if (!reference) continue;
+      const dependency = resolve(path, reference);
+      const exact = files.has(dependency)
+        ? dependency
+        : [...files.keys()].find((candidate) => candidate.toLowerCase() === dependency.toLowerCase());
+      // The engine may resolve a library outside the supplied byte map. Do
+      // not guess: an unresolved dependency makes this render uncacheable.
+      if (!exact) return undefined;
+      queue.push(exact);
+    }
+  }
+  return result.length > 0 ? result : [...files];
+}
+
 export async function createRenderCacheKey(
   request: RenderRequest,
   engine: EngineInfo,
@@ -48,7 +100,9 @@ export async function createRenderCacheKey(
 ): Promise<string | undefined> {
   if (!engine.buildIdentity) return undefined;
   const files: Array<readonly [string, "text" | "binary", number, string]> = [];
-  for (const [path, content] of [...request.files].sort(([left], [right]) => lexicalOrder(left, right))) {
+  const relevantFiles = relevantRenderFiles(request);
+  if (!relevantFiles) return undefined;
+  for (const [path, content] of [...relevantFiles].sort(([left], [right]) => lexicalOrder(left, right))) {
     const bytes = typeof content === "string" ? new TextEncoder().encode(content) : content;
     const identity = await sha256GeometryIdentity(bytes);
     if (!identity) return undefined;
@@ -168,6 +222,43 @@ export class RenderMemoryCache implements RenderCache {
       this.#entries.delete(oldestKey);
       if (oldest) this.#byteSize -= oldest.byteSize;
     }
+  }
+}
+
+export class TieredRenderCache implements RenderCache {
+  readonly #memory: RenderCache;
+  readonly #disk: RenderCache | undefined;
+  readonly #diskEnabled: () => boolean;
+
+  constructor(memory: RenderCache, disk?: RenderCache, diskEnabled: () => boolean = () => true) {
+    this.#memory = memory;
+    this.#disk = disk;
+    this.#diskEnabled = diskEnabled;
+  }
+
+  get requiresColdLookup(): boolean {
+    return Boolean(this.#disk && this.#diskEnabled());
+  }
+
+  async get(projectIdentity: string, key: string): Promise<CachedRenderResult | undefined> {
+    const memory = await this.#memory.get(projectIdentity, key);
+    if (memory) return memory;
+    if (!this.#disk || !this.#diskEnabled()) return undefined;
+    let disk: CachedRenderResult | undefined;
+    try {
+      disk = await this.#disk.get(projectIdentity, key);
+    } catch {
+      return undefined;
+    }
+    if (!disk) return undefined;
+    await this.#memory.put(projectIdentity, key, disk.result).catch(() => undefined);
+    return disk;
+  }
+
+  async put(projectIdentity: string, key: string, result: CacheableRenderResult): Promise<void> {
+    await this.#memory.put(projectIdentity, key, result);
+    if (!this.#disk || !this.#diskEnabled()) return;
+    await this.#disk.put(projectIdentity, key, result).catch(() => undefined);
   }
 }
 

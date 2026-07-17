@@ -53,8 +53,12 @@ export function App({
     scratchAutosave: scratchAutosavePersistence,
     workspaceMetadata: workspaceMetadataPersistence,
     welcome: welcomePreferencePersistence,
+    renderCachePreferences: renderDiskCachePreferencePersistence,
   } = platform.persistence;
   const artifactDestination = platform.artifacts;
+  const renderDiskCacheStorage = platform.persistence.renderCache.available
+    ? platform.persistence.renderCache.service
+    : undefined;
   const [showWelcomeOnLaunch, setShowWelcomeOnLaunch] = useState(() => {
     try { return welcomePreferencePersistence?.load() ?? false; } catch { return false; }
   });
@@ -70,6 +74,8 @@ export function App({
         recentProjectsPersistence,
         settingsPersistence,
         workspaceMetadataPersistence,
+        renderDiskCacheStorage,
+        renderDiskCachePreferencePersistence,
       });
     },
     [
@@ -81,6 +87,8 @@ export function App({
       scratchAutosavePersistence,
       settingsPersistence,
       workspaceMetadataPersistence,
+      renderDiskCacheStorage,
+      renderDiskCachePreferencePersistence,
     ],
   );
   const pendingRuntimeDisposals = useRef(
@@ -320,6 +328,7 @@ export function App({
           }
         : undefined}
       onRetryWasmEngine={retryWasmEngine}
+      renderDiskCacheAvailable={platform.persistence.renderCache.available}
       onThemePreferenceChange={(theme) =>
         void runtime
           .dispatch({ kind: "set-theme", origin: "user", theme })

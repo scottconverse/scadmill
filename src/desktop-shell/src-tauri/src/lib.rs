@@ -20,6 +20,7 @@ mod desktop_settings;
 mod keychain;
 mod native_menu;
 mod project_storage;
+mod render_cache;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -458,6 +459,12 @@ pub fn run() {
             project_storage::project_move,
             project_storage::project_trash,
             project_storage::project_reveal,
+            render_cache::render_cache_read,
+            render_cache::render_cache_write,
+            render_cache::render_cache_remove,
+            render_cache::render_cache_clear,
+            render_cache::render_cache_touch,
+            render_cache::render_cache_list,
             artifact_storage::save_artifact,
             associated_files::take_pending_associated_files,
             native_menu::update_native_menu_state,

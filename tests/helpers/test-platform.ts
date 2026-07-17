@@ -14,6 +14,7 @@ import { EPHEMERAL_SECRET_STORE, type SecretStore } from "../../src/application/
 import { EPHEMERAL_SETTINGS_PERSISTENCE, type SettingsPersistence } from "../../src/application/settings/settings-persistence";
 import { EPHEMERAL_WORKSPACE_METADATA_PERSISTENCE, type WorkspaceMetadataPersistence } from "../../src/application/viewer/annotation-persistence";
 import { HIDDEN_WELCOME_PREFERENCE, type WelcomePreferencePersistence } from "../../src/application/welcome/welcome-preference";
+import { EPHEMERAL_RENDER_DISK_CACHE_PREFERENCES, type RenderDiskCachePreferencePersistence } from "../../src/application/render-cache/render-cache-preference";
 
 const EMPTY_RECOVERY: RecoveryPersistence = {
   load: () => null,
@@ -48,6 +49,7 @@ export interface TestPlatformOverrides {
   readonly welcomePreferencePersistence?: WelcomePreferencePersistence;
   readonly wasmEngineProgress?: EngineLoadProgressStore;
   readonly onRetryWasmEngine?: () => void;
+  readonly renderDiskCachePreferencePersistence?: RenderDiskCachePreferencePersistence;
 }
 
 export function createTestPlatform(
@@ -98,6 +100,8 @@ export function createTestPlatform(
       scratchAutosave: overrides.scratchAutosavePersistence ?? EMPTY_SCRATCH,
       workspaceMetadata: overrides.workspaceMetadataPersistence ?? EPHEMERAL_WORKSPACE_METADATA_PERSISTENCE,
       welcome: overrides.welcomePreferencePersistence ?? HIDDEN_WELCOME_PREFERENCE,
+      renderCache: unavailable(),
+      renderCachePreferences: overrides.renderDiskCachePreferencePersistence ?? EPHEMERAL_RENDER_DISK_CACHE_PREFERENCES,
     },
     artifacts: overrides.artifactDestination ?? UNAVAILABLE_ARTIFACT_DESTINATION,
     enginePathConfiguration: overrides.enginePathConfiguration

@@ -17,6 +17,7 @@ export interface ProjectSessionState {
   readonly snapshot: ProjectSnapshot;
   readonly revision: number;
   readonly recentProjects: readonly RecentProject[];
+  readonly diskRenderCacheEnabled: boolean;
   readonly selectedBinaryPath?: string;
 }
 
@@ -87,6 +88,7 @@ export function createProjectSessionState(
   mode: ProjectSessionState["mode"] = "scratch",
   displayName = mode === "scratch" ? "Scratch" : snapshot.projectId,
   recentProjects: readonly RecentProject[] = [],
+  diskRenderCacheEnabled = false,
 ): ProjectSessionState {
   return {
     mode,
@@ -94,6 +96,7 @@ export function createProjectSessionState(
     snapshot,
     revision: 0,
     recentProjects: validateRecentProjects(recentProjects),
+    diskRenderCacheEnabled: mode === "project" && diskRenderCacheEnabled,
   };
 }
 

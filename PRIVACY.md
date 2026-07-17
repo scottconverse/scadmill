@@ -27,6 +27,17 @@ The desktop OpenSCAD engine runs as a local subprocess. Desktop projects, settin
 buffers, exports, and rendered geometry stay on the user's machine. AI keys use the operating
 system keychain and are excluded from settings files.
 
+The desktop render cache is off by default and can be enabled independently for each opened
+project; scratch work is never eligible. When enabled, ScadMill stores rendered SVG or mesh
+geometry together with engine logs, diagnostics, statistics, and integrity/LRU metadata under
+the operating system's ScadMill app-cache directory, not in the project folder. Individual
+records are capped at 4 MiB and the disk tier evicts least-recently-used records to its configured
+budget. The preference is keyed only by the project's opaque local identity and is not included
+in settings export. Turning the preference off stops future disk-cache reads and writes but does
+not delete records already stored. Use **Settings → Rendering → Clear this project's disk render
+cache** while that project is open to delete its durable cache records; clearing does not remove
+the current in-memory render result.
+
 On the web target, complete project files use IndexedDB. Browser-local storage holds settings,
 layout and recent-project metadata, the complete autosaved original scratch source, and crash-
 recovery snapshots containing the complete saved and unsaved source of every recoverable buffer.

@@ -13,6 +13,8 @@ import type { SecretStore } from "../settings/secret-store";
 import type { SettingsPersistence } from "../settings/settings-persistence";
 import type { WorkspaceMetadataPersistence } from "../viewer/annotation-persistence";
 import type { WelcomePreferencePersistence } from "../welcome/welcome-preference";
+import type { RenderDiskCacheStorage } from "../render-cache/render-disk-cache";
+import type { RenderDiskCachePreferencePersistence } from "../render-cache/render-cache-preference";
 
 export type PlatformFeature<T> =
   | { readonly available: true; readonly service: T }
@@ -143,6 +145,8 @@ export interface ScadMillPlatform {
     readonly scratchAutosave: ScratchAutosavePersistence;
     readonly workspaceMetadata: WorkspaceMetadataPersistence;
     readonly welcome: WelcomePreferencePersistence;
+    readonly renderCache: PlatformFeature<RenderDiskCacheStorage>;
+    readonly renderCachePreferences: RenderDiskCachePreferencePersistence;
   };
   readonly artifacts: ArtifactDestination;
   readonly enginePathConfiguration: PlatformFeature<EnginePathConfiguration>;

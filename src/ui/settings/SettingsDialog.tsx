@@ -35,6 +35,11 @@ export interface SettingsDialogProps {
   readonly onRestore: (section: SettingsSection) => void | Promise<void>;
   readonly persistenceError?: string;
   readonly settingsMutationsBlocked?: boolean;
+  readonly renderDiskCacheAvailable?: boolean;
+  readonly projectDiskRenderCacheEligible?: boolean;
+  readonly projectDiskRenderCacheEnabled?: boolean;
+  readonly onProjectDiskRenderCacheChange?: (enabled: boolean) => void | Promise<void>;
+  readonly onClearProjectDiskRenderCache?: () => void | Promise<void>;
 }
 const SECTION_TITLES: Readonly<Record<SettingsSection, string>> = {
   editor: messages.settingsEditor,
@@ -96,6 +101,11 @@ export function SettingsDialog({
   onRestore,
   persistenceError,
   settingsMutationsBlocked = false,
+  renderDiskCacheAvailable = false,
+  projectDiskRenderCacheEligible = false,
+  projectDiskRenderCacheEnabled = false,
+  onProjectDiskRenderCacheChange,
+  onClearProjectDiskRenderCache,
 }: SettingsDialogProps) {
   const [query, setQuery] = useState("");
   const searchInput = useRef<HTMLInputElement>(null);
@@ -292,6 +302,11 @@ export function SettingsDialog({
               </Setting>
             ))}
             <Setting label={messages.defaultRenderQuality}><select aria-label={messages.defaultRenderQuality} onChange={(event) => onChange({ ...settings, rendering: { ...settings.rendering, defaultQuality: event.currentTarget.value as "preview" | "full" } })} value={settings.rendering.defaultQuality}><option value="preview">{messages.renderQualityPreview}</option><option value="full">{messages.renderQualityFull}</option></select></Setting>
+            {renderDiskCacheAvailable && (projectDiskRenderCacheEligible ? <>
+              <Setting label={messages.diskRenderCache}><input aria-label={messages.diskRenderCache} checked={projectDiskRenderCacheEnabled} onChange={(event) => void Promise.resolve(onProjectDiskRenderCacheChange?.(event.currentTarget.checked)).catch(() => undefined)} type="checkbox" /></Setting>
+              <p role="note">{messages.diskRenderCacheDisclosure}</p>
+              <button onClick={() => void Promise.resolve(onClearProjectDiskRenderCache?.()).catch(() => undefined)} type="button">{messages.clearProjectDiskRenderCache}</button>
+            </> : <p role="note">{messages.diskRenderCacheProjectRequired}</p>)}
           </Section>
         )}
         {show("engine") && (

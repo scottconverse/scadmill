@@ -40,7 +40,9 @@ Browser editing and project features work without an engine. Rendering requires 
 
 ## Settings and privacy
 
-Settings cover editor, rendering, engine, viewer, formatter, theme, AI, keybindings, and privacy behavior. Desktop secrets use the OS credential store. Browser secrets remain session-only unless you explicitly enable the warning-labeled persistence option. ScadMill has no telemetry; see [PRIVACY.md](../PRIVACY.md).
+Settings cover editor, rendering, engine, viewer, formatter, theme, AI, keybindings, and privacy behavior. On desktop, open a project and use **Rendering → Persist render cache for this project** to opt only that project into durable render caching; it is off by default and unavailable for scratch work. The adjacent disclosure lists the stored geometry, logs, diagnostics, and statistics. Turning the option off stops disk-cache use without deleting existing records. Choose **Clear this project's disk render cache** to delete that project's durable records.
+
+Desktop secrets use the OS credential store. Browser secrets remain session-only unless you explicitly enable the warning-labeled persistence option. ScadMill has no telemetry; see [PRIVACY.md](../PRIVACY.md).
 
 ## Current milestone limits
 

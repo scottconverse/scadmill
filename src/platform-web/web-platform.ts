@@ -14,6 +14,7 @@ import { createBrowserWasmEngine } from "./browser-wasm-engine";
 import { createBrowserWelcomePreferencePersistence } from "./browser-welcome-preference";
 import { createAvailableBrowserProjectStorage } from "./indexeddb-project-storage";
 import { isMobileWebClient } from "./mobile-web";
+import { EPHEMERAL_RENDER_DISK_CACHE_PREFERENCES } from "../application/render-cache/render-cache-preference";
 
 export function createWebPlatform(): ScadMillPlatform {
   const wasm = createBrowserWasmEngine();
@@ -61,6 +62,8 @@ export function createWebPlatform(): ScadMillPlatform {
       scratchAutosave: createBrowserScratchAutosavePersistence(),
       workspaceMetadata: createBrowserWorkspaceMetadataPersistence(),
       welcome: createBrowserWelcomePreferencePersistence(),
+      renderCache: unavailable(),
+      renderCachePreferences: EPHEMERAL_RENDER_DISK_CACHE_PREFERENCES,
     },
     artifacts: createBrowserArtifactDestination(),
     enginePathConfiguration: unavailable(),

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type {
   EngineInfo,
@@ -10,7 +10,9 @@ import {
   estimateRenderCacheEntryBytes,
   RenderCacheKeyIndex,
   RenderMemoryCache,
+  TieredRenderCache,
 } from "../../../src/application/render-cache/render-cache";
+import type { RenderCache } from "../../../src/application/render-cache/render-cache";
 
 const engine: EngineInfo = {
   version: "2026.06.12",
@@ -62,6 +64,9 @@ describe("render cache", () => {
       features: [...engine.features].reverse(),
     }, "C:/OpenSCAD/openscad.exe")).resolves.toBe(baseline);
     await expect(createRenderCacheKey(request({
+      files: new Map([...request().files, ["texture.png", new Uint8Array([9, 9, 9])]]),
+    }), engine, "C:/OpenSCAD/openscad.exe")).resolves.toBe(baseline);
+    await expect(createRenderCacheKey(request({
       files: new Map([...request().files, ["lib.scad", "size = 11;"]]),
     }), engine, "C:/OpenSCAD/openscad.exe")).resolves.not.toBe(baseline);
     await expect(createRenderCacheKey(request({ parameters: { size: 11, enabled: true } }), engine, "C:/OpenSCAD/openscad.exe")).resolves.not.toBe(baseline);
@@ -71,6 +76,66 @@ describe("render cache", () => {
     await expect(createRenderCacheKey(request(), { ...engine, version: "2026.06.13" }, "C:/OpenSCAD/openscad.exe")).resolves.not.toBe(baseline);
     await expect(createRenderCacheKey(request(), { ...engine, buildIdentity: "native:sha256:engine-b" }, "C:/OpenSCAD/openscad.exe")).resolves.not.toBe(baseline);
     await expect(createRenderCacheKey(request(), engine, "D:/OpenSCAD/openscad.exe")).resolves.not.toBe(baseline);
+  });
+
+  it("falls back to all files when an import path is dynamic", async () => {
+    const dynamic = request({ files: new Map<string, string | Uint8Array>([
+      ["main.scad", "import(asset);"],
+      ["asset.stl", new Uint8Array([1, 2, 3])],
+      ["unrelated.scad", "cube();"],
+    ]) });
+    const changed = request({ files: new Map<string, string | Uint8Array>([
+      ["main.scad", "import(asset);"],
+      ["asset.stl", new Uint8Array([1, 2, 3])],
+      ["unrelated.scad", "sphere();"],
+    ]) });
+    await expect(createRenderCacheKey(dynamic, engine, "native")).resolves.not.toBe(
+      await createRenderCacheKey(changed, engine, "native"),
+    );
+  });
+
+  it("tracks literal imports nested in conditional statements", async () => {
+    const baseline = request({ files: new Map<string, string | Uint8Array>([
+      ["main.scad", "if (show) import(\"asset.stl\");"],
+      ["asset.stl", new Uint8Array([1, 2, 3])],
+      ["unrelated.scad", "cube();"],
+    ]) });
+    const changed = request({ files: new Map<string, string | Uint8Array>([
+      ["main.scad", "if (show) import(\"asset.stl\");"],
+      ["asset.stl", new Uint8Array([9, 9, 9])],
+      ["unrelated.scad", "cube();"],
+    ]) });
+    await expect(createRenderCacheKey(baseline, engine, "native")).resolves.not.toBe(
+      await createRenderCacheKey(changed, engine, "native"),
+    );
+  });
+
+  it("tracks include and use statements nested on the same line", async () => {
+    const baseline = request({ files: new Map<string, string | Uint8Array>([
+      ["main.scad", "if (show) include <asset.scad>; { use <lib.scad>; }"],
+      ["asset.scad", "cube();"],
+      ["lib.scad", "module part() {}"],
+    ]) });
+    const changed = request({ files: new Map<string, string | Uint8Array>([
+      ["main.scad", "if (show) include <asset.scad>; { use <lib.scad>; }"],
+      ["asset.scad", "sphere();"],
+      ["lib.scad", "module part() {}"],
+    ]) });
+    await expect(createRenderCacheKey(baseline, engine, "native")).resolves.not.toBe(
+      await createRenderCacheKey(changed, engine, "native"),
+    );
+  });
+
+  it("refuses to cache when a literal dependency is outside the byte map", async () => {
+    const unresolved = request({ files: new Map<string, string | Uint8Array>([
+      ["main.scad", "include <external-lib.scad>;"],
+    ]) });
+    await expect(createRenderCacheKey(unresolved, engine, "native")).resolves.toBeUndefined();
+    const caseMapped = request({ files: new Map<string, string | Uint8Array>([
+      ["main.scad", "include <Lib.scad>;"],
+      ["lib.scad", "cube();"],
+    ]) });
+    await expect(createRenderCacheKey(caseMapped, engine, "native")).resolves.toBeDefined();
   });
 
   it("clones payloads and evicts the least-recently-used entry within its byte budget", async () => {
@@ -132,5 +197,27 @@ describe("render cache", () => {
     if (cached?.result.kind !== "2d") throw new Error("Expected cached 2D geometry.");
     cached.result.boundingBox.min[0] = 99;
     expect(drawing.boundingBox.min[0]).toBe(0);
+  });
+
+  it("returns memory before disk and warms memory on a disk hit", async () => {
+    const memory = new RenderMemoryCache();
+    const disk = new RenderMemoryCache();
+    const tiered = new TieredRenderCache(memory, disk);
+    await disk.put("project", "key", result(4));
+
+    const diskHit = await tiered.get("project", "key");
+    expect(diskHit?.tier).toBe("memory");
+    expect(await memory.get("project", "key")).toBeDefined();
+  });
+
+  it("does not call or persist to a disabled disk tier", async () => {
+    const memory = new RenderMemoryCache();
+    const disk = { get: vi.fn(), put: vi.fn() } satisfies Pick<RenderCache, "get" | "put">;
+    const tiered = new TieredRenderCache(memory, disk, () => false);
+    expect(tiered.requiresColdLookup).toBe(false);
+    await tiered.put("project", "key", result(5));
+    expect(disk.put).not.toHaveBeenCalled();
+    expect(await tiered.get("project", "key")).toMatchObject({ tier: "memory" });
+    expect(disk.get).not.toHaveBeenCalled();
   });
 });

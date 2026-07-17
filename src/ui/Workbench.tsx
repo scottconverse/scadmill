@@ -51,7 +51,7 @@ export function Workbench({
   projectPortability,
   scratchAutosavePersistence, showWelcomeOnLaunch = false,
   onThemePreferenceChange, onWelcomePreferenceChange = () => undefined,
-  configuredEnginePath = "", onConfigureEnginePath, onRetryWasmEngine,
+  configuredEnginePath = "", onConfigureEnginePath, onRetryWasmEngine, renderDiskCacheAvailable = false,
 }: WorkbenchProps) {
   const documents = useReadonlyStore(runtime.documents, (state) => state);
   const document = activeDocument(documents);
@@ -319,7 +319,7 @@ export function Workbench({
           <h1>{messages.appName}</h1>
         </div>
         <WelcomeLauncher documents={documents} project={projectState} runtime={runtime} showOnLaunch={showWelcomeOnLaunch} onNewFile={fileCommands.newFile} onOpenProject={fileCommands.openProject} onOpenRecentProject={(projectId, displayName) => enqueueProject({ projectId, displayName })} onShowOnLaunchChange={onWelcomePreferenceChange} />
-        <SettingsLauncher engineLabel={engineLabel} runtime={runtime} secretStore={secretStore} />
+        <SettingsLauncher engineLabel={engineLabel} runtime={runtime} secretStore={secretStore} renderDiskCacheAvailable={renderDiskCacheAvailable} />
         <RenderControls
           autoRender={autoRender}
           autoRenderDisabled={settingsPersistenceStatus.status === "load-error"}

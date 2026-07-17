@@ -185,6 +185,8 @@ describe("SettingsDialog", () => {
         engineLabel="OpenSCAD 2026.06.12"
         secretStore={emptySecrets}
         settings={createDefaultPersistedSettings()}
+        renderDiskCacheAvailable
+        projectDiskRenderCacheEligible
         onChange={vi.fn()}
         onClose={vi.fn()}
         onRestore={vi.fn()}
@@ -199,10 +201,57 @@ describe("SettingsDialog", () => {
       "Line numbers",
       "Minimap",
       "Default render quality",
+      "Persist render cache for this project",
       "Orbit mouse button",
       "Pan mouse button",
       "Mesh color override",
     ]) expect(view.getByLabelText(label)).toBeInTheDocument();
+  });
+
+  it("routes desktop render-cache consent to the active project instead of global settings", () => {
+    const onChange = vi.fn();
+    const onProjectDiskRenderCacheChange = vi.fn();
+    const onClearProjectDiskRenderCache = vi.fn();
+    const view = render(
+      <SettingsDialog
+        engineLabel="OpenSCAD 2026.06.12"
+        secretStore={emptySecrets}
+        settings={createDefaultPersistedSettings()}
+        renderDiskCacheAvailable
+        projectDiskRenderCacheEligible
+        projectDiskRenderCacheEnabled={false}
+        onProjectDiskRenderCacheChange={onProjectDiskRenderCacheChange}
+        onClearProjectDiskRenderCache={onClearProjectDiskRenderCache}
+        onChange={onChange}
+        onClose={vi.fn()}
+        onRestore={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(view.getByLabelText("Persist render cache for this project"));
+
+    expect(onProjectDiskRenderCacheChange).toHaveBeenCalledWith(true);
+    expect(onChange).not.toHaveBeenCalled();
+    expect(view.getByText(/does not delete existing records/u)).toHaveAttribute("role", "note");
+    fireEvent.click(view.getByRole("button", { name: "Clear this project's disk render cache" }));
+    expect(onClearProjectDiskRenderCache).toHaveBeenCalledOnce();
+  });
+
+  it("does not offer disk-cache consent for scratch work", () => {
+    const view = render(
+      <SettingsDialog
+        engineLabel="OpenSCAD 2026.06.12"
+        secretStore={emptySecrets}
+        settings={createDefaultPersistedSettings()}
+        renderDiskCacheAvailable
+        onChange={vi.fn()}
+        onClose={vi.fn()}
+        onRestore={vi.fn()}
+      />,
+    );
+
+    expect(view.queryByLabelText("Persist render cache for this project")).not.toBeInTheDocument();
+    expect(view.getByText(/Scratch work is never written to the disk render cache/u)).toBeVisible();
   });
 
   it("locks every settings mutation surface after durable settings fail to load", () => {

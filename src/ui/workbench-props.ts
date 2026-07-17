@@ -51,4 +51,5 @@ export interface WorkbenchProps {
   configuredEnginePath?: string;
   onConfigureEnginePath?(path: string): void;
   onRetryWasmEngine?(): void;
+  renderDiskCacheAvailable?: boolean;
 }

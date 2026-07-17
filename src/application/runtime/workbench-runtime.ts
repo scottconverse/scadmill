@@ -78,8 +78,11 @@ import {
   createRenderCacheKey,
   RenderCacheKeyIndex,
   RenderMemoryCache,
+  TieredRenderCache,
 } from "../render-cache/render-cache";
-import type { CachedRenderResult } from "../render-cache/render-cache";
+import type { CachedRenderResult, RenderCache } from "../render-cache/render-cache";
+import { RenderDiskCache } from "../render-cache/render-disk-cache";
+import { EPHEMERAL_RENDER_DISK_CACHE_PREFERENCES } from "../render-cache/render-cache-preference";
 import { applyProjectTransition } from "./project-transition";
 import type {
   HistoryEntry,
@@ -113,6 +116,8 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
   const artifacts = options.artifactDestination ?? UNAVAILABLE_ARTIFACT_DESTINATION;
   const layoutPersistence = options.layoutPersistence ?? EPHEMERAL_WORKSPACE_LAYOUT_PERSISTENCE;
   const settingsPersistence = options.settingsPersistence ?? EPHEMERAL_SETTINGS_PERSISTENCE;
+  const renderDiskCachePreferences = options.renderDiskCachePreferencePersistence
+    ?? EPHEMERAL_RENDER_DISK_CACHE_PREFERENCES;
   const recentProjectsPersistence = options.recentProjectsPersistence
     ?? EPHEMERAL_RECENT_PROJECTS_PERSISTENCE;
   const annotationRepository = new WorkspaceAnnotationRepository(
@@ -155,12 +160,17 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
   } catch {
     recentProjects = [];
   }
+  const loadDiskCachePreference = (mode: ProjectSessionState["mode"], workspaceIdentity: string) => {
+    if (mode !== "project") return false;
+    try { return renderDiskCachePreferences.load(workspaceIdentity); } catch { return false; }
+  };
   const project = createStore<ProjectSessionState>(() =>
     createProjectSessionState(
       initialProject,
       options.initialProject ? "project" : "scratch",
       undefined,
       recentProjects,
+      loadDiskCachePreference(options.initialProject ? "project" : "scratch", initialProject.workspaceIdentity),
     )
   );
   const render = createStore<RenderState>(() => ({ status: "idle" }));
@@ -197,9 +207,20 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
   const makeId = options.makeId ?? (() => globalThis.crypto.randomUUID());
   const now = options.now ?? (() => new Date());
   const nowMs = options.nowMs ?? (() => Date.now());
-  const renderCache = options.renderCache === null
+  const renderDiskCache = options.renderDiskCacheStorage
+    ? new RenderDiskCache(options.renderDiskCacheStorage)
+    : undefined;
+  const renderCache: RenderCache | null = options.renderCache === null
     ? null
-    : options.renderCache ?? new RenderMemoryCache();
+    : options.renderCache
+      ?? (renderDiskCache
+        ? new TieredRenderCache(
+            new RenderMemoryCache(),
+            renderDiskCache,
+            () => project.getState().mode === "project"
+              && project.getState().diskRenderCacheEnabled,
+          )
+        : new RenderMemoryCache());
   let engineInfoPromise: Promise<EngineInfo | null> | undefined;
   let resolvedEngineInfo: EngineInfo | null | undefined;
   const knownCacheKeys = new RenderCacheKeyIndex();
@@ -230,6 +251,11 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       .catch(() => null);
     return engineInfoPromise;
   }
+
+  // Warm the engine identity as soon as a desktop disk tier exists so a
+  // first cold render can usually derive its key without starting the engine
+  // on the render critical path.
+  if (renderCache?.requiresColdLookup) void engineInfoForCache();
 
   function renderMemoKey(
     workspace: DocumentWorkspaceState,
@@ -595,11 +621,25 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       if (command.kind === "restore-recovery-confirmed" && workspaceChanged) {
         throw new Error(messages.recoveryWorkspaceChanged);
       }
-      const replacementLayout = transition.replacementWorkspace
+      const projectIdentityChanged = transition.project.mode !== beforeProject.mode
+        || transition.project.snapshot.workspaceIdentity !== beforeProject.snapshot.workspaceIdentity;
+      const effectiveTransition = projectIdentityChanged
+        ? {
+            ...transition,
+            project: {
+              ...transition.project,
+              diskRenderCacheEnabled: loadDiskCachePreference(
+                transition.project.mode,
+                transition.project.snapshot.workspaceIdentity,
+              ),
+            },
+          }
+        : transition;
+      const replacementLayout = effectiveTransition.replacementWorkspace
         ? parseWorkspaceLayout(layoutPersistence.load(transition.project.snapshot.workspaceIdentity))
         : undefined;
       const historyEntry = createHistoryEntry(command, makeId(), transition.summary, false);
-      applyProjectTransition(transition, {
+      applyProjectTransition(effectiveTransition, {
         documents,
         parameters,
         project,
@@ -631,6 +671,31 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
         cancelActiveRender();
         scheduleAutoRender();
       }
+      return;
+    }
+
+    if (command.kind === "set-project-disk-render-cache") {
+      const current = project.getState();
+      if (current.mode !== "project") {
+        throw new Error("Disk render caching is available only for opened projects.");
+      }
+      if (!renderDiskCache) throw new Error("Desktop render caching is unavailable.");
+      renderDiskCachePreferences.save(current.snapshot.workspaceIdentity, command.enabled);
+      project.setState({ ...current, diskRenderCacheEnabled: command.enabled }, true);
+      record(command, makeId(), command.enabled
+        ? "Enable disk render cache for this project"
+        : "Disable disk render cache for this project", false);
+      return;
+    }
+
+    if (command.kind === "clear-project-disk-render-cache") {
+      const current = project.getState();
+      if (current.mode !== "project") {
+        throw new Error("Disk render caching is available only for opened projects.");
+      }
+      if (!renderDiskCache) throw new Error("Desktop render caching is unavailable.");
+      await renderDiskCache.clear(current.snapshot.workspaceIdentity);
+      record(command, makeId(), "Clear disk render cache for this project", false);
       return;
     }
     const action = documentAction(command);
@@ -901,8 +966,9 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
         ),
       );
     };
-    if (renderCache) void engineInfoForCache();
-    const memoKey = renderCache && resolvedEngineInfo
+    const requiresColdLookup = renderCache?.requiresColdLookup === true;
+    if (renderCache && !requiresColdLookup) void engineInfoForCache();
+    let memoKey = renderCache && resolvedEngineInfo
       ? renderMemoKey(
           workspace,
           projectRevision,
@@ -913,7 +979,27 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
           rendering.profile.engine.executablePath,
         )
       : undefined;
-    const knownKey = memoKey ? knownCacheKeys.get(memoKey) : undefined;
+    let knownKey = memoKey ? knownCacheKeys.get(memoKey) : undefined;
+    if (renderCache && requiresColdLookup && !knownKey) {
+      const engineInfo = await engineInfoForCache();
+      if (engineInfo && renderAttempt === renderAttemptGeneration && snapshotIsCurrent()) {
+        knownKey = await createRenderCacheKey(
+          request,
+          engineInfo,
+          rendering.profile.engine.executablePath,
+        );
+        memoKey = knownKey ? renderMemoKey(
+          workspace,
+          projectRevision,
+          projectState.snapshot.workspaceIdentity,
+          document.id,
+          request,
+          engineInfo,
+          rendering.profile.engine.executablePath,
+        ) : undefined;
+        if (memoKey && knownKey) knownCacheKeys.set(memoKey, knownKey);
+      }
+    }
     let cachedResult: CachedRenderResult | undefined;
     if (renderCache && knownKey) {
       try {

@@ -2,6 +2,7 @@ import { expect, it } from "vitest";
 
 import {
   createDesktopRecentProjectsPersistence,
+  createDesktopRenderDiskCachePreferencePersistence,
   createDesktopRecoveryPersistence,
   createDesktopScratchAutosavePersistence,
   createDesktopWorkspaceLayoutPersistence,
@@ -73,6 +74,26 @@ it("persists scratch and project layouts under separate opaque desktop keys", ()
   expect(persistence.load("C:\\Models\\Secret")).toBeNull();
   expect(values).toEqual(beforeRawPath);
   expect([...values.entries()].flat().join("\n")).not.toContain("C:\\Models");
+});
+
+it("persists render-cache consent independently for each opaque desktop project", () => {
+  const values = new Map<string, string>();
+  const storage = {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => { values.set(key, value); },
+    removeItem: (key: string) => { values.delete(key); },
+  };
+  const persistence = createDesktopRenderDiskCachePreferencePersistence(storage);
+  const projectA = `desktop-project:${"a".repeat(64)}`;
+  const projectB = `desktop-project:${"b".repeat(64)}`;
+
+  persistence.save(projectA, true);
+  expect(persistence.load(projectA)).toBe(true);
+  expect(persistence.load(projectB)).toBe(false);
+  persistence.save(projectA, false);
+  expect(persistence.load(projectA)).toBe(false);
+  expect(() => persistence.save("C:\\Models\\Secret", true)).toThrow("opaque desktop project identity");
+  expect([...values.keys()].join("\n")).not.toContain("C:\\Models");
 });
 
 it("keeps layout state usable when desktop profile storage fails", () => {

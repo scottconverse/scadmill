@@ -7,6 +7,8 @@ import type {
   RenderSuccess3D,
 } from "../../../src/application/engine/contracts";
 import type { RenderCache } from "../../../src/application/render-cache/render-cache";
+import type { RenderDiskCacheStorage } from "../../../src/application/render-cache/render-disk-cache";
+import { createProjectSnapshot } from "../../../src/application/files/project-snapshot";
 import { createWorkbenchRuntime } from "../../../src/application/runtime/workbench-runtime";
 
 function successfulEngine(): EngineService {
@@ -41,6 +43,80 @@ function cacheableEngine(): EngineService {
 }
 
 describe("createWorkbenchRuntime", () => {
+  it("persists disk-cache consent per project and never enables scratch implicitly", async () => {
+    const enabled = new Map<string, boolean>();
+    const preferencePersistence = {
+      load: (workspaceIdentity: string) => enabled.get(workspaceIdentity) ?? false,
+      save: (workspaceIdentity: string, value: boolean) => { enabled.set(workspaceIdentity, value); },
+    };
+    const records = new Map<string, Uint8Array>();
+    const diskStorage: RenderDiskCacheStorage = {
+      read: async (projectIdentity, key) => records.get(`${projectIdentity}:${key}`),
+      write: vi.fn(async (projectIdentity, key, bytes) => { records.set(`${projectIdentity}:${key}`, bytes); }),
+      remove: async (projectIdentity, key) => { records.delete(`${projectIdentity}:${key}`); },
+      list: async (projectIdentity) => [...records]
+        .filter(([key]) => key.startsWith(`${projectIdentity}:`))
+        .map(([key, bytes]) => ({ key: key.slice(projectIdentity.length + 1), byteSize: bytes.byteLength, lastAccessMs: 1 })),
+    };
+    const projectA = createProjectSnapshot("project-a", new Map([["Untitled", "cube(1);"]]), "identity-a");
+    const runtime = createWorkbenchRuntime(cacheableEngine(), {
+      initialProject: projectA,
+      renderDiskCacheStorage: diskStorage,
+      renderDiskCachePreferencePersistence: preferencePersistence,
+    });
+
+    expect(runtime.project.getState()).toMatchObject({ diskRenderCacheEnabled: false });
+    await runtime.dispatch({ kind: "set-project-disk-render-cache", origin: "user", enabled: true });
+    expect(runtime.project.getState()).toMatchObject({ diskRenderCacheEnabled: true });
+    expect(enabled.get("identity-a")).toBe(true);
+    const restarted = createWorkbenchRuntime(cacheableEngine(), {
+      initialProject: projectA,
+      renderDiskCacheStorage: diskStorage,
+      renderDiskCachePreferencePersistence: preferencePersistence,
+    });
+    expect(restarted.project.getState()).toMatchObject({ diskRenderCacheEnabled: true });
+    await runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
+    expect(diskStorage.write).toHaveBeenCalledTimes(1);
+
+    const projectB = createProjectSnapshot("project-b", new Map([["main.scad", "sphere(2);"]]), "identity-b");
+    await runtime.dispatch({
+      kind: "replace-project-confirmed",
+      origin: "user",
+      snapshot: projectB,
+      displayName: "Project B",
+      entryFile: "main.scad",
+    });
+    expect(runtime.project.getState()).toMatchObject({ diskRenderCacheEnabled: false });
+    await runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
+    expect(diskStorage.write).toHaveBeenCalledTimes(1);
+
+    const scratch = createWorkbenchRuntime(cacheableEngine(), {
+      renderDiskCacheStorage: diskStorage,
+      renderDiskCachePreferencePersistence: preferencePersistence,
+    });
+    await expect(scratch.dispatch({
+      kind: "set-project-disk-render-cache",
+      origin: "user",
+      enabled: true,
+    })).rejects.toThrow("available only for opened projects");
+    expect(enabled.has("scratch")).toBe(false);
+
+    const failedPreference = createWorkbenchRuntime(cacheableEngine(), {
+      initialProject: projectA,
+      renderDiskCacheStorage: diskStorage,
+      renderDiskCachePreferencePersistence: {
+        load: () => false,
+        save: () => { throw new Error("profile full"); },
+      },
+    });
+    await expect(failedPreference.dispatch({
+      kind: "set-project-disk-render-cache",
+      origin: "user",
+      enabled: true,
+    })).rejects.toThrow("profile full");
+    expect(failedPreference.project.getState()).toMatchObject({ diskRenderCacheEnabled: false });
+  });
+
   it("reuses an unchanged successful render without a second engine invocation", async () => {
     const engine = cacheableEngine();
     const runtime = createWorkbenchRuntime(engine);
@@ -58,6 +134,38 @@ describe("createWorkbenchRuntime", () => {
       result: { kind: "3d" },
     });
     expect(runtime.console.getState().runs).toHaveLength(1);
+  });
+
+  it("checks a cold disk-capable tier before invoking the engine", async () => {
+    const engine = cacheableEngine();
+    const cached: RenderSuccess3D = {
+      kind: "3d",
+      mesh: { format: "stl-binary", bytes: new Uint8Array([1, 2, 3]) },
+      stats: { triangles: 1, engineTimeMs: 1 },
+      diagnostics: [],
+      rawLog: "disk cache",
+    };
+    const cache: RenderCache = {
+      requiresColdLookup: true,
+      get: vi.fn(async () => ({ tier: "disk" as const, result: cached })),
+      put: vi.fn(async () => undefined),
+    };
+    const files = new Map<string, string>([["main.scad", Array.from({ length: 64 }, (_, index) => `include <lib-${index}.scad>`).join("\n")]]);
+    for (let index = 0; index < 64; index += 1) files.set(`lib-${index}.scad`, `cube(${index});`);
+    const runtime = createWorkbenchRuntime(engine, {
+      renderCache: cache,
+      initialProject: createProjectSnapshot("cold-project", files, "cold-project"),
+      initialScratchSource: files.get("main.scad"),
+      initialScratchPath: "main.scad",
+    });
+
+    const started = performance.now();
+    await runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
+
+    expect(performance.now() - started).toBeLessThan(100);
+    expect(engine.render).not.toHaveBeenCalled();
+    expect(cache.get).toHaveBeenCalledOnce();
+    expect(runtime.render.getState()).toMatchObject({ status: "success", cached: true, result: cached });
   });
 
   it("does not cache failures and changes every output-affecting cache key", async () => {

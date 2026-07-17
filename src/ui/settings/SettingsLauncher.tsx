@@ -15,9 +15,10 @@ export interface SettingsLauncherProps {
   readonly engineLabel: string;
   readonly runtime: WorkbenchRuntime;
   readonly secretStore: SecretStore;
+  readonly renderDiskCacheAvailable?: boolean;
 }
 
-export function SettingsLauncher({ engineLabel, runtime, secretStore }: SettingsLauncherProps) {
+export function SettingsLauncher({ engineLabel, runtime, secretStore, renderDiskCacheAvailable = false }: SettingsLauncherProps) {
   const [open, setOpen] = useState(false);
   const [persistenceError, setPersistenceError] = useState<string | undefined>();
   const launcher = useRef<HTMLButtonElement>(null);
@@ -28,6 +29,7 @@ export function SettingsLauncher({ engineLabel, runtime, secretStore }: Settings
     runtime.settings,
     (state) => state.persistenceStatus,
   );
+  const project = useReadonlyStore(runtime.project, (state) => state);
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!matchesKeybinding(event, profile.keybindings.settings, primaryModifierForPlatform())) {
@@ -78,6 +80,9 @@ export function SettingsLauncher({ engineLabel, runtime, secretStore }: Settings
             ? messages.settingsLoadFailed
             : persistenceError}
           settingsMutationsBlocked={persistenceStatus.status === "load-error"}
+          renderDiskCacheAvailable={renderDiskCacheAvailable}
+          projectDiskRenderCacheEligible={project.mode === "project"}
+          projectDiskRenderCacheEnabled={project.diskRenderCacheEnabled}
           secretStore={secretStore}
           settings={profile}
           onChange={(settings) => {
@@ -90,6 +95,15 @@ export function SettingsLauncher({ engineLabel, runtime, secretStore }: Settings
               ? Promise.resolve()
               : persist({ kind: "replace-settings", origin: "user", settings });
           }}
+          onProjectDiskRenderCacheChange={(enabled) => persist({
+            kind: "set-project-disk-render-cache",
+            origin: "user",
+            enabled,
+          })}
+          onClearProjectDiskRenderCache={() => persist({
+            kind: "clear-project-disk-render-cache",
+            origin: "user",
+          })}
           onClose={() => {
             setOpen(false);
             globalThis.setTimeout(() => returnFocus.current?.focus(), 0);

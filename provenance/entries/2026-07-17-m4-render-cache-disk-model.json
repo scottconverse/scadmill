@@ -1,0 +1,176 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-render-cache-disk-model",
+  "createdAt": "2026-07-17T02:18:45-06:00",
+  "summary": "Add the FR-15.1 desktop disk-cache slice: strict binary-safe records with versioned SHA-256 integrity, raw-size and IPC caps, native transactional LRU eviction, per-project opaque consent persistence, cold-start lookup, explicit clear action, Tauri app-cache commands, and honest privacy/user-guide disclosure.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["FR-15.1", "N-1", "N-2", "N-7", "Q-0036"],
+  "filesTouched": [
+    { "path": "src/application/render-cache/render-disk-cache.ts", "status": "added" },
+    { "path": "src/application/render-cache/render-cache-preference.ts", "status": "added" },
+    { "path": "src/application/render-cache/render-cache.ts", "status": "modified" },
+    { "path": "src/application/runtime/workbench-runtime-contracts.ts", "status": "modified" },
+    { "path": "src/application/runtime/workbench-runtime.ts", "status": "modified" },
+    { "path": "src/application/files/project-session.ts", "status": "modified" },
+    { "path": "src/application/platform/scadmill-platform.ts", "status": "modified" },
+    { "path": "src/app/App.tsx", "status": "modified" },
+    { "path": "src/platform-desktop/desktop-platform.ts", "status": "modified" },
+    { "path": "src/platform-desktop/desktop-project-metadata.ts", "status": "modified" },
+    { "path": "src/platform-desktop/tauri-render-cache.ts", "status": "added" },
+    { "path": "src/platform-web/web-platform.ts", "status": "modified" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/workbench-props.ts", "status": "modified" },
+    { "path": "src/ui/settings/SettingsDialog.tsx", "status": "modified" },
+    { "path": "src/ui/settings/SettingsLauncher.tsx", "status": "modified" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "PRIVACY.md", "status": "modified" },
+    { "path": "docs/USER-GUIDE.md", "status": "modified" },
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/src/lib.rs", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/src/render_cache.rs", "status": "added" },
+    { "path": "tests/application/render-cache/render-disk-cache.test.ts", "status": "added" },
+    { "path": "tests/application/render-cache/render-cache.test.ts", "status": "modified" },
+    { "path": "tests/application/runtime/workbench-runtime.test.ts", "status": "modified" },
+    { "path": "tests/application/settings/settings-codec.test.ts", "status": "modified" },
+    { "path": "tests/platform-desktop/tauri-render-cache.test.ts", "status": "added" },
+    { "path": "tests/platform-desktop/desktop-project-metadata.test.ts", "status": "modified" },
+    { "path": "tests/ui/settings/SettingsDialog.test.tsx", "status": "modified" },
+    { "path": "tests/helpers/test-platform.ts", "status": "modified" },
+    { "path": "provenance/entries/2026-07-17-m4-render-cache-disk-model.json", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0292",
+      "topic": "Opaque desktop disk boundary",
+      "decision": "Keep disk-cache bytes behind a platform-owned storage interface keyed by project identity and cryptographic render key; the application cache implementation never receives a project path and never writes source files.",
+      "rationale": "Q-0036 permits only an opt-in per-project tier under the application cache directory; a storage seam lets the desktop adapter enforce that placement without coupling application code to Tauri or filesystem APIs.",
+      "specBasis": ["FR-15.1", "Q-0036"]
+    },
+    {
+      "id": "D-0293",
+      "topic": "Disk record integrity",
+      "decision": "Persist a versioned envelope containing project identity and exact key, encode 3D bytes as base64, reject malformed or mismatched records as misses, remove parse-corrupt records, and clone decoded results before returning them.",
+      "rationale": "Disk bytes survive crashes and upgrades; explicit identity binding and immutable handoff prevent stale/cross-project reuse and viewer mutation.",
+      "specBasis": ["FR-15.1", "N-7"]
+    },
+    {
+      "id": "D-0294",
+      "topic": "Desktop IPC safety and LRU metadata",
+      "decision": "Keep the disk tier's nominal 512 MiB project budget but cap each persisted JSON/IPC record at 4 MiB, leaving larger geometry memory-only. Native storage rejects oversized files before reading payload bytes, and access recency lives in a small sidecar updated under the same process mutex rather than rewriting geometry on every hit.",
+      "rationale": "Tauri nested values are JSON-serialized rather than raw binary; a bounded record cap keeps transient IPC allocations safe while preserving the memory tier. Sidecar metadata keeps cached display and eviction independent of multi-megabyte payload rewrites.",
+      "specBasis": ["FR-15.1", "N-1", "Q-0036"]
+    },
+    {
+      "id": "D-0295",
+      "topic": "Per-project disk consent",
+      "decision": "Persist disk-cache consent independently by opaque desktop workspace identity; keep scratch work ineligible, exclude consent from portable settings, and expose an active-project clear action.",
+      "rationale": "FR-15.1 requires an opt-in per-project desktop tier. A global rendering preference would silently enable unrelated projects and would be misleading in settings exports.",
+      "specBasis": ["FR-15.1", "Q-0036"]
+    },
+    {
+      "id": "D-0296",
+      "topic": "Disk payload integrity",
+      "decision": "Wrap each record in a versioned integrity envelope whose SHA-256 digest covers the exact scoped payload; reject and remove missing, malformed, mismatched, or tampered records as cache misses.",
+      "rationale": "Durable cache bytes can be truncated or modified across crashes and upgrades; structural decoding alone cannot detect valid-shape corruption.",
+      "specBasis": ["FR-15.1", "N-7"]
+    },
+    {
+      "id": "D-0297",
+      "topic": "Native bounded write transaction",
+      "decision": "Pass the configured budget to the native Tauri write command and enforce cleanup, deterministic LRU eviction, and atomic replacement under the native cache mutex.",
+      "rationale": "Separate list/remove/write calls can race across runtime instances; a single native transaction keeps record plus sidecar bytes within the configured budget and cleans crash artifacts.",
+      "specBasis": ["FR-15.1", "N-1", "Q-0036"]
+    },
+    {
+      "id": "D-0298",
+      "topic": "Retention disclosure",
+      "decision": "Document durable geometry, logs, diagnostics, statistics, integrity/LRU metadata, default-off consent, disable-without-delete behavior, and the per-project clear control in README, PRIVACY.md, and the user guide.",
+      "rationale": "N-6 and N-7 require honest point-of-use labeling and complete local-retention disclosure for cached or simulated data.",
+      "specBasis": ["FR-15.1", "N-6", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Disk records round-trip binary geometry, report disk tier, and isolate returned mutations.",
+      "test": "Run the dedicated RenderDiskCache unit suite.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/render-cache/render-disk-cache.test.ts",
+        "observedAt": "2026-07-17T02:00:17-06:00",
+        "outcome": "RED: the first test expected one access touch but the implementation correctly touched on both cache reads; the assertion was corrected."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/render-cache/render-disk-cache.test.ts",
+        "observedAt": "2026-07-17T02:21:17-06:00",
+        "outcome": "GREEN: Test Files 1 passed (1); Tests 11 passed (11), including raw SVG/log preflight, digest tamper rejection, clear quiescing, and native-budget forwarding."
+      }
+    },
+    {
+      "criterion": "The disk model is type-safe and lint/source-policy clean.",
+      "test": "Run typecheck and lint once after the final import correction.",
+      "red": {
+        "command": "pnpm.cmd typecheck",
+        "observedAt": "2026-07-17T02:01:10-06:00",
+        "outcome": "RED: decoded bounding-box tuple values were still typed as unknown."
+      },
+      "green": {
+        "command": "pnpm.cmd typecheck; pnpm.cmd lint",
+        "observedAt": "2026-07-17T02:18:06-06:00",
+        "outcome": "GREEN: tsc --noEmit exited 0; Biome checked 402 files with no fixes; source policy passed."
+      }
+    },
+    {
+      "criterion": "The tiered runtime, per-project consent/clear UI capability gate, Tauri adapter, dependency-closure key, and disk model work together on the exact current tree.",
+      "test": "Run the eight-file scoped application/platform/UI suite once.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/render-cache/render-cache.test.ts tests/application/render-cache/render-disk-cache.test.ts tests/application/runtime/workbench-runtime.test.ts tests/application/settings/settings-codec.test.ts tests/platform-desktop/tauri-render-cache.test.ts tests/platform-desktop/desktop-project-metadata.test.ts tests/ui/settings/SettingsDialog.test.tsx tests/ui/settings/SettingsLauncher.test.tsx",
+        "observedAt": "2026-07-17T02:02:00-06:00",
+        "outcome": "RED: the initial global-settings design failed the per-project consent and clear-lifecycle falsification cases."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/render-cache/render-cache.test.ts tests/application/render-cache/render-disk-cache.test.ts tests/application/runtime/workbench-runtime.test.ts tests/application/settings/settings-codec.test.ts tests/platform-desktop/tauri-render-cache.test.ts tests/platform-desktop/desktop-project-metadata.test.ts tests/ui/settings/SettingsDialog.test.tsx tests/ui/settings/SettingsLauncher.test.tsx",
+        "observedAt": "2026-07-17T02:18:32-06:00",
+        "outcome": "GREEN: Test Files 8 passed (8); Tests 110 passed (110); Duration 2.69s, including nested include/use, unresolved/external dependency refusal, dynamic/conditional-import keys, a 64-file application hashing benchmark under 100ms, per-project consent, restart, clear-isolation, Tauri adapter, and UI coverage."
+      }
+    },
+    {
+      "criterion": "The native Tauri cache commands compile and their Rust unit suite remains green.",
+      "test": "Run cargo fmt check and offline Rust tests once.",
+      "red": {
+        "command": "cargo check --manifest-path src/desktop-shell/src-tauri/Cargo.toml --offline",
+        "observedAt": "2026-07-17T02:02:10-06:00",
+        "outcome": "RED baseline unavailable: this command was not run against the final tree; no product failure is claimed."
+      },
+      "green": {
+        "command": "cargo fmt --manifest-path src/desktop-shell/src-tauri/Cargo.toml -- --check; cargo test --manifest-path src/desktop-shell/src-tauri/Cargo.toml --offline",
+        "observedAt": "2026-07-17T02:17:20-06:00",
+        "outcome": "GREEN: formatting passed; 41 Rust tests passed with 0 failures, including bounded native transaction, stale-artifact cleanup, and clear-command coverage."
+      }
+    },
+    {
+      "criterion": "The current production web bundle includes the desktop-cache settings/UI changes without build errors.",
+      "test": "Run the production build once.",
+      "red": {
+        "command": "pnpm.cmd build",
+        "observedAt": "2026-07-17T02:02:20-06:00",
+        "outcome": "RED baseline unavailable: this command was not run against the final tree; no product failure is claimed."
+      },
+      "green": {
+        "command": "pnpm.cmd build",
+        "observedAt": "2026-07-17T02:33:10-06:00",
+        "outcome": "GREEN: Vite transformed 220 modules and built the production bundle successfully in 342ms."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "urn:scadmill:platform-boundary:native-engine-version",
+      "sought": "A deterministic native subprocess latency measurement for the cold disk-cache lookup.",
+      "confirmation": "The application evidence measures 64-file dependency hashing under 100ms with a mocked cache; the native engine probe, disk IPC, and clean-host timing remain unmeasured and are intentionally deferred to the Windows evidence gate."
+    }
+  ],
+  "questions": ["Q-0036"],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

@@ -24,6 +24,8 @@ import type {
   WorkspaceMetadataPersistence,
 } from "../viewer/annotation-persistence";
 import type { RenderCache } from "../render-cache/render-cache";
+import type { RenderDiskCacheStorage } from "../render-cache/render-disk-cache";
+import type { RenderDiskCachePreferencePersistence } from "../render-cache/render-cache-preference";
 
 export type CommandOrigin = "user" | "ai-panel" | "external-agent" | "system";
 
@@ -67,6 +69,8 @@ export type WorkbenchCommand =
   | { kind: "reopen-document"; origin: CommandOrigin }
   | { kind: "set-theme"; origin: CommandOrigin; theme: ThemePreference }
   | { kind: "set-auto-render"; origin: CommandOrigin; enabled: boolean }
+  | { kind: "set-project-disk-render-cache"; origin: CommandOrigin; enabled: boolean }
+  | { kind: "clear-project-disk-render-cache"; origin: CommandOrigin }
   | { kind: "replace-settings"; origin: CommandOrigin; settings: PersistedSettings }
   | { kind: "restore-settings-section"; origin: CommandOrigin; section: SettingsSection }
   | { kind: "engine-availability-changed"; origin: CommandOrigin; available: boolean }
@@ -128,4 +132,6 @@ export interface RuntimeOptions {
   initialScratchSource?: string;
   initialScratchPath?: string;
   renderCache?: RenderCache | null;
+  renderDiskCacheStorage?: RenderDiskCacheStorage;
+  renderDiskCachePreferencePersistence?: RenderDiskCachePreferencePersistence;
 }

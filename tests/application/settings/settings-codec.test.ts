@@ -9,6 +9,13 @@ import { customThemePreference } from "../../../src/application/theme/theme-regi
 import { SHIPPED_THEMES } from "../../../src/application/theme/shipped-themes";
 
 describe("versioned settings JSON", () => {
+  it("keeps per-project render-cache consent out of portable global settings", () => {
+    const settings = createDefaultPersistedSettings();
+
+    expect(settings.rendering).not.toHaveProperty("diskRenderCacheEnabled");
+    expect(serializePersistedSettings(settings)).not.toContain("diskRenderCacheEnabled");
+  });
+
   it("keeps update checks off until the user explicitly enables them", () => {
     expect(createDefaultPersistedSettings().privacy.updateChecks).toBe(false);
   });
