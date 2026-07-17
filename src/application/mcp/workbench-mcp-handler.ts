@@ -23,6 +23,11 @@ export interface WorkbenchMcpHandlerOptions {
   readonly onPendingReview?: (review: McpPendingReview) => void;
 }
 
+function defaultReviewId(): string {
+  return globalThis.crypto?.randomUUID?.()
+    ?? `review-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 interface TargetDocument {
   readonly path: string;
   readonly source: string;
@@ -103,7 +108,7 @@ function extension(format: ExportFormat): string {
   return format === "stl-binary" || format === "stl-ascii" ? "stl" : format;
 }
 
-export function createWorkbenchMcpHandler({ runtime, engine, reviewId = () => globalThis.crypto.randomUUID(), onPendingReview }: WorkbenchMcpHandlerOptions): McpToolHandler {
+export function createWorkbenchMcpHandler({ runtime, engine, reviewId = defaultReviewId, onPendingReview }: WorkbenchMcpHandlerOptions): McpToolHandler {
   let lastPreview = new Map<string, PreviewRecord>();
 
   const documents = () => runtime.documents.getState().documents;

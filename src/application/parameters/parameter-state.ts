@@ -37,6 +37,11 @@ export type ParameterAction =
       readonly name: string;
       readonly value: ParameterValue;
     }
+  | {
+      readonly kind: "set-values";
+      readonly documentId: string;
+      readonly values: Readonly<Record<string, ParameterValue>>;
+    }
   | { readonly kind: "reset-value"; readonly documentId: string; readonly name: string }
   | { readonly kind: "reset-all"; readonly documentId: string }
   | { readonly kind: "save-set"; readonly documentId: string; readonly name: string }
@@ -218,6 +223,13 @@ export function reduceParameterState(state: ParameterState, action: ParameterAct
   switch (action.kind) {
     case "set-value": {
       const next = withValue(document, action.name, action.value);
+      if (parameterRecordsEqual(document.overrides, next.overrides)) {
+        return state;
+      }
+      return setDocument(state, action.documentId, next);
+    }
+    case "set-values": {
+      const next = applyValues(document, action.values);
       if (parameterRecordsEqual(document.overrides, next.overrides)) {
         return state;
       }

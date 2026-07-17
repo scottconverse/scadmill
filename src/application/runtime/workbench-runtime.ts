@@ -463,6 +463,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
 
   function parameterActionAffectsRender(action: ParameterAction): boolean {
     return action.kind === "set-value"
+      || action.kind === "set-values"
       || action.kind === "reset-value"
       || action.kind === "reset-all"
       || action.kind === "apply-set"
@@ -890,7 +891,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
         command,
         makeId(),
         `Update parameters for ${command.action.documentId}: ${command.action.kind}`,
-        command.action.kind === "set-value",
+        command.action.kind === "set-value" || command.action.kind === "set-values",
       );
       if (parameterActionAffectsRender(command.action)) {
         cancelActiveRender();

@@ -17,14 +17,8 @@ import { FilesActivity } from "./files/FilesActivity";
 import { ProjectSessionHost } from "./files/ProjectSessionHost";
 import { useFileCommands } from "./files/use-file-commands";
 import { useProjectOpenQueue } from "./files/use-project-open-queue";
-import { useLayoutKeybindings } from "./layout/use-layout-keybindings";
-import { useMcpStdio } from "./mcp/use-mcp-stdio";
-import { useNarrowLayout } from "./layout/use-narrow-layout";
-import { useNativeMenuState } from "./layout/use-native-menu-state";
-import { usePlatformMenuCommands } from "./layout/use-platform-menu-commands";
-import { WebMenuBar } from "./layout/WebMenuBar";
-import { WorkbenchStatusBar } from "./layout/WorkbenchStatusBar";
-import { WorkspaceFrame } from "./layout/WorkspaceFrame";
+import { useLayoutKeybindings, useNarrowLayout, useNativeMenuState, usePlatformMenuCommands, WebMenuBar, WorkbenchStatusBar, WorkspaceFrame } from "./layout";
+import { McpReviewPanel, useMcpReviewApproval, useMcpStdio } from "./mcp";
 import { ParameterPanelConnector } from "./parameters/ParameterPanelConnector";
 import { RenderControls } from "./render/RenderControls";
 import { useWorkbenchRenderCommands } from "./render/use-workbench-render-commands";
@@ -71,9 +65,13 @@ export function Workbench({
   const currentParameters = parameterDocument(parameterState, document.id);
   const aiPersistence = useMemo(() => createLocalConversationPersistence(document.id), [document.id]);
   const [viewerScreenshotDataUrl, setViewerScreenshotDataUrl] = useState<string>();
-  const { enabled: mcpEnabled, setEnabled: setMcpEnabled } = useMcpStdio(runtime, engine, mcpPort);
+  const { enabled: mcpEnabled, setEnabled: setMcpEnabled, pendingReviews, approveReview, dismissReview } = useMcpStdio(runtime, engine, mcpPort);
   useEffect(() => { if (document.id) setViewerScreenshotDataUrl(undefined); }, [document.id]);
   const projectState = useReadonlyStore(runtime.project, (state) => state);
+  const history = useReadonlyStore(runtime.history, (state) => state);
+  const { sourceForPath: sourceForMcpPath, approve: approveMcpReview } = useMcpReviewApproval(
+    runtime, documents, projectState, approveReview,
+  );
   const editorProjectCompletion = useProjectCompletionContext(projectState, documents);
   const narrow = useNarrowLayout(undefined, forceNarrowLayout);
   const activeViewer = viewerDocument(viewerState, document.id);
@@ -377,7 +375,9 @@ export function Workbench({
       <WorkspaceFrame aiConfigured={profile.ai.provider !== "none"} activityContent={{
           ai: <AiConversationPanel key={document.id} configured={profile.ai.provider !== "none"} contextInputs={{ source: document.source, diagnostics: aiDiagnostics, parameters: aiParameters, screenshotDataUrl: viewerScreenshotDataUrl }} currentSource={document.source} documentId={document.id} model={profile.ai.model} onApplyEdit={aiBridge.applyEdit} onCopy={clipboard?.writeText} onInsertAtCursor={(code) => { const session = editorSessions.current.get(document.id); const head = session?.state.selection.main.head ?? document.source.length; const offset = Math.max(0, Math.min(document.source.length, head)); void runtime.dispatch({ kind: "edit-document", origin: "ai-panel", documentId: document.id, source: `${document.source.slice(0, offset)}${code}${document.source.slice(offset)}` }).catch(() => undefined); }} persistence={aiPersistence} requestStream={profile.ai.provider === "none" ? undefined : aiBridge.requestStream} />,
           files: <FilesActivity canReveal={canRevealProjectFiles} canTrash={canTrashProjectFiles} directoryPicker={directoryPicker} engine={engineAvailable ? engine : undefined} portability={projectPortability} recoveryPersistence={recoveryPersistence} projectTransitionsBlocked={recoveryPending} requestedExport={fileCommands.requestedExport} requestedNewFile={fileCommands.requestedNewFile} runtime={runtime} storage={projectStorage} workspaceDirectory={workspaceDirectory} />,
+          history: <McpReviewPanel history={history} pendingReviews={pendingReviews} sourceForPath={sourceForMcpPath} onApprove={approveMcpReview} onDeny={dismissReview} />,
         }}
+        activityBadges={{ history: pendingReviews.length > 0 }}
         layout={layout}
         narrow={narrow}
         consoleContent={consoleContent} editor={editor}

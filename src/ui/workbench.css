@@ -296,6 +296,17 @@ button.console-diagnostic:hover, button.console-diagnostic:focus-visible { backg
 .external-change-diff-editor .cm-editor { min-width: 0; background: var(--editor-background); color: var(--editor-text); }
 .external-change-diff-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
 .external-change-diff-actions p { margin: 0 auto 0 0; color: var(--chrome-text-muted); }
+.mcp-review-panel { display: grid; gap: 10px; padding: 10px; overflow: auto; }
+.mcp-review-panel h2, .mcp-review-panel h3 { margin: 0; font-size: 14px; }
+.mcp-review-card { display: grid; gap: 8px; padding: 8px; border: 1px solid var(--chrome-border); border-radius: 5px; background: var(--chrome-surface-raised); }
+.mcp-review-card > header, .mcp-review-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.mcp-review-card > header span, .external-agent-badge { padding: 2px 5px; border-radius: 3px; background: var(--chrome-active); color: var(--chrome-text-muted); font-size: 11px; }
+.mcp-review-actions { justify-content: flex-end; }
+.mcp-review-actions button { border: 1px solid var(--chrome-border); border-radius: 4px; background: var(--chrome-surface); color: var(--chrome-text); cursor: pointer; }
+.mcp-review-values { max-height: 180px; margin: 0; overflow: auto; padding: 8px; background: var(--editor-background); color: var(--editor-text); }
+.mcp-review-error { margin: 0; color: var(--chrome-badge-error); }
+.workspace-history-list { display: grid; gap: 6px; margin: 0; padding-left: 20px; }
+.workspace-history-list li { display: flex; align-items: baseline; gap: 6px; }
 .status-chip { flex: 0 0 auto; min-height: 21px; padding: 0 7px; border: 0; border-radius: 4px; background: var(--chrome-status-bar-background); color: var(--chrome-status-bar-text); cursor: pointer; }
 .status-chip:hover, .status-chip[aria-pressed="true"] { background: var(--chrome-hover); }
 

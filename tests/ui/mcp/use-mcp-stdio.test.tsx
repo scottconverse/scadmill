@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { EngineService } from "../../../src/application/engine/contracts";
 import type { McpServerPort } from "../../../src/application/platform/scadmill-platform";
-import type { WorkbenchRuntime } from "../../../src/application/runtime/workbench-runtime-contracts";
+import { createWorkbenchRuntime } from "../../../src/application/runtime/workbench-runtime";
 import { useMcpStdio } from "../../../src/ui/mcp/use-mcp-stdio";
 
 describe("useMcpStdio", () => {
@@ -15,7 +15,7 @@ describe("useMcpStdio", () => {
       subscribeRequests: vi.fn().mockResolvedValue(unsubscribe),
       writeResponse: vi.fn().mockResolvedValue(undefined),
     };
-    const runtime = {} as WorkbenchRuntime;
+    const runtime = createWorkbenchRuntime({} as EngineService, { initialScratchSource: "cube(1);" });
     const engine = {} as EngineService;
     const view = renderHook(() => useMcpStdio(runtime, engine, port));
     await waitFor(() => expect(port.setEnabled).toHaveBeenCalledWith(false));
@@ -25,5 +25,30 @@ describe("useMcpStdio", () => {
     view.unmount();
     await waitFor(() => expect(unsubscribe).toHaveBeenCalledOnce());
     expect(port.setEnabled).toHaveBeenLastCalledWith(false);
+  });
+
+  it("exposes queued mutation reviews and removes them only when explicitly approved or denied", async () => {
+    let receive: ((chunk: string) => void) | undefined;
+    const port: McpServerPort = {
+      setEnabled: vi.fn().mockResolvedValue(undefined),
+      subscribeRequests: vi.fn().mockImplementation(async (listener) => { receive = listener; return () => undefined; }),
+      writeResponse: vi.fn().mockResolvedValue(undefined),
+    };
+    const runtime = createWorkbenchRuntime({} as EngineService, { initialScratchSource: "cube(1);" });
+    const view = renderHook(() => useMcpStdio(runtime, undefined, port));
+    act(() => view.result.current.setEnabled(true));
+    await waitFor(() => expect(receive).toBeDefined());
+    await act(async () => {
+      receive?.('{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"write_file","arguments":{"path":"main.scad","content":"cube(2);"}}}\n');
+    });
+    await waitFor(() => expect(port.writeResponse).toHaveBeenCalled());
+    expect(port.writeResponse).toHaveBeenLastCalledWith(expect.stringContaining("mcp-review-"));
+    await waitFor(() => expect(view.result.current.pendingReviews).toHaveLength(1));
+    const review = view.result.current.pendingReviews[0];
+    expect(review?.tool).toBe("write_file");
+    if (!review) throw new Error("Expected a queued MCP review.");
+    act(() => view.result.current.dismissReview(review.commandId));
+    expect(view.result.current.pendingReviews).toHaveLength(0);
+    runtime.dispose();
   });
 });

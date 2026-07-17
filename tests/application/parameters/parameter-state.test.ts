@@ -13,6 +13,20 @@ const sparseSetVector = [6, 7, 8, 9, 10, 11];
 delete sparseSetVector[2];
 
 describe("per-document customizer state", () => {
+  it("applies compatible parameter values as one atomic batch", () => {
+    const state = createParameterState([{
+      documentId: "doc-a",
+      revision: 0,
+      source: "width = 10; enabled = true; cube(width);",
+    }]);
+    const next = reduceParameterState(state, {
+      kind: "set-values",
+      documentId: "doc-a",
+      values: { width: 25, enabled: false, missing: 4 },
+    });
+    expect(parameterDocument(next, "doc-a").overrides).toEqual({ width: 25, enabled: false });
+  });
+
   it("snapshots a runtime vector once before compatibility and storage", () => {
     let lengthReads = 0;
     const changingLength = new Proxy([6, 7], {
