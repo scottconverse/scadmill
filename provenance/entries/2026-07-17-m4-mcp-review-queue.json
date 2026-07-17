@@ -10,6 +10,7 @@
     { "path": "src/application/mcp/workbench-mcp-handler.ts", "status": "modified" },
     { "path": "tests/application/mcp/mcp-review-queue.test.ts", "status": "added" },
     { "path": "tests/application/mcp/workbench-mcp-handler.test.ts", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
     { "path": "provenance/entries/2026-07-17-m4-mcp-review-queue.json", "status": "added" }
   ],
   "externalInputs": [],
