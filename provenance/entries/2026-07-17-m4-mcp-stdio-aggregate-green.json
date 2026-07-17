@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-mcp-stdio-aggregate-green",
+  "createdAt": "2026-07-17T04:06:10-06:00",
+  "summary": "Record the aggregate suite after adding MCP JSON-RPC metadata and stdio framing: all 168 test files and 1256 tests pass.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "verifier" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "C11", "N-7 evidence and status honesty"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-17-m4-mcp-stdio-aggregate-green.json", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0339", "topic": "Post-framing aggregate proof", "decision": "Retain one bounded aggregate run after stdio framing; treat it as regression evidence only because no desktop process is enabled.", "rationale": "The framing seam is application-only and must not be confused with AC-11.b/c process or handler acceptance.", "specBasis": ["C11", "N-7"] }
+  ],
+  "testEvidence": [
+    { "criterion": "The full local test suite remains green after MCP metadata and framing additions.", "test": "Run one bounded aggregate test command after focused MCP verification.", "red": { "command": "pnpm.cmd test -- --reporter=dot", "observedAt": "2026-07-17T03:52:37-06:00", "outcome": "RED: an earlier aggregate run exposed a scheduler-sensitive cache timing assertion, corrected before this framing change." }, "green": { "command": "pnpm.cmd test -- --reporter=dot", "observedAt": "2026-07-17T04:05:26-06:00", "outcome": "GREEN: Test Files 168 passed (168); Tests 1256 passed (1256); Duration 19.54s." } }
+  ],
+  "nearMisses": [],
+  "questions": ["Desktop stdio lifecycle, MCP handlers, permission UI, and AC-11.b/c remain pending."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
