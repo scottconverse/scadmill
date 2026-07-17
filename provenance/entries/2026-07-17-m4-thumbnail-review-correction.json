@@ -11,6 +11,7 @@
     { "path": "src/platform-web/web-platform.ts", "status": "modified" },
     { "path": "src/ui/files/ProjectPanel.tsx", "status": "modified" },
     { "path": "src/ui/viewer/model-viewer-runtime.ts", "status": "modified" },
+    { "path": "tests/ui/viewer/model-viewer-runtime-thumbnail.test.ts", "status": "added" },
     { "path": "src/ui/viewer/SvgViewer.tsx", "status": "modified" },
     { "path": "src/ui/viewer/use-viewer-thumbnail.ts", "status": "modified" },
     { "path": "src/ui/welcome/WelcomeLauncher.tsx", "status": "modified" },
