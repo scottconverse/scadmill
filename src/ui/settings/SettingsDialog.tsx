@@ -40,6 +40,9 @@ export interface SettingsDialogProps {
   readonly projectDiskRenderCacheEnabled?: boolean;
   readonly onProjectDiskRenderCacheChange?: (enabled: boolean) => void | Promise<void>;
   readonly onClearProjectDiskRenderCache?: () => void | Promise<void>;
+  readonly mcpAvailable?: boolean;
+  readonly mcpEnabled?: boolean;
+  readonly onMcpEnabledChange?: (enabled: boolean) => void;
 }
 const SECTION_TITLES: Readonly<Record<SettingsSection, string>> = {
   editor: messages.settingsEditor,
@@ -106,6 +109,9 @@ export function SettingsDialog({
   projectDiskRenderCacheEnabled = false,
   onProjectDiskRenderCacheChange,
   onClearProjectDiskRenderCache,
+  mcpAvailable = false,
+  mcpEnabled = false,
+  onMcpEnabledChange,
 }: SettingsDialogProps) {
   const [query, setQuery] = useState("");
   const searchInput = useRef<HTMLInputElement>(null);
@@ -353,6 +359,7 @@ export function SettingsDialog({
             <Setting label={messages.aiProvider}><select aria-label={messages.aiProvider} value={settings.ai.provider} onChange={(event) => onChange({ ...settings, ai: { ...settings.ai, provider: event.currentTarget.value as PersistedSettings["ai"]["provider"] } })}><option value="none">{messages.aiProviderNone}</option><option value="openai">{messages.aiProviderOpenAi}</option><option value="anthropic">{messages.aiProviderAnthropic}</option><option value="compatible">{messages.aiProviderCompatible}</option><option value="local">{messages.aiProviderLocal}</option></select></Setting>
             <Setting label={messages.aiEndpoint}><input aria-label={messages.aiEndpoint} type="url" value={settings.ai.endpoint} onChange={(event) => onChange({ ...settings, ai: { ...settings.ai, endpoint: event.currentTarget.value } })} /></Setting>
             <Setting label={messages.aiModel}><input aria-label={messages.aiModel} type="text" value={settings.ai.model} onChange={(event) => onChange({ ...settings, ai: { ...settings.ai, model: event.currentTarget.value } })} /></Setting>
+            {mcpAvailable && <Setting label={messages.mcpServerEnabled}><input aria-label={messages.mcpServerEnabled} checked={mcpEnabled} onChange={(event) => onMcpEnabledChange?.(event.currentTarget.checked)} type="checkbox" /></Setting>}
             <Setting label={messages.aiApiKey}><input aria-label={messages.aiApiKey} autoComplete="off" disabled={aiSecret.locked || aiSecret.busy} onChange={(event) => aiSecret.change(event.currentTarget.value)} type="password" value={aiSecret.secret} /></Setting>
             <div className="settings-secret-actions"><button disabled={aiSecret.locked || aiSecret.busy} onClick={aiSecret.save} type="button">{messages.saveAiKey}</button><button disabled={aiSecret.locked || aiSecret.busy || aiSecret.secret.length === 0} onClick={aiSecret.clear} type="button">{messages.clearAiKey}</button></div>
             {secretStore.persistence === "web-session" ? <>

@@ -18,6 +18,7 @@ mod artifact_storage;
 mod associated_files;
 mod desktop_settings;
 mod keychain;
+mod mcp_stdio;
 mod native_menu;
 mod project_storage;
 mod render_cache;
@@ -437,6 +438,7 @@ pub fn run() {
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .manage(associated_files::AssociatedFileQueue::default())
         .manage(NativeJobs::default())
+        .manage(mcp_stdio::McpStdioBridge::default())
         .setup(|app| {
             let current_directory = std::env::current_dir().unwrap_or_default();
             app.state::<associated_files::AssociatedFileQueue>()
@@ -453,6 +455,8 @@ pub fn run() {
             keychain::load_ai_secret,
             keychain::save_ai_secret,
             keychain::clear_ai_secret,
+            mcp_stdio::mcp_set_enabled,
+            mcp_stdio::mcp_write_response,
             project_storage::project_snapshot,
             project_storage::project_read,
             project_storage::project_write,

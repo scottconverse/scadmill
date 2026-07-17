@@ -54,6 +54,25 @@ describe("SettingsDialog", () => {
     });
   });
 
+  it("exposes the desktop MCP toggle only when the platform provides the port", () => {
+    const onMcpEnabledChange = vi.fn();
+    const view = render(
+      <SettingsDialog
+        engineLabel="OpenSCAD 2026.06.12"
+        secretStore={emptySecrets}
+        settings={createDefaultPersistedSettings()}
+        onChange={vi.fn()}
+        onClose={vi.fn()}
+        onRestore={vi.fn()}
+        mcpAvailable
+        mcpEnabled={false}
+        onMcpEnabledChange={onMcpEnabledChange}
+      />,
+    );
+    fireEvent.click(view.getByLabelText("Enable local MCP server (stdio)"));
+    expect(onMcpEnabledChange).toHaveBeenCalledWith(true);
+  });
+
   it("focuses search on open and closes from Escape", async () => {
     const onClose = vi.fn();
     const view = render(

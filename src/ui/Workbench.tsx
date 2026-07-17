@@ -18,6 +18,7 @@ import { ProjectSessionHost } from "./files/ProjectSessionHost";
 import { useFileCommands } from "./files/use-file-commands";
 import { useProjectOpenQueue } from "./files/use-project-open-queue";
 import { useLayoutKeybindings } from "./layout/use-layout-keybindings";
+import { useMcpStdio } from "./mcp/use-mcp-stdio";
 import { useNarrowLayout } from "./layout/use-narrow-layout";
 import { useNativeMenuState } from "./layout/use-native-menu-state";
 import { usePlatformMenuCommands } from "./layout/use-platform-menu-commands";
@@ -56,6 +57,7 @@ export function Workbench({
   scratchAutosavePersistence, showWelcomeOnLaunch = false,
   onThemePreferenceChange, onWelcomePreferenceChange = () => undefined,
   configuredEnginePath = "", onConfigureEnginePath, onRetryWasmEngine, renderDiskCacheAvailable = false,
+  mcpPort,
 }: WorkbenchProps) {
   const documents = useReadonlyStore(runtime.documents, (state) => state);
   const document = activeDocument(documents);
@@ -69,6 +71,7 @@ export function Workbench({
   const currentParameters = parameterDocument(parameterState, document.id);
   const aiPersistence = useMemo(() => createLocalConversationPersistence(document.id), [document.id]);
   const [viewerScreenshotDataUrl, setViewerScreenshotDataUrl] = useState<string>();
+  const { enabled: mcpEnabled, setEnabled: setMcpEnabled } = useMcpStdio(runtime, engine, mcpPort);
   useEffect(() => { if (document.id) setViewerScreenshotDataUrl(undefined); }, [document.id]);
   const projectState = useReadonlyStore(runtime.project, (state) => state);
   const editorProjectCompletion = useProjectCompletionContext(projectState, documents);
@@ -330,7 +333,7 @@ export function Workbench({
           <h1>{messages.appName}</h1>
         </div>
         <WelcomeLauncher documents={documents} project={projectState} runtime={runtime} showOnLaunch={showWelcomeOnLaunch} onNewFile={fileCommands.newFile} onOpenProject={fileCommands.openProject} onOpenRecentProject={(projectId, displayName) => enqueueProject({ projectId, displayName })} onShowOnLaunchChange={onWelcomePreferenceChange} />
-        <SettingsLauncher engineLabel={engineLabel} runtime={runtime} secretStore={secretStore} renderDiskCacheAvailable={renderDiskCacheAvailable} />
+        <SettingsLauncher engineLabel={engineLabel} runtime={runtime} secretStore={secretStore} renderDiskCacheAvailable={renderDiskCacheAvailable} mcpPort={mcpPort} mcpEnabled={mcpEnabled} onMcpEnabledChange={setMcpEnabled} />
         <RenderControls
           autoRender={autoRender}
           autoRenderDisabled={settingsPersistenceStatus.status === "load-error"}

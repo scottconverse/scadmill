@@ -10,6 +10,7 @@ import type {
 } from "../application/files/workspace-directory";
 import type {
   AssociatedFileOpenSource,
+  McpServerPort,
   PlatformCommandSource,
 } from "../application/platform/scadmill-platform";
 import type { WorkbenchRuntime } from "../application/runtime/workbench-runtime";
@@ -35,6 +36,7 @@ export interface WorkbenchProps {
   showWebMenu?: boolean;
   menuCommandSource?: PlatformCommandSource;
   associatedFileOpenSource?: AssociatedFileOpenSource;
+  mcpPort?: McpServerPort;
   forceNarrowLayout?: boolean;
   canRevealProjectFiles?: boolean;
   canTrashProjectFiles?: boolean;

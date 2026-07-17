@@ -96,6 +96,12 @@ export interface WindowControlsPort {
   toggleMaximize(): Promise<void>;
 }
 
+export interface McpServerPort {
+  setEnabled(enabled: boolean): Promise<void>;
+  subscribeRequests(listener: (chunk: string) => void): Promise<() => void>;
+  writeResponse(line: string): Promise<void>;
+}
+
 export interface SaveFileDialogPort {
   choosePath(options: {
     readonly title: string;
@@ -156,7 +162,7 @@ export interface ScadMillPlatform {
     readonly progress: EngineLoadProgressStore;
     clearProgress(): void;
   }>;
-  readonly mcp: PlatformFeature<true>;
+  readonly mcp: PlatformFeature<McpServerPort>;
   readonly windowControls: PlatformFeature<WindowControlsPort>;
   readonly engineVersionManager: PlatformFeature<true>;
   readonly forceNarrowLayout: boolean;

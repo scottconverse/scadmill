@@ -19,6 +19,7 @@ import {
   createTauriMenuCommandSource,
   disableTauriNativeMenu,
 } from "./tauri-menu-command-source";
+import { createTauriMcpPort } from "./tauri-mcp-port";
 import { createTauriProjectDirectoryPicker } from "./tauri-project-directory-picker";
 import { createTauriProjectStorage } from "./tauri-project-storage";
 import { createTauriRenderCacheStorage } from "./tauri-render-cache";
@@ -87,7 +88,7 @@ export async function createDesktopPlatform(): Promise<ScadMillPlatform> {
     artifacts: createTauriArtifactDestination(),
     enginePathConfiguration: available(enginePathConfiguration),
     wasm: unavailable(),
-    mcp: unavailable(),
+    mcp: available(createTauriMcpPort()),
     windowControls: available(createTauriWindowControls()),
     engineVersionManager: unavailable(),
     forceNarrowLayout: false,

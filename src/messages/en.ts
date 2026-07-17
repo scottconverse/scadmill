@@ -283,6 +283,7 @@ export const messages = {
   settingsFormatter: "Formatter",
   settingsTheme: "Theme",
   settingsAi: "AI",
+  mcpServerEnabled: "Enable local MCP server (stdio)",
   settingsKeybindings: "Keybindings",
   settingsPrivacy: "Privacy",
   editorFontFamily: "Editor font family",

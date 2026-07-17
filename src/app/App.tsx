@@ -307,6 +307,7 @@ export function App({
       associatedFileOpenSource={platform.files.fileAssociations.available
         ? platform.files.fileAssociations.service
         : undefined}
+      mcpPort={platform.mcp.available ? platform.mcp.service : undefined}
       forceNarrowLayout={platform.forceNarrowLayout}
       canRevealProjectFiles={platform.files.revealInOs.available}
       canTrashProjectFiles={platform.files.trashInOs.available}

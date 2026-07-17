@@ -6,6 +6,7 @@ import {
   primaryModifierForPlatform,
 } from "../../application/commands/default-keybindings";
 import type { WorkbenchRuntime } from "../../application/runtime/workbench-runtime";
+import type { McpServerPort } from "../../application/platform/scadmill-platform";
 import type { SecretStore } from "../../application/settings/secret-store";
 import { messages } from "../../messages/en";
 import { useReadonlyStore } from "../use-readonly-store";
@@ -16,9 +17,12 @@ export interface SettingsLauncherProps {
   readonly runtime: WorkbenchRuntime;
   readonly secretStore: SecretStore;
   readonly renderDiskCacheAvailable?: boolean;
+  readonly mcpPort?: McpServerPort;
+  readonly mcpEnabled?: boolean;
+  readonly onMcpEnabledChange?: (enabled: boolean) => void;
 }
 
-export function SettingsLauncher({ engineLabel, runtime, secretStore, renderDiskCacheAvailable = false }: SettingsLauncherProps) {
+export function SettingsLauncher({ engineLabel, runtime, secretStore, renderDiskCacheAvailable = false, mcpPort, mcpEnabled = false, onMcpEnabledChange }: SettingsLauncherProps) {
   const [open, setOpen] = useState(false);
   const [persistenceError, setPersistenceError] = useState<string | undefined>();
   const launcher = useRef<HTMLButtonElement>(null);
@@ -83,6 +87,9 @@ export function SettingsLauncher({ engineLabel, runtime, secretStore, renderDisk
           renderDiskCacheAvailable={renderDiskCacheAvailable}
           projectDiskRenderCacheEligible={project.mode === "project"}
           projectDiskRenderCacheEnabled={project.diskRenderCacheEnabled}
+          mcpAvailable={Boolean(mcpPort)}
+          mcpEnabled={mcpEnabled}
+          onMcpEnabledChange={onMcpEnabledChange}
           secretStore={secretStore}
           settings={profile}
           onChange={(settings) => {
