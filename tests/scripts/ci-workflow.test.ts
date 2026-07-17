@@ -55,9 +55,11 @@ describe("regular CI workflow contract", () => {
       const workflowJob = jobBlock(job);
       expect(workflowJob).toContain(expectedAction);
       expect(workflowJob).toContain(expectedArtifact);
-      expect(workflowJob).toContain("path: public/openscad-engine/2026.06.12");
+      expect(workflowJob).toContain(`path: \${{ runner.temp }}/openscad-wasm-source`);
       expect(workflowJob).toContain("run-id: 29529789154");
+      expect(workflowJob).toContain("node scripts/stage-openscad-wasm-artifact.mjs");
     }
+    expect(workflow).toContain("permissions:\n  actions: read\n  contents: read");
     expect(jobBlock("e2e")).toContain("if: runner.os == 'Linux'");
   });
 
