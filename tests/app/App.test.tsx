@@ -99,15 +99,18 @@ describe("App", () => {
       save: vi.fn(),
     };
     const view = render(
-      <App
-        engine={engine}
-        settingsPersistence={settingsPersistence}
-        welcomePreferencePersistence={{ load: () => true, save: vi.fn() }}
-      />,
+      <StrictMode>
+        <App
+          engine={engine}
+          settingsPersistence={settingsPersistence}
+          welcomePreferencePersistence={{ load: () => true, save: vi.fn() }}
+        />
+      </StrictMode>,
     );
     const app = within(view.container);
 
-    await waitFor(() => expect(engine.version).toHaveBeenCalledTimes(1));
+    await app.findByText(messages.engineReady(PINNED_OPENSCAD_VERSION));
+    expect(engine.version).toHaveBeenCalledTimes(1);
     expect(engine.render).not.toHaveBeenCalled();
     fireEvent.click(app.getByRole("button", { name: "Open sample Parametric storage box" }));
 
@@ -206,6 +209,58 @@ describe("App", () => {
     expect(screen.getByText("Checking OpenSCAD…")).toBeVisible();
     await waitFor(() => expect(engine.render).toHaveBeenCalledTimes(1));
     expect(engine.version).toHaveBeenCalledTimes(1);
+  });
+
+  it("disposes replaced and unmounted runtimes without breaking the active replacement", async () => {
+    const pendingResult = new Promise<RenderFailure>(() => undefined);
+    const oldEngine: EngineService = {
+      render: vi.fn().mockReturnValue({ jobId: "old-runtime-render", done: pendingResult }),
+      export: vi.fn(),
+      version: vi.fn().mockResolvedValue({
+        version: PINNED_OPENSCAD_VERSION,
+        path: "native",
+        features: [],
+      }),
+      cancel: vi.fn(),
+    };
+    const replacementEngine: EngineService = {
+      render: vi.fn().mockReturnValue({ jobId: "replacement-render", done: pendingResult }),
+      export: vi.fn(),
+      version: vi.fn().mockResolvedValue({
+        version: PINNED_OPENSCAD_VERSION,
+        path: "native",
+        features: [],
+      }),
+      cancel: vi.fn(),
+    };
+    let scratchSource = "cube(10);";
+    const scratchAutosavePersistence = {
+      load: () => scratchSource,
+      save: vi.fn(),
+    };
+    const view = render(
+      <StrictMode>
+        <App engine={oldEngine} scratchAutosavePersistence={scratchAutosavePersistence} />
+      </StrictMode>,
+    );
+
+    await waitFor(() => expect(oldEngine.render).toHaveBeenCalledOnce());
+    scratchSource = "";
+    view.rerender(
+      <StrictMode>
+        <App engine={replacementEngine} scratchAutosavePersistence={scratchAutosavePersistence} />
+      </StrictMode>,
+    );
+
+    await waitFor(() => expect(oldEngine.cancel).toHaveBeenCalledWith("old-runtime-render"));
+    await waitFor(() => expect(replacementEngine.version).toHaveBeenCalledOnce());
+    expect(replacementEngine.render).not.toHaveBeenCalled();
+    fireEvent.click(within(view.container).getByRole("button", { name: messages.renderPreview }));
+    await waitFor(() => expect(replacementEngine.render).toHaveBeenCalledOnce());
+
+    view.unmount();
+    await act(async () => { await Promise.resolve(); });
+    expect(replacementEngine.cancel).toHaveBeenCalledWith("replacement-render");
   });
 
   it("formats the ready engine status through the message catalog", async () => {

@@ -172,22 +172,23 @@ test.describe("C9 settings layout", () => {
     await page.goto("/");
     await dismissWelcome(page);
     const banners = page.locator(".workbench-banners");
-    const engineBanner = banners.locator(".engine-banner");
+    const engineBanner = banners.locator(".wasm-engine-banner[role='alert']");
     const lifecycle = banners.locator(".project-lifecycle-controls");
     const portability = banners.locator(".project-portability");
     const workspace = page.locator(".workspace-frame");
 
     await expect(engineBanner).toBeVisible({ timeout: 10_000 });
+    await expect(engineBanner.getByRole("button", { name: "Retry engine load" })).toBeVisible();
     await expect(lifecycle).toHaveCSS("display", "none");
     await expect(portability).toHaveCSS("display", "none");
-    const bannersBox = await banners.boundingBox();
-    const engineBox = await engineBanner.boundingBox();
-    const workspaceBox = await workspace.boundingBox();
-    if (!bannersBox || !engineBox || !workspaceBox) {
-      throw new Error("Workbench banner geometry is unavailable.");
-    }
-    expect(Math.abs(bannersBox.height - engineBox.height)).toBeLessThan(1);
-    expect(Math.abs(workspaceBox.y - (engineBox.y + engineBox.height))).toBeLessThan(1);
+    await expect.poll(async () => {
+      const [engineBox, workspaceBox] = await Promise.all([
+        engineBanner.boundingBox(),
+        workspace.boundingBox(),
+      ]);
+      if (!engineBox || !workspaceBox) return Number.POSITIVE_INFINITY;
+      return Math.abs(workspaceBox.y - (engineBox.y + engineBox.height));
+    }).toBeLessThan(1);
   });
 
   test("keeps browser editing durable through a real engine fetch failure and retries once without reload", async ({

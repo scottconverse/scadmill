@@ -19,6 +19,16 @@ function jobBlock(jobId: string): string {
   return nextJob === -1 ? remainder : remainder.slice(0, nextJob);
 }
 
+function namedStepBlock(jobId: string, stepName: string): string {
+  const job = jobBlock(jobId);
+  const marker = `      - name: ${stepName}\n`;
+  const start = job.indexOf(marker);
+  if (start === -1) throw new Error(`Workflow job ${jobId} is missing step ${stepName}.`);
+  const remainder = job.slice(start + marker.length);
+  const nextStep = remainder.search(/^ {6}- /m);
+  return nextStep === -1 ? remainder : remainder.slice(0, nextStep);
+}
+
 describe("regular CI workflow contract", () => {
   it("runs desktop-shell Rust tests in the native V-2 lane", () => {
     expect(
@@ -60,7 +70,10 @@ describe("regular CI workflow contract", () => {
       expect(workflowJob).toContain("node scripts/stage-openscad-wasm-artifact.mjs");
     }
     expect(workflow).toContain("permissions:\n  actions: read\n  contents: read");
-    expect(jobBlock("e2e")).toContain("if: runner.os == 'Linux'");
+    expect(namedStepBlock("e2e", "Stage source-built WASM for ephemeral verification"))
+      .not.toContain("if:");
+    expect(namedStepBlock("e2e", "Verify and stage ignored WASM runtime paths"))
+      .not.toContain("if:");
     expect(jobBlock("parity")).toContain('"SCADMILL_AC4_OPENSCAD=$executable"');
   });
 

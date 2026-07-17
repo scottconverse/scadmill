@@ -80,6 +80,9 @@ export function App({
       workspaceMetadataPersistence,
     ],
   );
+  const pendingRuntimeDisposals = useRef(
+    new Map<ReturnType<typeof createWorkbenchRuntime>, object>(),
+  );
   const projectPortability = useMemo(
     () => createWorkbenchProjectPortabilityController(runtime, projectPortabilityStorage, {
       copyText: (value) => platform.clipboard.writeText(value),
@@ -205,7 +208,18 @@ export function App({
       });
   }, [engineHealth, runtime]);
 
-  useEffect(() => () => runtime.dispose(), [runtime]);
+  useEffect(() => {
+    pendingRuntimeDisposals.current.delete(runtime);
+    return () => {
+      const token = {};
+      pendingRuntimeDisposals.current.set(runtime, token);
+      queueMicrotask(() => {
+        if (pendingRuntimeDisposals.current.get(runtime) !== token) return;
+        pendingRuntimeDisposals.current.delete(runtime);
+        runtime.dispose();
+      });
+    };
+  }, [runtime]);
 
   const engineLabel = engineHealth.kind === "checking"
     ? messages.checkingEngine
