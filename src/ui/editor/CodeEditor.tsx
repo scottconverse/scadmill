@@ -23,6 +23,7 @@ import {
 } from "../../application/commands/default-keybindings";
 import type { EditorCommandOutcome } from "../../application/commands/editor-commands";
 import type { Diagnostic } from "../../application/engine/contracts";
+import { defaultPersistedSettings, type FormatterPreferences } from "../../application/settings/settings-schema";
 import {
   DEFAULT_EDITOR_SETTINGS,
   type EditorSettings,
@@ -42,6 +43,7 @@ import { openScad } from "./openscad-language";
 const controlledDocumentUpdate = Annotation.define<boolean>();
 const EMPTY_DIAGNOSTICS: readonly Diagnostic[] = [];
 const MAX_MINIMAP_ROWS = 240;
+const DEFAULT_FORMATTER_SETTINGS: Readonly<FormatterPreferences> = Object.freeze(defaultPersistedSettings().formatter);
 
 function renderMinimap(editor: EditorView, minimap: HTMLElement): void {
   const fragment = document.createDocumentFragment();
@@ -118,6 +120,7 @@ export interface CodeEditorProps {
   commandRequest?: EditorCommandRequest;
   keybindings?: KeybindingSettings;
   editorSettings?: Readonly<EditorSettings>;
+  formatterSettings?: Readonly<FormatterPreferences>;
   label: string;
 }
 
@@ -183,6 +186,7 @@ export function CodeEditor({
   commandRequest,
   keybindings = DEFAULT_KEYBINDINGS,
   editorSettings = DEFAULT_EDITOR_SETTINGS,
+  formatterSettings = DEFAULT_FORMATTER_SETTINGS,
   language: languageMode = "openscad",
   label,
 }: CodeEditorProps) {
@@ -193,6 +197,7 @@ export function CodeEditor({
   const initialSessionRef = useRef(initialSession);
   const initialEditorSettingsRef = useRef(editorSettings);
   const initialKeybindingsRef = useRef(keybindings);
+  const initialFormatterSettingsRef = useRef(formatterSettings);
   const projectCompletionContextRef = useRef<OpenScadProjectCompletionContext | undefined>(
     undefined,
   );
@@ -239,6 +244,7 @@ export function CodeEditor({
       commandsCompartment.of(editorCommandExtension(
         (command) => onCommandRef.current?.(command),
         initialKeybindingsRef.current,
+        initialFormatterSettingsRef.current,
       )),
       settingsCompartment.of(editorSettingExtensions(initialEditorSettingsRef.current)),
       EditorView.contentAttributes.of({ "aria-label": label }),
@@ -312,10 +318,11 @@ export function CodeEditor({
         effects: commandsCompartment.reconfigure(editorCommandExtension(
           (command) => onCommandRef.current?.(command),
           keybindings,
+          formatterSettings,
         )),
       });
     }
-  }, [keybindings]);
+  }, [formatterSettings, keybindings]);
 
   useEffect(() => {
     const editor = view.current;
@@ -325,9 +332,13 @@ export function CodeEditor({
       || handledCommandRequest.current === commandRequest.requestId
     ) return;
     handledCommandRequest.current = commandRequest.requestId;
-    onCommandRef.current?.(executeEditorCommand(editor, commandRequest.command));
+    onCommandRef.current?.(executeEditorCommand(
+      editor,
+      commandRequest.command,
+      formatterSettings,
+    ));
     if (!["find", "replace", "go-to-line"].includes(commandRequest.command)) editor.focus();
-  }, [commandRequest]);
+  }, [commandRequest, formatterSettings]);
 
   useEffect(() => {
     const editor = view.current;

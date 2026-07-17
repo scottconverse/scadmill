@@ -24,6 +24,7 @@ export interface FilesActivityProps {
   readonly recoveryPersistence?: RecoveryPersistence;
   readonly portability?: ProjectPortabilityController;
   readonly canReveal?: boolean;
+  readonly canTrash?: boolean;
   readonly requestedExport?: number;
   readonly requestedNewFile?: number;
   readonly projectTransitionsBlocked?: boolean;
@@ -38,6 +39,7 @@ export function FilesActivity({
   recoveryPersistence,
   portability,
   canReveal,
+  canTrash,
   requestedExport,
   requestedNewFile,
   projectTransitionsBlocked,
@@ -62,6 +64,7 @@ export function FilesActivity({
     <>
       <ProjectPanel
         canReveal={canReveal}
+        canTrash={canTrash}
         recoveryPersistence={recoveryPersistence}
         projectTransitionsBlocked={projectTransitionsBlocked}
         requestedNewFile={requestedNewFile}

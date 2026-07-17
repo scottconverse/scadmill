@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-16-m3-native-desktop-menus",
+  "createdAt": "2026-07-16T14:39:00-06:00",
+  "summary": "Add Tauri-native File, Edit, View, Render, and Help menus and route their typed events through the existing Workbench production handlers.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 M3 delivery protocol",
+    "FR-13.1 typed platform menus boundary",
+    "FR-13.2 native desktop menu bar",
+    "AC-13.a platform import boundary",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-16-m3-native-desktop-menus.json", "status": "added" },
+    { "path": "src/app/App.tsx", "status": "modified" },
+    { "path": "src/application/platform/scadmill-platform.ts", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/src/lib.rs", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/src/native_menu.rs", "status": "added" },
+    { "path": "src/platform-desktop/desktop-platform.ts", "status": "modified" },
+    { "path": "src/platform-desktop/tauri-menu-command-source.ts", "status": "added" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/layout/use-platform-menu-commands.ts", "status": "added" },
+    { "path": "src/ui/workbench-props.ts", "status": "modified" },
+    { "path": "src/ui/workbench.css", "status": "modified" },
+    { "path": "tests/platform-desktop/desktop-platform.test.ts", "status": "modified" },
+    { "path": "tests/scripts/native-menu-contract.test.ts", "status": "added" },
+    { "path": "tests/ui/Workbench.native-menu.test.tsx", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0268",
+      "topic": "Native menu command routing",
+      "decision": "Define one allow-listed PlatformMenuCommand union, build the five desktop menu groups in Tauri, emit selected IDs on one shell event, validate them in the desktop adapter, and invoke the existing Workbench file, editor, layout, render, and help handlers from one platform subscription. Keep WebMenuBar as the web presentation.",
+      "rationale": "The shell owns native presentation but must not create a second application-command implementation. A typed event source confines Tauri APIs to the desktop adapter and reuses the same production handlers already exercised by web controls and keybindings.",
+      "specBasis": ["FR-13.1", "FR-13.2", "AC-13.a", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Desktop composition exposes native menus, invalid shell payloads are ignored, all five groups exist, and native events reach the production Workbench handlers while WebMenuBar is absent.",
+      "test": "Run the three focused adapter, Rust-source contract, and Workbench routing files once RED and once GREEN, with one permitted replacement only for a concrete fixture failure; then compile TypeScript and the Tauri Rust shell.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/platform-desktop/desktop-platform.test.ts tests/ui/Workbench.native-menu.test.tsx tests/scripts/native-menu-contract.test.ts",
+        "observedAt": "2026-07-16T14:31:55-06:00",
+        "outcome": "RED: 3 files and 4 tests failed because desktop still presented the web menu, no Tauri listener or Rust native-menu module existed, and Workbench ignored the injected shell command source."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/platform-desktop/desktop-platform.test.ts tests/ui/Workbench.native-menu.test.tsx tests/scripts/native-menu-contract.test.ts; pnpm.cmd typecheck; cargo check --locked (src/desktop-shell/src-tauri)",
+        "observedAt": "2026-07-16T14:38:00-06:00",
+        "outcome": "PARTIAL: both focused post-implementation runs passed all 4 assertions but Vitest rejected each for the same unhandled rejection caused by a test double returning RenderResult instead of the required RenderJob. The fixture was corrected after diagnosis, but the focused suite was not run a third time under the standing anti-loop cap. Distinct static evidence is green: strict TypeScript exited 0 and cargo check --locked compiled the complete Tauri shell successfully in 77.8 seconds. A later aggregate gate must re-prove the corrected focused test."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-16-m3-wasm-engine-service",
+  "createdAt": "2026-07-16T06:15:00-06:00",
+  "summary": "Add the artifact-independent WebAssembly EngineService worker protocol and client with isolated operation lifecycles, fail-closed decoding, safe binary transfer, finite timeouts, and never-reject value failures.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 M3 delivery protocol",
+    "FR-4.1 shared native and WebAssembly EngineService",
+    "FR-4.2 render, export, version, and cancel operations",
+    "FR-4.4 render supersession",
+    "FR-4.5 text and binary project files",
+    "FR-4.8 streamed engine output",
+    "FR-4.9 timeout termination",
+    "AC-4.c worker termination and recovery",
+    "AC-4.e render supersession",
+    "Appendix A normative EngineService contract",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-16-m3-wasm-engine-service.json", "status": "added" },
+    { "path": "src/platform-web/wasm-engine-protocol.ts", "status": "added" },
+    { "path": "src/platform-web/wasm-engine-service.ts", "status": "added" },
+    { "path": "tests/platform-web/wasm-engine-service.test.ts", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0245",
+      "topic": "Artifact-independent structured worker boundary",
+      "decision": "Define discriminated render, export, version, output, and terminal worker messages; copy caller-owned binary assets, parameter vectors, and camera tuples before transfer; and decode every worker response through fail-closed runtime guards before it reaches EngineService callers.",
+      "rationale": "The service contract can be implemented and falsified without guessing the generated Emscripten API. Separating transport and lifecycle from the artifact adapter preserves the normative EngineService boundary, prevents transferred buffers from detaching project data, and gives malformed worker data one deterministic failure path.",
+      "specBasis": ["FR-4.1", "FR-4.2", "FR-4.5", "FR-4.8", "Appendix A"]
+    },
+    {
+      "id": "D-0246",
+      "topic": "Isolated WebAssembly worker operation lifecycle",
+      "decision": "Give every concurrent operation its own worker record, retain at most one successfully completed idle worker for reuse, supersede only an active render with a newer render, and terminate only the targeted worker on cancel, timeout, crash, posting error, or invalid terminal data. Version probes use a configurable finite timeout with a 30-second default.",
+      "rationale": "One global pending slot made unrelated exports and version probes observably cancel each other and allowed startup probing to hang. Per-operation ownership matches the native service's independent jobs, makes cleanup local and idempotent, and guarantees that every exposed promise settles as a result value or null.",
+      "specBasis": ["FR-4.4", "FR-4.9", "AC-4.c", "AC-4.e", "Appendix A"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The worker client transports text and binary projects, streams output, validates terminal values, and settles cancel, timeout, crash, malformed, and stale-message paths",
+      "test": "Run the focused fake-worker service suite against a compilable value-returning skeleton, then implement the protocol and client without wiring the generated artifact.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/platform-web/wasm-engine-service.test.ts",
+        "observedAt": "2026-07-16T05:54:32-06:00",
+        "outcome": "RED: 1 test file failed and all 6 behavioral tests failed against the compilable skeleton; failures covered version/render transport, export, supersession/cancel recovery, timeout recovery, crash/malformed settlement, and wrong-job handling."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/platform-web/wasm-engine-service.test.ts",
+        "observedAt": "2026-07-16T05:56:53-06:00",
+        "outcome": "GREEN: 1 test file and all 6 tests passed after the first protocol/client implementation."
+      }
+    },
+    {
+      "criterion": "Version probing cannot hang, unrelated operations remain isolated, and worker construction or posting failures never reject callers",
+      "test": "Independently audit the first green implementation, then add finite version timeout/recovery, per-operation workers with render-only supersession, and direct factory/postMessage exception proof.",
+      "red": {
+        "command": "Independent read-only adversarial audit of the initial 6-test worker service",
+        "observedAt": "2026-07-16T06:05:00-06:00",
+        "outcome": "RED: 3 Major findings (0/0/3/0/0). The exact audit timestamp was not retained; it occurred after the 05:56:53 green and before the 06:12:30 repair. Version could hang, one pending slot cancelled unrelated operations, and factory/postMessage value-failure paths lacked behavioral proof."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/platform-web/wasm-engine-service.test.ts",
+        "observedAt": "2026-07-16T06:12:30-06:00",
+        "outcome": "GREEN: 1 test file and all 10 tests passed in 599 ms. A subsequent independent static audit verified every prior Major closed and returned strict 0/0/0/0/0 without rerunning tests."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

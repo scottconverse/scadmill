@@ -4,6 +4,8 @@ export type EditorCommandId =
   | "go-to-line"
   | "go-to-definition"
   | "toggle-comment"
+  | "format-document"
+  | "format-selection"
   | "undo"
   | "redo"
   | "multi-cursor-add";
@@ -13,7 +15,9 @@ export type DirectEditorCommandId = Exclude<
   "go-to-definition" | "multi-cursor-add"
 >;
 
-export type EditorCommandUnavailableReason = "project-symbol-navigation-unavailable";
+export type EditorCommandUnavailableReason =
+  | "project-symbol-navigation-unavailable"
+  | "syntax-error";
 
 export type EditorCommandOutcome =
   | { command: EditorCommandId; status: "handled" }

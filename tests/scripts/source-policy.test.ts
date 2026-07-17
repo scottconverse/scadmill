@@ -51,6 +51,20 @@ describe("scanSourcePolicy", () => {
     });
   });
 
+  it("rejects browser-platform type imports from shared UI", async () => {
+    const root = await fixtureRoot();
+    await writeFile(
+      join(root, "src", "ui", "LeakyType.tsx"),
+      'import type { BrowserPort } from "../platform-web/browser-port";\n',
+    );
+
+    await expect(scanSourcePolicy(root)).resolves.toContainEqual({
+      file: "src/ui/LeakyType.tsx",
+      rule: "platform-boundary",
+      message: "Shared UI imports a platform-specific module: ../platform-web/browser-port.",
+    });
+  });
+
   it("rejects common UTF-8 mojibake in shipped source strings", async () => {
     const root = await fixtureRoot();
     await writeFile(

@@ -16,7 +16,9 @@ import type {
   WorkspaceLayoutState,
 } from "../../application/layout/workspace-layout";
 import type { WorkbenchRuntime } from "../../application/runtime/workbench-runtime";
+import type { FormatterPreferences } from "../../application/settings/settings-schema";
 import { messages } from "../../messages/en";
+import { formatOpenScad } from "../editor/openscad-formatter";
 
 export interface FileCommandCoordinator {
   readonly requestedExport?: number;
@@ -43,6 +45,7 @@ export interface FileCommandOptions {
   readonly onLayoutAction: (action: WorkspaceLayoutAction) => void;
   readonly directoryPicker?: ProjectDirectoryPicker;
   readonly onProjectSelected?: (selection: ProjectLocation) => void;
+  readonly formatter?: Readonly<FormatterPreferences>;
 }
 
 export function useFileCommands(options: FileCommandOptions): FileCommandCoordinator {
@@ -71,8 +74,26 @@ export function useFileCommands(options: FileCommandOptions): FileCommandCoordin
     }
   }, [options.layout, options.narrow, options.onLayoutAction]);
   const saveDocument = useCallback(async (documentId: string) => {
-    const document = options.runtime.documents.getState().documents.find(({ id }) => id === documentId);
+    let document = options.runtime.documents.getState().documents.find(({ id }) => id === documentId);
     if (!document || !isDocumentDirty(document)) return;
+    if (
+      options.formatter?.formatOnSave
+      && (options.projectMode === "scratch" || document.path.toLowerCase().endsWith(".scad"))
+    ) {
+      const result = formatOpenScad(document.source, options.formatter);
+      if (result.status === "refused") {
+        setNotice(messages.formatSyntaxError);
+      } else if (result.source !== document.source) {
+        await options.runtime.dispatch({
+          kind: "edit-document",
+          origin: "user",
+          documentId,
+          source: result.source,
+        });
+        document = options.runtime.documents.getState().documents.find(({ id }) => id === documentId);
+        if (!document) return;
+      }
+    }
     if (options.projectMode === "project") {
       await options.runtime.dispatch({ kind: "save-document", origin: "user", documentId });
       return;
@@ -81,7 +102,7 @@ export function useFileCommands(options: FileCommandOptions): FileCommandCoordin
     if (documentId !== primaryScratchDocumentId.current) {
       throw new Error(messages.additionalScratchNotPersisted);
     }
-    options.scratchPersistence.save(document.source);
+    options.scratchPersistence.save({ path: document.path, source: document.source });
     await options.runtime.dispatch({
       kind: "mark-document-autosaved",
       origin: "user",
@@ -89,7 +110,7 @@ export function useFileCommands(options: FileCommandOptions): FileCommandCoordin
       revision: document.revision,
       source: document.source,
     });
-  }, [options.projectMode, options.runtime, options.scratchPersistence]);
+  }, [options.formatter, options.projectMode, options.runtime, options.scratchPersistence]);
   const run = useCallback((operation: () => Promise<void>) => {
     setNotice(null);
     void operation().catch((reason: unknown) => {

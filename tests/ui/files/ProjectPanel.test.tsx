@@ -86,7 +86,7 @@ describe("ProjectPanel", () => {
 
   it("creates, renames, moves, reveals, and trashes project files", async () => {
     const { files, revealed, runtime } = setup();
-    const view = render(<ProjectPanel runtime={runtime} canReveal />);
+    const view = render(<ProjectPanel runtime={runtime} canReveal canTrash />);
     const panel = within(view.container);
 
     fireEvent.click(panel.getByRole("button", { name: messages.newProjectFile }));
@@ -126,6 +126,20 @@ describe("ProjectPanel", () => {
       name: messages.deleteProjectFile("parts/renamed.scad"),
     }));
     await waitFor(() => expect(files.has("parts/renamed.scad")).toBe(false));
+  });
+
+  it("does not offer desktop trash semantics when the platform cannot provide them", () => {
+    const { runtime } = setup();
+    const view = render(<ProjectPanel runtime={runtime} />);
+
+    expect(view.queryByRole("button", {
+      name: messages.deleteProjectFile("main.scad"),
+    })).not.toBeInTheDocument();
+
+    view.rerender(<ProjectPanel runtime={runtime} canTrash />);
+    expect(view.getByRole("button", {
+      name: messages.deleteProjectFile("main.scad"),
+    })).toBeVisible();
   });
 
   it("moves a file without requiring drag and drop", async () => {

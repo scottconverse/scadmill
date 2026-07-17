@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-16-m3-hosted-installer-artifacts",
+  "createdAt": "2026-07-16T21:10:00-06:00",
+  "summary": "Append the authoritative hosted replacement evidence for the exact checksum-verified macOS DMG and Linux AppImage artifacts without rewriting the earlier installer decision entry.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 M3 delivery protocol",
+    "FR-13.4 cross-platform installers",
+    "N-4 cross-platform delivery",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-16-m3-hosted-installer-artifacts.json", "status": "added" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29533256318",
+      "purpose": "Authoritative hosted replacement run for the corrected exact candidate and its retained DMG/AppImage artifacts.",
+      "accessedOn": "2026-07-16"
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0272",
+      "topic": "Append-only acceptance of hosted installer artifact evidence",
+      "decision": "Treat a hosted installer result as retained M3 evidence only after the exact artifact filename, byte length, and SHA-256 sidecar have been independently verified, while continuing to label macOS signing and notarization as owner-side pending work.",
+      "rationale": "The earlier append-only installer entry correctly left hosted replacement evidence pending. A separate entry preserves that historical truth while binding the later successful artifacts to the authoritative run and preventing an unsigned artifact from being described as signed or notarized.",
+      "specBasis": ["FR-13.4", "N-4", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Hosted CI produces exact, checksum-verified macOS DMG and Linux AppImage artifacts from the corrected candidate.",
+      "test": "Inspect authoritative GitHub Actions run 29533256318 at commit d027c284, download both hosted artifacts, and independently verify each payload against its SHA-256 sidecar including the exact filename.",
+      "red": {
+        "command": "GitHub Actions run 29532805294 Desktop installer (appimage)",
+        "observedAt": "2026-07-16T14:41:42-06:00",
+        "outcome": "RED: the first hosted candidate produced a DMG but no AppImage because the Linux bundler rejected the missing square-icon configuration."
+      },
+      "green": {
+        "command": "GitHub Actions run 29533256318 artifact download and independent SHA-256 sidecar verification",
+        "observedAt": "2026-07-16T15:07:00-06:00",
+        "outcome": "GREEN: artifact 8389552093 contained ScadMill_0.0.0_amd64.AppImage (82,541,048 bytes), matching sidecar SHA-256 FBC1E8B1542485DEA0C613E507CC7036B1B4140B4B3D4BA8ABB40D0850C6E720. Artifact 8389587300 contained ScadMill_0.0.0_aarch64.dmg (3,806,919 bytes), matching sidecar SHA-256 F1EEB567F2394DAF10994C66B6043B1D909A177D97B967E9593D94D993CA0C5D. The authoritative run completed successfully across the web, native, both browser OS lanes, signed Windows setup, DMG, and AppImage; no rerun was issued. The DMG remains unsigned and unnotarized pending owner credentials."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

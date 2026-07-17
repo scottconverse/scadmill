@@ -105,10 +105,12 @@ describe("useFileCommands", () => {
   });
 
   it("never overwrites the scratch slot for additional tabs or marks them saved", async () => {
-    let saved: string | null = null;
+    let saved: { readonly path: string; readonly source: string } | null = null;
     const persistence = {
       load: () => saved,
-      save: vi.fn((source: string) => { saved = source; }),
+      save: vi.fn((snapshot: { readonly path: string; readonly source: string }) => {
+        saved = snapshot;
+      }),
     };
     const runtime = createWorkbenchRuntime(engine(), {
       initialScratchPath: "Untitled",
@@ -155,13 +157,85 @@ describe("useFileCommands", () => {
     view.rerender();
     expect(view.result.current.saveDisabled).toBe(false);
     act(() => view.result.current.save());
-    await waitFor(() => expect(persistence.save).toHaveBeenCalledWith("cube(11);"));
+    await waitFor(() => expect(persistence.save).toHaveBeenCalledWith({
+      path: "Untitled",
+      source: "cube(11);",
+    }));
     await waitFor(() => expect(runtime.documents.getState().documents.find(
       ({ id }) => id === "document-main",
     )).toMatchObject({ source: "cube(11);", savedSource: "cube(11);" }));
     expect(runtime.documents.getState().documents.find(
       ({ id }) => id === additional,
     )).toMatchObject({ source: "sphere(7);", savedSource: "" });
-    expect(saved).toBe("cube(11);");
+    expect(saved).toEqual({ path: "Untitled", source: "cube(11);" });
+  });
+
+  it("formats a dirty OpenSCAD scratch document before saving when enabled", async () => {
+    const persistence = { load: vi.fn(() => null), save: vi.fn() };
+    const runtime = createWorkbenchRuntime(engine(), {
+      initialScratchPath: "Untitled.scad",
+      initialScratchSource: "",
+    });
+    await runtime.dispatch({
+      kind: "edit-document",
+      origin: "user",
+      documentId: "document-main",
+      source: "module part(){cube(1);}",
+    });
+    const view = renderHook(() => useFileCommands({
+      formatter: { formatOnSave: true, indentSize: 2 },
+      runtime,
+      workspace: runtime.documents.getState(),
+      projectMode: runtime.project.getState().mode,
+      scratchPersistence: persistence,
+      layout: DEFAULT_WORKSPACE_LAYOUT,
+      narrow: false,
+      onLayoutAction: vi.fn(),
+    }));
+
+    act(() => view.result.current.save());
+
+    const expected = "module part() {\n  cube(1);\n}";
+    await waitFor(() => expect(persistence.save).toHaveBeenCalledWith({
+      path: "Untitled.scad",
+      source: expected,
+    }));
+    expect(runtime.documents.getState().documents[0]).toMatchObject({
+      savedSource: expected,
+      source: expected,
+    });
+  });
+
+  it("reports format-on-save refusal but still saves malformed source unchanged", async () => {
+    const persistence = { load: vi.fn(() => null), save: vi.fn() };
+    const source = "module broken( { cube(1);";
+    const runtime = createWorkbenchRuntime(engine(), {
+      initialScratchPath: "Untitled.scad",
+      initialScratchSource: "",
+    });
+    await runtime.dispatch({
+      kind: "edit-document",
+      origin: "user",
+      documentId: "document-main",
+      source,
+    });
+    const view = renderHook(() => useFileCommands({
+      formatter: { formatOnSave: true, indentSize: 4 },
+      runtime,
+      workspace: runtime.documents.getState(),
+      projectMode: runtime.project.getState().mode,
+      scratchPersistence: persistence,
+      layout: DEFAULT_WORKSPACE_LAYOUT,
+      narrow: false,
+      onLayoutAction: vi.fn(),
+    }));
+
+    act(() => view.result.current.save());
+
+    await waitFor(() => expect(view.result.current.notice).toContain(
+      "Formatting was not applied because the source contains a syntax error.",
+    ));
+    expect(persistence.save).toHaveBeenCalledWith({ path: "Untitled.scad", source });
+    expect(runtime.documents.getState().documents[0]).toMatchObject({ source, savedSource: source });
   });
 });

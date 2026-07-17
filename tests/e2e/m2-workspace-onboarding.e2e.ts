@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
+import { dismissWelcome } from "./helpers/welcome";
+
 async function editorSource(page: Page): Promise<string> {
   return (await page.locator(".cm-line").allTextContents()).join("\n");
 }
@@ -21,6 +23,7 @@ test("browser Create workspace is discoverable and reopens without an internal i
   });
 
   await page.goto("/");
+  await dismissWelcome(page);
   const files = page.getByRole("region", { name: "Files panel" });
   await expect(files.getByRole("button", { name: "Create workspace" })).toBeVisible();
   await expect(files.getByRole("button", { name: "Open workspace" })).toBeVisible();
@@ -44,20 +47,24 @@ test("browser Create workspace is discoverable and reopens without an internal i
   await files.getByRole("button", { name: "Confirm move of model.scad" }).click();
   await page.getByRole("button", { name: "Close model.scad" }).click();
   await files.getByRole("button", { name: "Expand parts" }).click();
-  await files.getByRole("button", { name: "Move parts/model.scad to trash" }).click();
-  await expect(files.getByRole("button", { name: "model.scad", exact: true })).not.toBeVisible();
+  await expect(files.getByRole("button", { name: "Move parts/model.scad to trash" }))
+    .toHaveCount(0);
+  await expect(files.getByRole("button", { name: "model.scad", exact: true })).toBeVisible();
 
   await replaceEditorSource(page, "cube(21);");
   await page.keyboard.press("Control+S");
   await expect(page.getByRole("tab", { name: "main.scad", exact: true })).toBeVisible();
 
   await page.reload();
+  await dismissWelcome(page);
   const reloadedFiles = page.getByRole("region", { name: "Files panel" });
   await expect(reloadedFiles.getByRole("button", { name: "Reopen Gear Lab" })).toBeVisible();
   await reloadedFiles.getByRole("button", { name: "Open workspace" }).click();
   await reloadedFiles.getByRole("button", { name: "Open Gear Lab", exact: true }).click();
   await page.getByRole("button", { name: "Confirm project replacement" }).click();
   await expect.poll(() => editorSource(page)).toBe("cube(21);");
+  await reloadedFiles.getByRole("button", { name: "Expand parts" }).click();
+  await expect(reloadedFiles.getByRole("button", { name: "model.scad", exact: true })).toBeVisible();
   await expect(page.locator("body")).not.toContainText("workspace:");
 
   expect(pageErrors).toEqual([]);

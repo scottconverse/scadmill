@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-15-m3-welcome-browser-compatibility",
+  "createdAt": "2026-07-15T18:35:00-06:00",
+  "summary": "Keep the M3 Welcome dialog enabled for fresh users while making pre-Welcome browser acceptance journeys explicitly close it before interacting with the workbench.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 M3 delivery protocol",
+    "C14 onboarding",
+    "N-2 reliability",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-15-m3-welcome-browser-compatibility.json", "status": "added" },
+    { "path": "tests/e2e/c0-responsive.e2e.ts", "status": "modified" },
+    { "path": "tests/e2e/c14-welcome.e2e.ts", "status": "added" },
+    { "path": "tests/e2e/c9-settings-layout.e2e.ts", "status": "modified" },
+    { "path": "tests/e2e/helpers/welcome.ts", "status": "added" },
+    { "path": "tests/e2e/m2-browser-gate.e2e.ts", "status": "modified" },
+    { "path": "tests/e2e/m2-storage-fallback.e2e.ts", "status": "modified" },
+    { "path": "tests/e2e/m2-workspace-onboarding.e2e.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0237",
+      "topic": "Welcome-aware legacy browser acceptance setup",
+      "decision": "Legacy workbench acceptance journeys close the Welcome dialog through the same visible Close welcome control a user has, without setting the suppression preference or changing production defaults. A dedicated fresh-profile browser journey independently requires the dialog and opens an Appendix F sample.",
+      "rationale": "The Welcome screen is required production behavior, while older browser journeys intentionally begin at the workbench. Explicitly closing the dialog preserves both contracts and avoids contaminating localStorage assertions or masking a Welcome regression with global test state.",
+      "specBasis": ["C14", "N-2", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The Welcome dialog remains enabled while all pre-Welcome browser acceptance journeys can reach the workbench",
+      "test": "Run the affected Playwright files serially, including a dedicated fresh-profile Welcome sample journey.",
+      "red": {
+        "command": "GitHub Actions run 29458260074: Browser acceptance (ubuntu-latest) and Browser acceptance (windows-latest)",
+        "observedAt": "2026-07-15T18:05:00-06:00",
+        "outcome": "RED: both operating-system jobs reported the same deterministic result, 11 failed and 9 passed. Playwright identified the visible Welcome to ScadMill dialog as intercepting pointer events in legacy journeys."
+      },
+      "green": {
+        "command": "pnpm.cmd exec playwright test tests/e2e/c14-welcome.e2e.ts tests/e2e/c0-responsive.e2e.ts tests/e2e/c9-settings-layout.e2e.ts tests/e2e/m2-browser-gate.e2e.ts tests/e2e/m2-storage-fallback.e2e.ts tests/e2e/m2-workspace-onboarding.e2e.ts --workers=1",
+        "observedAt": "2026-07-15T18:34:00-06:00",
+        "outcome": "GREEN: 17 tests passed in 39.1 seconds with one worker."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

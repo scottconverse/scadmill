@@ -1,12 +1,20 @@
 # Privacy
 
-ScadMill has no telemetry.
+ScadMill has no telemetry and does not send model source, project files, settings, engine output,
+diagnostics, or secrets to a ScadMill service.
 
-Through M2, ScadMill does not implement any application-initiated network request. The future,
-explicitly user-initiated or user-configured paths reserved by specification A-5 are AI-provider
-requests, the web engine artifact, an opt-in desktop update check, and explicit library or
-engine-version downloads. Enabling the current update-check preference does not start a network
-request because the updater itself arrives in a later milestone.
+On the web target, ScadMill requests the pinned, versioned `openscad.js` and `openscad.wasm`
+assets from the same static origin as the application. It validates the exact expected byte
+length and SHA-256 of both files before execution, then commits the verified pair atomically to
+a versioned IndexedDB cache. A failed or partial download is not cached; Retry starts a new
+verified load. These requests contain no model source, project files, settings, diagnostics, or
+secret values. The public repository does not distribute those engine bytes while Q-0033
+remains unresolved.
+
+Future explicitly user-initiated or user-configured network paths reserved by the specification
+are AI-provider requests, an opt-in desktop update check, and explicit library or engine-version
+downloads. Enabling the current update-check preference does not start a network request because
+the updater itself arrives in a later milestone.
 
 Web share links gzip the active single-file source into the URL fragment. Browsers do not send
 fragments in HTTP requests, so the source does not touch the hosting server. The source is still
@@ -29,5 +37,5 @@ clears site data. AI keys use session storage by default. ScadMill writes an AI 
 browser-local storage only after the user explicitly opts in from the warning-labeled setting;
 settings export never includes the key.
 
-To remove all web data, clear ScadMill's site data in the browser. M2 does not yet provide a
-single in-app command that clears every local store.
+To remove all web data, clear ScadMill's site data in the browser. The current product does not
+provide a single in-app command that clears every local store.

@@ -1,0 +1,164 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-16-m3-wasm-source-build-workflow",
+  "createdAt": "2026-07-16T04:54:40-06:00",
+  "summary": "Add a candidate-runnable, digest-pinned GitHub workflow that builds OpenSCAD WebAssembly from the exact official source commit and retains checksummed JavaScript, WASM, and build-manifest artifacts.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7/A-5 permitted official-source engine build",
+    "FR-4.1 WebAssembly worker engine implementation",
+    "FR-4.7 separately fetched and cached WebAssembly artifact",
+    "AC-4.a same-build native and web parity",
+    "Section 6 permissive dependency policy",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": ".github/workflows/build-openscad-wasm.yml", "status": "added" },
+    { "path": ".github/workflows/ci.yml", "status": "modified" },
+    { "path": "ENGINE_VERSION", "status": "modified" },
+    { "path": "package.json", "status": "modified" },
+    { "path": "pnpm-lock.yaml", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "CONTRIBUTING.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-16-m3-wasm-source-build-workflow.json", "status": "added" },
+    { "path": "scripts/check-wasm-build-workflow.mjs", "status": "added" },
+    { "path": "scripts/lib/wasm-workflow-contract.mjs", "status": "added" },
+    { "path": "scripts/lib/wasm-workflow-contract.d.mts", "status": "added" },
+    { "path": "tests/scripts/wasm-build-workflow.test.ts", "status": "added" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/openscad/openscad/blob/0a66508c67374febcfc814a73b5b948dd84a1ca3/README.md",
+      "accessedOn": "2026-07-16",
+      "purpose": "Confirm the official browser-WASM output names and Docker-based Emscripten build commands at the pinned engine commit."
+    },
+    {
+      "url": "https://github.com/openscad/openscad/blob/0a66508c67374febcfc814a73b5b948dd84a1ca3/scripts/wasm-base-docker-run.sh",
+      "accessedOn": "2026-07-16",
+      "purpose": "Confirm the official build helper's image and linux/amd64 execution contract before replacing its mutable tag with a recorded digest."
+    },
+    {
+      "url": "https://registry-1.docker.io/v2/openscad/wasm-base/manifests/latest",
+      "accessedOn": "2026-07-16",
+      "purpose": "Resolve the official OpenSCAD wasm-base image to immutable digest sha256:f73d33d5f2fd4c7ae4d3aaacb1e2e2deb193b878b38bb80c8235c933ac340c66."
+    },
+    {
+      "url": "https://registry.npmjs.org/yaml",
+      "accessedOn": "2026-07-16",
+      "purpose": "Verify yaml 2.9.0 package identity and ISC license for parsed GitHub workflow validation."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0242",
+      "topic": "Reproducible official-source OpenSCAD WASM build",
+      "decision": "Build the browser WASM engine on an isolated Ubuntu GitHub runner from detached official source commit 0a66508c67374febcfc814a73b5b948dd84a1ca3 inside openscad/wasm-base@sha256:f73d33d5f2fd4c7ae4d3aaacb1e2e2deb193b878b38bb80c8235c933ac340c66, require Emscripten 4.0.10 and the recorded release flags, and retain exact output hashes in a machine-readable manifest.",
+      "rationale": "The machine has neither Docker nor Emscripten, while A-5 explicitly permits building the engine from official source. A digest-pinned hosted runner avoids modifying the shared workstation, removes the official helper's mutable latest tag, and binds every produced byte to the required source, container, toolchain, and configuration.",
+      "specBasis": ["Section 2.7/A-5", "FR-4.1", "FR-4.7", "AC-4.a", "N-7"]
+    },
+    {
+      "id": "D-0243",
+      "topic": "Executable GitHub workflow contract",
+      "decision": "Parse the WASM workflow with exact yaml 2.9.0 and validate exact triggers, read-only permissions, job and step surfaces, executable command blocks, the approved source commit and image digest, hash-to-manifest data flow, and upload identity in both regular CI and mutation tests.",
+      "rationale": "Raw substring checks could pass while required commands were commented out, disconnected from pinned variables, or structurally invalid. Parsed structural validation makes those bypasses fail before hosted engine compute begins; yaml 2.9.0 is ISC-licensed and passes the existing dependency policy.",
+      "specBasis": ["Section 6", "V-1", "V-2", "N-2", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "A candidate branch can run the official-source workflow and the workflow contract rejects structural or executable-binding bypasses",
+      "test": "Run both focused workflow test files, the standalone parsed contract, and the npm license policy after the independent audit correction.",
+      "red": {
+        "command": "Independent adversarial audit of .github/workflows/build-openscad-wasm.yml and tests/scripts/wasm-build-workflow.test.ts",
+        "observedAt": "2026-07-16T04:35:00-06:00",
+        "outcome": "RED: 2 Major findings. A workflow_dispatch-only file could not be dispatched before it existed on the default branch, and raw substring assertions could pass malformed or disconnected workflow commands."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/ci-workflow.test.ts tests/scripts/wasm-build-workflow.test.ts; pnpm.cmd check:wasm-workflow; pnpm.cmd check:licenses npm",
+        "observedAt": "2026-07-16T04:46:00-06:00",
+        "outcome": "GREEN: 2 test files and 14 tests passed; the parsed OpenSCAD WASM workflow contract passed; npm license policy passed for 120 packages."
+      }
+    },
+    {
+      "criterion": "The workflow validator demonstrably rejects missing candidate triggers and an unbound container image while accepting the real candidate",
+      "test": "Mutate the workflow text in memory, run the production validator against each defect, then validate the unmodified workflow through the standalone contract command.",
+      "red": {
+        "command": "Inline Node proof mutation using validateWasmWorkflow against a disabled pull_request trigger and a literal image replacing $WASM_IMAGE",
+        "observedAt": "2026-07-16T04:53:00-06:00",
+        "outcome": "RED as required: the validator rejected the missing trigger with `pull_request.paths is required` and rejected the literal image with `docker command must consume $WASM_IMAGE`."
+      },
+      "green": {
+        "command": "pnpm.cmd check:wasm-workflow",
+        "observedAt": "2026-07-16T04:46:00-06:00",
+        "outcome": "GREEN: the unmodified candidate printed `OpenSCAD WASM workflow contract passed.` and exited 0."
+      }
+    },
+    {
+      "criterion": "The JavaScript workflow validator has an explicit TypeScript contract for the test and CI consumers",
+      "test": "Run the repository TypeScript compiler after adding the validator and its adjacent declaration.",
+      "red": {
+        "command": "pnpm.cmd typecheck",
+        "observedAt": "2026-07-16T04:56:00-06:00",
+        "outcome": "RED: TS7016 identified the untyped .mjs import; the first conservative declaration then produced TS18046 at the two validated trigger accesses."
+      },
+      "green": {
+        "command": "pnpm.cmd typecheck",
+        "observedAt": "2026-07-16T04:59:00-06:00",
+        "outcome": "GREEN: tsc --noEmit exited 0 after the declaration was narrowed to the trigger shape returned by the production validator."
+      }
+    },
+    {
+      "criterion": "Only the exact approved engine pins are accepted and documentation describes the pending artifact honestly",
+      "test": "Run adversarial wrong-commit and wrong-digest mutations, then the focused workflow suite and production contract after correcting the audit findings.",
+      "red": {
+        "command": "Independent pre-push review with in-memory wrong source-commit and container-digest mutations",
+        "observedAt": "2026-07-16T05:00:00-06:00",
+        "outcome": "RED: 1 Major and 2 Minor findings. Both incorrect but well-formed pins were accepted; the expensive build trigger included non-build inputs; README and CHANGELOG omitted pending-build status while CONTRIBUTING omitted the validator command."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/ci-workflow.test.ts tests/scripts/wasm-build-workflow.test.ts; pnpm.cmd check:wasm-workflow; pnpm.cmd check:licenses npm",
+        "observedAt": "2026-07-16T05:04:34-06:00",
+        "outcome": "GREEN: 2 test files and 16 tests passed, including both exact-pin rejection mutations; the production workflow contract passed; npm license policy passed for 120 packages. The trigger now contains only ENGINE_VERSION and the workflow, README and CHANGELOG disclose that the first artifact is still pending, and CONTRIBUTING includes the validator gate."
+      }
+    },
+    {
+      "criterion": "The workflow rejects permission expansion, executable-surface expansion, and hash-variable overwrite attacks",
+      "test": "Mutate the production workflow with extra top-level and job-level permissions, an extra executable step and command, and a hash overwrite immediately before manifest generation.",
+      "red": {
+        "command": "Independent adversarial workflow/provenance audit with in-memory security and data-flow mutations",
+        "observedAt": "2026-07-16T05:06:00-06:00",
+        "outcome": "RED: 2 Major findings. The prior validator accepted a hash-variable overwrite, added id-token write access, a job-level write override, and an extra executable step."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/ci-workflow.test.ts tests/scripts/wasm-build-workflow.test.ts",
+        "observedAt": "2026-07-16T05:38:10-06:00",
+        "outcome": "GREEN: 2 test files and 21 tests passed. The production validator now requires exact permissions, job fields, ordered step fields, every executable command block, approved pins, manifest hash data flow, and upload inputs; all corresponding mutations were rejected."
+      }
+    },
+    {
+      "criterion": "The exact workflow configuration cannot be expanded to redirect execution, and ENGINE_VERSION contains one canonical copy of each approved pin",
+      "test": "Mutate root and trigger fields, inject a Git URL rewrite through workflow environment variables, and mutate, duplicate, or disconnect each ENGINE_VERSION pin.",
+      "red": {
+        "command": "Independent re-audit with extra trigger, pull-request option, root defaults, Git redirect environment, and disconnected ENGINE_VERSION mutations",
+        "observedAt": "2026-07-16T05:40:00-06:00",
+        "outcome": "RED: 2 Major and 1 Minor findings. Extra workflow execution inputs and a Git clone redirect were accepted, ENGINE_VERSION used disconnected substring checks, and one historical documentation statement was imprecise."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/ci-workflow.test.ts tests/scripts/wasm-build-workflow.test.ts",
+        "observedAt": "2026-07-16T05:44:48-06:00",
+        "outcome": "GREEN: 2 test files and 29 tests passed. The production validator now consumes ENGINE_VERSION and requires unique anchored pins plus exact root, trigger, pull-request, environment, permissions, job, step, command, and upload surfaces; every bypass mutation was rejected."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": ["Q-0023 remains open only for substituting the official prebuilt artifact; this workflow follows the normative official-source path."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

@@ -1,4 +1,33 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
+
+import { dismissWelcome } from "./helpers/welcome";
+
+async function editorSource(page: Page): Promise<string> {
+  return (await page.locator(".cm-line").allTextContents()).join("\n");
+}
+
+async function persistedProjectSource(
+  page: Page,
+  source: string,
+): Promise<boolean> {
+  return page.evaluate(async ({ databaseName, expected }) => new Promise<boolean>((resolve, reject) => {
+    const opened = indexedDB.open(databaseName, 1);
+    opened.onerror = () => reject(opened.error ?? new Error("Could not open project storage."));
+    opened.onsuccess = () => {
+      const database = opened.result;
+      const transaction = database.transaction("projects", "readonly");
+      const request = transaction.objectStore("projects").getAll();
+      request.onerror = () => reject(request.error ?? new Error("Could not read project storage."));
+      request.onsuccess = () => {
+        const records = request.result as Array<{ files: Array<{ path: string; content: unknown }> }>;
+        resolve(records.some(({ files }) => files.some(({ path, content }) =>
+          path === "main.scad" && content === expected
+        )));
+        database.close();
+      };
+    };
+  }), { databaseName: "scadmill-projects-v1", expected: source });
+}
 
 test.describe("C9 settings layout", () => {
   test.use({ viewport: { width: 1280, height: 720 } });
@@ -7,6 +36,7 @@ test.describe("C9 settings layout", () => {
     page,
   }) => {
     await page.goto("/");
+    await dismissWelcome(page);
     await page.getByRole("button", { name: "Open settings" }).click();
 
     const dialog = page.getByRole("dialog", { name: "Settings" });
@@ -35,6 +65,7 @@ test.describe("C9 settings layout", () => {
     ]) {
       await page.setViewportSize(viewport);
       await page.goto("/");
+      await dismissWelcome(page);
       await page.getByRole("button", { name: "Open settings" }).click();
 
       const dialog = page.getByRole("dialog", { name: "Settings" });
@@ -60,6 +91,7 @@ test.describe("C9 settings layout", () => {
 
   test("keeps load failures visible inside a modal that isolates the workbench", async ({ page }) => {
     await page.goto("/");
+    await dismissWelcome(page);
     await page.getByRole("button", { name: "Open settings" }).click();
     const enabledDialog = page.getByRole("dialog", { name: "Settings" });
     const readAppearance = (label: string) => enabledDialog.getByLabel(label).locator("..")
@@ -78,6 +110,7 @@ test.describe("C9 settings layout", () => {
       localStorage.setItem("scadmill:settings:v1", "{malformed");
     });
     await page.reload();
+    await dismissWelcome(page);
     const workbench = page.locator(".workbench");
     await page.getByRole("button", { name: "Open settings" }).click();
 
@@ -135,28 +168,88 @@ test.describe("C9 settings layout", () => {
   });
 
   test("does not reserve a blank project strip below the visible banner", async ({ page }) => {
+    await page.route("**/openscad-engine/**", (route) => route.abort());
     await page.goto("/");
+    await dismissWelcome(page);
     const banners = page.locator(".workbench-banners");
-    const engineBanner = banners.locator(".engine-banner");
+    const engineBanner = banners.locator(".wasm-engine-banner[role='alert']");
     const lifecycle = banners.locator(".project-lifecycle-controls");
     const portability = banners.locator(".project-portability");
     const workspace = page.locator(".workspace-frame");
 
-    await expect(engineBanner).toBeVisible();
+    await expect(engineBanner).toBeVisible({ timeout: 10_000 });
+    await expect(engineBanner.getByRole("button", { name: "Retry engine load" })).toBeVisible();
     await expect(lifecycle).toHaveCSS("display", "none");
     await expect(portability).toHaveCSS("display", "none");
-    const bannersBox = await banners.boundingBox();
-    const engineBox = await engineBanner.boundingBox();
-    const workspaceBox = await workspace.boundingBox();
-    if (!bannersBox || !engineBox || !workspaceBox) {
-      throw new Error("Workbench banner geometry is unavailable.");
-    }
-    expect(Math.abs(bannersBox.height - engineBox.height)).toBeLessThan(1);
-    expect(Math.abs(workspaceBox.y - (engineBox.y + engineBox.height))).toBeLessThan(1);
+    await expect.poll(async () => {
+      const [engineBox, workspaceBox] = await Promise.all([
+        engineBanner.boundingBox(),
+        workspace.boundingBox(),
+      ]);
+      if (!engineBox || !workspaceBox) return Number.POSITIVE_INFINITY;
+      return Math.abs(workspaceBox.y - (engineBox.y + engineBox.height));
+    }).toBeLessThan(1);
+  });
+
+  test("keeps browser editing durable through a real engine fetch failure and retries once without reload", async ({
+    page,
+  }) => {
+    const pageErrors: string[] = [];
+    const onlineEngineRequests: string[] = [];
+    let blockingEngine = true;
+    page.on("pageerror", (error) => pageErrors.push(error.message));
+    page.on("request", (request) => {
+      if (!blockingEngine && request.url().includes("/openscad-engine/")) {
+        onlineEngineRequests.push(new URL(request.url()).pathname);
+      }
+    });
+    await page.route("**/openscad-engine/**", (route) => route.abort());
+    await page.goto("/");
+    await dismissWelcome(page);
+    await expect(page.getByRole("button", { name: "Retry engine load" })).toBeVisible({
+      timeout: 10_000,
+    });
+
+    const files = page.getByRole("region", { name: "Files panel" });
+    await files.getByRole("button", { name: "Create workspace" }).click();
+    await files.getByRole("textbox", { name: "Workspace name" }).fill("Offline engine work");
+    await files.getByRole("button", { name: "Create and open workspace" }).click();
+    await files.getByRole("dialog", { name: "Confirm project replacement" })
+      .getByRole("button", { name: "Confirm project replacement" }).click();
+
+    const source = "// preserved while the engine is offline\ncube([13, 14, 15]);";
+    const editor = page.locator(".cm-content");
+    await editor.click();
+    await page.keyboard.press("Control+A");
+    await page.keyboard.insertText(source);
+    await expect.poll(() => editorSource(page)).toBe(source);
+    await files.getByRole("button", { name: "Save active file" }).click();
+    await expect.poll(() => persistedProjectSource(page, source)).toBe(true);
+
+    await page.evaluate(() => { (globalThis as typeof globalThis & { retrySentinel?: string })
+      .retrySentinel = "same-document"; });
+    await page.unroute("**/openscad-engine/**");
+    blockingEngine = false;
+    await page.getByRole("button", { name: "Retry engine load" }).click();
+
+    await expect(page.locator(".status-engine")).toHaveText("OpenSCAD 2026.06.12", {
+      timeout: 30_000,
+    });
+    await expect(page.locator(".status-render")).toHaveText(/Rendered main\.scad \(3d\)/u, {
+      timeout: 30_000,
+    });
+    expect(await page.evaluate(() =>
+      (globalThis as typeof globalThis & { retrySentinel?: string }).retrySentinel
+    )).toBe("same-document");
+    expect(onlineEngineRequests.filter((path) => path.endsWith("/openscad.js"))).toHaveLength(1);
+    expect(onlineEngineRequests.filter((path) => path.endsWith("/openscad.wasm"))).toHaveLength(1);
+    expect(await persistedProjectSource(page, source)).toBe(true);
+    expect(pageErrors).toEqual([]);
   });
 
   test("animates the production render spinner while respecting reduced motion", async ({ page }) => {
     await page.goto("/");
+    await dismissWelcome(page);
     await page.evaluate(async () => {
       const importModule = new Function(
         "specifier",

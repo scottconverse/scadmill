@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { dismissWelcome } from "./helpers/welcome";
+
 test.describe("AC-0.c responsive workspace", () => {
   test.use({ viewport: { width: 800, height: 700 } });
 
@@ -9,6 +11,7 @@ test.describe("AC-0.c responsive workspace", () => {
     const pageErrors: string[] = [];
     page.on("pageerror", (error) => pageErrors.push(error.message));
     await page.goto("/");
+    await dismissWelcome(page);
 
     const frame = page.locator(".workspace-frame");
     const code = page.getByRole("button", { name: "Code", exact: true });
@@ -37,6 +40,7 @@ test.describe("AC-0.c responsive workspace", () => {
   }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
     await page.goto("/");
+    await dismissWelcome(page);
 
     await expect(page.getByRole("region", { name: "Console" })).toBeHidden();
     const viewer = page.locator(".workspace-viewer-surface");
@@ -55,6 +59,7 @@ test.describe("AC-0.c responsive workspace", () => {
     });
     await page.setViewportSize({ width: 900, height: 700 });
     await page.goto("/");
+    await dismissWelcome(page);
 
     const splitter = page.getByRole("separator", { name: "Resize viewer column" });
     const viewer = page.locator(".workspace-viewer-column");
@@ -95,6 +100,7 @@ test.describe("FR-0.6 mobile-web default", () => {
 
   test("uses the complete narrow presentation above the width breakpoint", async ({ page }) => {
     await page.goto("/");
+    await dismissWelcome(page);
 
     const frame = page.locator('.workspace-frame[data-layout-mode="narrow"]');
     const switcher = page.getByRole("group", { name: "Workspace view" });
@@ -106,6 +112,41 @@ test.describe("FR-0.6 mobile-web default", () => {
     await expect
       .poll(async () => Math.round((await editor.boundingBox())?.x ?? -1))
       .toBe(44);
+    await expect
+      .poll(() => page.evaluate(() => document.body.scrollWidth === document.body.clientWidth))
+      .toBe(true);
+  });
+
+  test("provides 44px touch targets without overflowing compact mobile chrome", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/");
+
+    const welcome = page.getByRole("dialog", { name: "Welcome to ScadMill" });
+    const welcomeTargets = [
+      welcome.getByRole("button", { name: "Close welcome" }),
+      welcome.getByRole("button", { name: "New file" }),
+    ];
+    for (const target of welcomeTargets) {
+      const box = await target.boundingBox();
+      if (!box) throw new Error("Welcome touch target geometry is unavailable.");
+      expect(box.width).toBeGreaterThanOrEqual(44);
+      expect(box.height).toBeGreaterThanOrEqual(44);
+    }
+    await welcome.getByRole("button", { name: "Close welcome" }).click();
+
+    const workbenchTargets = [
+      page.getByRole("button", { name: "File", exact: true }),
+      page.getByRole("button", { name: "Open settings" }),
+      page.getByRole("button", { name: "Code", exact: true }),
+      page.getByRole("button", { name: "Files", exact: true }),
+      page.locator(".status-diagnostics"),
+    ];
+    for (const target of workbenchTargets) {
+      const box = await target.boundingBox();
+      if (!box) throw new Error("Workbench touch target geometry is unavailable.");
+      expect(box.width).toBeGreaterThanOrEqual(44);
+      expect(box.height).toBeGreaterThanOrEqual(44);
+    }
     await expect
       .poll(() => page.evaluate(() => document.body.scrollWidth === document.body.clientWidth))
       .toBe(true);
@@ -122,9 +163,10 @@ test.describe("AC-0.c compact mobile chrome", () => {
     ]) {
       await page.setViewportSize(viewport);
       await page.goto("/");
+      await dismissWelcome(page);
 
       const settings = page.getByRole("button", { name: "Open settings" });
-      const engineStatus = page.locator(".engine-banner");
+      const engineStatus = page.locator(".status-engine");
       await expect(settings).toBeVisible();
       await expect(engineStatus).toBeVisible();
       const settingsBox = await settings.boundingBox();
@@ -145,6 +187,7 @@ test.describe("Appendix D editor pointer bindings", () => {
 
   test("adds an Alt+Click cursor without replacing native multi-selection", async ({ page }) => {
     await page.goto("/");
+    await dismissWelcome(page);
     const content = page.locator(".cm-content");
     await content.click();
     await page.keyboard.press("Control+A");

@@ -1,6 +1,6 @@
+import { messages } from "../../messages/en";
 import { activeDocument, isDocumentDirty } from "../documents/document-workspace";
 import type { WorkbenchRuntime } from "../runtime/workbench-runtime";
-import { messages } from "../../messages/en";
 import {
   createProjectPortabilityController,
   type ProjectPortabilityController,
@@ -21,19 +21,6 @@ export interface WorkbenchPortabilityEnvironment {
   makeProjectId(): string;
 }
 
-function browserEnvironment(): WorkbenchPortabilityEnvironment {
-  return {
-    copyText: async (value) => {
-      if (!globalThis.navigator?.clipboard?.writeText) {
-        throw new Error("Clipboard access is unavailable. Copying the share link requires browser clipboard permission.");
-      }
-      await globalThis.navigator.clipboard.writeText(value);
-    },
-    currentHref: () => globalThis.location.href,
-    makeProjectId: () => `web-import-${globalThis.crypto.randomUUID()}`,
-  };
-}
-
 export function portableWorkbenchSnapshot(runtime: WorkbenchRuntime): ProjectSnapshot {
   const project = runtime.project.getState().snapshot;
   const files = new Map<string, ProjectFileContent>(project.files);
@@ -45,8 +32,8 @@ export function portableWorkbenchSnapshot(runtime: WorkbenchRuntime): ProjectSna
 
 export function createWorkbenchProjectPortabilityController(
   runtime: WorkbenchRuntime,
-  storage?: ImportedProjectStorage,
-  environment: WorkbenchPortabilityEnvironment = browserEnvironment(),
+  storage: ImportedProjectStorage | undefined,
+  environment: WorkbenchPortabilityEnvironment,
 ): ProjectPortabilityController {
   return createProjectPortabilityController({
     artifacts: runtime.artifacts,

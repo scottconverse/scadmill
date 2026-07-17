@@ -21,5 +21,8 @@ Thumbs.db
 src/native-engine/target/
 src/desktop-shell/src-tauri/target/
 src/desktop-shell/src-tauri/gen/
+# Q-0033: counsel approval and the required GPL distribution materials must exist
+# before the separately fetched OpenSCAD WebAssembly payload may be published.
+public/openscad-engine/
 *.pdb
 *.dSYM/

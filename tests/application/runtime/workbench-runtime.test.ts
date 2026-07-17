@@ -572,6 +572,40 @@ describe("createWorkbenchRuntime", () => {
     }
   });
 
+  it("renders a welcome sample after an initially unavailable engine becomes ready", async () => {
+    vi.useFakeTimers();
+    try {
+      const engine = successfulEngine();
+      const runtime = createWorkbenchRuntime(engine, { makeId: () => "welcome-engine-race" });
+
+      await runtime.dispatch({
+        kind: "open-welcome-sample-confirmed",
+        origin: "user",
+        documentId: "document-main",
+        path: "gear_knob.scad",
+        source: "knob_diameter = 34; cylinder(d = knob_diameter, h = 14);",
+      });
+      await vi.advanceTimersByTimeAsync(800);
+      expect(engine.render).not.toHaveBeenCalled();
+
+      await runtime.dispatch({
+        kind: "engine-availability-changed",
+        origin: "system",
+        available: true,
+      });
+      await vi.advanceTimersByTimeAsync(800);
+
+      expect(engine.render).toHaveBeenCalledTimes(1);
+      expect(engine.render).toHaveBeenCalledWith(expect.objectContaining({
+        entryFile: "gear_knob.scad",
+        quality: "preview",
+      }));
+      runtime.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("can turn automatic rendering off and disposes a pending timer", async () => {
     vi.useFakeTimers();
     try {

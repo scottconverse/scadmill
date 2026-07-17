@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-16-m3-wasm-ci-debounce-hosted-confirmation",
+  "createdAt": "2026-07-16T09:45:00-06:00",
+  "summary": "Confirm on GitHub that a feature-only synchronize push runs the lightweight detector and skips the heavyweight OpenSCAD source build.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7/A-5 permitted official-source engine build",
+    "N-2 reproducible builds",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-16-m3-wasm-ci-debounce-hosted-confirmation.json", "status": "added" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29512330470",
+      "accessedOn": "2026-07-16",
+      "purpose": "Inspect the exact feature-only synchronize run and its per-job conclusions after the debounce workflow merged."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0256",
+      "topic": "Hosted confirmation of latest-commit WASM build debounce",
+      "decision": "Accept run 29512330470 as the hosted proof that feature-only synchronize commit 309bac35d72f236520fc86fc25a5704f25f6398b executes the detector successfully and skips the heavyweight build job.",
+      "rationale": "The prior defect arose from GitHub pull-request path semantics and could not be closed by local workflow parsing alone. The exact hosted run completed its detector in seconds and reports the build job as skipped, while regular CI for the same commit passed.",
+      "specBasis": ["Section 2.7/A-5", "N-2", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "An unrelated feature push does not rebuild OpenSCAD from source after the workflow entered the cumulative PR diff",
+      "test": "Inspect the detector and build job conclusions for the exact post-debounce loader commit.",
+      "red": {
+        "command": "GitHub run 29503768070 before debounce",
+        "observedAt": "2026-07-16T07:48:23-06:00",
+        "outcome": "RED: an unrelated runtime-core synchronize push launched and completed the full heavyweight source build because the workflow path remained in the cumulative PR diff."
+      },
+      "green": {
+        "command": "gh run view 29512330470 --json jobs,url,conclusion,headSha",
+        "observedAt": "2026-07-16T09:45:00-06:00",
+        "outcome": "GREEN: the exact loader commit ran the detector successfully from 15:42:01Z to 15:42:06Z and the heavyweight build job conclusion is explicitly skipped; regular CI run 29512329915 for the same SHA also passed."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-15-m3-welcome-surface",
+  "createdAt": "2026-07-15T17:02:30-06:00",
+  "summary": "Add the suppressible M3 welcome surface, recent-project access, safe workspace replacement, and the three exact Appendix F sample models.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 M3 delivery protocol",
+    "FR-14.1 first-run and welcome surface",
+    "AC-14.a first-run sample journey",
+    "Appendix F normative sample models",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-15-m3-welcome-surface.json", "status": "added" },
+    { "path": "src/app/App.tsx", "status": "modified" },
+    { "path": "src/application/files/project-session.ts", "status": "modified" },
+    { "path": "src/application/welcome/built-in-samples.ts", "status": "added" },
+    { "path": "src/application/welcome/welcome-preference.ts", "status": "added" },
+    { "path": "src/main.tsx", "status": "modified" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/platform-desktop/desktop-welcome-preference.ts", "status": "added" },
+    { "path": "src/platform-web/browser-welcome-preference.ts", "status": "added" },
+    { "path": "src/ui/welcome/WelcomeLauncher.tsx", "status": "added" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/workbench-props.ts", "status": "modified" },
+    { "path": "src/ui/workbench.css", "status": "modified" },
+    { "path": "tests/app/App.test.tsx", "status": "modified" },
+    { "path": "tests/application/files/project-session.test.ts", "status": "modified" },
+    { "path": "tests/application/welcome/built-in-samples.test.ts", "status": "added" },
+    { "path": "tests/platform-web/browser-welcome-preference.test.ts", "status": "added" },
+    { "path": "tests/setup.ts", "status": "modified" },
+    { "path": "tests/ui/welcome/WelcomeLauncher.test.tsx", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0235",
+      "topic": "Welcome sample and preference boundary",
+      "decision": "Open each exact Appendix F model through a command-bus scratch-workspace transition that preserves the primary scratch document identity and recent-project history. Open directly only from a pristine blank workspace; require confirmation before replacing existing work. Persist the suppress-on-launch choice through a separate strict version-1 platform metadata port that fails open to showing the welcome surface when data is absent or corrupt.",
+      "rationale": "The command path keeps sample opening inside the same state and autosave semantics as other file operations, while the confirmation prevents destructive replacement. A separate platform metadata record avoids changing the exact C9 settings schema mid-version and keeps browser storage APIs out of shared UI code.",
+      "specBasis": ["FR-14.1", "AC-14.a", "Appendix F", "AC-13.a", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "A fresh profile can choose a normative sample, see its parameters, and enter the normal render pipeline without configuration",
+      "test": "Exercise exact sample contents, strict preference persistence, safe workspace replacement, welcome UI behavior, and the production App render path.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/welcome/built-in-samples.test.ts tests/platform-web/browser-welcome-preference.test.ts tests/ui/welcome/WelcomeLauncher.test.tsx tests/application/files/project-session.test.ts --reporter=verbose --maxWorkers=1",
+        "observedAt": "2026-07-15T15:55:00-06:00",
+        "outcome": "RED: 4 test files failed; the sample and preference modules and welcome UI were missing, and the project session did not implement the sample-open command. The first draft also contained one invalid regular-expression assertion; that test defect was corrected before accepting the behavioral RED."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/welcome/built-in-samples.test.ts tests/platform-web/browser-welcome-preference.test.ts tests/ui/welcome/WelcomeLauncher.test.tsx tests/application/files/project-session.test.ts --reporter=verbose --maxWorkers=1; pnpm.cmd exec vitest run tests/app/App.test.tsx --reporter=verbose --maxWorkers=1; pnpm.cmd test -- --maxWorkers=1",
+        "observedAt": "2026-07-15T16:20:00-06:00",
+        "outcome": "GREEN: focused welcome run passed 4 files and 10 tests; App acceptance passed 1 file and 18 tests; full regression passed 121 files and 956 tests in 21.84 seconds."
+      }
+    },
+    {
+      "criterion": "Cold CodeEditor chunk loading remains deterministic under the expanded Workbench test load",
+      "test": "Retain the production lazy chunk, extend Testing Library's asynchronous assertion ceiling from one to three seconds, and rerun only the two files that timed out in the full regression pass.",
+      "red": {
+        "command": "pnpm.cmd test -- --maxWorkers=1",
+        "observedAt": "2026-07-15T17:07:00-06:00",
+        "outcome": "RED: 120 test files and 956 tests passed; the first cold CodeEditor mount in each of two files exceeded the one-second Testing Library ceiling, so 2 files and 2 tests failed. Later editor tests in both files passed after the same lazy module was cached."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/Workbench.editor-settings.test.tsx tests/ui/Workbench.test.tsx --reporter=verbose --maxWorkers=1",
+        "observedAt": "2026-07-15T17:09:06-06:00",
+        "outcome": "GREEN: 2 test files passed and all 24 tests passed in 9.13 seconds; the two formerly failing cold mounts completed in 575 ms and 445 ms."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "The final real-engine fresh-profile journey remains part of the M3 native/WASM parity gate; FR-15.13 thumbnails remain scheduled for M4.",
+    "A replacement aggregate run outlived the local shell's 180-second transport ceiling and its detached output could not be recovered; no aggregate green is claimed from that run. Hosted CI remains the final full-suite verdict."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

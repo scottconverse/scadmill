@@ -106,8 +106,11 @@ function wireContent(content: ProjectFileContent) {
 
 export function createTauriProjectStorage(invokeCommand: Invoke = invoke): ProjectStorage {
   return {
-    snapshot: async (projectId) => {
-      const wire = await invokeCommand<unknown>("project_snapshot", { projectId });
+    snapshot: async (projectId, entryFile) => {
+      const wire = await invokeCommand<unknown>("project_snapshot", {
+        projectId,
+        ...(entryFile ? { entryFile: parseProjectPath(entryFile) } : {}),
+      });
       const snapshot = decodeSnapshot(wire);
       const workspaceIdentity = await opaqueWorkspaceIdentity(snapshot.workspaceIdentityMaterial);
       return createProjectSnapshot(snapshot.projectId, snapshot.files, workspaceIdentity);

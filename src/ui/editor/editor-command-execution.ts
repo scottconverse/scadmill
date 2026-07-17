@@ -15,6 +15,8 @@ import {
   matchesPointerBinding,
   primaryModifierForPlatform,
 } from "../../application/commands/default-keybindings";
+import type { FormatterPreferences } from "../../application/settings/settings-schema";
+import { formatOpenScad } from "./openscad-formatter";
 
 export interface EditorCommandRequest {
   requestId: number;
@@ -37,7 +39,12 @@ function openReplacePanel(view: EditorView): boolean {
   return opened;
 }
 
-const DIRECT_COMMANDS: Readonly<Record<DirectEditorCommandId, (view: EditorView) => boolean>> = {
+type BasicEditorCommandId = Exclude<
+  DirectEditorCommandId,
+  "format-document" | "format-selection"
+>;
+
+const DIRECT_COMMANDS: Readonly<Record<BasicEditorCommandId, (view: EditorView) => boolean>> = {
   find: openFindPanel,
   replace: openReplacePanel,
   "go-to-line": gotoLine,
@@ -46,10 +53,54 @@ const DIRECT_COMMANDS: Readonly<Record<DirectEditorCommandId, (view: EditorView)
   redo,
 };
 
+function executeFormatCommand(
+  view: EditorView,
+  command: "format-document" | "format-selection",
+  formatter: Readonly<FormatterPreferences>,
+): EditorCommandOutcome {
+  const selection = view.state.selection.main;
+  const selectionOnly = command === "format-selection";
+  if (selectionOnly && selection.empty) return { command, status: "handled" };
+  const from = selectionOnly ? selection.from : 0;
+  const to = selectionOnly ? selection.to : view.state.doc.length;
+  const source = view.state.doc.sliceString(from, to);
+  const result = formatOpenScad(source, formatter);
+  if (result.status === "refused") {
+    return { command, status: "unavailable", reason: "syntax-error" };
+  }
+  let replacement = result.source;
+  if (selectionOnly) {
+    const line = view.state.doc.lineAt(from);
+    const prefix = view.state.doc.sliceString(line.from, from);
+    const selectedIndent = source.match(/^[\t ]*/u)?.[0] ?? "";
+    if (/^[\t ]*$/u.test(prefix) && prefix !== "") {
+      replacement = replacement.replaceAll("\n", `\n${prefix}`);
+    } else if (from === line.from && selectedIndent !== "") {
+      replacement = replacement
+        .split("\n")
+        .map((formattedLine) => `${selectedIndent}${formattedLine}`)
+        .join("\n");
+    }
+  }
+  if (replacement !== source) {
+    view.dispatch({
+      changes: { from, to, insert: replacement },
+      selection: selectionOnly
+        ? { anchor: from, head: from + replacement.length }
+        : undefined,
+    });
+  }
+  return { command, status: "handled" };
+}
+
 export function executeEditorCommand(
   view: EditorView,
   command: DirectEditorCommandId,
+  formatter: Readonly<FormatterPreferences>,
 ): EditorCommandOutcome {
+  if (command === "format-document" || command === "format-selection") {
+    return executeFormatCommand(view, command, formatter);
+  }
   DIRECT_COMMANDS[command](view);
   return { command, status: "handled" };
 }
@@ -65,6 +116,7 @@ type EditorCommandBinding =
 export function editorCommandExtension(
   onCommand: (outcome: EditorCommandOutcome) => void,
   keybindings: KeybindingSettings,
+  formatter: Readonly<FormatterPreferences>,
 ): Extension {
   const primaryModifier = primaryModifierForPlatform();
   const commands: readonly EditorCommandBinding[] = [
@@ -77,6 +129,7 @@ export function editorCommandExtension(
       unavailableReason: "project-symbol-navigation-unavailable",
     },
     { command: "toggle-comment", binding: keybindings.toggleComment },
+    { command: "format-document", binding: keybindings.formatDocument },
     { command: "redo", binding: keybindings.redoAlternate },
     { command: "undo", binding: keybindings.undo },
     { command: "redo", binding: keybindings.redo },
@@ -95,7 +148,7 @@ export function editorCommandExtension(
               status: "unavailable",
               reason: match.unavailableReason,
             }
-          : executeEditorCommand(view, match.command));
+          : executeEditorCommand(view, match.command, formatter));
         return true;
       },
     })),

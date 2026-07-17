@@ -26,20 +26,17 @@ import { messages } from "../../messages/en";
 import { useReadonlyStore } from "../use-readonly-store";
 import { ProjectExternalChangeControls } from "./ProjectExternalChangeControls";
 import { ProjectOnboardingControls } from "./ProjectOnboardingControls";
-
+import {
+  type PendingProject,
+  ProjectReplacementDialog,
+} from "./ProjectReplacementDialog";
+import { useRequestedProject } from "./use-requested-project";
 const EPHEMERAL_RECOVERY: RecoveryPersistence = {
   load: () => null,
   save: () => undefined,
   clear: () => undefined,
 };
 const RECOVERY_CAPTURE_DELAY_MS = 300;
-
-interface PendingProject {
-  readonly snapshot: ProjectSnapshot;
-  readonly displayName: string;
-  readonly entries: readonly string[];
-}
-
 export interface ProjectLifecycleControlsProps {
   readonly runtime: WorkbenchRuntime;
   readonly storage?: ProjectStorage;
@@ -48,23 +45,26 @@ export interface ProjectLifecycleControlsProps {
   readonly monitor?: boolean;
   readonly showOpenControls?: boolean;
   readonly requestedProject?: ProjectOpenRequest;
+  readonly onRequestedProjectSettled?: (sequence: number) => void;
   readonly projectTransitionsBlocked?: boolean;
   readonly onRecoveryPendingChange?: (pending: boolean) => void;
   readonly projectLocatorKind?: "folder" | "browser" | "generic";
   readonly directoryPicker?: ProjectDirectoryPicker;
   readonly workspaceDirectory?: WorkspaceDirectory;
+  readonly onSaveAll?: () => void;
+  readonly saveAllDisabled?: boolean;
+  readonly saveAllUnavailableReason?: string;
 }
-
 export interface ProjectOpenRequest {
   readonly sequence: number;
   readonly projectId: string;
   readonly displayName: string;
+  readonly preferredEntryFile?: string;
+  readonly openWhenClean?: boolean;
 }
-
 function projectDisplayName(projectId: string): string {
   return projectId.split(/[\\/]/u).filter(Boolean).at(-1) ?? projectId;
 }
-
 function scadEntries(snapshot: ProjectSnapshot): readonly string[] {
   return [...snapshot.files]
     .filter(([path, content]) => path.toLowerCase().endsWith(".scad") && typeof content === "string")
@@ -75,7 +75,6 @@ function scadEntries(snapshot: ProjectSnapshot): readonly string[] {
       return left.localeCompare(right);
     });
 }
-
 export function ProjectLifecycleControls({
   runtime,
   storage,
@@ -84,11 +83,15 @@ export function ProjectLifecycleControls({
   monitor = true,
   showOpenControls = true,
   requestedProject,
+  onRequestedProjectSettled,
   projectTransitionsBlocked = false,
   onRecoveryPendingChange,
   projectLocatorKind = "generic",
   directoryPicker,
   workspaceDirectory,
+  onSaveAll,
+  saveAllDisabled = false,
+  saveAllUnavailableReason,
 }: ProjectLifecycleControlsProps) {
   const projectLocatorHelpId = useId();
   const project = useReadonlyStore(runtime.project, (state) => state);
@@ -106,7 +109,8 @@ export function ProjectLifecycleControls({
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const handledRequest = useRef<number | null>(null);
+  const cancelReplacement = useRef<HTMLButtonElement>(null);
+  const replacementPreviousFocus = useRef<HTMLElement | null>(null);
   const hasDirtyDocuments = workspace.documents.some(isDocumentDirty);
   const transitionsBlocked = projectTransitionsBlocked || Boolean(recovery);
   const projectLocatorLabel = projectLocatorKind === "folder"
@@ -122,39 +126,60 @@ export function ProjectLifecycleControls({
   useLayoutEffect(() => {
     if (monitor) onRecoveryPendingChange?.(Boolean(recovery));
   }, [monitor, onRecoveryPendingChange, recovery]);
-  const run = useCallback(async (operation: () => Promise<void>) => {
-    if (busy) return;
+  useLayoutEffect(() => {
+    if (!pendingProject) return;
+    if (!replacementPreviousFocus.current) {
+      replacementPreviousFocus.current = globalThis.document.activeElement instanceof HTMLElement
+        ? globalThis.document.activeElement
+        : null;
+    }
+    cancelReplacement.current?.focus();
+  }, [pendingProject]);
+  const run = useCallback(async (operation: () => Promise<unknown>) => {
+    if (busy) return false;
     setBusy(true);
     setError(null);
     try {
       await operation();
+      return true;
     } catch (reason) {
       setError(reason instanceof Error
         ? messages.projectActionFailedWithDetail(reason.message)
         : messages.projectActionFailed);
+      return false;
     } finally {
       setBusy(false);
     }
   }, [busy]);
-  const inspectProject = useCallback(async (requestedId: string, displayName?: string) => {
-    if (transitionsBlocked) return;
+  const inspectProject = useCallback(async (
+    requestedId: string,
+    displayName?: string,
+    preferredEntryFile?: string,
+  ): Promise<PendingProject> => {
+    if (transitionsBlocked) throw new Error("Project changes are blocked while recovery is pending.");
     if (!storage) throw new Error(messages.projectStorageUnavailable);
-    const snapshot = await storage.snapshot(requestedId.trim());
+    const snapshot = await storage.snapshot(requestedId.trim(), preferredEntryFile);
     const entries = scadEntries(snapshot);
-    setPendingProject({
+    const inspected = {
       snapshot,
       displayName: displayName ?? projectDisplayName(snapshot.projectId),
       entries,
-    });
-    setEntryFile(entries[0] ?? "");
+    };
+    const selectedEntry = preferredEntryFile
+      ? entries.find((entry) => entry === preferredEntryFile)
+      : entries[0];
+    if (preferredEntryFile && !selectedEntry) {
+      throw new Error(`The requested OpenSCAD entry ${preferredEntryFile} is unavailable.`);
+    }
+    setPendingProject(inspected);
+    setEntryFile(selectedEntry ?? "");
     setFirstFilePath("main.scad");
+    return inspected;
   }, [storage, transitionsBlocked]);
-  useEffect(() => {
-    if (transitionsBlocked || !requestedProject || handledRequest.current === requestedProject.sequence) return;
-    handledRequest.current = requestedProject.sequence;
-    void run(() => inspectProject(requestedProject.projectId, requestedProject.displayName));
-  }, [inspectProject, requestedProject, run, transitionsBlocked]);
-
+  useRequestedProject({
+    busy, hasDirtyDocuments, inspectProject, onSettled: onRequestedProjectSettled,
+    request: requestedProject, run, runtime, setPendingProject, transitionsBlocked,
+  });
   useEffect(() => {
     if (!monitor || busy) return;
     if (!recovery && !workspace.documents.some(isDocumentDirty)) {
@@ -187,7 +212,6 @@ export function ProjectLifecycleControls({
     recovery,
     workspace,
   ]);
-
   const openProject = (event: FormEvent) => {
     event.preventDefault();
     if (transitionsBlocked || !projectId.trim()) return;
@@ -214,9 +238,18 @@ export function ProjectLifecycleControls({
         displayName: pendingProject.displayName,
         entryFile: selectedEntry,
       });
+      replacementPreviousFocus.current = null;
       setPendingProject(null);
       setProjectId("");
+      if (requestedProject) onRequestedProjectSettled?.(requestedProject.sequence);
     });
+  };
+  const cancelProjectReplacement = () => {
+    const previousFocus = replacementPreviousFocus.current;
+    replacementPreviousFocus.current = null;
+    setPendingProject(null);
+    if (requestedProject) onRequestedProjectSettled?.(requestedProject.sequence);
+    globalThis.setTimeout(() => previousFocus?.focus(), 0);
   };
 
   const restoreRecovery = () => {
@@ -304,43 +337,22 @@ export function ProjectLifecycleControls({
         </details>
       )}
       {pendingProject && (
-        <div aria-label={messages.confirmProjectReplacement} role="dialog">
-          <p>{messages.projectReplacementWarning}</p>
-          {hasDirtyDocuments && <p>{messages.unsavedChanges}</p>}
-          {pendingProject.entries.length > 0
-            ? (
-                <label>
-                  <span>{messages.projectEntryFile}</span>
-                  <select
-                    aria-label={messages.projectEntryFile}
-                    onChange={(event) => setEntryFile(event.currentTarget.value)}
-                    value={entryFile}
-                  >
-                    {pendingProject.entries.map((path) => <option key={path}>{path}</option>)}
-                  </select>
-                </label>
-              )
-            : (
-                <label>
-                  <span>{messages.firstProjectSourceFile}</span>
-                  <input
-                    aria-label={messages.firstProjectSourceFile}
-                    onChange={(event) => setFirstFilePath(event.currentTarget.value)}
-                    value={firstFilePath}
-                  />
-                </label>
-              )}
-          <button
-            disabled={busy || transitionsBlocked || hasDirtyDocuments}
-            onClick={confirmProject}
-            type="button"
-          >
-            {messages.confirmProjectReplacement}
-          </button>
-          <button onClick={() => setPendingProject(null)} type="button">
-            {messages.cancelProjectReplacement}
-          </button>
-        </div>
+        <ProjectReplacementDialog
+          busy={busy}
+          cancelButtonRef={cancelReplacement}
+          entryFile={entryFile}
+          firstFilePath={firstFilePath}
+          hasDirtyDocuments={hasDirtyDocuments}
+          onCancel={cancelProjectReplacement}
+          onConfirm={confirmProject}
+          onEntryFileChange={setEntryFile}
+          onFirstFilePathChange={setFirstFilePath}
+          onSaveAll={onSaveAll}
+          pendingProject={pendingProject}
+          saveAllDisabled={saveAllDisabled}
+          saveAllUnavailableReason={saveAllUnavailableReason}
+          transitionsBlocked={transitionsBlocked}
+        />
       )}
       {showOpenControls && project.recentProjects.length > 0 && (
         <section aria-label={messages.recentProjects}>

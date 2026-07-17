@@ -153,7 +153,7 @@ class WebDriverClient {
   }
 
   async createSession(application, webviewFolder) {
-    const userDataFolder = join(process.env.LOCALAPPDATA, "dev.scadmill.app");
+    const userDataFolder = join(process.env.LOCALAPPDATA, "dev.scadmill.desktop");
     const nestedPort = join(userDataFolder, "EBWebView", "DevToolsActivePort");
     const parentPort = join(userDataFolder, "DevToolsActivePort");
     await Promise.all([rm(nestedPort, { force: true }), rm(parentPort, { force: true })]);
@@ -713,7 +713,7 @@ try {
     path: args.webview,
     executableSha256: webViewSha256,
     version: "150.0.4078.65",
-    userDataFolder: join(process.env.LOCALAPPDATA, "dev.scadmill.app"),
+    userDataFolder: join(process.env.LOCALAPPDATA, "dev.scadmill.desktop"),
   });
 
   driver = await startDriver(args["tauri-driver"], args["native-driver"], args.output, 1);
@@ -798,9 +798,16 @@ try {
   assert.equal(settingsJson.engine.executablePath, args.engine);
   assert.equal(Buffer.from(settingsSource).includes(syntheticSecretBytes), false);
   await waitFor(async () => {
-    const saved = await client.execute("return localStorage.getItem('scadmill.scratch-autosave.v1');");
+    const saved = await client.execute(`
+      const serialized = localStorage.getItem('scadmill.scratch-autosave.v2');
+      if (typeof serialized !== 'string') return null;
+      try { return JSON.parse(serialized); } catch { return null; }
+    `);
     const recovery = await client.execute("return localStorage.getItem('scadmill.recovery.v1');");
-    return saved === cubeSource && recovery === null;
+    return saved?.version === 2
+      && saved.path === 'Untitled'
+      && saved.source === cubeSource
+      && recovery === null;
   }, "clean scratch autosave before normal restart", 15_000, 50);
   await record("visible-setting-and-source-persisted", {
     settingsPath: settingsFiles[0],

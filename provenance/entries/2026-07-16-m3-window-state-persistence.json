@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-16-m3-window-state-persistence",
+  "createdAt": "2026-07-16T18:18:00-06:00",
+  "summary": "Persist desktop window state with the exact-pinned official Tauri plugin and replace the macOS-conflicting bundle identifier without changing the established keychain service.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 M3 delivery protocol",
+    "FR-13.1 typed platform boundary",
+    "FR-13.2 OS-standard window-state persistence",
+    "FR-13.4 cross-platform installers",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-16-m3-window-state-persistence.json", "status": "added" },
+    { "path": "scripts/run-packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/Cargo.lock", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/Cargo.toml", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/src/associated_files.rs", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/src/lib.rs", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/tauri.conf.json", "status": "modified" },
+    { "path": "tests/scripts/window-state-contract.test.ts", "status": "added" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://crates.io/crates/tauri-plugin-window-state/2.4.1",
+      "accessedOn": "2026-07-16",
+      "purpose": "Verify the official plugin's Apache-2.0 OR MIT license, Rust 1.77.2 minimum, all-desktop-platform support, default saved state, exit persistence, and monitor-intersection restore behavior before exact pinning."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0270",
+      "topic": "Official desktop window-state persistence and stable application identity",
+      "decision": "Pin tauri-plugin-window-state 2.4.1 exactly and register it after the required first-position single-instance plugin. Use its default state flags to retain size, position, maximized, visibility, decorations, and fullscreen state; rely on its monitor-intersection guard to leave off-monitor placement to the OS. Rename the Tauri bundle identifier from dev.scadmill.app to dev.scadmill.desktop and update packaged WebView evidence paths, while deliberately retaining the established dev.scadmill.app keychain service so existing secrets are not orphaned.",
+      "rationale": "FR-13.2 requires OS-standard cross-platform persistence. The official permissively licensed plugin implements that behavior on Windows, macOS, and Linux, persists at application exit, and refuses to restore a position that intersects no available monitor. The old identifier's .app suffix conflicts with macOS bundle conventions; changing it before the first public release removes the bundler warning. Keychain identity is a separate durable credential namespace and does not need the bundle rename.",
+      "specBasis": ["FR-13.1", "FR-13.2", "FR-13.4", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The official window-state plugin is exactly pinned and registered without displacing single-instance startup, and the macOS-safe identifier is used by packaged evidence.",
+      "test": "Parse the Rust manifest, lockfile, shell builder order, Tauri configuration, and packaged-evidence user-data path.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/window-state-contract.test.ts",
+        "observedAt": "2026-07-16T14:56:27-06:00",
+        "outcome": "RED: the plugin pin and registration were absent and the bundle identifier still ended in .app. An unrelated minimum-size expectation in the new test was corrected from 900x640 to the product's existing 800x600 contract before implementation."
+      },
+      "green": {
+        "command": "cargo metadata --format-version 1; pnpm.cmd exec vitest run tests/scripts/window-state-contract.test.ts",
+        "observedAt": "2026-07-16T18:16:59-06:00",
+        "outcome": "GREEN after one concrete replacement: Cargo resolved tauri-plugin-window-state 2.4.1 into the lockfile and all 3 focused contract assertions passed in 440 ms. The first GREEN attempt correctly exposed that --no-deps metadata had not updated Cargo.lock; no blind rerun occurred."
+      }
+    },
+    {
+      "criterion": "An associated .scad located directly at a filesystem root is not discarded merely because the root has no filename component.",
+      "test": "Require the platform filesystem root to receive a nonempty fallback display name.",
+      "red": {
+        "command": "cargo test filesystem_root_still_has_a_project_display_name --locked",
+        "observedAt": "2026-07-16T18:17:44-06:00",
+        "outcome": "RED: compilation failed because the root-safe project_display_name helper did not exist."
+      },
+      "green": {
+        "command": "cargo test filesystem_root_still_has_a_project_display_name --locked",
+        "observedAt": "2026-07-16T18:18:15-06:00",
+        "outcome": "GREEN: the focused root-name test passed 1/1; the shell compiled with the newly pinned window-state plugin."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

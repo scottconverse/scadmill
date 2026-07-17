@@ -2,16 +2,15 @@
 
 Numbered questions are appended here under §2.7. Only the affected work item is parked while the remaining milestone work continues.
 
-## Queue index — 2026-07-11
+## Queue index — 2026-07-16
 
 | State | Questions | Milestone impact |
 |---|---|---|
 | Resolved — policy gate | Q-0001 | The owner allowed `Unicode-3.0`; the Rust and combined dependency-license checks are green. |
 | Resolved — performance baseline | Q-0032 | Amendment A-9 replaces the obsolete 2020-class minimum with the owner-designated AMD Radeon 780M benchmark. No policy question remains; candidate acceptance comes only from retained source-bound external evidence. |
-| Open/actionable — policy gate | Q-0002 | This question does not block product implementation. |
-| Open/actionable — scoped behavior | Q-0003, Q-0005–Q-0010, Q-0013, Q-0015–Q-0019, Q-0021–Q-0022, Q-0024–Q-0028, Q-0030–Q-0031 | Each blocks only the item named in its **Blocked** field; no question silently blocks unrelated work. |
-| Open/historical — delivered conservatively | Q-0004, Q-0011–Q-0012, Q-0014, Q-0020 | M2 delivered the later capability named by each question. The owner answer still governs the historical milestone interpretation. |
-| Open/later milestone | Q-0023, Q-0029 | These park M3 WebAssembly provenance or M3 welcome-screen placement, not M2 implementation. |
+| Open/actionable — policy gate | Q-0002, Q-0033 | Q-0002 does not block product implementation. Q-0033 blocks only public distribution/deployment of the web engine bytes. |
+| Open/actionable — scoped behavior | Q-0003, Q-0005–Q-0010, Q-0013, Q-0015–Q-0019, Q-0021–Q-0022, Q-0024–Q-0028, Q-0030–Q-0031, Q-0034 | Each blocks only the item named in its **Blocked** field; no question silently blocks unrelated work. |
+| Open/historical — delivered conservatively | Q-0004, Q-0011–Q-0012, Q-0014, Q-0020, Q-0023, Q-0029 | M2/M3 delivered the stricter or later capability named by each question. The owner answer still governs the historical milestone interpretation. |
 
 ## Q-0032 — Resolved 2026-07-14 — owner-directed
 
@@ -20,6 +19,20 @@ Numbered questions are appended here under §2.7. Only the affected work item is
 - **Blocked:** No policy question remains. Per-candidate M2 hardware acceptance is established only by a retained external artifact bound to the exact candidate tree and profiler harness.
 - **Owner decision (2026-07-14 / A-9):** Remove the 2020-class minimum. AMD Radeon 780M is the owner-designated benchmark baseline for the two-million-triangle orbit test. It is an evidence baseline, not a minimum supported-hardware claim.
 - **Resolution evidence:** The earlier unbound checkpoint is diagnostic only. The repaired harness invalidates stale output before preflight, recomputes reported FPS and camera motion from raw observations, and publishes an owner PASS only when the Radeon label, exact workload, timestamps, page/console observations, source tree, and profiler-harness hashes all validate without source drift. Run-specific status, metrics, and hashes live only in that external artifact, not in this static question record.
+
+## Q-0033 — Open — 2026-07-16
+
+- **Section:** §2.5 owner-side dependencies; Architecture A-2; §6 engine license; §9.2 web-target counsel decision; M3
+- **Question:** Has owner counsel approved public distribution of the separately fetched OpenSCAD WASM pair from this public repository, and what exact GPL-2.0-or-later license/source-offer materials must accompany those bytes before they are committed or deployed?
+- **Evidence:** The exact source-built `openscad.js` and `openscad.wasm` pair is locally staged and hash-verified against `ENGINE_VERSION`, with its source-build manifest and CI build recipe retained. `scottconverse/scadmill` is currently public, so committing the 10,760,714-byte engine binary would itself publish a GPL-2.0-or-later artifact. ScadMill's current root `LICENSE` remains all-rights-reserved, and A-2 explicitly assigns the web-boundary licensing decision to owner counsel before any non-GPL license is applied to the web distribution.
+- **Blocked:** Only committing/deploying/publishing the OpenSCAD WASM bytes and closing the M3 web-license gate. The browser worker/service/loader/cache code, native product, static-host mechanics, parity harness preparation, and all unrelated milestones continue.
+
+## Q-0034 — Open — 2026-07-16
+
+- **Section:** A-1; AC-4.a; V-3; M3 native/WASM parity
+- **Question:** May AC-4.a compare a canonical SVG byte stream that converts only `CRLF` to `LF` before hashing, while retaining the original native and WASM artifacts and their raw hashes as evidence? If not, what amended parity rule should govern platform-native SVG line endings?
+- **Evidence:** The bounded real-engine parity lane used the exact pinned native executable and the verified source-built WASM worker. Appendix F1 and F2 produced byte-identical binary STL. Appendix F3 reached the required raw SVG comparison and failed: native Windows output was 7,617 bytes with SHA-256 `245607A17E3EDB938B5729DF1A959FE470996B40C69B71C4243B06A959F51628`; WASM output was 7,542 bytes with SHA-256 `C431C4A240E51316DDDCAF452D50D6E1F605FB31D8689A1159A1E6A44E221973`. The first difference was offset 37, native `0x0D` versus WASM `0x0A`, and the 75-byte total length delta is consistent with one extra carriage return on each native SVG line. Hosted CI runs `29553736010` on candidate `9ae1519` and `29557414112` on exact M3 candidate `1a5b38a` reproduced these exact lengths, hashes, and first differing bytes after verifying both engine artifacts. Run `29557414112` passed every other web, native, browser, production-static, DMG, AppImage, and signed Windows lifecycle job. No normalization or semantic comparison was applied. The three official example cases were not reached after this fail-fast mismatch.
+- **Blocked:** Only declaring AC-4.a/V-3 green and closing M3. The exact-byte harness, all native/WASM implementation work, C13 shell work, and later capabilities that do not depend on a parity verdict continue. Per A-1, no fallback comparison will be implemented without an amendment.
 
 ## Q-0001 — Resolved 2026-07-11 — opened 2026-07-09
 
@@ -188,7 +201,8 @@ Numbered questions are appended here under §2.7. Only the affected work item is
 - **Section:** §2.7/A-7 engine pin; M3 native/WASM parity
 - **Question:** For the web target, must ScadMill build OpenSCAD WASM from source at commit `0a66508c67374febcfc814a73b5b948dd84a1ca3` as v0.6 explicitly requires, or may it use and validate the official exact-date `OpenSCAD-2026.06.12-WebAssembly-web.zip` artifact now present in the OpenSCAD snapshot manifest?
 - **Evidence:** Section 2.7 says published prebuilt WASM snapshots stalled in August 2025 and mandates a source build. The official snapshot index accessed on 2026-07-10 lists exact-date web and node archives. The web archive SHA-256 is `509879dd6813f2c4e5cf2ce1da6420928ce9bb212cd08491ca5ec9d5bffc700b`; the node archive SHA-256 is `07c978bd06dd75a3baa8daff77483b4e9559351f11a6bc4e324e7bb34248a605`.
-- **Blocked:** Only the M3 choice of WASM artifact provenance. The native 2026.06.12 pin, all M2 work, and source-build preparation continue.
+- **Blocked:** No current implementation. M3 conservatively completed and verified the stricter same-commit source build; the owner answer governs only whether the official prebuilt archive would also have been acceptable.
+- **Implementation status (2026-07-16):** The exact official source commit builds reproducibly in the digest-pinned workflow, and the retained JavaScript, WASM, and manifest artifacts verify against their recorded hashes.
 
 ## Q-0024 — Open — 2026-07-10
 
@@ -230,7 +244,8 @@ Numbered questions are appended here under §2.7. Only the affected work item is
 - **Section:** FR-6.5 recent files/projects; C14 welcome surface; §8 milestone table
 - **Question:** Is FR-6.5's recent-project list on the welcome screen intentionally split across milestones, with the durable list and file-workflow access delivered in M2 and its duplicate presentation on the C14 welcome screen delivered in M3?
 - **Evidence:** C6 is assigned to M2 and requires the recent list on both the welcome screen and file menu, while the welcome surface that owns that placement is assigned in full to M3. Pulling C14 into M2 would contradict the capability sequence; omitting every M2 access point would make the C6 list unreachable.
-- **Blocked:** Only the welcome-screen placement. M2 continues with a durable recent-project list reachable through the Files/file workflow; C14 can consume the same persistence port in M3 without changing its data or behavior.
+- **Blocked:** No current behavior. M2 delivered the durable list and Files access; M3 now presents the same persistence port on the welcome screen. The owner answer governs only the historical milestone-split interpretation.
+- **Implementation status (2026-07-16):** The C14 welcome surface lists and opens recent projects through the existing C6 persistence boundary.
 
 ## Q-0030 — Open — 2026-07-10
 

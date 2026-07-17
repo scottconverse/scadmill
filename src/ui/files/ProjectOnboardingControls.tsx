@@ -13,8 +13,8 @@ export interface ProjectOnboardingControlsProps {
   readonly hasDirtyDocuments: boolean;
   readonly transitionsBlocked: boolean;
   readonly workspaceDirectory?: WorkspaceDirectory;
-  inspectProject(projectId: string, displayName?: string): Promise<void>;
-  run(operation: () => Promise<void>): Promise<void>;
+  inspectProject(projectId: string, displayName?: string): Promise<unknown>;
+  run(operation: () => Promise<unknown>): Promise<boolean>;
 }
 
 export function ProjectOnboardingControls({

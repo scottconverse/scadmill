@@ -1,11 +1,11 @@
 // @vitest-environment happy-dom
 import { EditorView } from "@codemirror/view";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { StrictMode } from "react";
+import { type ComponentProps, StrictMode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { App } from "../../src/app/App";
-import type { EngineService, RenderFailure } from "../../src/application/engine/contracts";
+import { App as ProductionApp } from "../../src/app/App";
+import type { EngineService, RenderFailure, RenderSuccess3D } from "../../src/application/engine/contracts";
 import { PINNED_OPENSCAD_VERSION } from "../../src/application/engine/engine-pin";
 import type { WorkspaceLayoutPersistence } from "../../src/application/runtime/layout-persistence";
 import {
@@ -17,6 +17,14 @@ import { SHIPPED_THEMES } from "../../src/application/theme/shipped-themes";
 import { customThemePreference } from "../../src/application/theme/theme-registry";
 import { messages } from "../../src/messages/en";
 import { createBrowserSettingsPersistence } from "../../src/platform-web/browser-settings-persistence";
+import { createTestPlatform, type TestPlatformOverrides } from "../helpers/test-platform";
+
+function App({ engine, themeHost, ...overrides }: TestPlatformOverrides & {
+  readonly engine: EngineService;
+  readonly themeHost?: ComponentProps<typeof ProductionApp>["themeHost"];
+}) {
+  return <ProductionApp platform={createTestPlatform(engine, overrides)} themeHost={themeHost} />;
+}
 
 class FakeDarkModeQuery {
   matches: boolean;
@@ -46,7 +54,75 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
+function nonEmptyScratch(source = "cube(10);") {
+  return { load: () => ({ path: "Untitled", source }), save: vi.fn() };
+}
+
 describe("App", () => {
+  it("opens a built-in sample from a fresh profile, populates parameters, and renders it", async () => {
+    const mesh = new Uint8Array(134);
+    new DataView(mesh.buffer).setUint32(80, 1, true);
+    const result: RenderSuccess3D = {
+      kind: "3d",
+      mesh: { format: "stl-binary", bytes: mesh },
+      stats: { triangles: 1, engineTimeMs: 1 },
+      diagnostics: [],
+      rawLog: "synthetic render completed",
+    };
+    let job = 0;
+    const engine: EngineService = {
+      render: vi.fn().mockImplementation(() => {
+        job += 1;
+        return {
+          jobId: `welcome-render-${job}`,
+          done: Promise.resolve(result),
+          subscribeOutput: () => () => undefined,
+        };
+      }),
+      export: vi.fn(),
+      version: vi.fn().mockResolvedValue({
+        version: PINNED_OPENSCAD_VERSION,
+        path: "native",
+        features: [],
+      }),
+      cancel: vi.fn(),
+    };
+    const defaults = createDefaultPersistedSettings();
+    const settingsPersistence: SettingsPersistence = {
+      load: () => ({
+        kind: "loaded",
+        serializedSettings: serializePersistedSettings({
+          ...defaults,
+          rendering: { ...defaults.rendering, renderDebounceMs: 1 },
+        }),
+      }),
+      save: vi.fn(),
+    };
+    const view = render(
+      <StrictMode>
+        <App
+          engine={engine}
+          settingsPersistence={settingsPersistence}
+          welcomePreferencePersistence={{ load: () => true, save: vi.fn() }}
+        />
+      </StrictMode>,
+    );
+    const app = within(view.container);
+
+    await app.findByText(messages.engineReady(PINNED_OPENSCAD_VERSION));
+    expect(engine.version).toHaveBeenCalledTimes(1);
+    expect(engine.render).not.toHaveBeenCalled();
+    fireEvent.click(app.getByRole("button", { name: "Open sample Parametric storage box" }));
+
+    await waitFor(() => expect(engine.render).toHaveBeenCalledTimes(1));
+    const request = vi.mocked(engine.render).mock.calls.at(-1)?.[0];
+    expect(request?.entryFile).toBe("parametric_box.scad");
+    expect(request?.files.get("parametric_box.scad")).toContain("module box()");
+    expect(app.getByRole("slider", { name: "width" })).toBeVisible();
+    expect(app.getByRole("combobox", { name: "corner" })).toBeVisible();
+    expect(app.getByRole("checkbox", { name: "with_lid" })).toBeChecked();
+  });
+
   it("surfaces a transient settings read failure and catches non-dialog settings dispatches", async () => {
     const setItem = vi.fn();
     const settingsPersistence = createBrowserSettingsPersistence({
@@ -126,13 +202,65 @@ describe("App", () => {
 
     render(
       <StrictMode>
-        <App engine={engine} />
+        <App engine={engine} scratchAutosavePersistence={nonEmptyScratch()} />
       </StrictMode>,
     );
 
     expect(screen.getByText("Checking OpenSCAD…")).toBeVisible();
     await waitFor(() => expect(engine.render).toHaveBeenCalledTimes(1));
     expect(engine.version).toHaveBeenCalledTimes(1);
+  });
+
+  it("disposes replaced and unmounted runtimes without breaking the active replacement", async () => {
+    const pendingResult = new Promise<RenderFailure>(() => undefined);
+    const oldEngine: EngineService = {
+      render: vi.fn().mockReturnValue({ jobId: "old-runtime-render", done: pendingResult }),
+      export: vi.fn(),
+      version: vi.fn().mockResolvedValue({
+        version: PINNED_OPENSCAD_VERSION,
+        path: "native",
+        features: [],
+      }),
+      cancel: vi.fn(),
+    };
+    const replacementEngine: EngineService = {
+      render: vi.fn().mockReturnValue({ jobId: "replacement-render", done: pendingResult }),
+      export: vi.fn(),
+      version: vi.fn().mockResolvedValue({
+        version: PINNED_OPENSCAD_VERSION,
+        path: "native",
+        features: [],
+      }),
+      cancel: vi.fn(),
+    };
+    let scratchSource = "cube(10);";
+    const scratchAutosavePersistence = {
+      load: () => ({ path: "Untitled", source: scratchSource }),
+      save: vi.fn(),
+    };
+    const view = render(
+      <StrictMode>
+        <App engine={oldEngine} scratchAutosavePersistence={scratchAutosavePersistence} />
+      </StrictMode>,
+    );
+
+    await waitFor(() => expect(oldEngine.render).toHaveBeenCalledOnce());
+    scratchSource = "";
+    view.rerender(
+      <StrictMode>
+        <App engine={replacementEngine} scratchAutosavePersistence={scratchAutosavePersistence} />
+      </StrictMode>,
+    );
+
+    await waitFor(() => expect(oldEngine.cancel).toHaveBeenCalledWith("old-runtime-render"));
+    await waitFor(() => expect(replacementEngine.version).toHaveBeenCalledOnce());
+    expect(replacementEngine.render).not.toHaveBeenCalled();
+    fireEvent.click(within(view.container).getByRole("button", { name: messages.renderPreview }));
+    await waitFor(() => expect(replacementEngine.render).toHaveBeenCalledOnce());
+
+    view.unmount();
+    await act(async () => { await Promise.resolve(); });
+    expect(replacementEngine.cancel).toHaveBeenCalledWith("replacement-render");
   });
 
   it("formats the ready engine status through the message catalog", async () => {
@@ -210,12 +338,57 @@ describe("App", () => {
       save: vi.fn(),
     };
 
-    render(<App engine={engine} settingsPersistence={settingsPersistence} />);
+    render(
+      <App
+        engine={engine}
+        scratchAutosavePersistence={nonEmptyScratch()}
+        settingsPersistence={settingsPersistence}
+      />,
+    );
 
     await waitFor(() => expect(engine.render).toHaveBeenCalledTimes(1));
     expect(engine.render).toHaveBeenCalledWith(expect.objectContaining({
       quality: "full",
       timeoutMs: 600_000,
+    }));
+  });
+
+  it("restores the scratch entry path with its source for the initial render", async () => {
+    const source = "knob_diameter = 34; cylinder(d = knob_diameter, h = 14);";
+    const result: RenderFailure = {
+      kind: "failure",
+      reason: "engine-error",
+      diagnostics: [],
+      rawLog: "synthetic result",
+    };
+    const engine: EngineService = {
+      render: vi.fn().mockReturnValue({
+        jobId: "restored-gear-render",
+        done: Promise.resolve(result),
+      }),
+      export: vi.fn(),
+      version: vi.fn().mockResolvedValue({
+        version: PINNED_OPENSCAD_VERSION,
+        path: "native",
+        features: [],
+      }),
+      cancel: vi.fn(),
+    };
+
+    render(
+      <App
+        engine={engine}
+        scratchAutosavePersistence={{
+          load: () => ({ path: "gear_knob.scad", source }),
+          save: vi.fn(),
+        }}
+      />,
+    );
+
+    await waitFor(() => expect(engine.render).toHaveBeenCalledOnce());
+    expect(engine.render).toHaveBeenCalledWith(expect.objectContaining({
+      entryFile: "gear_knob.scad",
+      files: new Map([["gear_knob.scad", source]]),
     }));
   });
 
@@ -313,7 +486,13 @@ describe("App", () => {
       load: vi.fn(() => configuredPath),
       save: vi.fn((path: string) => { configuredPath = path; }),
     };
-    const view = render(<App engine={engine} enginePathConfiguration={configuration} />);
+    const view = render(
+      <App
+        engine={engine}
+        enginePathConfiguration={configuration}
+        scratchAutosavePersistence={nonEmptyScratch()}
+      />,
+    );
     const app = within(view.container);
     const fix = await app.findByRole("button", { name: messages.fixEngine });
 

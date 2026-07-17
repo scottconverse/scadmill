@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
 
 import {
-  formatConsoleHistory,
   type ConsoleLine,
   type ConsoleRun,
   type ConsoleState,
+  formatConsoleHistory,
 } from "../../application/diagnostics/console-state";
 import type { Diagnostic } from "../../application/engine/contracts";
 import { messages } from "../../messages/en";
@@ -118,9 +118,8 @@ export function DiagnosticConsole({
 
   const copyAll = async () => {
     try {
-      const writer = clipboard ?? globalThis.navigator?.clipboard;
-      if (!writer) throw new Error("Clipboard unavailable");
-      await writer.writeText(formatConsoleHistory(state));
+      if (!clipboard) throw new Error("Clipboard unavailable");
+      await clipboard.writeText(formatConsoleHistory(state));
       setCopyStatus(messages.consoleCopied);
     } catch {
       setCopyStatus(messages.consoleCopyFailed);

@@ -265,6 +265,19 @@ describe("packaged desktop evidence helpers", () => {
     expect(runner).not.toContain("querySelectorAll('[role=\"separator\"]')");
   });
 
+  it("validates the versioned scratch snapshot during packaged restart evidence", async () => {
+    const runner = await readFile(
+      join(process.cwd(), "scripts", "run-packaged-desktop-evidence.mjs"),
+      "utf8",
+    );
+
+    expect(runner).toContain("scadmill.scratch-autosave.v2");
+    expect(runner).toContain("saved?.version === 2");
+    expect(runner).toContain("saved.path === 'Untitled'");
+    expect(runner).toContain("saved.source === cubeSource");
+    expect(runner).not.toContain("localStorage.getItem('scadmill.scratch-autosave.v1')");
+  });
+
   it("finds a sentinel split across streaming read boundaries", async () => {
     const root = await mkdtemp(join(tmpdir(), "scadmill-evidence-"));
     temporaryRoots.push(root);

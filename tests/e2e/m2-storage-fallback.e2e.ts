@@ -3,6 +3,8 @@ import { readFile } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
 import { gunzipSync, strFromU8, unzipSync } from "fflate";
 
+import { dismissWelcome } from "./helpers/welcome";
+
 async function editorSource(page: Page): Promise<string> {
   return (await page.locator(".cm-line").allTextContents()).join("\n");
 }
@@ -40,6 +42,7 @@ test("IndexedDB getter failure preserves exact share and ZIP export", async ({ c
   });
 
   await page.goto("/");
+  await dismissWelcome(page);
   const filesButton = page.getByRole("button", { name: "Files", exact: true });
   if (await filesButton.getAttribute("aria-pressed") !== "true") await filesButton.click();
   const files = page.getByRole("region", { name: "Files panel" });

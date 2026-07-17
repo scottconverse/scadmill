@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-16-m3-wasm-indexeddb-cache",
+  "createdAt": "2026-07-16T10:05:00-06:00",
+  "summary": "Add the versioned, atomic IndexedDB storage boundary for the verified OpenSCAD JavaScript and WASM artifact pair.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 M3 delivery protocol",
+    "FR-4.7 HTTP plus IndexedDB cache and offline operation",
+    "N-2 bounded resource use",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-16-m3-wasm-indexeddb-cache.json", "status": "added" },
+    { "path": "src/platform-web/openscad-wasm-cache.ts", "status": "added" },
+    { "path": "tests/platform-web/openscad-wasm-cache.test.ts", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0254",
+      "topic": "Atomic versioned WebAssembly artifact cache record",
+      "decision": "Store the verified OpenSCAD JavaScript and WASM bytes together under one version-derived key in one IndexedDB record and transaction, validate exactly three required own fields on every read, copy bytes at both cache boundaries, close connections on version changes, and reject blocked or aborted persistence without exposing a partial pair.",
+      "rationale": "A paired record prevents cross-build JavaScript/WASM mixing and half-cache commits. Strict own-field checks reject prototype or shape confusion, defensive copies keep callers from mutating trusted cache state, and correct IndexedDB connection and transaction lifecycles allow multi-tab upgrades without falsely treating an uncommitted write as durable.",
+      "specBasis": ["FR-4.7", "N-2", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The cache stores and removes one defensive paired record and remains optional when IndexedDB is unavailable",
+      "test": "Exercise the storage facade with a memory database and the IndexedDB implementation with an upgrade-capable fake.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/platform-web/openscad-wasm-cache.test.ts",
+        "observedAt": "2026-07-16T09:56:52-06:00",
+        "outcome": "RED: the focused file could not load because the cache module did not exist."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/platform-web/openscad-wasm-cache.test.ts",
+        "observedAt": "2026-07-16T09:57:51-06:00",
+        "outcome": "GREEN after one mechanical case-sensitive assertion correction: 1 focused file and all 8 initial cache tests passed in 464 ms."
+      }
+    },
+    {
+      "criterion": "Exact own-field validation, transaction settlement, abort rollback, blocked-open cleanup, and version-change release survive adversarial review",
+      "test": "Add a comma-key plus inherited-field record, manually controlled request and transaction events, aborted writes, blocked-then-success opens, and healthy version changes.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/platform-web/openscad-wasm-cache.test.ts",
+        "observedAt": "2026-07-16T10:02:17-06:00",
+        "outcome": "RED after independent 0/0/3/0/0 review: 2 of 11 tests failed and 9 passed, reproducing the record-shape bypass and leaked blocked-open connection; the test also exposed its initially unconsumed blocked-open rejection."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/platform-web/openscad-wasm-cache.test.ts; pnpm.cmd exec biome check src/platform-web/openscad-wasm-cache.ts tests/platform-web/openscad-wasm-cache.test.ts; pnpm.cmd typecheck",
+        "observedAt": "2026-07-16T10:02:42-06:00",
+        "outcome": "GREEN: 1 focused file and all 11 tests passed in 702 ms; focused Biome checked both files with zero diagnostics; TypeScript exited 0 after a mechanical fake-event type correction."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-16-m3-exact-candidate-status",
+  "createdAt": "2026-07-16T23:41:00-06:00",
+  "summary": "Bind the documented M3 status to exact candidate 1a5b38a: every unblocked hosted implementation gate passes, while the implemented raw parity gate remains red under Q-0034 and Q-0033 remains an explicit owner-policy blocker.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 M3 delivery protocol",
+    "AC-4.a native and WASM parity",
+    "FR-13 platform integration and installers",
+    "FR-14 welcome surface",
+    "V-3 packaged desktop evidence",
+    "V-4 browser acceptance",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-16-m3-exact-candidate-status.json", "status": "added" },
+    { "path": "spec/QUESTIONS.md", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29557414112",
+      "accessedOn": "2026-07-16",
+      "purpose": "Bind the exact M3 candidate to the web, native, browser, production-static, installer, lifecycle, and raw parity conclusions."
+    },
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29557414107",
+      "accessedOn": "2026-07-16",
+      "purpose": "Confirm the exact-head detector passed and correctly reused the retained WASM artifact because the heavyweight build workflow was unchanged."
+    },
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29557417800",
+      "accessedOn": "2026-07-16",
+      "purpose": "Confirm the isolated owner similarity job passed at the exact candidate head without inspecting or executing its harness locally."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0285",
+      "topic": "Exact M3 candidate status boundary",
+      "decision": "Document 1a5b38a as green for every unblocked hosted implementation gate, including the complete signed Windows lifecycle, while retaining the implemented raw parity gate as red under Q-0034 and the overall M3 status as blocked by Q-0033 and Q-0034. Do not convert the raw SVG line endings, publish quarantined web-engine bytes, or call the red aggregate CI conclusion green.",
+      "rationale": "Exact-head evidence now closes the earlier scratch, production-static, AppImage, association, and window-restoration failures. The sole CI failure is the byte-for-byte SVG rule the specification explicitly requires the owner to amend, and public WASM distribution remains an owner-counsel decision. Separating passed implementation evidence from unresolved owner policy keeps the repository accurate without waiving either gate.",
+      "specBasis": ["AC-4.a", "V-3", "V-4", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The exact M3 candidate passes every unblocked hosted implementation gate, and the implemented raw parity failure plus remaining owner blocks are identified precisely.",
+      "test": "Inspect exact-head hosted run metadata and retained step evidence without rerunning or weakening a gate.",
+      "red": {
+        "command": "gh run view 29556068185 --json headSha,status,conclusion,jobs",
+        "observedAt": "2026-07-16T23:08:00-06:00",
+        "outcome": "RED: earlier candidate e9a0c5e passed all completed platform work except Q-0034 but exposed a one-shot Windows saved-rectangle evidence race."
+      },
+      "green": {
+        "command": "gh run view 29557414112 --json headSha,status,conclusion,jobs; gh run view 29557414107 --json headSha,status,conclusion,jobs; gh run view 29557417800 --json headSha,status,conclusion,jobs",
+        "observedAt": "2026-07-16T23:39:00-06:00",
+        "outcome": "PARTIAL: exact head 1a5b38a passed web, native, both browser platforms, production-static, DMG, AppImage, complete signed Windows lifecycle, retained-WASM, and isolated similarity gates. Its only failed job was the implemented raw SVG parity gate under Q-0034: the first difference was native CR versus WASM LF and the length delta was consistent with line endings, while fail-fast comparison left later differences and examples unproven. Q-0033 separately blocks publishing the quarantined bytes."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": ["Q-0033", "Q-0034"],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

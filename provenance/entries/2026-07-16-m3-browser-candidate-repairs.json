@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-16-m3-browser-candidate-repairs",
+  "createdAt": "2026-07-16T22:18:00-06:00",
+  "summary": "Keep the live workbench runtime usable through React StrictMode effect rehearsal, stage the verified WASM engine on both browser-acceptance platforms, and stabilize the no-gap banner evidence on its terminal UI state.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 M3 delivery protocol",
+    "FR-4.3 real preview geometry",
+    "FR-14.1 welcome samples",
+    "AC-14.a fresh-profile sample journey",
+    "V-4 browser acceptance on Linux and Windows",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": ".github/workflows/ci.yml", "status": "modified" },
+    { "path": "provenance/entries/2026-07-16-m3-browser-candidate-repairs.json", "status": "added" },
+    { "path": "src/app/App.tsx", "status": "modified" },
+    { "path": "tests/app/App.test.tsx", "status": "modified" },
+    { "path": "tests/e2e/c9-settings-layout.e2e.ts", "status": "modified" },
+    { "path": "tests/scripts/ci-workflow.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29554063544",
+      "accessedOn": "2026-07-16",
+      "purpose": "Observe exact-head Ubuntu and Windows browser failures and distinguish the StrictMode lifecycle defect, Windows-only missing WASM staging, and cross-state banner measurement race."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0278",
+      "topic": "StrictMode-safe workbench runtime disposal",
+      "decision": "Defer runtime disposal by one microtask and cancel only the pending disposal for the same runtime when React immediately reattaches it. Keep disposal tokens keyed per runtime so a replaced runtime and a truly unmounted runtime are still disposed and cancel active work.",
+      "rationale": "React StrictMode rehearses effect cleanup and setup while retaining the memoized runtime. Immediate cleanup permanently marked the live runtime disposed, suppressing later welcome-sample auto-render. Per-runtime deferred disposal distinguishes rehearsal from real lifecycle termination without removing StrictMode or leaking replaced runtimes.",
+      "specBasis": ["FR-4.3", "FR-14.1", "AC-14.a", "N-7"]
+    },
+    {
+      "id": "D-0279",
+      "topic": "Cross-platform browser acceptance engine staging",
+      "decision": "Download, verify, and stage the retained checksummed OpenSCAD WASM artifact unconditionally in the Linux and Windows browser-acceptance matrix. Continue limiting production-static evidence to Linux while both ordinary browser lanes exercise the real engine.",
+      "rationale": "The same staging script and artifact path are already exercised by the Windows parity job. Skipping them in Windows browser acceptance changed four engine journeys into guaranteed unavailable-engine failures and did not satisfy V-4 coverage of the real browser product.",
+      "specBasis": ["FR-4.3", "V-4", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "A welcome sample selected after the engine is ready renders under the production StrictMode mount, while real runtime replacement and unmount still cancel active work.",
+      "test": "Run focused App integration coverage with engine readiness preceding the welcome click and with unresolved jobs across replacement and unmount.",
+      "red": {
+        "command": "npm.cmd test -- tests/app/App.test.tsx -t 'opens a built-in sample from a fresh profile'",
+        "observedAt": "2026-07-16T22:12:48-06:00",
+        "outcome": "RED: under StrictMode, the ready engine received zero render calls after the welcome sample opened, reproducing the hosted Idle state."
+      },
+      "green": {
+        "command": "npm.cmd test -- tests/app/App.test.tsx -t 'opens a built-in sample|disposes replaced'",
+        "observedAt": "2026-07-16T22:15:17-06:00",
+        "outcome": "GREEN: 2/2 focused tests passed; the sample rendered, the replaced runtime cancelled old-runtime-render, the replacement remained usable, and real unmount cancelled replacement-render."
+      }
+    },
+    {
+      "criterion": "Both Linux and Windows ordinary browser-acceptance lanes stage the exact verified retained WASM artifact.",
+      "test": "Fail closed on missing named staging steps and reject any platform condition on either e2e staging step.",
+      "red": {
+        "command": "GitHub Actions run 29554063544 Browser acceptance (windows-latest); npm.cmd test -- tests/scripts/ci-workflow.test.ts -t 'stages the source-built WASM'",
+        "observedAt": "2026-07-16T22:15:53-06:00",
+        "outcome": "RED: hosted Windows left the engine unavailable in four journeys because both staging steps were Linux-only; the strengthened focused contract failed on that condition."
+      },
+      "green": {
+        "command": "npm.cmd test -- tests/scripts/ci-workflow.test.ts -t 'stages the source-built WASM'",
+        "observedAt": "2026-07-16T22:17:52-06:00",
+        "outcome": "FOCUSED GREEN / HOSTED REPLACEMENT PENDING: the fail-closed workflow contract passed 1/1 after both staging steps became unconditional."
+      }
+    },
+    {
+      "criterion": "No blank strip exists between the terminal visible engine banner and the workspace on the Windows-supported layout.",
+      "test": "Wait for the terminal WASM failure alert and Retry control, then poll concurrently sampled banner-bottom and workspace-top geometry.",
+      "red": {
+        "command": "GitHub Actions run 29554063544 Browser acceptance (windows-latest)",
+        "observedAt": "2026-07-16T22:09:25-06:00",
+        "outcome": "RED TEST EVIDENCE: sequential loading-to-failure measurements differed by 9 px before the direct workspace-gap invariant was reached."
+      },
+      "green": {
+        "command": "pnpm.cmd exec playwright test tests/e2e/c9-settings-layout.e2e.ts -g 'does not reserve a blank project strip'",
+        "observedAt": "2026-07-16T22:16:40-06:00",
+        "outcome": "GREEN: the terminal-state user-facing gap assertion passed 1/1 in Chromium with no CSS or product-layout bypass. Hosted Windows replacement evidence remains pending."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

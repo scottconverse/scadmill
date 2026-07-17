@@ -78,7 +78,8 @@ const SCANNED_EXTENSIONS = new Set([".css", ".ts", ".tsx"]);
 const CUSTOM_PROPERTY = /--[a-z][a-z0-9-]*/gu;
 const SCRIPT_CUSTOM_PROPERTY_CONTEXTS = [
   /var\(\s*(--[a-z][a-z0-9-]*)/gu,
-  /["'`](--[a-z][a-z0-9-]*)["'`]/gu,
+  /(?:setProperty|getPropertyValue|getPropertyPriority|removeProperty)\(\s*["'`](--[a-z][a-z0-9-]*)["'`]/gu,
+  /["'`](--[a-z][a-z0-9-]*)["'`]\s*:/gu,
   /(--[a-z][a-z0-9-]*)\s*:/gu,
 ];
 
@@ -100,15 +101,18 @@ function lineAt(source: string, offset: number): number {
   return source.slice(0, offset).split(/\r?\n/u).length;
 }
 
-function propertiesInFile(path: string): CustomPropertyOccurrence[] {
-  const source = readFileSync(path, "utf8");
-  const contexts = extname(path) === ".css" ? [CUSTOM_PROPERTY] : SCRIPT_CUSTOM_PROPERTY_CONTEXTS;
+function propertiesInSource(
+  source: string,
+  extension: string,
+  file: string,
+): CustomPropertyOccurrence[] {
+  const contexts = extension === ".css" ? [CUSTOM_PROPERTY] : SCRIPT_CUSTOM_PROPERTY_CONTEXTS;
   const occurrences = contexts.flatMap((pattern) =>
     Array.from(source.matchAll(pattern), (match) => {
       const variable = match[1] ?? match[0];
       const offset = (match.index ?? 0) + match[0].indexOf(variable);
       return {
-        file: relative(process.cwd(), path).replaceAll("\\", "/"),
+        file,
         line: lineAt(source, offset),
         variable,
       };
@@ -122,6 +126,14 @@ function propertiesInFile(path: string): CustomPropertyOccurrence[] {
         occurrence,
       ]),
     ).values(),
+  );
+}
+
+function propertiesInFile(path: string): CustomPropertyOccurrence[] {
+  return propertiesInSource(
+    readFileSync(path, "utf8"),
+    extname(path),
+    relative(process.cwd(), path).replaceAll("\\", "/"),
   );
 }
 
@@ -151,5 +163,22 @@ describe("Appendix C CSS custom-property contract", () => {
       );
 
     expect(unknown).toEqual([]);
+  });
+
+  it("does not mistake quoted command-line options for CSS custom properties", () => {
+    const source = [
+      'module.callMain(["--version", "--export-format", "binstl"]);',
+      'const style = "var(--unknown-color)";',
+      'element.style.setProperty("--unknown-set", value);',
+      'element.style.getPropertyValue("--unknown-read");',
+      'const inlineStyle = { "--unknown-key": value };',
+    ].join("\n");
+
+    expect(propertiesInSource(source, ".ts", "fixture.ts")).toEqual([
+      { file: "fixture.ts", line: 2, variable: "--unknown-color" },
+      { file: "fixture.ts", line: 3, variable: "--unknown-set" },
+      { file: "fixture.ts", line: 4, variable: "--unknown-read" },
+      { file: "fixture.ts", line: 5, variable: "--unknown-key" },
+    ]);
   });
 });

@@ -56,7 +56,7 @@ describe("WebMenuBar", () => {
     expect(help).toHaveFocus();
     fireEvent.click(help);
     expect(menu.getByRole("status", { name: "Help information" })).toHaveTextContent(
-      "ScadMill help is being built. All available commands are listed in the menus and Settings → Keybindings.",
+      "Find every command in the menus, or open Settings to review and customize keyboard shortcuts.",
     );
 
     const openFile = () => fireEvent.click(menu.getByText("File"));
@@ -90,6 +90,8 @@ describe("WebMenuBar", () => {
       ["Replace", "replace"],
       ["Go to line", "go-to-line"],
       ["Toggle comment", "toggle-comment"],
+      ["Format document", "format-document"],
+      ["Format selection", "format-selection"],
       ["Undo", "undo"],
       ["Redo", "redo"],
     ] as const) {
