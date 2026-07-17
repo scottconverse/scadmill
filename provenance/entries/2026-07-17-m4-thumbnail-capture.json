@@ -4,7 +4,7 @@
   "createdAt": "2026-07-17T03:00:00-06:00",
   "summary": "Wire the M4 thumbnail capture path through accepted viewer renders, platform-owned persistence, and Welcome recent-project presentation.",
   "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
-  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "FR-15.13 thumbnails", "AC-15.m thumbnail presentation", "N-7 evidence and status honesty"],
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "FR-15.13 thumbnails", "N-7 evidence and status honesty"],
   "filesTouched": [
     { "path": "CHANGELOG.md", "status": "modified" },
     { "path": "provenance/entries/2026-07-17-m4-thumbnail-capture.json", "status": "added" },
