@@ -615,6 +615,8 @@ export const messages = {
   projectSearchUnavailable: "Open a project to search its files.",
   noHistoryYet: "No workspace history yet.",
   aiNotConfigured: "AI is not configured.",
+  aiSetupGuidance: "No network requests are made until you choose a provider and send a message.",
+  aiReady: "AI provider configured. Start a conversation when you are ready.",
   noLibrariesInstalled: "No project libraries are installed.",
   noParametersDetected: "No parameters were detected.",
   parametersDefaultGroup: "Parameters",

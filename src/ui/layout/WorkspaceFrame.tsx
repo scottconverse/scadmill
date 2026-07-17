@@ -7,6 +7,7 @@ import type {
   WorkspaceLayoutState,
 } from "../../application/layout/workspace-layout";
 import { messages } from "../../messages/en";
+import { AiActivity } from "../ai/AiActivity";
 import { PanelSplitter } from "./PanelSplitter";
 
 export interface WorkspaceFrameProps {
@@ -234,7 +235,9 @@ export function WorkspaceFrame({
               ×
             </button>
           </header>
-          {activityContent[layout.activeRail] ?? <p>{activeCopy.empty}</p>}
+        {activityContent[layout.activeRail] ?? (layout.activeRail === "ai"
+          ? <AiActivity configured={false} />
+          : <p>{activeCopy.empty}</p>)}
         </section>
 
         {!narrow && !dockHidden && (

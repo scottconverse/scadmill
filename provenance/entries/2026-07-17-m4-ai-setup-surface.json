@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-ai-setup-surface",
+  "createdAt": "2026-07-17T03:22:00-06:00",
+  "summary": "Add the truthful M4 AI activity setup surface: unconfigured state explains that no network request occurs before provider selection and message send.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "C10", "FR-10.1", "AC-10.a", "N-7 evidence and status honesty"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-17-m4-ai-setup-surface.json", "status": "added" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/ui/ai/AiActivity.tsx", "status": "added" },
+    { "path": "src/ui/layout/WorkspaceFrame.tsx", "status": "modified" },
+    { "path": "tests/ui/ai/AiActivity.test.tsx", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0309", "topic": "AI network honesty", "decision": "The M4 AI rail defaults to an unconfigured setup panel and performs no provider/network operation until a later provider/send unit is explicitly invoked.", "rationale": "AC-10.a requires zero network calls with no provider, and the current product has no AI client or conversation transport to claim more.", "specBasis": ["FR-10.1", "AC-10.a", "N-7"] }
+  ],
+  "testEvidence": [
+    { "criterion": "The unconfigured AI surface is visible, actionable for Settings, and has no network side effect.", "test": "Render the activity with a mocked Settings action and inspect the setup copy.", "red": { "command": "pnpm.cmd exec vitest run tests/ui/ai/AiActivity.test.tsx", "observedAt": "2026-07-17T03:20:00-06:00", "outcome": "RED: the AI activity component and setup copy were absent." }, "green": { "command": "pnpm.cmd exec vitest run tests/ui/ai/AiActivity.test.tsx tests/ui/Workbench.test.tsx tests/ui/layout/WorkspaceFrame.test.tsx", "observedAt": "2026-07-17T03:19:14-06:00", "outcome": "GREEN: Test Files 3 passed (3); Tests 32 passed (32)." } },
+    { "criterion": "The application remains type-safe and source-policy clean.", "test": "Run TypeScript and repository lint/source policy.", "red": { "command": "pnpm.cmd lint", "observedAt": "2026-07-17T03:18:15-06:00", "outcome": "RED: the first wiring pass pushed Workbench one line over the UI source limit." }, "green": { "command": "pnpm.cmd lint; pnpm.cmd exec tsc --noEmit --pretty false", "observedAt": "2026-07-17T03:21:00-06:00", "outcome": "GREEN: source policy passed; TypeScript exited 0." } }
+  ],
+  "nearMisses": [],
+  "questions": ["C10 remains incomplete: provider HTTP clients, streaming, conversations, diff actions, agent mode, persistence, and secret-scan acceptance are not claimed by this setup-only unit."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
