@@ -61,6 +61,7 @@ describe("regular CI workflow contract", () => {
     }
     expect(workflow).toContain("permissions:\n  actions: read\n  contents: read");
     expect(jobBlock("e2e")).toContain("if: runner.os == 'Linux'");
+    expect(jobBlock("parity")).toContain('"SCADMILL_AC4_OPENSCAD=$executable"');
   });
 
   it("preflights signing before build, then signs, verifies, hashes, and uploads Windows setup", () => {

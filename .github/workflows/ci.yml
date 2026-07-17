@@ -142,6 +142,7 @@ jobs:
             throw "The OpenSCAD parity executable checksum is invalid."
           }
           "SCADMILL_OPENSCAD=$executable" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "SCADMILL_AC4_OPENSCAD=$executable" | Out-File -FilePath $env:GITHUB_ENV -Append
       - name: Exact AC-4.a parity
         run: pnpm test:parity
       - name: Retain parity evidence on failure
