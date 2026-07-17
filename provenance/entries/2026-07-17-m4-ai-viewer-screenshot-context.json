@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-ai-viewer-screenshot-context",
+  "createdAt": "2026-07-17T04:39:35-06:00",
+  "summary": "Wire the existing explicit viewer PNG capture into the opt-in AI screenshot context toggle, with a per-document reset and bounded data-url conversion.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "C10", "FR-10.3", "N-7 evidence and status honesty"],
+  "filesTouched": [
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/ViewerPaneConnector.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/png-data-url.ts", "status": "added" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-17-m4-ai-viewer-screenshot-context.json", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [{ "id": "D-0358", "topic": "AI viewer screenshot context", "decision": "Feed only the latest explicit viewport PNG capture into AI context; reset it when the active document changes and retain the screenshot toggle off by default.", "rationale": "The viewer already owns capture and artifact persistence. Reusing that seam avoids synthetic imagery, keeps context user-controlled, and bounds the payload through the existing 2 MiB AI context cap.", "specBasis": ["FR-10.3", "C10", "N-7"] }],
+  "testEvidence": [{ "criterion": "Workbench and viewer capture seams remain green while AI context receives an optional screenshot data URL.", "test": "Run focused Workbench, ViewerPaneConnector, and AI context tests once; run lint, build, and provenance validation once.", "red": { "command": "pnpm.cmd lint", "observedAt": "2026-07-17T04:38:18-06:00", "outcome": "RED: source-policy line limit caught Workbench at 402 lines after the first wiring; no product test failed." }, "green": { "command": "pnpm.cmd exec vitest run tests/ui/Workbench.test.tsx tests/ui/viewer/ViewerPaneConnector.test.tsx tests/application/ai/ai-context.test.ts --reporter=dot; pnpm.cmd lint; pnpm.cmd build; pnpm.cmd check:provenance", "observedAt": "2026-07-17T04:39:10-06:00", "outcome": "GREEN: 3 files and 28 tests passed; source policy passed after extracting pngDataUrl; TypeScript/Vite build passed with 236 modules transformed; provenance validation passed." } }],
+  "nearMisses": [],
+  "questions": ["Hosted AC-10.c/d and a true desktop screenshot tool remain pending; this slice only wires the explicit UI capture into AI context."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

@@ -35,6 +35,7 @@ export interface ViewerPaneConnectorProps {
   readonly viewer: ViewerDocumentState;
   readonly onLayoutAction: (action: WorkspaceLayoutAction) => void;
   readonly onShowConsole: () => void;
+  readonly onScreenshotCaptured?: (bytes: Uint8Array) => void;
 }
 
 export function ViewerPaneConnector({
@@ -56,6 +57,7 @@ export function ViewerPaneConnector({
   viewer,
   onLayoutAction,
   onShowConsole,
+  onScreenshotCaptured,
 }: ViewerPaneConnectorProps) {
   const preferences = useReadonlyStore(runtime.settings, (state) => state.profile.viewer);
   const profile = useReadonlyStore(runtime.settings, (state) => state.profile);
@@ -156,11 +158,14 @@ export function ViewerPaneConnector({
         ? exportAnnotationMetadata
         : undefined}
       onScreenshot={runtime.artifacts.available
-        ? (bytes) => runtime.artifacts.save({
-            suggestedName: `${documentId}.png`,
-            bytes,
-            mimeType: "image/png",
-          }).then(() => undefined)
+        ? (bytes) => {
+            onScreenshotCaptured?.(bytes);
+            return runtime.artifacts.save({
+              suggestedName: `${documentId}.png`,
+              bytes,
+              mimeType: "image/png",
+            }).then(() => undefined);
+          }
         : undefined}
       onThumbnail={runtime.renderThumbnails
         ? (bytes) => {

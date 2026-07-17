@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { activeDocument, canCloseDocument, canReopenDocument } from "../application/documents/document-workspace";
 import { createLocalConversationPersistence } from "../application/ai/conversation-persistence";
 import type { WorkspaceLayoutAction } from "../application/layout/workspace-layout";
@@ -31,6 +31,7 @@ import { SettingsLauncher } from "./settings/SettingsLauncher";
 import { useReadonlyStore } from "./use-readonly-store";
 import { resolveActiveViewerPresentation } from "./viewer/active-viewer-presentation";
 import { ViewerPaneConnector } from "./viewer/ViewerPaneConnector";
+import { pngDataUrl } from "./viewer/png-data-url";
 import { WorkbenchBanners } from "./WorkbenchBanners";
 import { DismissibleNotice, NativeHelpPanel } from "./WorkbenchOverlays";
 import { AiConversationPanel, createAiConversationBridge } from "./ai";
@@ -39,6 +40,7 @@ import type { WorkbenchProps } from "./workbench-props";
 import { diagnosticStatusLabel, geometryDeltaStatus, renderStatusLabel } from "./workbench-status";
 import "./workbench.css";
 const CodeEditor = lazy(() => import("./editor/CodeEditor").then((module) => ({ default: module.CodeEditor })));
+
 export function Workbench({
   runtime, engine, secretStore = EPHEMERAL_SECRET_STORE,
   engineLabel, engineAvailable = true, engineChecking = false, engineRecovery,
@@ -66,6 +68,8 @@ export function Workbench({
   const parameterState = useReadonlyStore(runtime.parameters, (state) => state);
   const currentParameters = parameterDocument(parameterState, document.id);
   const aiPersistence = useMemo(() => createLocalConversationPersistence(document.id), [document.id]);
+  const [viewerScreenshotDataUrl, setViewerScreenshotDataUrl] = useState<string>();
+  useEffect(() => { if (document.id) setViewerScreenshotDataUrl(undefined); }, [document.id]);
   const projectState = useReadonlyStore(runtime.project, (state) => state);
   const editorProjectCompletion = useProjectCompletionContext(projectState, documents);
   const narrow = useNarrowLayout(undefined, forceNarrowLayout);
@@ -296,6 +300,7 @@ export function Workbench({
       renderStartedAtMs={presentation.status === "rendering" ? render.startedAtMs : undefined}
       renderStatus={presentation.status} result={presentation.result} runtime={runtime}
       viewer={activeViewer} onLayoutAction={dispatchLayout} onShowConsole={focusConsole}
+      onScreenshotCaptured={(bytes) => setViewerScreenshotDataUrl(pngDataUrl(bytes))}
     />
   );
   return (
@@ -367,7 +372,7 @@ export function Workbench({
         />
       </WorkbenchBanners>
       <WorkspaceFrame aiConfigured={profile.ai.provider !== "none"} activityContent={{
-          ai: <AiConversationPanel key={document.id} configured={profile.ai.provider !== "none"} contextInputs={{ source: document.source, diagnostics: aiDiagnostics, parameters: aiParameters }} currentSource={document.source} documentId={document.id} model={profile.ai.model} onApplyEdit={aiBridge.applyEdit} onCopy={clipboard?.writeText} onInsertAtCursor={(code) => { const session = editorSessions.current.get(document.id); const head = session?.state.selection.main.head ?? document.source.length; const offset = Math.max(0, Math.min(document.source.length, head)); void runtime.dispatch({ kind: "edit-document", origin: "ai-panel", documentId: document.id, source: `${document.source.slice(0, offset)}${code}${document.source.slice(offset)}` }).catch(() => undefined); }} persistence={aiPersistence} requestStream={profile.ai.provider === "none" ? undefined : aiBridge.requestStream} />,
+          ai: <AiConversationPanel key={document.id} configured={profile.ai.provider !== "none"} contextInputs={{ source: document.source, diagnostics: aiDiagnostics, parameters: aiParameters, screenshotDataUrl: viewerScreenshotDataUrl }} currentSource={document.source} documentId={document.id} model={profile.ai.model} onApplyEdit={aiBridge.applyEdit} onCopy={clipboard?.writeText} onInsertAtCursor={(code) => { const session = editorSessions.current.get(document.id); const head = session?.state.selection.main.head ?? document.source.length; const offset = Math.max(0, Math.min(document.source.length, head)); void runtime.dispatch({ kind: "edit-document", origin: "ai-panel", documentId: document.id, source: `${document.source.slice(0, offset)}${code}${document.source.slice(offset)}` }).catch(() => undefined); }} persistence={aiPersistence} requestStream={profile.ai.provider === "none" ? undefined : aiBridge.requestStream} />,
           files: <FilesActivity canReveal={canRevealProjectFiles} canTrash={canTrashProjectFiles} directoryPicker={directoryPicker} engine={engineAvailable ? engine : undefined} portability={projectPortability} recoveryPersistence={recoveryPersistence} projectTransitionsBlocked={recoveryPending} requestedExport={fileCommands.requestedExport} requestedNewFile={fileCommands.requestedNewFile} runtime={runtime} storage={projectStorage} workspaceDirectory={workspaceDirectory} />,
         }}
         layout={layout}
