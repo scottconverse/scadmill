@@ -39,6 +39,171 @@ function Read-WindowRect([IntPtr]$Handle) {
   return $rect
 }
 
+function Format-WindowRect($Rect) {
+  if ($null -eq $Rect) { return "unavailable" }
+  $width = $Rect.Right - $Rect.Left
+  $height = $Rect.Bottom - $Rect.Top
+  return "left=$($Rect.Left), top=$($Rect.Top), width=$width, height=$height"
+}
+
+function Format-WindowSize($Rect) {
+  if ($null -eq $Rect) { return "unavailable" }
+  return "width=$($Rect.Right - $Rect.Left), height=$($Rect.Bottom - $Rect.Top)"
+}
+
+function Measure-WindowRectDelta($Actual, $Expected) {
+  return [PSCustomObject]@{
+    Left = [Math]::Abs($Actual.Left - $Expected.Left)
+    Top = [Math]::Abs($Actual.Top - $Expected.Top)
+    Width = [Math]::Abs(($Actual.Right - $Actual.Left) - ($Expected.Right - $Expected.Left))
+    Height = [Math]::Abs(($Actual.Bottom - $Actual.Top) - ($Expected.Bottom - $Expected.Top))
+  }
+}
+
+function Format-WindowRectDelta($Delta) {
+  if ($null -eq $Delta) { return "unavailable" }
+  return "left=$($Delta.Left), top=$($Delta.Top), width=$($Delta.Width), height=$($Delta.Height)"
+}
+
+function Format-WindowSizeDelta($Delta) {
+  if ($null -eq $Delta) { return "unavailable" }
+  return "width=$($Delta.Width), height=$($Delta.Height)"
+}
+
+function Wait-WindowRect(
+  [Diagnostics.Process]$Process,
+  [IntPtr]$Handle,
+  $Expected,
+  [int]$Tolerance,
+  [int]$TimeoutSeconds = 15
+) {
+  $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+  $minimumObservation = [DateTime]::UtcNow.AddMilliseconds(600)
+  $requiredStableProbes = 3
+  $attempts = 0
+  $stableProbes = 0
+  $lastActual = $null
+  $lastDelta = $null
+  $previousActual = $null
+  $lastProbeError = "none"
+  while ([DateTime]::UtcNow -lt $deadline) {
+    if ($Process.HasExited) { throw "ScadMill exited before restoring its saved window rectangle." }
+    $attempts++
+    $Process.Refresh()
+    if ($Process.MainWindowHandle -ne [IntPtr]::Zero) { $Handle = $Process.MainWindowHandle }
+    try {
+      $lastActual = Read-WindowRect $Handle
+      $lastProbeError = "none"
+    } catch {
+      $lastProbeError = $_.Exception.Message
+      $stableProbes = 0
+      Start-Sleep -Milliseconds 200
+      continue
+    }
+    $lastDelta = Measure-WindowRectDelta $lastActual $Expected
+    $matchesExpected = (
+      $lastDelta.Left -le $Tolerance -and
+      $lastDelta.Top -le $Tolerance -and
+      $lastDelta.Width -le $Tolerance -and
+      $lastDelta.Height -le $Tolerance
+    )
+    $stableFromPrevious = $false
+    if ($null -ne $previousActual) {
+      $stabilityDelta = Measure-WindowRectDelta $lastActual $previousActual
+      $stableFromPrevious = (
+        $stabilityDelta.Left -le 2 -and
+        $stabilityDelta.Top -le 2 -and
+        $stabilityDelta.Width -le 2 -and
+        $stabilityDelta.Height -le 2
+      )
+    }
+    if ($matchesExpected) {
+      $stableProbes = if ($stableFromPrevious) { $stableProbes + 1 } else { 1 }
+    } else {
+      $stableProbes = 0
+    }
+    $previousActual = $lastActual
+    if ([DateTime]::UtcNow -ge $minimumObservation -and $stableProbes -ge $requiredStableProbes) {
+      Write-Host "Saved window rectangle restored after $attempts probe(s). Expected: $(Format-WindowRect $Expected). Actual: $(Format-WindowRect $lastActual). Deltas: $(Format-WindowRectDelta $lastDelta)."
+      return $lastActual
+    }
+    Start-Sleep -Milliseconds 200
+  }
+  $processStatus = if ($Process.HasExited) { "exited" } else { "running" }
+  throw "The installed window did not restore its saved rectangle within $TimeoutSeconds seconds after $attempts probe(s). Expected: $(Format-WindowRect $Expected). Last actual: $(Format-WindowRect $lastActual). Deltas: $(Format-WindowRectDelta $lastDelta). Last probe error: $lastProbeError. Process: $processStatus."
+}
+
+function Wait-VisibleWindowRect(
+  [Diagnostics.Process]$Process,
+  [IntPtr]$Handle,
+  $ExpectedSize,
+  [int]$Tolerance,
+  [int]$VirtualLeft,
+  [int]$VirtualTop,
+  [int]$VirtualRight,
+  [int]$VirtualBottom,
+  [int]$TimeoutSeconds = 15
+) {
+  $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+  $minimumObservation = [DateTime]::UtcNow.AddMilliseconds(600)
+  $requiredStableProbes = 3
+  $attempts = 0
+  $stableVisibleProbes = 0
+  $lastActual = $null
+  $lastDelta = $null
+  $previousActual = $null
+  $lastProbeError = "none"
+  while ([DateTime]::UtcNow -lt $deadline) {
+    if ($Process.HasExited) { throw "ScadMill exited before restoring its window to a visible display." }
+    $attempts++
+    $Process.Refresh()
+    if ($Process.MainWindowHandle -ne [IntPtr]::Zero) { $Handle = $Process.MainWindowHandle }
+    try {
+      $lastActual = Read-WindowRect $Handle
+      $lastProbeError = "none"
+    } catch {
+      $lastProbeError = $_.Exception.Message
+      $stableVisibleProbes = 0
+      Start-Sleep -Milliseconds 200
+      continue
+    }
+    $isVisible = (
+      $lastActual.Right -gt $VirtualLeft -and
+      $lastActual.Left -lt $VirtualRight -and
+      $lastActual.Bottom -gt $VirtualTop -and
+      $lastActual.Top -lt $VirtualBottom
+    )
+    $lastDelta = Measure-WindowRectDelta $lastActual $ExpectedSize
+    $matchesRestoredSize = (
+      $lastDelta.Width -le $Tolerance -and
+      $lastDelta.Height -le $Tolerance
+    )
+    $stableFromPrevious = $false
+    if ($null -ne $previousActual) {
+      $stabilityDelta = Measure-WindowRectDelta $lastActual $previousActual
+      $stableFromPrevious = (
+        $stabilityDelta.Left -le 2 -and
+        $stabilityDelta.Top -le 2 -and
+        $stabilityDelta.Width -le 2 -and
+        $stabilityDelta.Height -le 2
+      )
+    }
+    if ($isVisible -and $matchesRestoredSize) {
+      $stableVisibleProbes = if ($stableFromPrevious) { $stableVisibleProbes + 1 } else { 1 }
+    } else {
+      $stableVisibleProbes = 0
+    }
+    $previousActual = $lastActual
+    if ([DateTime]::UtcNow -ge $minimumObservation -and $stableVisibleProbes -ge $requiredStableProbes) {
+      Write-Host "Off-monitor window state restored its saved size on a visible display after $attempts probe(s). Expected size: $(Format-WindowSize $ExpectedSize). Actual: $(Format-WindowRect $lastActual). Size deltas: $(Format-WindowSizeDelta $lastDelta). Virtual bounds: left=$VirtualLeft, top=$VirtualTop, right=$VirtualRight, bottom=$VirtualBottom."
+      return $lastActual
+    }
+    Start-Sleep -Milliseconds 200
+  }
+  $processStatus = if ($Process.HasExited) { "exited" } else { "running" }
+  throw "ScadMill did not restore the saved off-monitor window size on a visible display within $TimeoutSeconds seconds after $attempts probe(s). Expected size: $(Format-WindowSize $ExpectedSize). Last actual: $(Format-WindowRect $lastActual). Size deltas: $(Format-WindowSizeDelta $lastDelta). Virtual bounds: left=$VirtualLeft, top=$VirtualTop, right=$VirtualRight, bottom=$VirtualBottom. Last probe error: $lastProbeError. Process: $processStatus."
+}
+
 function Close-Normally([Diagnostics.Process]$Process, [IntPtr]$Handle) {
   [void][ScadMillWindowProbe]::SendMessage($Handle, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero)
   if (-not $Process.WaitForExit(15000)) {
@@ -142,6 +307,31 @@ function Wait-EditorSource([int]$Port, [string]$ExpectedSource) {
   throw "The associated fixture did not become the exact active editor source in the existing ScadMill WebView.$detail"
 }
 
+function Wait-WebViewReady([int]$Port) {
+  $deadline = [DateTime]::UtcNow.AddSeconds(30)
+  $lastFailure = $null
+  $expression = "document.readyState === 'complete' && document.querySelector('.workspace-frame') !== null"
+  while ([DateTime]::UtcNow -lt $deadline) {
+    try {
+      $targets = @(Invoke-RestMethod -Uri "http://127.0.0.1:$Port/json/list" -TimeoutSec 2)
+      foreach ($target in $targets) {
+        if ($target.type -ne "page" -or [string]::IsNullOrWhiteSpace($target.webSocketDebuggerUrl)) {
+          continue
+        }
+        if ((Invoke-DevToolsExpression $target.webSocketDebuggerUrl $expression) -eq $true) {
+          Write-Host "ScadMill WebView reached its complete application-ready state."
+          return
+        }
+      }
+    } catch {
+      $lastFailure = $_.Exception
+    }
+    Start-Sleep -Milliseconds 250
+  }
+  $detail = if ($lastFailure) { " Last DevTools error: $($lastFailure.Message)" } else { "" }
+  throw "The ScadMill WebView did not reach its complete application-ready state.$detail"
+}
+
 $Installer = (Resolve-Path -LiteralPath $Installer).Path
 $ExpectedApplication = (Resolve-Path -LiteralPath $ExpectedApplication).Path
 $expectedApplicationHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $ExpectedApplication).Hash
@@ -227,20 +417,11 @@ Close-Normally $first $firstHandle
 
 $second = Start-Process -FilePath $application.FullName -ArgumentList $debugArgument -PassThru
 $secondHandle = Wait-MainWindow $second
-$restored = Read-WindowRect $secondHandle
-$expectedWidth = $expected.Right - $expected.Left
-$expectedHeight = $expected.Bottom - $expected.Top
+Wait-WebViewReady $debugPort
+$tolerance = 12
+$restored = Wait-WindowRect $second $secondHandle $expected $tolerance
 $restoredWidth = $restored.Right - $restored.Left
 $restoredHeight = $restored.Bottom - $restored.Top
-$tolerance = 12
-foreach ($difference in @(
-  [Math]::Abs($restored.Left - $expected.Left),
-  [Math]::Abs($restored.Top - $expected.Top),
-  [Math]::Abs($restoredWidth - $expectedWidth),
-  [Math]::Abs($restoredHeight - $expectedHeight)
-)) {
-  if ($difference -gt $tolerance) { throw "The installed window did not restore its saved rectangle." }
-}
 
 $model = Join-Path $env:RUNNER_TEMP "scadmill-associated-open.scad"
 $marker = [Guid]::NewGuid().ToString("N")
@@ -258,21 +439,32 @@ if ($running.Count -ne 1 -or $running[0].Id -ne $second.Id) {
 $modelHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $model).Hash
 Write-Host "Associated fixture active in existing WebView; SHA256: $modelHash"
 
-if (-not [ScadMillWindowProbe]::MoveWindow($secondHandle, 40000, 40000, $restoredWidth, $restoredHeight, $true)) {
-  throw "Could not set the off-monitor window-state probe rectangle."
-}
-Close-Normally $second $secondHandle
-
-$third = Start-Process -FilePath $application.FullName -PassThru
-$thirdHandle = Wait-MainWindow $third
-$visible = Read-WindowRect $thirdHandle
 $virtualLeft = [ScadMillWindowProbe]::GetSystemMetrics(76)
 $virtualTop = [ScadMillWindowProbe]::GetSystemMetrics(77)
 $virtualRight = $virtualLeft + [ScadMillWindowProbe]::GetSystemMetrics(78)
 $virtualBottom = $virtualTop + [ScadMillWindowProbe]::GetSystemMetrics(79)
-if ($visible.Right -le $virtualLeft -or $visible.Left -ge $virtualRight -or $visible.Bottom -le $virtualTop -or $visible.Top -ge $virtualBottom) {
-  throw "ScadMill restored an off-monitor saved position instead of returning to a visible display."
+$offscreenWidth = [Math]::Max(800, $restoredWidth - 97)
+$offscreenHeight = [Math]::Max(600, $restoredHeight - 67)
+if (-not [ScadMillWindowProbe]::MoveWindow($secondHandle, 40000, 40000, $offscreenWidth, $offscreenHeight, $true)) {
+  throw "Could not set the off-monitor window-state probe rectangle."
 }
+Start-Sleep -Milliseconds 250
+$offscreenExpected = Read-WindowRect $secondHandle
+if (
+  $offscreenExpected.Right -gt $virtualLeft -and
+  $offscreenExpected.Left -lt $virtualRight -and
+  $offscreenExpected.Bottom -gt $virtualTop -and
+  $offscreenExpected.Top -lt $virtualBottom
+) {
+  throw "The observed off-monitor probe rectangle remained visible. Actual: $(Format-WindowRect $offscreenExpected). Virtual bounds: left=$virtualLeft, top=$virtualTop, right=$virtualRight, bottom=$virtualBottom."
+}
+Write-Host "Saved unique off-monitor size for recovery proof: $(Format-WindowRect $offscreenExpected)."
+Close-Normally $second $secondHandle
+
+$third = Start-Process -FilePath $application.FullName -ArgumentList $debugArgument -PassThru
+$thirdHandle = Wait-MainWindow $third
+Wait-WebViewReady $debugPort
+[void](Wait-VisibleWindowRect $third $thirdHandle $offscreenExpected $tolerance $virtualLeft $virtualTop $virtualRight $virtualBottom)
 Close-Normally $third $thirdHandle
 
 $uninstallers = @(Get-ChildItem -LiteralPath $application.DirectoryName -Filter "uninstall*.exe" -File)

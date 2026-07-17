@@ -104,6 +104,42 @@ describe("installer lifecycle contract", () => {
     );
     const upload = namedStep(job, "Upload Windows setup");
     expect(lifecycle).toContain("Actual: '$openCommand'. Expected: '$expectedOpenCommand'.");
+    expect(lifecycle).toContain("function Wait-WindowRect");
+    expect(lifecycle).toContain("function Wait-VisibleWindowRect");
+    expect(lifecycle).toContain("function Wait-WebViewReady");
+    expect(lifecycle).toContain("$requiredStableProbes = 3");
+    expect(lifecycle).toContain("$minimumObservation = [DateTime]::UtcNow.AddMilliseconds(600)");
+    expect(lifecycle).toContain("Last probe error:");
+    expect(lifecycle).toContain(
+      "$restored = Wait-WindowRect $second $secondHandle $expected $tolerance",
+    );
+    expect(lifecycle).toContain(
+      "[void](Wait-VisibleWindowRect $third $thirdHandle $offscreenExpected $tolerance $virtualLeft $virtualTop $virtualRight $virtualBottom)",
+    );
+    expect(lifecycle).toContain("$offscreenWidth = [Math]::Max(800, $restoredWidth - 97)");
+    expect(lifecycle).toContain("$offscreenHeight = [Math]::Max(600, $restoredHeight - 67)");
+    expect(lifecycle).toContain("$matchesRestoredSize");
+    expect(lifecycle).toContain("Expected size:");
+    expect(lifecycle).toContain("Size deltas:");
+    expect(lifecycle).toContain("function Format-WindowSize");
+    expect(lifecycle).toContain("The observed off-monitor probe rectangle remained visible.");
+    expect(lifecycle).toContain("$offscreenExpected.Right -gt $virtualLeft");
+    expect(lifecycle).toContain("Last actual:");
+    expect(lifecycle).toContain("Deltas:");
+    expect(lifecycle).not.toContain("$restored = Read-WindowRect $secondHandle");
+    expect(lifecycle).not.toContain("$visible = Read-WindowRect $thirdHandle");
+    const secondLaunch = lifecycle.indexOf("$second = Start-Process");
+    const secondReady = lifecycle.indexOf("Wait-WebViewReady $debugPort", secondLaunch);
+    const secondRestore = lifecycle.indexOf("$restored = Wait-WindowRect", secondReady);
+    const thirdLaunch = lifecycle.indexOf("$third = Start-Process");
+    const thirdReady = lifecycle.indexOf("Wait-WebViewReady $debugPort", thirdLaunch);
+    const thirdRestore = lifecycle.indexOf("[void](Wait-VisibleWindowRect", thirdReady);
+    expect(secondLaunch).toBeGreaterThan(-1);
+    expect(secondReady).toBeGreaterThan(secondLaunch);
+    expect(secondRestore).toBeGreaterThan(secondReady);
+    expect(thirdLaunch).toBeGreaterThan(-1);
+    expect(thirdReady).toBeGreaterThan(thirdLaunch);
+    expect(thirdRestore).toBeGreaterThan(thirdReady);
     expect(job.steps.indexOf(hash)).toBeLessThan(job.steps.indexOf(lifecycleStep));
     expect(job.steps.indexOf(lifecycleStep)).toBeLessThan(job.steps.indexOf(upload));
     expect(buildProof.run).toContain("7z e -y");
