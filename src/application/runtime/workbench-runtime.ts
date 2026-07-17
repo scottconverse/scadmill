@@ -225,12 +225,16 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     documentId: string = activeDocument(documents.getState()).id,
   ): void {
     const current = settings.getState();
-    if (disposed || !current.engineAvailable || !current.autoRender) {
+    if (disposed || !current.autoRender) {
       pendingAutoRenders.clear();
       autoRenderTimer.clear();
       return;
     }
     pendingAutoRenders.set(documentId, quality);
+    if (!current.engineAvailable) {
+      autoRenderTimer.clear();
+      return;
+    }
     if (documents.getState().activeDocumentId === documentId) {
       autoRenderTimer.schedule(current.renderDebounceMs);
     }
@@ -623,9 +627,10 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     if (command.kind === "engine-availability-changed") {
       settings.setState({ engineAvailable: command.available });
       if (!command.available) {
-        pendingAutoRenders.clear();
         autoRenderTimer.clear();
         cancelActiveRender();
+      } else {
+        schedulePendingRenderForActiveDocument();
       }
       return;
     }
