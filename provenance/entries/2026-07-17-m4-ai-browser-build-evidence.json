@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-ai-browser-build-evidence",
+  "createdAt": "2026-07-17T04:17:30-06:00",
+  "summary": "Record the final bounded build and in-app browser smoke evidence for the C10/MCP contract slice.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "verifier" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "C10", "N-7 evidence and status honesty"],
+  "filesTouched": [{ "path": "provenance/entries/2026-07-17-m4-ai-browser-build-evidence.json", "status": "added" }],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [{ "id": "D-0346", "topic": "Browser evidence boundary", "decision": "Use one local Vite session and the in-app browser to verify the initial Welcome surface, dismiss it, open the AI rail, and observe the exact unconfigured setup text; close the tab and stop the local server afterward.", "rationale": "This proves the rendered route and truthful no-network setup state without claiming provider-network or hosted clean-host acceptance.", "specBasis": ["AC-10.a", "N-7"] }],
+  "testEvidence": [
+    { "criterion": "The production client compiles and bundles after the slice.", "test": "Run one bounded production build, provenance check, and diff check.", "red": { "command": "pnpm.cmd lint", "observedAt": "2026-07-17T04:14:40-06:00", "outcome": "RED: one unsupported aria-label on a paragraph was removed; no behavior defect was found." }, "green": { "command": "pnpm.cmd build; pnpm.cmd check:provenance; git diff --check", "observedAt": "2026-07-17T04:16:35-06:00", "outcome": "GREEN: TypeScript and Vite build completed; provenance passed; diff check was clean." } },
+    { "criterion": "The rendered web shell exposes truthful AI setup behavior.", "test": "Start Vite on 127.0.0.1:4173; use the in-app browser once to inspect Welcome, close it, open the unique Activity rail AI button, and check exact setup/guidance text counts; finalize the tab and stop the server.", "red": { "command": "in-app browser smoke", "observedAt": "2026-07-17T04:10:50-06:00", "outcome": "RED: the first click was attempted while Welcome obscured the activity surface; the tab was re-observed, Welcome was closed, and the supported unique AI rail control was used." }, "green": { "command": "in-app browser smoke", "observedAt": "2026-07-17T04:12:10-06:00", "outcome": "GREEN: ScadMill loaded; Welcome rendered; after dismissal, the AI rail control resolved uniquely; setup and no-network guidance each resolved exactly once; tab finalized and local server stopped." } }
+  ],
+  "nearMisses": [{ "url": "http://127.0.0.1:4173/", "sought": "Rendered browser smoke evidence without turning automatic tool screenshots into a product claim", "confirmation": "The browser metadata included an automatic screenshot with the action result; only the observed DOM counts and text are claimed." }],
+  "questions": ["Hosted AI AC-10.c/d, viewer-screenshot context, persistence hydration/deletion, agent rounds, desktop MCP lifecycle, and clean-host evidence remain pending."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
