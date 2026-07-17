@@ -40,6 +40,21 @@ describe("WorkspaceFrame", () => {
     expect(within(view.container).queryByText("No parameters were detected.")).not.toBeInTheDocument();
   });
 
+  it("shows truthful AI readiness only when the provider is configured", () => {
+    const view = render(
+      <WorkspaceFrame
+        aiConfigured
+        layout={{ ...DEFAULT_WORKSPACE_LAYOUT, activeRail: "ai" }}
+        narrow={false}
+        editor={editor}
+        viewer={viewer}
+        onLayoutAction={vi.fn()}
+      />,
+    );
+
+    expect(within(view.container).getByText("AI provider configured. Start a conversation when you are ready.")).toBeVisible();
+  });
+
   it("renders the exact fresh wide layout landmarks and three splitters", () => {
     const view = render(
       <WorkspaceFrame

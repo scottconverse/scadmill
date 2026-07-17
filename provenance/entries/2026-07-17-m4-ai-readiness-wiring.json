@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-ai-readiness-wiring",
+  "createdAt": "2026-07-17T03:34:00-06:00",
+  "summary": "Wire the persisted AI provider selection into the workspace rail so the setup-versus-configured state is truthful at runtime instead of always showing the unconfigured fallback.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "C10", "FR-10.1", "AC-10.a", "N-7 evidence and status honesty"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-17-m4-ai-readiness-wiring.json", "status": "added" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/layout/WorkspaceFrame.tsx", "status": "modified" },
+    { "path": "tests/ui/layout/WorkspaceFrame.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0317", "topic": "AI readiness truth", "decision": "The AI rail derives configured state solely from the persisted provider discriminator; a provider name is not treated as a completed conversation capability.", "rationale": "This preserves AC-10.a's unconfigured zero-network state while preventing the product from showing setup guidance after the user has configured a provider.", "specBasis": ["FR-10.1", "AC-10.a", "N-7"] }
+  ],
+  "testEvidence": [
+    { "criterion": "The configured AI rail renders its ready state and the existing workspace layout suite remains green.", "test": "Run the focused WorkspaceFrame suite once after wiring and after correcting the exact message assertion.", "red": { "command": "pnpm.cmd exec vitest run tests/ui/layout/WorkspaceFrame.test.tsx", "observedAt": "2026-07-17T03:32:51-06:00", "outcome": "RED: 1 of 11 tests failed because the new readiness assertion expected stale copy; the same run also exposed a 401-line UI source-policy violation after the first wiring shape." }, "green": { "command": "pnpm.cmd exec vitest run tests/ui/layout/WorkspaceFrame.test.tsx", "observedAt": "2026-07-17T03:33:22-06:00", "outcome": "GREEN: Test Files 1 passed (1); Tests 11 passed (11); Duration 1.04s." } },
+    { "criterion": "The runtime wiring remains type-safe and source-policy clean.", "test": "Run TypeScript and repository lint/source policy once after the bounded correction.", "red": { "command": "pnpm.cmd lint", "observedAt": "2026-07-17T03:32:51-06:00", "outcome": "RED: source policy reported src/ui/Workbench.tsx at 401 physical lines after the new prop was added." }, "green": { "command": "pnpm.cmd exec tsc --noEmit --pretty false; pnpm.cmd lint", "observedAt": "2026-07-17T03:33:22-06:00", "outcome": "GREEN: TypeScript exited 0; Checked 422 files in 232ms with source policy passed." } }
+  ],
+  "nearMisses": [],
+  "questions": ["The configured rail still needs the message composer and provider invocation UI; this wiring unit only makes readiness state honest and does not claim AC-10.b/d complete."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

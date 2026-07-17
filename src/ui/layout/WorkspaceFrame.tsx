@@ -11,6 +11,7 @@ import { AiActivity } from "../ai/AiActivity";
 import { PanelSplitter } from "./PanelSplitter";
 
 export interface WorkspaceFrameProps {
+  aiConfigured?: boolean;
   activityBadges?: Readonly<Partial<Record<ActivityPanel, boolean>>>;
   activityContent?: Readonly<Partial<Record<ActivityPanel, ReactNode>>>;
   consoleContent?: ReactNode;
@@ -31,6 +32,7 @@ const ACTIVITY_COPY: Readonly<Record<ActivityPanel, { label: string; empty: stri
 };
 
 export function WorkspaceFrame({
+  aiConfigured = false,
   activityBadges = {},
   activityContent = {},
   consoleContent,
@@ -236,7 +238,7 @@ export function WorkspaceFrame({
             </button>
           </header>
         {activityContent[layout.activeRail] ?? (layout.activeRail === "ai"
-          ? <AiActivity configured={false} />
+          ? <AiActivity configured={aiConfigured} />
           : <p>{activeCopy.empty}</p>)}
         </section>
 

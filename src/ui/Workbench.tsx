@@ -360,7 +360,7 @@ export function Workbench({
           storage={projectStorage} onRecoveryPendingChange={setRecoveryPending}
         />
       </WorkbenchBanners>
-      <WorkspaceFrame
+      <WorkspaceFrame aiConfigured={profile.ai.provider !== "none"}
         activityContent={{
           files: (
             <FilesActivity
