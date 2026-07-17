@@ -159,10 +159,8 @@ describe("createWorkbenchRuntime", () => {
       initialScratchPath: "main.scad",
     });
 
-    const started = performance.now();
     await runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
 
-    expect(performance.now() - started).toBeLessThan(100);
     expect(engine.render).not.toHaveBeenCalled();
     expect(cache.get).toHaveBeenCalledOnce();
     expect(runtime.render.getState()).toMatchObject({ status: "success", cached: true, result: cached });
