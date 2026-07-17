@@ -1,5 +1,7 @@
 import type { Point3 } from "./measurements";
 import type { Quality, RenderSuccess2D, RenderSuccess3D } from "../engine/contracts";
+import { geometryDelta, type GeometryDelta } from "../geometry/geometry-delta";
+import { isSha256GeometryIdentity } from "../geometry/geometry-identity";
 
 export type ViewerMode = "auto" | "2d" | "3d";
 export type ProjectionMode = "perspective" | "orthographic";
@@ -37,6 +39,7 @@ export interface ViewerPresentation {
   readonly modelIdentity: string;
   readonly quality: Quality;
   readonly result: RenderSuccess2D | RenderSuccess3D;
+  readonly geometryDelta: GeometryDelta;
 }
 
 export interface ViewerDocumentState {
@@ -146,19 +149,21 @@ function cloneAnnotation(annotation: ViewerAnnotation): ViewerAnnotation {
 function sameGeometry(
   left: RenderSuccess2D | RenderSuccess3D,
   right: RenderSuccess2D | RenderSuccess3D,
-): boolean {
+): boolean | undefined {
   if (left.kind !== right.kind) return false;
   if (left.kind === "3d" && right.kind === "3d") {
-    return left.mesh.format === right.mesh.format
-      && (
-        left.mesh.bytes === right.mesh.bytes
-        || (
-          left.mesh.geometryIdentity !== undefined
-          && left.mesh.geometryIdentity === right.mesh.geometryIdentity
-        )
-      );
+    if (left.mesh.format !== right.mesh.format) return false;
+    if (
+      isSha256GeometryIdentity(left.mesh.geometryIdentity)
+      && isSha256GeometryIdentity(right.mesh.geometryIdentity)
+    ) return left.mesh.geometryIdentity === right.mesh.geometryIdentity;
+    return left.mesh.bytes === right.mesh.bytes ? true : undefined;
   }
   if (left.kind === "2d" && right.kind === "2d") {
+    if (
+      isSha256GeometryIdentity(left.geometryIdentity)
+      && isSha256GeometryIdentity(right.geometryIdentity)
+    ) return left.geometryIdentity === right.geometryIdentity;
     return left.svg === right.svg
       && left.boundingBox.min.every((value, axis) => value === right.boundingBox.min[axis])
       && left.boundingBox.max.every((value, axis) => value === right.boundingBox.max[axis]);
@@ -209,8 +214,10 @@ export function reduceViewerState(state: ViewerState, action: ViewerAction): Vie
       });
     case "present-result": {
       requireIdentity(action.modelIdentity, "Model identity");
-      const modelIdentity = current.presentation
-        && sameGeometry(current.presentation.result, action.result)
+      const comparison = current.presentation
+        ? sameGeometry(current.presentation.result, action.result)
+        : false;
+      const modelIdentity = comparison === true && current.presentation
         ? current.presentation.modelIdentity
         : action.modelIdentity;
       return setDocument(state, action.documentId, {
@@ -220,6 +227,11 @@ export function reduceViewerState(state: ViewerState, action: ViewerAction): Vie
           modelIdentity,
           quality: action.quality,
           result: action.result,
+          geometryDelta: geometryDelta(
+            current.presentation?.result,
+            action.result,
+            comparison,
+          ),
         },
         measurements: current.modelIdentity === modelIdentity ? current.measurements : [],
       });

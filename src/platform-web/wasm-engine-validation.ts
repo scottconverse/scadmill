@@ -5,6 +5,7 @@ import type {
   ParamValue,
   RenderResult,
 } from "../application/engine/contracts";
+import { isSha256GeometryIdentity } from "../application/geometry/geometry-identity";
 import type {
   WasmEngineLoadProgress,
   WasmEngineWorkerRequest,
@@ -197,8 +198,17 @@ function renderResult(value: unknown): value is RenderResult {
     );
   }
   if (value.kind === "2d") {
-    return exact(value, ["kind", "svg", "boundingBox", "diagnostics", "rawLog"])
-      && typeof value.svg === "string" && bounds(value.boundingBox, 2);
+    return exact(
+      value,
+      ["kind", "svg", "boundingBox", "diagnostics", "rawLog"],
+      ["geometryIdentity"],
+    )
+      && typeof value.svg === "string"
+      && bounds(value.boundingBox, 2)
+      && (
+        value.geometryIdentity === undefined
+        || isSha256GeometryIdentity(value.geometryIdentity)
+      );
   }
   if (value.kind !== "3d" || !plain(value.mesh)) return false;
   return (
@@ -206,7 +216,10 @@ function renderResult(value: unknown): value is RenderResult {
     && exact(value.mesh, ["format", "bytes"], ["geometryIdentity"])
     && ["stl-binary", "stl-ascii", "3mf", "off", "amf"].includes(String(value.mesh.format))
     && value.mesh.bytes instanceof Uint8Array
-    && (value.mesh.geometryIdentity === undefined || typeof value.mesh.geometryIdentity === "string")
+    && (
+      value.mesh.geometryIdentity === undefined
+      || isSha256GeometryIdentity(value.mesh.geometryIdentity)
+    )
     && renderStats(value.stats)
   );
 }

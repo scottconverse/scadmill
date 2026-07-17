@@ -2,7 +2,7 @@
 
 Numbered questions are appended here under §2.7. Only the affected work item is parked while the remaining milestone work continues.
 
-## Queue index — 2026-07-16
+## Queue index — 2026-07-17
 
 | State | Questions | Milestone impact |
 |---|---|---|
@@ -10,7 +10,29 @@ Numbered questions are appended here under §2.7. Only the affected work item is
 | Resolved — performance baseline | Q-0032 | Amendment A-9 replaces the obsolete 2020-class minimum with the owner-designated AMD Radeon 780M benchmark. No policy question remains; candidate acceptance comes only from retained source-bound external evidence. |
 | Open/actionable — policy gate | Q-0002, Q-0033 | Q-0002 does not block product implementation. Q-0033 blocks only public distribution/deployment of the web engine bytes. |
 | Open/actionable — scoped behavior | Q-0003, Q-0005–Q-0010, Q-0013, Q-0015–Q-0019, Q-0021–Q-0022, Q-0024–Q-0028, Q-0030–Q-0031, Q-0034 | Each blocks only the item named in its **Blocked** field; no question silently blocks unrelated work. |
+| Open/actionable — M4 scoped behavior | Q-0035–Q-0037 | Conservative implementation proceeds under §2.7; each question parks only alternate owner-selected semantics or final wording. |
 | Open/historical — delivered conservatively | Q-0004, Q-0011–Q-0012, Q-0014, Q-0020, Q-0023, Q-0029 | M2/M3 delivered the stricter or later capability named by each question. The owner answer still governs the historical milestone interpretation. |
+
+## Q-0035 — Open — 2026-07-17
+
+- **Section:** FR-15.2; AC-15.b; M4 geometry delta
+- **Question:** Should preview and full renders share one per-document previous-success baseline; should bounding-box change disclose signed minimum, maximum, and extent deltas rather than extents alone; and should unavailable or non-applicable 2D volume/triangle metrics be labeled unavailable instead of inferred?
+- **Evidence:** Successful 3D results may provide volume, triangle count, and three-dimensional bounds; successful 2D results provide only SVG and two-dimensional bounds. Extents alone cannot distinguish a translated model from unchanged bounds, and inventing 2D volume or triangle counts would violate N-7. The per-document viewer already retains the immediately previous accepted success across quality levels.
+- **Blocked:** Only an owner-selected alternative baseline, bounding-box definition, or unavailable-metric presentation. The conservative implementation compares each accepted success with the immediately previous accepted success for that document regardless of quality, reports signed minimum/maximum/extent changes, and labels unavailable metrics honestly; AC-15.b's real 3D nonzero-volume case and all unrelated M4 work continue.
+
+## Q-0036 — Open — 2026-07-17
+
+- **Section:** FR-15.1; N-1; N-2; M4 render cache
+- **Question:** May ScadMill cache only successful geometry; include effective preview policy, every resolved engine-consumed asset, and engine path/build identity in addition to the listed key material; interpret instant tab switching as applying while an entry remains in the bounded memory or opted-in disk tier; and store the desktop disk tier in a bounded opaque per-project namespace under the application cache directory rather than modifying project files?
+- **Evidence:** Caching cancellation, timeout, engine-missing, or failure results would prevent a healthy retry. Preview facet policy, imported binary assets, and native-versus-WASM build identity can change output but are not all named in the abbreviated key list. A hard 512 MB LRU necessarily evicts sufficiently large entries. The current project snapshot and metadata ports deliberately do not own cache payload bytes.
+- **Blocked:** Only an owner-selected alternative failure policy, key boundary, eviction promise, or disk placement/lifetime. The conservative implementation caches successful geometry only; keys every output-affecting resolved input and engine identity; treats evicted entries as misses; keeps disk caching opt-in and per-project under the application cache directory; and never writes cache bytes into source projects.
+
+## Q-0037 — Open — 2026-07-17
+
+- **Section:** FR-15.13; FR-15.3; M4/M5 milestone table
+- **Question:** Does M4 close FR-15.13 with automatic thumbnail capture, persistence, Welcome/recent-project and file-tree presentation, plus a tested render-identity seam for the M5 history timeline; or must the FR-15.3 history timeline itself be pulled forward into M4? For a recent project containing several rendered documents, may Welcome show that project's newest successful document thumbnail?
+- **Evidence:** FR-15.13 assigns thumbnail capture and three presentation surfaces to M4, while FR-15.3 assigns the history timeline that owns one of those surfaces to M5. Recent-project records identify only the project, not a document. Pulling the complete history UI into the thumbnail slice would contradict the milestone table and create a second history owner.
+- **Blocked:** Only the actual history-timeline thumbnail placement before FR-15.3 and any owner-selected project-level thumbnail choice. M4 proceeds with automatic latest-per-document capture, durable non-source workspace state, Welcome using the newest successful document thumbnail per project, file-tree hover/focus presentation, and a tested M5 history seam.
 
 ## Q-0032 — Resolved 2026-07-14 — owner-directed
 

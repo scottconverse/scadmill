@@ -5,7 +5,11 @@ import { act, fireEvent, render, waitFor, within } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest";
 
 import { isDocumentDirty } from "../../src/application/documents/document-workspace";
-import type { EngineService, RenderSuccess3D } from "../../src/application/engine/contracts";
+import type {
+  EngineService,
+  RenderRequest,
+  RenderSuccess3D,
+} from "../../src/application/engine/contracts";
 import type { ProjectStorage } from "../../src/application/files/project-file-service";
 import { createProjectSnapshot } from "../../src/application/files/project-snapshot";
 import { createWorkbenchRuntime } from "../../src/application/runtime/workbench-runtime";
@@ -793,6 +797,154 @@ describe("Workbench", () => {
     if (!editorView) throw new Error("CodeMirror view could not be recovered.");
     editorView.dispatch({ selection: { anchor: 5 } });
     await waitFor(() => expect(workbench.getByText("Ln 1, Col 6")).toBeVisible());
+  });
+
+  it("shows the active document geometry baseline and unchanged result in the status bar", async () => {
+    const result: RenderSuccess3D = {
+      kind: "3d",
+      mesh: { format: "stl-binary", bytes: oneTriangleStl() },
+      stats: {
+        triangles: 1,
+        volumeMm3: 100,
+        boundingBox: { min: [0, 0, 0], max: [10, 10, 10] },
+        engineTimeMs: 1,
+      },
+      diagnostics: [],
+      rawLog: "rendered",
+    };
+    let job = 0;
+    const engine: EngineService = {
+      render: vi.fn().mockImplementation((request: RenderRequest) => {
+        const sequence = ++job;
+        const source = request.files.get(request.entryFile);
+        if (typeof source !== "string") throw new Error("Expected the rendered source snapshot.");
+        const changed = source === "cube(11);";
+        const bytes = result.mesh.bytes.slice();
+        if (changed) new DataView(bytes.buffer).setFloat32(96, 1, true);
+        return {
+          jobId: `geometry-status-${sequence}`,
+          done: Promise.resolve({
+            ...result,
+            mesh: { ...result.mesh, bytes },
+            stats: changed
+              ? {
+                  ...result.stats,
+                  triangles: 2,
+                  volumeMm3: 150,
+                  boundingBox: { min: [0, 0, 0], max: [20, 10, 10] },
+                }
+              : result.stats,
+          }),
+        };
+      }),
+      export: vi.fn(),
+      version: vi.fn(),
+      cancel: vi.fn(),
+    };
+    const runtime = createWorkbenchRuntime(engine);
+    const view = render(
+      <Workbench
+        runtime={runtime}
+        engineLabel="OpenSCAD 2026.06.12"
+        activeTheme={SHIPPED_THEMES[0]}
+        themePreference="system"
+        onThemePreferenceChange={vi.fn()}
+      />,
+    );
+    const status = within(view.container.querySelector("footer") as HTMLElement);
+
+    await act(() => runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" }));
+    expect(status.getByText("Geometry baseline established")).toBeVisible();
+
+    await act(() => runtime.dispatch({
+      kind: "edit-document",
+      origin: "user",
+      documentId: "document-main",
+      source: "cube(10); // cosmetic only",
+    }));
+    await act(() => runtime.dispatch({ kind: "render-active", origin: "user", quality: "full" }));
+    expect(status.getByText("Geometry unchanged")).toBeVisible();
+
+    await act(() => runtime.dispatch({
+      kind: "edit-document",
+      origin: "user",
+      documentId: "document-main",
+      source: "cube(11);",
+    }));
+    expect(status.queryByText("Geometry unchanged")).toBeNull();
+
+    await act(() => runtime.dispatch({ kind: "render-active", origin: "user", quality: "full" }));
+    const fullDelta = status.getByText(
+      "Geometry changed; Δvolume +50 mm³; Δbounds min 0/0/0 mm, max +10/0/0 mm, size +10/0/0 mm; Δtriangles +1",
+    );
+    expect(fullDelta.closest("details")).not.toBeNull();
+    expect(status.getByText(/Geometry changed: ΔV \+50/u, { selector: "summary" })).toBeVisible();
+    expect(vi.mocked(engine.render).mock.calls.map(([request]) =>
+      request.files.get(request.entryFile)
+    )).toEqual([
+      "cube(10);",
+      "cube(10); // cosmetic only",
+      "cube(11);",
+    ]);
+  });
+
+  it("keeps a rendered active document status visible when another document is stale", async () => {
+    let job = 0;
+    const result: RenderSuccess3D = {
+      kind: "3d",
+      mesh: { format: "stl-binary", bytes: oneTriangleStl() },
+      stats: { engineTimeMs: 1 },
+      diagnostics: [],
+      rawLog: "rendered",
+    };
+    const engine: EngineService = {
+      render: vi.fn().mockImplementation(() => ({
+        jobId: `tab-status-${++job}`,
+        done: Promise.resolve({
+          ...result,
+          mesh: { ...result.mesh, bytes: result.mesh.bytes.slice() },
+        }),
+      })),
+      export: vi.fn(), version: vi.fn(), cancel: vi.fn(),
+    };
+    const runtime = createWorkbenchRuntime(engine);
+    const view = render(
+      <Workbench
+        runtime={runtime}
+        engineLabel="OpenSCAD 2026.06.12"
+        activeTheme={SHIPPED_THEMES[0]}
+        themePreference="system"
+        onThemePreferenceChange={vi.fn()}
+      />,
+    );
+    const status = within(view.container.querySelector("footer") as HTMLElement);
+
+    await act(() => runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" }));
+    await act(() => runtime.dispatch({
+      kind: "open-document",
+      origin: "user",
+      document: { id: "document-b", path: "b.scad", source: "sphere(5);" },
+    }));
+    await act(() => runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" }));
+    await act(() => runtime.dispatch({
+      kind: "activate-document",
+      origin: "user",
+      documentId: "document-main",
+    }));
+    await act(() => runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" }));
+    await act(() => runtime.dispatch({
+      kind: "edit-document",
+      origin: "user",
+      documentId: "document-main",
+      source: "cube(11);",
+    }));
+    await act(() => runtime.dispatch({
+      kind: "activate-document",
+      origin: "user",
+      documentId: "document-b",
+    }));
+
+    expect(status.getByText("Geometry baseline established")).toBeVisible();
   });
 
   it("reports structured render diagnostics in the console status chip", async () => {

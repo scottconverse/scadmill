@@ -34,7 +34,7 @@ import { WorkbenchBanners } from "./WorkbenchBanners";
 import { DismissibleNotice, NativeHelpPanel } from "./WorkbenchOverlays";
 import { WelcomeLauncher } from "./welcome/WelcomeLauncher";
 import type { WorkbenchProps } from "./workbench-props";
-import { diagnosticStatusLabel, renderStatusLabel } from "./workbench-status";
+import { diagnosticStatusLabel, geometryDeltaStatus, renderStatusLabel } from "./workbench-status";
 import "./workbench.css";
 const CodeEditor = lazy(() => import("./editor/CodeEditor").then((module) => ({ default: module.CodeEditor })));
 export function Workbench({
@@ -89,6 +89,7 @@ export function Workbench({
   const [nativeHelpVisible, setNativeHelpVisible] = useState(false);
   const diagnosticStatus = diagnosticStatusLabel(presentation.failure ?? presentation.result, document.path);
   const renderStatus = renderStatusLabel(render, presentation.stale, document.path);
+  const geometryStatus = geometryDeltaStatus(presentation.geometryDelta);
   const consoleVisible = narrow
     ? layout.narrowSheet === "console"
     : layout.consoleOpen && layout.maximized === null;
@@ -387,7 +388,8 @@ export function Workbench({
       />
       <WorkbenchStatusBar
         customThemes={customThemes} cursor={cursor}
-        diagnosticStatus={diagnosticStatus} engineLabel={engineLabel} renderStatus={renderStatus}
+        diagnosticStatus={diagnosticStatus} engineLabel={engineLabel}
+        geometryStatus={geometryStatus} renderStatus={renderStatus}
         consoleVisible={consoleVisible} consoleButtonRef={statusConsoleButton}
         themePreference={themePreference} onFocusConsole={focusConsole}
         themePreferenceDisabled={settingsPersistenceStatus.status === "load-error"}

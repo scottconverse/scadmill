@@ -45,10 +45,14 @@ export function resolveActiveViewerPresentation(input: ActiveViewerPresentationI
       ? "success" as const
       : "idle" as const;
   const quality = activeOperation ? render.quality : viewer.presentation?.quality;
+  const geometryDelta = status === "success" && (!activeOperation || !stale)
+    ? viewer.presentation?.geometryDelta
+    : undefined;
   return {
     currentResult,
     dimmed: Boolean(result && (failure || stale || status === "rendering")),
     failure,
+    geometryDelta,
     quality,
     result,
     stale,

@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-geometry-delta",
+  "createdAt": "2026-07-17T00:25:00-06:00",
+  "summary": "Deliver the first M4 render-derived slice: application-owned strong geometry identity, per-document previous-success deltas, truthful unavailable and non-applicable states, and complete status-bar presentation without allowing stale, failed, or superseded work to advance or mislabel the baseline.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 M4 delivery protocol",
+    "FR-15.2 geometry delta",
+    "AC-15.b geometry-change acceptance",
+    "N-1 interaction responsiveness",
+    "N-2 memory stability",
+    "N-7 evidence and status honesty"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-17-m4-geometry-delta.json", "status": "added" },
+    { "path": "spec/QUESTIONS.md", "status": "modified" },
+    { "path": "src/application/engine/contracts.ts", "status": "modified" },
+    { "path": "src/application/geometry/geometry-delta.ts", "status": "added" },
+    { "path": "src/application/geometry/geometry-identity.ts", "status": "added" },
+    { "path": "src/application/runtime/workbench-runtime.ts", "status": "modified" },
+    { "path": "src/application/viewer/viewer-state.ts", "status": "modified" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/platform-desktop/tauri-bridge.ts", "status": "modified" },
+    { "path": "src/platform-web/wasm-engine-validation.ts", "status": "modified" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/layout/WorkbenchStatusBar.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/active-viewer-presentation.ts", "status": "modified" },
+    { "path": "src/ui/workbench-status.ts", "status": "modified" },
+    { "path": "src/ui/workbench.css", "status": "modified" },
+    { "path": "tests/application/geometry/geometry-delta.test.ts", "status": "added" },
+    { "path": "tests/application/geometry/geometry-identity.test.ts", "status": "added" },
+    { "path": "tests/application/runtime/workbench-runtime.test.ts", "status": "modified" },
+    { "path": "tests/application/viewer/viewer-state.test.ts", "status": "modified" },
+    { "path": "tests/platform-desktop/tauri-bridge.test.ts", "status": "modified" },
+    { "path": "tests/platform-web/wasm-engine-service.test.ts", "status": "modified" },
+    { "path": "tests/ui/Workbench.test.tsx", "status": "modified" },
+    { "path": "tests/ui/workbench-status.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0286",
+      "topic": "Geometry identity authority",
+      "decision": "Compute exact SHA-256 identities in the application runtime over the accepted 3D mesh byte view or exact 2D SVG UTF-8 bytes, overwrite rather than trust engine-supplied identity strings, validate the sha256:<lowercase-hex> shape wherever identities cross a worker boundary, and report comparison unavailable when application hashing cannot establish proof.",
+      "rationale": "Native and WASM adapters must feed one comparison rule. Trusting arbitrary worker or adapter strings could produce a false unchanged claim, while treating missing crypto as changed would also be misleading. Application ownership gives both paths the same invariant and preserves an honest unavailable state.",
+      "specBasis": ["FR-15.2", "AC-15.b", "N-7"]
+    },
+    {
+      "id": "D-0287",
+      "topic": "Per-document geometry-delta semantics",
+      "decision": "Compare each accepted success with the immediately previous accepted success for that document across preview and full quality; matching strong identities are unchanged, while changed comparable results retain signed volume, triangle, and bounding-box minimum, maximum, and extent deltas. Do not advance the baseline for failure, cancellation, stale completion, or superseded work, and label 2D, missing, or cross-dimension metrics without inventing values.",
+      "rationale": "The viewer presentation is already the stable per-document last-success owner. It prevents tab bleed and gives failed or stale work no authority, while complete signed bounds distinguish translation from resizing and preserve the conservative Q-0035 interpretation.",
+      "specBasis": ["FR-15.2", "AC-15.b", "N-7", "Q-0035"]
+    },
+    {
+      "id": "D-0288",
+      "topic": "Complete geometry status in a fixed-height bar",
+      "decision": "Keep baseline, unchanged, and comparison-unavailable labels directly visible; for changed geometry show a bounded one-line summary naming volume, bounds, and triangles, with a keyboard-operable details disclosure containing the complete signed readout. Preserve nonzero values below 0.001 through explicit threshold notation instead of rounding them to zero.",
+      "rationale": "A single full metric sentence can be clipped by the fixed-height desktop and narrow status bar. A compact summary plus focusable disclosure keeps all required values discoverable without expanding the workspace or falsifying small changes.",
+      "specBasis": ["FR-15.2", "N-3", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The previous-success state is per document and classifies first, matching, changed, unavailable, and incomparable geometry without inventing statistics.",
+      "test": "Drive the pure viewer reducer and geometry-delta functions through baseline, equal and unequal identities, 2D/3D transitions, missing statistics, malformed identities, and interleaved documents.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/viewer/viewer-state.test.ts",
+        "observedAt": "2026-07-16T23:58:03-06:00",
+        "outcome": "RED: the first accepted result had no geometryDelta and the assertion expected { kind: 'baseline' }. Later focused RED runs also proved missing signed metrics, malformed-identity trust, and unavailable-comparison defects before their fixes."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/geometry/geometry-delta.test.ts tests/application/geometry/geometry-identity.test.ts tests/application/viewer/viewer-state.test.ts tests/application/runtime/workbench-runtime.test.ts tests/ui/workbench-status.test.ts tests/ui/Workbench.test.tsx tests/ui/viewer/active-viewer-presentation.test.ts tests/platform-web/wasm-engine-service.test.ts tests/platform-desktop/tauri-bridge.test.ts",
+        "observedAt": "2026-07-17T00:30:22-06:00",
+        "outcome": "GREEN: Test Files 9 passed (9); Tests 94 passed (94); Duration 4.98s."
+      }
+    },
+    {
+      "criterion": "Cosmetic source edits report Geometry unchanged, a real geometry edit exposes a nonzero volume delta, stale claims disappear, and the complete metric set remains keyboard accessible.",
+      "test": "Render a baseline in Workbench, edit only a comment and rerender identical bytes, edit real source and return changed bytes and statistics, then inspect the compact summary and details disclosure.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/Workbench.test.tsx -t \"geometry baseline\"",
+        "observedAt": "2026-07-17T00:02:51-06:00",
+        "outcome": "RED: the status footer contained only engine, render, diagnostics, cursor, encoding, and theme content; Geometry baseline established was absent. Subsequent focused RED runs exposed stale unchanged copy and the missing complete-details disclosure."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/Workbench.test.tsx -t \"geometry baseline\"",
+        "observedAt": "2026-07-17T00:30:34-06:00",
+        "outcome": "GREEN: Test Files 1 passed (1); Tests 1 passed and 20 skipped by the explicit name filter; Duration 2.14s."
+      }
+    },
+    {
+      "criterion": "The changed contracts and UI remain type-correct after the complete focused batch.",
+      "test": "Compile the complete TypeScript application and tests without emission.",
+      "red": {
+        "command": "pnpm.cmd typecheck",
+        "observedAt": "2026-07-17T00:12:00-06:00",
+        "outcome": "RED: WebCrypto digest rejected Uint8Array<ArrayBufferLike> at geometry-identity.ts because SharedArrayBuffer is not a DOM BufferSource."
+      },
+      "green": {
+        "command": "pnpm.cmd typecheck",
+        "observedAt": "2026-07-17T00:30:34-06:00",
+        "outcome": "GREEN: tsc --noEmit exited 0 with no diagnostics."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": ["Q-0035", "Q-0036", "Q-0037"],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

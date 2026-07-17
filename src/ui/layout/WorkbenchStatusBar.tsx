@@ -10,6 +10,7 @@ export interface WorkbenchStatusBarProps {
   readonly cursor: CursorPosition;
   readonly diagnosticStatus: string;
   readonly engineLabel: string;
+  readonly geometryStatus: { readonly detail: string; readonly summary: string } | null;
   readonly renderStatus: string;
   readonly consoleVisible: boolean;
   readonly consoleButtonRef: RefObject<HTMLButtonElement | null>;
@@ -24,6 +25,18 @@ export function WorkbenchStatusBar(props: WorkbenchStatusBarProps) {
     <footer className="statusbar">
       <span className="status-engine">{props.engineLabel}</span>
       <span className="status-render">{props.renderStatus}</span>
+      {props.geometryStatus && (
+        props.geometryStatus.detail === props.geometryStatus.summary
+          ? <span className="status-geometry">{props.geometryStatus.detail}</span>
+          : (
+            <details className="status-geometry">
+              <summary aria-label={props.geometryStatus.detail}>{props.geometryStatus.summary}</summary>
+              <div className="status-geometry-detail" role="status">
+                {props.geometryStatus.detail}
+              </div>
+            </details>
+          )
+      )}
       <button
         aria-label={messages.focusConsoleStatus(props.diagnosticStatus)}
         aria-pressed={props.consoleVisible}

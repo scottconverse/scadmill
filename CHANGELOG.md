@@ -6,6 +6,8 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Added
 
+- Per-document geometry-change tracking for M4: application-owned SHA-256 identities label cosmetic rerenders **Geometry unchanged**, while real changes expose signed Δvolume, Δbounds, and Δtriangles through a compact status summary and keyboard-accessible full detail. Failed, cancelled, stale, and superseded work does not advance the successful baseline. Cross-dimension, missing-statistic, and identity-unavailable successes advance normally but report only supportable comparison information.
+
 - Contributor architecture, task-oriented user guide, and FAQ documentation covering the typed platform boundary, worker and engine isolation, storage ownership, shipped workflows, recovery, privacy, and current M3 limitations.
 
 - A digest-pinned GitHub workflow that successfully builds OpenSCAD WebAssembly from the exact approved official source commit, with parsed mutation-tested validation and independently verified JavaScript, WASM, and manifest checksums.

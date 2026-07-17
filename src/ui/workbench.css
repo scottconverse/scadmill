@@ -245,9 +245,13 @@ button.console-diagnostic:hover, button.console-diagnostic:focus-visible { backg
 .viewer-annotation-persistence span { color: var(--chrome-text-muted); }
 .viewer-degradation, .viewer-notice { padding: 6px 8px; margin: 0; border: 1px solid var(--chrome-badge-warning); border-radius: 5px; background: var(--chrome-surface-raised); color: var(--chrome-text); font-size: 11px; }
 .viewer-notice { position: absolute; z-index: 7; right: 14px; bottom: 52px; left: 14px; border-color: var(--chrome-badge-info); }
-.statusbar { grid-row: 4; display: flex; min-width: 0; align-items: center; gap: 18px; padding: 0 10px; overflow: hidden; border-top: 1px solid var(--chrome-border); color: var(--chrome-status-bar-text); background: var(--chrome-status-bar-background); font-size: 12px; }
+.statusbar { grid-row: 4; display: flex; min-width: 0; align-items: center; gap: 18px; padding: 0 10px; overflow: visible; border-top: 1px solid var(--chrome-border); color: var(--chrome-status-bar-text); background: var(--chrome-status-bar-background); font-size: 12px; }
 .status-engine { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .status-render { min-width: 0; margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.status-geometry { position: relative; flex: 0 1 300px; min-width: 0; white-space: nowrap; }
+.status-geometry summary { overflow: hidden; outline-offset: 2px; cursor: help; list-style: none; text-overflow: ellipsis; }
+.status-geometry summary::-webkit-details-marker { display: none; }
+.status-geometry-detail { position: fixed; z-index: 110; right: 8px; bottom: 31px; max-width: min(720px, calc(100vw - 16px)); padding: 8px 10px; border: 1px solid var(--chrome-border); border-radius: 5px; background: var(--chrome-surface-raised); color: var(--chrome-text); box-shadow: 0 6px 18px var(--chrome-selection); white-space: normal; }
 .status-cursor, .status-encoding { flex: 0 0 auto; white-space: nowrap; }
 .statusbar .theme-picker { color: var(--chrome-status-bar-text); }
 .settings-launcher { margin-left: auto; border: 1px solid var(--chrome-border); border-radius: 5px; background: var(--chrome-surface); color: var(--chrome-text); cursor: pointer; }
@@ -325,6 +329,7 @@ button.console-diagnostic:hover, button.console-diagnostic:focus-visible { backg
   .statusbar { gap: 4px; padding: 0 4px; font-size: 11px; }
   .status-engine { max-width: 54px; }
   .status-render { max-width: 46px; margin-left: 0; }
+  .status-geometry { max-width: 108px; }
   .status-diagnostics { max-width: 112px; padding: 0 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .statusbar .theme-picker { min-width: 0; gap: 2px; }
   .statusbar .theme-picker > span { display: none; }

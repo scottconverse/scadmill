@@ -240,6 +240,17 @@ export const messages = {
   renderingDocument: (path: string) => `Rendering ${path}…`,
   renderedDocument: (path: string, kind: string) => `Rendered ${path} (${kind})`,
   renderedDocumentStale: (path: string, kind: string) => `Rendered ${path} (${kind}, stale)`,
+  geometryBaseline: "Geometry baseline established",
+  geometryUnchanged: "Geometry unchanged",
+  geometryComparisonUnavailable: "Geometry comparison unavailable",
+  geometryChanged: "Geometry changed",
+  geometryChangedWithDeltas: (volume: string, bounds: string, triangles: string) =>
+    `Geometry changed; Δvolume ${volume}; Δbounds ${bounds}; Δtriangles ${triangles}`,
+  geometryChangedSummary: (volume: string, bounds: string, triangles: string) =>
+    `Geometry changed: ΔV ${volume}; Δbounds ${bounds}; Δtriangles ${triangles}`,
+  geometryMetricsIncomparable: "Geometry changed; metrics are not comparable across 2D and 3D",
+  geometryMetricUnavailable: "unavailable",
+  geometryMetricNotApplicable: "not applicable",
   renderFailedDocument: (path: string) => `Render failed for ${path}`,
   staleRenderFailedDocument: (path: string) => `Stale render failed for ${path}`,
   previewQuality: "Preview quality",

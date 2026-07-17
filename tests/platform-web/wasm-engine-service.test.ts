@@ -80,6 +80,23 @@ afterEach(() => {
 });
 
 describe("WasmEngineService", () => {
+  it("accepts a valid strong identity on a two-dimensional worker result", async () => {
+    const { service, workers } = serviceHarness();
+    const job = service.render(renderRequest());
+    const result = {
+      kind: "2d" as const,
+      svg: "<svg xmlns='http://www.w3.org/2000/svg'/>",
+      geometryIdentity: `sha256:${"a".repeat(64)}`,
+      boundingBox: { min: [0, 0] as [number, number], max: [10, 20] as [number, number] },
+      diagnostics: [],
+      rawLog: "rendered",
+    };
+
+    workers[0].emit({ kind: "render-result", jobId: job.jobId, result });
+
+    await expect(job.done).resolves.toEqual(result);
+  });
+
   it("reports only active-job progress and isolates throwing progress observers", async () => {
     const workers: FakeWorker[] = [];
     const progress = vi.fn(() => { throw new Error("observer failed"); });

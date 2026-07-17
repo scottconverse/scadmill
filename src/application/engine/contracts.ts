@@ -40,6 +40,7 @@ export interface RenderSuccess3D {
 export interface RenderSuccess2D {
   kind: "2d";
   svg: string;
+  geometryIdentity?: string;
   boundingBox: { min: [number, number]; max: [number, number] };
   diagnostics: Diagnostic[];
   rawLog: string;

@@ -73,6 +73,7 @@ import {
   EPHEMERAL_WORKSPACE_LAYOUT_PERSISTENCE,
 } from "./layout-persistence";
 import { buildRuntimeRenderFileMap } from "./project-render-files";
+import { ensureGeometryIdentity } from "../geometry/geometry-identity";
 import { applyProjectTransition } from "./project-transition";
 import type {
   HistoryEntry,
@@ -862,17 +863,36 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       false,
     );
 
-    const result = await job.done;
+    const rawResult = await job.done;
     unsubscribeOutput();
     runConsole.setState(reduceConsoleState(runConsole.getState(), {
       kind: "finish-run",
       jobId: job.jobId,
       durationMs: Math.max(0, nowMs() - startedMs),
-      result,
+      result: rawResult,
     }), true);
     if (render.getState().jobId !== job.jobId) {
       return;
     }
+    const snapshotIsCurrent = () => {
+      const currentWorkspace = documents.getState();
+      const currentTarget = currentWorkspace.documents.find(({ id }) => id === document.id);
+      return Boolean(
+        currentTarget
+        && currentTarget.path === document.path
+        && currentTarget.revision === document.revision
+        && sourceSnapshotIsCurrent(
+          sourceFiles,
+          parameterValues,
+          document.id,
+          projectRevision,
+        ),
+      );
+    };
+    const result = snapshotIsCurrent()
+      ? await ensureGeometryIdentity(rawResult)
+      : rawResult;
+    if (render.getState().jobId !== job.jobId) return;
     render.setState({
       status: result.kind === "failure" ? "failure" : "success",
       jobId: job.jobId,
@@ -885,16 +905,8 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       parameterValues,
       result,
     }, true);
+    if (!snapshotIsCurrent()) return;
     const currentWorkspace = documents.getState();
-    const currentTarget = currentWorkspace.documents.find(({ id }) => id === document.id);
-    if (
-      !currentTarget
-      || currentTarget.path !== document.path
-      || currentTarget.revision !== document.revision
-      || !sourceSnapshotIsCurrent(sourceFiles, parameterValues, document.id, projectRevision)
-    ) {
-      return;
-    }
     if (result.kind !== "failure") {
       viewer.setState(reduceViewerState(viewer.getState(), {
         kind: "present-result",

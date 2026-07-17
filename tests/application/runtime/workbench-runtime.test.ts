@@ -119,8 +119,93 @@ describe("createWorkbenchRuntime", () => {
     expect(runtime.viewer.getState().documents.get("document-main")?.presentation).toMatchObject({
       modelIdentity: "render-2d",
       quality: "preview",
-      result: drawing,
+      result: {
+        ...drawing,
+        geometryIdentity: expect.stringMatching(/^sha256:/u),
+      },
     });
+  });
+
+  it("identifies equal geometry across distinct engine-owned byte arrays", async () => {
+    const engine = successfulEngine();
+    const first = await engine.render({
+      entryFile: "main.scad",
+      files: new Map(),
+      parameters: {},
+      quality: "preview",
+      timeoutMs: 30_000,
+    }).done;
+    if (first.kind !== "3d") throw new Error("Expected the test engine to return 3D geometry.");
+    vi.mocked(engine.render)
+      .mockReturnValueOnce({
+        jobId: "render-first",
+        subscribeOutput: () => () => undefined,
+        done: Promise.resolve({
+          ...first,
+          mesh: { ...first.mesh, bytes: first.mesh.bytes.slice() },
+        }),
+      })
+      .mockReturnValueOnce({
+        jobId: "render-second",
+        subscribeOutput: () => () => undefined,
+        done: Promise.resolve({
+          ...first,
+          mesh: { ...first.mesh, bytes: first.mesh.bytes.slice() },
+        }),
+      });
+    const runtime = createWorkbenchRuntime(engine, { makeId: () => "render-command" });
+
+    await runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
+    await runtime.dispatch({ kind: "render-active", origin: "user", quality: "full" });
+
+    expect(runtime.viewer.getState().documents.get("document-main")?.presentation).toMatchObject({
+      modelIdentity: "render-first",
+      geometryDelta: { kind: "unchanged" },
+      result: { kind: "3d", mesh: { geometryIdentity: expect.stringMatching(/^sha256:/u) } },
+    });
+  });
+
+  it("compares a later success with the prior success rather than an intervening failure", async () => {
+    const first = await successfulEngine().render({
+      entryFile: "main.scad",
+      files: new Map(),
+      parameters: {},
+      quality: "preview",
+      timeoutMs: 30_000,
+    }).done;
+    if (first.kind !== "3d") throw new Error("Expected 3D geometry.");
+    const failure: RenderFailure = {
+      kind: "failure",
+      reason: "engine-error",
+      diagnostics: [{ severity: "error", message: "render failed" }],
+      rawLog: "render failed",
+    };
+    const changedBytes = first.mesh.bytes.slice();
+    changedBytes[0] = 1;
+    const results = [
+      { ...first, stats: { ...first.stats, volumeMm3: 100 } },
+      failure,
+      {
+        ...first,
+        mesh: { ...first.mesh, bytes: changedBytes },
+        stats: { ...first.stats, volumeMm3: 150 },
+      },
+    ];
+    let next = 0;
+    const engine = successfulEngine();
+    vi.mocked(engine.render).mockImplementation(() => ({
+      jobId: `render-${next + 1}`,
+      subscribeOutput: () => () => undefined,
+      done: Promise.resolve(results[next++]),
+    }));
+    const runtime = createWorkbenchRuntime(engine);
+
+    await runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
+    await runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
+    await runtime.dispatch({ kind: "render-active", origin: "user", quality: "full" });
+
+    expect(runtime.viewer.getState().documents.get("document-main")?.presentation)
+      .toMatchObject({ geometryDelta: { kind: "changed", volumeMm3: 50 } });
   });
 
   it("routes real tab lifecycle mutations once and ignores blocked or stale operations", async () => {
@@ -395,6 +480,7 @@ describe("createWorkbenchRuntime", () => {
     let resolveFirst!: (result: RenderSuccess3D) => void;
     let resolveSecond!: (result: RenderSuccess3D) => void;
     const engine = successfulEngine();
+    const digest = vi.spyOn(globalThis.crypto.subtle, "digest");
     vi.mocked(engine.render)
       .mockReturnValueOnce({
         jobId: "render-first",
@@ -423,6 +509,7 @@ describe("createWorkbenchRuntime", () => {
       jobId: "render-second",
       result: { stats: { triangles: 2 } },
     });
+    expect(digest).toHaveBeenCalledTimes(1);
   });
 
   it("routes an explicit cancel command to only the active native job", async () => {
