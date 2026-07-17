@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { requestAiCompletion } from "../../../src/application/ai/ai-client";
+import { requestAiCompletion, streamAiCompletion } from "../../../src/application/ai/ai-client";
 import type { AiPreferences } from "../../../src/application/settings/settings-schema";
 
 const base: AiPreferences = { provider: "openai", endpoint: "https://example.test/v1/chat/completions", model: "test", persistWebSecret: false };
@@ -39,5 +39,23 @@ describe("requestAiCompletion", () => {
     expect(init?.signal).toBe(controller.signal);
     expect(init?.headers).toMatchObject({ authorization: "Bearer sk-secret-value", "content-type": "application/json" });
     expect(JSON.parse(String(init?.body))).toMatchObject({ model: "test", messages: request.messages, stream: false });
+  });
+
+  it("yields streamed OpenAI deltas and forwards cancellation", async () => {
+    const controller = new AbortController();
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream<Uint8Array>({
+      start(sink) {
+        sink.enqueue(encoder.encode('data: {"choices":[{"delta":{"content":"hel"}}]}\n\n'));
+        sink.enqueue(encoder.encode('data: {"choices":[{"delta":{"content":"lo"}}]}\n\ndata: [DONE]\n\n'));
+        sink.close();
+      },
+    });
+    const fetchImpl = vi.fn().mockResolvedValue(new Response(stream, { status: 200 }));
+    const chunks: string[] = [];
+    for await (const chunk of streamAiCompletion(base, secretStore, request, controller.signal, fetchImpl)) chunks.push(chunk);
+    expect(chunks).toEqual(["hel", "lo"]);
+    expect(fetchImpl.mock.calls[0]?.[1]?.signal).toBe(controller.signal);
+    expect(JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body))).toMatchObject({ stream: true });
   });
 });
