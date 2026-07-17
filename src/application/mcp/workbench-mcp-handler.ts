@@ -14,11 +14,13 @@ import type { ProjectFileContent } from "../files/project-snapshot";
 import { parameterDocument } from "../parameters/parameter-state";
 import type { ParameterValue } from "../parameters/customizer-schema";
 import { extractCustomizerParameters } from "../parameters/customizer-parser";
+import type { McpPendingReview } from "./mcp-review-queue";
 
 export interface WorkbenchMcpHandlerOptions {
   readonly runtime: WorkbenchRuntime;
   readonly engine?: EngineService;
   readonly reviewId?: () => string;
+  readonly onPendingReview?: (review: McpPendingReview) => void;
 }
 
 interface TargetDocument {
@@ -101,7 +103,7 @@ function extension(format: ExportFormat): string {
   return format === "stl-binary" || format === "stl-ascii" ? "stl" : format;
 }
 
-export function createWorkbenchMcpHandler({ runtime, engine, reviewId = () => globalThis.crypto.randomUUID() }: WorkbenchMcpHandlerOptions): McpToolHandler {
+export function createWorkbenchMcpHandler({ runtime, engine, reviewId = () => globalThis.crypto.randomUUID(), onPendingReview }: WorkbenchMcpHandlerOptions): McpToolHandler {
   let lastPreview = new Map<string, PreviewRecord>();
 
   const documents = () => runtime.documents.getState().documents;
@@ -148,7 +150,9 @@ export function createWorkbenchMcpHandler({ runtime, engine, reviewId = () => gl
           const path = parseProjectPath(String(args.path));
           const existing = target(path, false);
           if (!existing && !args.createIfMissing) throw new Error(`Project file ${path} does not exist.`);
-          return { status: "pending_review", commandId: `mcp-review-${reviewId()}` };
+          const commandId = `mcp-review-${reviewId()}`;
+          onPendingReview?.({ commandId, tool: "write_file", arguments: { ...args, path }, createdAt: new Date().toISOString() });
+          return { status: "pending_review", commandId };
         }
         case "render_preview": {
           if (!engine) throw new Error("The MCP preview engine is unavailable on this platform.");
@@ -204,7 +208,9 @@ export function createWorkbenchMcpHandler({ runtime, engine, reviewId = () => gl
           const state = found.documentId ? parameterDocument(runtime.parameters.getState(), found.documentId) : { parameters: extractCustomizerParameters(found.source) };
           const known = new Set(state.parameters.filter(({ hidden }) => !hidden).map(({ name }) => name));
           const unknownNames = Object.keys(args.values as Record<string, unknown>).filter((name) => !known.has(name));
-          return { status: "pending_review", unknownNames };
+          const commandId = `mcp-review-${reviewId()}`;
+          onPendingReview?.({ commandId, tool: "set_parameters", arguments: { ...args }, createdAt: new Date().toISOString() });
+          return { status: "pending_review", commandId, unknownNames };
         }
         case "take_screenshot":
           throw new Error("Viewport screenshots require the desktop renderer and are unavailable through the web handler.");

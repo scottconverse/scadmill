@@ -32,9 +32,11 @@ describe("workbench MCP handler", () => {
   it("keeps mutating calls behind the review gate and renders previews", async () => {
     const renderEngine = engine();
     const runtime = createWorkbenchRuntime(renderEngine, { initialScratchSource: "cube(1);" });
-    const handler = createWorkbenchMcpHandler({ runtime, engine: renderEngine, reviewId: () => "fixed" });
+    const reviews: string[] = [];
+    const handler = createWorkbenchMcpHandler({ runtime, engine: renderEngine, reviewId: () => "fixed", onPendingReview: (review) => reviews.push(review.tool) });
     await expect(handler.call("write_file", { path: "main.scad", content: "cube(2);" })).resolves.toEqual({ status: "pending_review", commandId: "mcp-review-fixed" });
-    await expect(handler.call("set_parameters", { path: "main.scad", values: { missing: 2 } })).resolves.toEqual({ status: "pending_review", unknownNames: ["missing"] });
+    await expect(handler.call("set_parameters", { path: "main.scad", values: { missing: 2 } })).resolves.toMatchObject({ status: "pending_review", commandId: "mcp-review-fixed", unknownNames: ["missing"] });
+    expect(reviews).toEqual(["write_file", "set_parameters"]);
     await expect(handler.call("render_preview", { path: "main.scad" })).resolves.toMatchObject({ kind: "3d", stats: { triangles: 1 } });
     await expect(handler.call("get_diagnostics", { path: "main.scad" })).resolves.toMatchObject({ renderId: "mcp-render-1", quality: "preview", diagnostics: [{ message: "ok" }] });
     runtime.dispose();
