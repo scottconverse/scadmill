@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import {
+  type KeyboardEvent,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
 
 import {
   isDocumentDirty,
@@ -23,6 +29,15 @@ export interface WelcomeLauncherProps {
   onShowOnLaunchChange(show: boolean): void;
 }
 
+const focusableSelector = [
+  "button:not(:disabled)",
+  "input:not(:disabled)",
+  "select:not(:disabled)",
+  "textarea:not(:disabled)",
+  "a[href]",
+  "[tabindex]:not([tabindex='-1'])",
+].join(",");
+
 export function WelcomeLauncher({
   documents,
   project,
@@ -39,6 +54,14 @@ export function WelcomeLauncher({
   const [error, setError] = useState<string | null>(null);
   const launcher = useRef<HTMLButtonElement>(null);
   const firstAction = useRef<HTMLButtonElement>(null);
+  const welcomeDialog = useRef<HTMLElement>(null);
+  const replacementDialog = useRef<HTMLElement>(null);
+  const keepCurrentWork = useRef<HTMLButtonElement>(null);
+  const sampleButtons = useRef(new Map<string, HTMLButtonElement>());
+  const welcomeHeadingId = useId();
+  const welcomeIntroId = useId();
+  const replacementHeadingId = useId();
+  const replacementDetailId = useId();
   const pristineScratch = project.mode === "scratch"
     && documents.documents.length === 1
     && !isDocumentDirty(documents.documents[0])
@@ -48,11 +71,23 @@ export function WelcomeLauncher({
     if (open) firstAction.current?.focus();
   }, [open]);
 
+  useEffect(() => {
+    if (pendingSample) keepCurrentWork.current?.focus();
+  }, [pendingSample]);
+
   const close = () => {
     setOpen(false);
     setPendingSample(null);
     setError(null);
     globalThis.setTimeout(() => launcher.current?.focus(), 0);
+  };
+  const restoreSampleFocus = (sample: BuiltInSample) => {
+    globalThis.setTimeout(() => sampleButtons.current.get(sample.id)?.focus(), 0);
+  };
+  const cancelReplacement = () => {
+    const sample = pendingSample;
+    setPendingSample(null);
+    if (sample) restoreSampleFocus(sample);
   };
   const openSample = async (sample: BuiltInSample) => {
     setError(null);
@@ -68,6 +103,7 @@ export function WelcomeLauncher({
     } catch (reason) {
       setPendingSample(null);
       setError(reason instanceof Error ? reason.message : messages.welcomeSampleFailed);
+      restoreSampleFocus(sample);
     }
   };
   const requestSample = (sample: BuiltInSample) => {
@@ -83,6 +119,28 @@ export function WelcomeLauncher({
       setError(reason instanceof Error ? reason.message : messages.welcomePreferenceCouldNotBeSaved);
     }
   };
+  const containFocus = (event: KeyboardEvent<HTMLElement>) => {
+    if (event.key === "Escape") {
+      if (pendingSample) cancelReplacement();
+      else close();
+      return;
+    }
+    if (event.key !== "Tab") return;
+
+    const scope = pendingSample ? replacementDialog.current : welcomeDialog.current;
+    const focusable = Array.from(scope?.querySelectorAll<HTMLElement>(focusableSelector) ?? []);
+    const first = focusable[0];
+    const last = focusable.at(-1);
+    if (!first || !last) return;
+
+    if (event.shiftKey && (document.activeElement === first || !scope?.contains(document.activeElement))) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && (document.activeElement === last || !scope?.contains(document.activeElement))) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
 
   return (
     <>
@@ -95,25 +153,33 @@ export function WelcomeLauncher({
       {open && (
         <div className="welcome-modal-layer">
           <section
-            aria-label={messages.welcomeTitle}
+            aria-describedby={welcomeIntroId}
+            aria-labelledby={welcomeHeadingId}
             aria-modal="true"
             className="welcome-dialog"
-            onKeyDown={(event) => { if (event.key === "Escape") close(); }}
+            onKeyDown={containFocus}
+            ref={welcomeDialog}
             role="dialog"
           >
             <header className="welcome-header">
               <div>
                 <span className="welcome-mark" aria-hidden="true">S</span>
-                <div><h2>{messages.welcomeTitle}</h2><p>{messages.welcomeIntro}</p></div>
+                <div><h2 id={welcomeHeadingId}>{messages.welcomeTitle}</h2><p id={welcomeIntroId}>{messages.welcomeIntro}</p></div>
               </div>
               <button aria-label={messages.closeWelcome} onClick={close} type="button">Close</button>
             </header>
             {pendingSample ? (
-              <section aria-label={messages.replaceCurrentWork} className="welcome-confirmation" role="alertdialog">
-                <h3>{messages.replaceCurrentWork}</h3>
-                <p>{messages.replaceCurrentWorkDetail(pendingSample.name)}</p>
+              <section
+                aria-describedby={replacementDetailId}
+                aria-labelledby={replacementHeadingId}
+                className="welcome-confirmation"
+                ref={replacementDialog}
+                role="alertdialog"
+              >
+                <h3 id={replacementHeadingId}>{messages.replaceCurrentWork}</h3>
+                <p id={replacementDetailId}>{messages.replaceCurrentWorkDetail(pendingSample.name)}</p>
                 <div>
-                  <button onClick={() => setPendingSample(null)} type="button">{messages.cancelWelcomeReplacement}</button>
+                  <button onClick={cancelReplacement} ref={keepCurrentWork} type="button">{messages.cancelWelcomeReplacement}</button>
                   <button onClick={() => void openSample(pendingSample)} type="button">
                     {messages.replaceWithSample(pendingSample.name)}
                   </button>
@@ -147,7 +213,15 @@ export function WelcomeLauncher({
                       <article key={sample.id}>
                         <span aria-hidden="true" className="welcome-sample-icon">{sample.dimension === "3d" ? "3D" : "2D"}</span>
                         <div><h4>{sample.name}</h4><p>{sample.summary}</p></div>
-                        <button aria-label={messages.openSample(sample.name)} onClick={() => requestSample(sample)} type="button">
+                        <button
+                          aria-label={messages.openSample(sample.name)}
+                          onClick={() => requestSample(sample)}
+                          ref={(button) => {
+                            if (button) sampleButtons.current.set(sample.id, button);
+                            else sampleButtons.current.delete(sample.id);
+                          }}
+                          type="button"
+                        >
                           {messages.openSampleAction}
                         </button>
                       </article>

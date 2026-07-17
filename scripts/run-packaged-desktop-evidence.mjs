@@ -153,7 +153,7 @@ class WebDriverClient {
   }
 
   async createSession(application, webviewFolder) {
-    const userDataFolder = join(process.env.LOCALAPPDATA, "dev.scadmill.app");
+    const userDataFolder = join(process.env.LOCALAPPDATA, "dev.scadmill.desktop");
     const nestedPort = join(userDataFolder, "EBWebView", "DevToolsActivePort");
     const parentPort = join(userDataFolder, "DevToolsActivePort");
     await Promise.all([rm(nestedPort, { force: true }), rm(parentPort, { force: true })]);
@@ -713,7 +713,7 @@ try {
     path: args.webview,
     executableSha256: webViewSha256,
     version: "150.0.4078.65",
-    userDataFolder: join(process.env.LOCALAPPDATA, "dev.scadmill.app"),
+    userDataFolder: join(process.env.LOCALAPPDATA, "dev.scadmill.desktop"),
   });
 
   driver = await startDriver(args["tauri-driver"], args["native-driver"], args.output, 1);

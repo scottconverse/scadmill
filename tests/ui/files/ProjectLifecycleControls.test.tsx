@@ -44,6 +44,113 @@ function deferred<T>() {
 }
 
 describe("ProjectLifecycleControls", () => {
+  it("opens the exact associated entry immediately when the workspace is clean", async () => {
+    const files = new Map<string, ProjectFileContent>([
+      ["main.scad", "cube(10);"],
+      ["preferred.scad", "sphere(5);"],
+    ]);
+    const projectStorage = storage(files);
+    const snapshot = vi.spyOn(projectStorage, "snapshot");
+    const runtime = createWorkbenchRuntime(engine(), { projectStorage });
+    const settled = vi.fn();
+
+    render(
+      <ProjectLifecycleControls
+        onRequestedProjectSettled={settled}
+        recoveryPersistence={recovery()}
+        requestedProject={{
+          sequence: 1,
+          projectId: "C:\\models",
+          displayName: "models",
+          preferredEntryFile: "preferred.scad",
+          openWhenClean: true,
+        }}
+        runtime={runtime}
+        storage={projectStorage}
+      />,
+    );
+
+    await waitFor(() => expect(runtime.project.getState().snapshot.projectId).toBe("C:\\models"));
+    expect(runtime.documents.getState().documents[0]).toMatchObject({
+      path: "preferred.scad",
+      source: "sphere(5);",
+    });
+    expect(settled).toHaveBeenCalledWith(1);
+    expect(snapshot).toHaveBeenCalledWith("C:\\models", "preferred.scad");
+  });
+
+  it("preserves dirty work and offers a direct save-all path for the exact associated entry", async () => {
+    const files = new Map<string, ProjectFileContent>([
+      ["main.scad", "cube(10);"],
+      ["preferred.scad", "sphere(5);"],
+    ]);
+    const projectStorage = storage(files);
+    const runtime = createWorkbenchRuntime(engine(), { projectStorage });
+    await runtime.dispatch({
+      kind: "edit-document",
+      origin: "user",
+      documentId: "document-main",
+      source: "cube(99);",
+    });
+
+    const saveAll = vi.fn();
+    const view = render(
+      <ProjectLifecycleControls
+        onSaveAll={saveAll}
+        recoveryPersistence={recovery()}
+        requestedProject={{
+          sequence: 1,
+          projectId: "C:\\models",
+          displayName: "models",
+          preferredEntryFile: "preferred.scad",
+          openWhenClean: true,
+        }}
+        runtime={runtime}
+        storage={projectStorage}
+      />,
+    );
+
+    expect(await view.findByLabelText("Project entry file")).toHaveValue("preferred.scad");
+    expect(view.getByRole("button", { name: "Confirm project replacement" })).toBeDisabled();
+    expect(view.getByText("Save all unsaved tabs before replacing the current project.")).toBeVisible();
+    fireEvent.click(view.getByRole("button", { name: "Save all unsaved tabs" }));
+    expect(saveAll).toHaveBeenCalledOnce();
+    expect(runtime.project.getState().mode).toBe("scratch");
+    expect(runtime.documents.getState().documents[0].source).toBe("cube(99);");
+  });
+
+  it("restores focus after cancelling an externally requested project replacement", async () => {
+    const files = new Map<string, ProjectFileContent>([["main.scad", "cube(10);"]]);
+    const projectStorage = storage(files);
+    const runtime = createWorkbenchRuntime(engine(), { projectStorage });
+    const shared = {
+      recoveryPersistence: recovery(),
+      runtime,
+      storage: projectStorage,
+    };
+    const view = render(<ProjectLifecycleControls {...shared} />);
+    const locator = view.getByLabelText("Project folder or id");
+    locator.focus();
+
+    view.rerender(
+      <ProjectLifecycleControls
+        {...shared}
+        requestedProject={{
+          sequence: 1,
+          projectId: "C:\\models",
+          displayName: "models",
+          preferredEntryFile: "main.scad",
+        }}
+      />,
+    );
+
+    const dialog = await view.findByRole("dialog", { name: "Confirm project replacement" });
+    expect(view.getByRole("button", { name: "Keep current workspace" })).toHaveFocus();
+    fireEvent.click(view.getByRole("button", { name: "Keep current workspace" }));
+    await waitFor(() => expect(dialog).not.toBeInTheDocument());
+    await waitFor(() => expect(locator).toHaveFocus());
+  });
+
   it("accepts or rejects each separated external-change hunk before applying", async () => {
     const unchanged = Array.from({ length: 12 }, (_, index) => `same ${index}`).join("\n");
     const localSource = `start\nlocal one\n${unchanged}\nlocal two\nend`;

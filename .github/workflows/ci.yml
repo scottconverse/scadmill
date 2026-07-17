@@ -72,6 +72,52 @@ jobs:
         run: pnpm exec playwright install chromium
       - name: Browser acceptance tests
         run: pnpm test:e2e
+      - name: Production static browser acceptance
+        if: runner.os == 'Linux'
+        env:
+          SCADMILL_STATIC_BASE_PATH: /scadmill-evidence/
+        run: pnpm test:e2e:production-static
+
+  parity:
+    name: Native and WASM byte parity
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 11.7.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install chromium
+      - name: Install checksummed OpenSCAD snapshot
+        shell: pwsh
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP "OpenSCAD-2026.06.12-x86-64.zip"
+          Invoke-WebRequest -Uri "https://files.openscad.org/snapshots/OpenSCAD-2026.06.12-x86-64.zip" -OutFile $archive
+          if ((Get-FileHash -Algorithm SHA256 -LiteralPath $archive).Hash -ne "3AA51474EA66609FB3FAFA4AA7F2AB4B6FE3FF50C130184F11BBE3818F3EF5AA") {
+            throw "The OpenSCAD parity archive checksum is invalid."
+          }
+          $root = Join-Path $env:RUNNER_TEMP "openscad-parity"
+          Expand-Archive -LiteralPath $archive -DestinationPath $root
+          $executable = Get-ChildItem -LiteralPath $root -Filter openscad.exe -Recurse -File | Select-Object -First 1 -ExpandProperty FullName
+          if ((Get-FileHash -Algorithm SHA256 -LiteralPath $executable).Hash -ne "DE9A0C732C23C3FEB0B49CF938777AA0AEE3E206DB9E98571672CACC4816C524") {
+            throw "The OpenSCAD parity executable checksum is invalid."
+          }
+          "SCADMILL_OPENSCAD=$executable" | Out-File -FilePath $env:GITHUB_ENV -Append
+      - name: Exact AC-4.a parity
+        run: pnpm test:parity
+      - name: Retain parity evidence on failure
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ac4-parity-evidence
+          path: test-results/ac4-parity
+          if-no-files-found: warn
 
   native:
     name: Native checks
@@ -171,7 +217,9 @@ jobs:
             libssl-dev \
             libwebkit2gtk-4.1-dev \
             patchelf \
-            wget
+            wget \
+            xvfb \
+            xdotool
       - run: pnpm install --frozen-lockfile
       - name: Build platform installer
         run: |
@@ -201,13 +249,134 @@ jobs:
           cat "$artifact.sha256"
       - name: Record external signing status
         run: echo "Signing/notarization credentials are owner-side; retaining the required unsigned CI artifact."
+      - name: Mount, launch, and remove macOS candidate
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          mount_point="$RUNNER_TEMP/scadmill-dmg"
+          install_root="$RUNNER_TEMP/scadmill-installed"
+          launch_log="$RUNNER_TEMP/scadmill-macos-launch.log"
+          window_probe_source="$RUNNER_TEMP/scadmill-window-probe.swift"
+          window_probe="$RUNNER_TEMP/scadmill-window-probe"
+          mkdir -p "$mount_point" "$install_root"
+          hdiutil attach "$SCADMILL_DESKTOP_INSTALLER" -nobrowse -readonly -mountpoint "$mount_point"
+          app_count="$(find "$mount_point" -maxdepth 1 -type d -name '*.app' | wc -l | tr -d ' ')"
+          test "$app_count" -eq 1
+          app="$(find "$mount_point" -maxdepth 1 -type d -name '*.app' -print -quit)"
+          source_executable="$(find "$app/Contents/MacOS" -type f -perm +111 -print -quit)"
+          test -n "$source_executable"
+          source_executable_hash="$(shasum -a 256 "$source_executable" | awk '{print $1}')"
+          ditto "$app" "$install_root/ScadMill.app"
+          hdiutil detach "$mount_point"
+          executable="$(find "$install_root/ScadMill.app/Contents/MacOS" -type f -perm +111 -print -quit)"
+          installed_executable_hash="$(shasum -a 256 "$executable" | awk '{print $1}')"
+          test "$installed_executable_hash" = "$source_executable_hash"
+          cat >"$window_probe_source" <<'SWIFT'
+          import CoreGraphics
+          import Foundation
+
+          guard CommandLine.arguments.count == 2, let pid = Int32(CommandLine.arguments[1]) else {
+            exit(EXIT_FAILURE)
+          }
+          let windows = CGWindowListCopyWindowInfo(
+            [.optionOnScreenOnly, .excludeDesktopElements],
+            kCGNullWindowID
+          ) as? [[String: Any]] ?? []
+          let ready = windows.contains { window in
+            guard
+              let owner = window[kCGWindowOwnerPID as String] as? NSNumber,
+              let layer = window[kCGWindowLayer as String] as? NSNumber,
+              let bounds = window[kCGWindowBounds as String] as? [String: NSNumber]
+            else { return false }
+            return owner.int32Value == pid
+              && layer.intValue == 0
+              && (bounds["Width"]?.doubleValue ?? 0) >= 200
+              && (bounds["Height"]?.doubleValue ?? 0) >= 150
+          }
+          exit(ready ? EXIT_SUCCESS : EXIT_FAILURE)
+          SWIFT
+          swiftc "$window_probe_source" -o "$window_probe"
+          "$executable" >"$launch_log" 2>&1 &
+          pid=$!
+          ready=0
+          for _ in $(seq 1 60); do
+            if ! kill -0 "$pid" 2>/dev/null; then
+              cat "$launch_log"
+              exit 1
+            fi
+            if "$window_probe" "$pid"; then
+              ready=1
+              break
+            fi
+            sleep 0.5
+          done
+          test "$ready" -eq 1
+          echo "visible_window_pid=$pid executable_sha256=$installed_executable_hash" >"$RUNNER_TEMP/scadmill-macos-window-evidence.txt"
+          kill "$pid"
+          wait "$pid" || true
+          rm -rf "$install_root/ScadMill.app"
+          test ! -e "$install_root/ScadMill.app"
+      - name: Launch and remove Linux AppImage candidate
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          installed="$RUNNER_TEMP/ScadMill.AppImage"
+          launch_log="$RUNNER_TEMP/scadmill-appimage-launch.log"
+          extract_root="$RUNNER_TEMP/scadmill-appimage-extract"
+          cp "$SCADMILL_DESKTOP_INSTALLER" "$installed"
+          chmod +x "$installed"
+          installed_hash="$(sha256sum "$installed" | cut -d ' ' -f 1)"
+          expected_hash="$(cut -d ' ' -f 1 "$SCADMILL_DESKTOP_INSTALLER.sha256")"
+          test "$installed_hash" = "$expected_hash"
+          mkdir -p "$extract_root"
+          (
+            cd "$extract_root"
+            "$installed" --appimage-extract >/dev/null
+          )
+          expected_runtime="$(find "$extract_root/squashfs-root" -type f -name scadmill -perm -111 -print -quit)"
+          test -n "$expected_runtime"
+          expected_runtime_hash="$(sha256sum "$expected_runtime" | cut -d ' ' -f 1)"
+          display=":99"
+          Xvfb "$display" -screen 0 1280x800x24 >"$RUNNER_TEMP/scadmill-xvfb.log" 2>&1 &
+          xvfb_pid=$!
+          export DISPLAY="$display"
+          APPIMAGE_EXTRACT_AND_RUN=1 "$installed" >"$launch_log" 2>&1 &
+          pid=$!
+          ready=0
+          for _ in $(seq 1 60); do
+            if ! kill -0 "$pid" 2>/dev/null; then
+              cat "$launch_log"
+              exit 1
+            fi
+            runtime="$(readlink -f "/proc/$pid/exe")"
+            runtime_hash="$(sha256sum "$runtime" | cut -d ' ' -f 1)"
+            if [ "$runtime_hash" = "$expected_runtime_hash" ] \
+              && xdotool search --onlyvisible --pid "$pid" --name '^ScadMill$' >/dev/null 2>&1; then
+              ready=1
+              break
+            fi
+            sleep 0.5
+          done
+          test "$ready" -eq 1
+          echo "visible_window_pid=$pid runtime_sha256=$runtime_hash appimage_sha256=$installed_hash" >"$RUNNER_TEMP/scadmill-linux-window-evidence.txt"
+          kill "$pid"
+          wait "$pid" || true
+          kill "$xvfb_pid"
+          wait "$xvfb_pid" || true
+          rm -f "$installed"
+          rm -rf "$extract_root"
+          test ! -e "$installed"
       - name: Upload platform installer
+        if: always() && env.SCADMILL_DESKTOP_INSTALLER != ''
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ${{ matrix.artifact_name }}
           path: |
             ${{ env.SCADMILL_DESKTOP_INSTALLER }}
             ${{ env.SCADMILL_DESKTOP_INSTALLER }}.sha256
+            ${{ runner.temp }}/scadmill-*-launch.log
+            ${{ runner.temp }}/scadmill-*-window-evidence.txt
+            ${{ runner.temp }}/scadmill-xvfb.log
           if-no-files-found: error
 
   windows-installer:
@@ -219,54 +388,6 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           persist-credentials: false
-      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
-        with:
-          version: 11.7.0
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: 24
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - name: Build offline NSIS setup
-        shell: pwsh
-        run: |
-          rustc --version | Select-String '^rustc 1\.96\.0 '
-          Push-Location src/desktop-shell
-          pnpm exec tauri build --bundles nsis --ci -- --locked
-          Pop-Location
-      - name: Verify setup artifact and static Visual C++ runtime linkage
-        shell: pwsh
-        run: |
-          $bundle = Join-Path $env:GITHUB_WORKSPACE "src/desktop-shell/src-tauri/target/release/bundle/nsis"
-          $installers = @(Get-ChildItem -LiteralPath $bundle -Filter "*-setup.exe" -File)
-          if ($installers.Count -ne 1) {
-            Write-Error "Expected exactly one NSIS setup executable; found $($installers.Count)."
-            exit 1
-          }
-
-          $application = Join-Path $env:GITHUB_WORKSPACE "src/desktop-shell/src-tauri/target/release/scadmill.exe"
-          if (-not (Test-Path -LiteralPath $application -PathType Leaf)) {
-            Write-Error "The bundled ScadMill application is missing."
-            exit 1
-          }
-
-          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-          $visualStudio = (& $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath).Trim()
-          $dumpbin = Get-ChildItem -LiteralPath $visualStudio -Filter dumpbin.exe -Recurse |
-            Where-Object FullName -Match 'Hostx64\\x64\\dumpbin\.exe$' |
-            Select-Object -First 1 -ExpandProperty FullName
-          if ([string]::IsNullOrWhiteSpace($dumpbin)) {
-            Write-Error "Could not locate the x64 Visual C++ import-table inspector."
-            exit 1
-          }
-
-          $imports = (& $dumpbin /dependents $application | Out-String)
-          Write-Host $imports
-          if ($imports -match 'VCRUNTIME140(?:_1)?\.dll') {
-            Write-Error "ScadMill still depends on an external Visual C++ runtime."
-            exit 1
-          }
-          "SCADMILL_INSTALLER=$($installers[0].FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
       - name: Signing credential preflight (fail fast)
         if: env.SIGNING_CONFIGURED == 'true'
         shell: pwsh
@@ -299,6 +420,72 @@ jobs:
             }
             Write-Warning "Signing credential preflight was inconclusive ($code); continuing to the signing service."
           }
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 11.7.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build offline NSIS setup
+        shell: pwsh
+        run: |
+          rustc --version | Select-String '^rustc 1\.96\.0 '
+          Push-Location src/desktop-shell
+          pnpm exec tauri build --bundles nsis --ci -- --locked
+          Pop-Location
+      - name: Verify setup artifact and static Visual C++ runtime linkage
+        shell: pwsh
+        run: |
+          $bundle = Join-Path $env:GITHUB_WORKSPACE "src/desktop-shell/src-tauri/target/release/bundle/nsis"
+          $installers = @(Get-ChildItem -LiteralPath $bundle -Filter "*-setup.exe" -File)
+          if ($installers.Count -ne 1) {
+            Write-Error "Expected exactly one NSIS setup executable; found $($installers.Count)."
+            exit 1
+          }
+
+          $application = Join-Path $env:GITHUB_WORKSPACE "src/desktop-shell/src-tauri/target/release/scadmill.exe"
+          if (-not (Test-Path -LiteralPath $application -PathType Leaf)) {
+            Write-Error "The bundled ScadMill application is missing."
+            exit 1
+          }
+
+          $payloadDirectory = Join-Path $env:RUNNER_TEMP "scadmill-nsis-payload"
+          New-Item -ItemType Directory -Path $payloadDirectory -Force | Out-Null
+          & 7z e -y "-o$payloadDirectory" $installers[0].FullName "scadmill.exe"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Could not extract the exact application payload from setup."
+            exit 1
+          }
+          $packagedApplications = @(Get-ChildItem -LiteralPath $payloadDirectory -Filter "scadmill.exe" -File)
+          if ($packagedApplications.Count -ne 1) {
+            Write-Error "Expected exactly one application payload; found $($packagedApplications.Count)."
+            exit 1
+          }
+          $packagedApplication = $packagedApplications[0].FullName
+          $packagedHash = Get-FileHash -Algorithm SHA256 -LiteralPath $packagedApplication
+          Write-Host "Exact setup application payload SHA256: $($packagedHash.Hash)"
+
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $visualStudio = (& $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath).Trim()
+          $dumpbin = Get-ChildItem -LiteralPath $visualStudio -Filter dumpbin.exe -Recurse |
+            Where-Object FullName -Match 'Hostx64\\x64\\dumpbin\.exe$' |
+            Select-Object -First 1 -ExpandProperty FullName
+          if ([string]::IsNullOrWhiteSpace($dumpbin)) {
+            Write-Error "Could not locate the x64 Visual C++ import-table inspector."
+            exit 1
+          }
+
+          $imports = (& $dumpbin /dependents $packagedApplication | Out-String)
+          Write-Host $imports
+          if ($imports -match 'VCRUNTIME140(?:_1)?\.dll') {
+            Write-Error "ScadMill still depends on an external Visual C++ runtime."
+            exit 1
+          }
+          "SCADMILL_INSTALLER=$($installers[0].FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "SCADMILL_BUILT_APP=$application" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "SCADMILL_PACKAGED_APP=$packagedApplication" | Out-File -FilePath $env:GITHUB_ENV -Append
       - name: Sign setup executable
         if: env.SIGNING_CONFIGURED == 'true'
         uses: Azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2
@@ -325,7 +512,7 @@ jobs:
         if: env.SIGNING_CONFIGURED != 'true'
         shell: pwsh
         run: Write-Host "Signing credentials are unavailable; retaining the required unsigned CI artifact."
-      - name: Hash final setup bytes
+      - name: Hash exact setup bytes before lifecycle
         shell: pwsh
         run: |
           $hash = Get-FileHash -Algorithm SHA256 -LiteralPath $env:SCADMILL_INSTALLER
@@ -333,11 +520,28 @@ jobs:
           "$($hash.Hash.ToLowerInvariant())  $([IO.Path]::GetFileName($env:SCADMILL_INSTALLER))" |
             Set-Content -LiteralPath $sidecar -Encoding utf8NoBOM
           Get-Content -LiteralPath $sidecar
+      - name: Install, launch, verify association, and uninstall exact setup
+        shell: pwsh
+        run: |
+          $logRoot = Join-Path $env:RUNNER_TEMP "scadmill-windows-lifecycle"
+          New-Item -ItemType Directory -Path $logRoot -Force | Out-Null
+          $log = Join-Path $logRoot "installed-lifecycle.log"
+          try {
+            & ./scripts/windows/test-installed-lifecycle.ps1 `
+              -Installer $env:SCADMILL_INSTALLER `
+              -ExpectedApplication $env:SCADMILL_PACKAGED_APP *>&1 |
+              Tee-Object -FilePath $log
+          } catch {
+            $_ | Format-List * -Force | Out-String | Add-Content -LiteralPath $log
+            throw
+          }
       - name: Upload Windows setup
+        if: always() && env.SCADMILL_INSTALLER != ''
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: scadmill-windows-setup
           path: |
             ${{ env.SCADMILL_INSTALLER }}
             ${{ env.SCADMILL_INSTALLER }}.sha256
+            ${{ runner.temp }}/scadmill-windows-lifecycle
           if-no-files-found: error

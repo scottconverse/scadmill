@@ -17,7 +17,11 @@ export interface ProjectSessionHostProps {
   readonly portability?: ProjectPortabilityController;
   readonly scratchAutosavePersistence?: ScratchAutosavePersistence;
   readonly requestedProject?: ProjectOpenRequest;
+  readonly onRequestedProjectSettled?: (sequence: number) => void;
   readonly onRecoveryPendingChange?: (pending: boolean) => void;
+  readonly onSaveAll?: () => void;
+  readonly saveAllDisabled?: boolean;
+  readonly saveAllUnavailableReason?: string;
 }
 
 export function ProjectSessionHost({
@@ -27,7 +31,11 @@ export function ProjectSessionHost({
   portability,
   scratchAutosavePersistence,
   requestedProject,
+  onRequestedProjectSettled,
   onRecoveryPendingChange,
+  onSaveAll,
+  saveAllDisabled,
+  saveAllUnavailableReason,
 }: ProjectSessionHostProps) {
   return (
     <>
@@ -35,9 +43,13 @@ export function ProjectSessionHost({
         recoveryPersistence={recoveryPersistence}
         onRecoveryPendingChange={onRecoveryPendingChange}
         requestedProject={requestedProject}
+        onRequestedProjectSettled={onRequestedProjectSettled}
+        onSaveAll={onSaveAll}
         runtime={runtime}
         showOpenControls={false}
         storage={storage}
+        saveAllDisabled={saveAllDisabled}
+        saveAllUnavailableReason={saveAllUnavailableReason}
       />
       {portability && (
         <ProjectPortabilityPanel controller={portability} showActions={false} />

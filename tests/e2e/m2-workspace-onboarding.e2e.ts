@@ -47,8 +47,9 @@ test("browser Create workspace is discoverable and reopens without an internal i
   await files.getByRole("button", { name: "Confirm move of model.scad" }).click();
   await page.getByRole("button", { name: "Close model.scad" }).click();
   await files.getByRole("button", { name: "Expand parts" }).click();
-  await files.getByRole("button", { name: "Move parts/model.scad to trash" }).click();
-  await expect(files.getByRole("button", { name: "model.scad", exact: true })).not.toBeVisible();
+  await expect(files.getByRole("button", { name: "Move parts/model.scad to trash" }))
+    .toHaveCount(0);
+  await expect(files.getByRole("button", { name: "model.scad", exact: true })).toBeVisible();
 
   await replaceEditorSource(page, "cube(21);");
   await page.keyboard.press("Control+S");
@@ -62,6 +63,8 @@ test("browser Create workspace is discoverable and reopens without an internal i
   await reloadedFiles.getByRole("button", { name: "Open Gear Lab", exact: true }).click();
   await page.getByRole("button", { name: "Confirm project replacement" }).click();
   await expect.poll(() => editorSource(page)).toBe("cube(21);");
+  await reloadedFiles.getByRole("button", { name: "Expand parts" }).click();
+  await expect(reloadedFiles.getByRole("button", { name: "model.scad", exact: true })).toBeVisible();
   await expect(page.locator("body")).not.toContainText("workspace:");
 
   expect(pageErrors).toEqual([]);

@@ -47,12 +47,13 @@ describe("regular CI workflow contract", () => {
     expect(acceptance.includes("run: pnpm test:e2e")).toBe(true);
   });
 
-  it("builds, optionally signs, verifies, then hashes the Windows setup artifact", () => {
+  it("preflights signing before build, then signs, verifies, hashes, and uploads Windows setup", () => {
     const installer = jobBlock("windows-installer");
+    const preflight = installer.indexOf("Signing credential preflight (fail fast)");
     const build = installer.indexOf("pnpm exec tauri build --bundles nsis --ci -- --locked");
     const sign = installer.indexOf("Azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82");
     const verify = installer.indexOf("Get-AuthenticodeSignature $env:SCADMILL_INSTALLER");
-    const hash = installer.indexOf("Get-FileHash -Algorithm SHA256");
+    const hash = installer.indexOf("Hash exact setup bytes before lifecycle");
     const upload = installer.indexOf("actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02");
 
     expect(installer).toContain("runs-on: windows-latest");
@@ -65,9 +66,10 @@ describe("regular CI workflow contract", () => {
     expect(installer).toContain('certificate-profile-name: "ScottConversePublic"');
     expect(installer).toContain("if ($signature.Status -ne 'Valid')");
     expect(installer).not.toContain("azure/login");
-    expect([build, sign, verify, hash, upload]).toEqual(
-      [...[build, sign, verify, hash, upload]].sort((left, right) => left - right),
+    expect([preflight, build, sign, verify, hash, upload]).toEqual(
+      [...[preflight, build, sign, verify, hash, upload]].sort((left, right) => left - right),
     );
+    expect(preflight).toBeGreaterThanOrEqual(0);
     expect(build).toBeGreaterThanOrEqual(0);
   });
 

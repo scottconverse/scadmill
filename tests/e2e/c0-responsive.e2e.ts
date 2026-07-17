@@ -116,6 +116,41 @@ test.describe("FR-0.6 mobile-web default", () => {
       .poll(() => page.evaluate(() => document.body.scrollWidth === document.body.clientWidth))
       .toBe(true);
   });
+
+  test("provides 44px touch targets without overflowing compact mobile chrome", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/");
+
+    const welcome = page.getByRole("dialog", { name: "Welcome to ScadMill" });
+    const welcomeTargets = [
+      welcome.getByRole("button", { name: "Close welcome" }),
+      welcome.getByRole("button", { name: "New file" }),
+    ];
+    for (const target of welcomeTargets) {
+      const box = await target.boundingBox();
+      if (!box) throw new Error("Welcome touch target geometry is unavailable.");
+      expect(box.width).toBeGreaterThanOrEqual(44);
+      expect(box.height).toBeGreaterThanOrEqual(44);
+    }
+    await welcome.getByRole("button", { name: "Close welcome" }).click();
+
+    const workbenchTargets = [
+      page.getByRole("button", { name: "File", exact: true }),
+      page.getByRole("button", { name: "Open settings" }),
+      page.getByRole("button", { name: "Code", exact: true }),
+      page.getByRole("button", { name: "Files", exact: true }),
+      page.locator(".status-diagnostics"),
+    ];
+    for (const target of workbenchTargets) {
+      const box = await target.boundingBox();
+      if (!box) throw new Error("Workbench touch target geometry is unavailable.");
+      expect(box.width).toBeGreaterThanOrEqual(44);
+      expect(box.height).toBeGreaterThanOrEqual(44);
+    }
+    await expect
+      .poll(() => page.evaluate(() => document.body.scrollWidth === document.body.clientWidth))
+      .toBe(true);
+  });
 });
 
 test.describe("AC-0.c compact mobile chrome", () => {
@@ -131,7 +166,7 @@ test.describe("AC-0.c compact mobile chrome", () => {
       await dismissWelcome(page);
 
       const settings = page.getByRole("button", { name: "Open settings" });
-      const engineStatus = page.locator(".engine-banner");
+      const engineStatus = page.locator(".status-engine");
       await expect(settings).toBeVisible();
       await expect(engineStatus).toBeVisible();
       const settingsBox = await settings.boundingBox();

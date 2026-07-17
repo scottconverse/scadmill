@@ -1,10 +1,12 @@
 import type { ReactNode } from "react";
 
+import type { EngineLoadProgressStore } from "../application/engine/engine-load-progress";
 import { messages } from "../messages/en";
 import {
-  EngineUnavailableBanner,
   type EngineRecoveryState,
+  EngineUnavailableBanner,
 } from "./engine/EngineUnavailableBanner";
+import { WasmEngineProgressBanner } from "./engine/WasmEngineProgressBanner";
 
 export interface WorkbenchBannersProps {
   readonly configuredEnginePath: string;
@@ -12,8 +14,11 @@ export interface WorkbenchBannersProps {
   readonly engineChecking: boolean;
   readonly engineRecovery?: EngineRecoveryState;
   readonly settingsLoadError: boolean;
+  readonly wasmEngineProgress?: EngineLoadProgressStore;
+  readonly wasmEngineFailureMessage?: string;
   readonly children?: ReactNode;
   readonly onConfigureEnginePath?: (path: string) => void;
+  readonly onRetryWasmEngine?: () => void;
 }
 
 export function WorkbenchBanners({
@@ -22,12 +27,30 @@ export function WorkbenchBanners({
   engineChecking,
   engineRecovery,
   settingsLoadError,
+  wasmEngineProgress,
+  wasmEngineFailureMessage,
   children,
   onConfigureEnginePath,
+  onRetryWasmEngine,
 }: WorkbenchBannersProps) {
-  const showEngineRecovery = !engineAvailable && onConfigureEnginePath && engineRecovery;
-  const showEngineUnavailable = !engineAvailable && !engineChecking && !onConfigureEnginePath;
-  if (!settingsLoadError && !showEngineRecovery && !showEngineUnavailable && !children) return null;
+  const webEngine = Boolean(wasmEngineProgress);
+  const effectiveEngineRecovery: EngineRecoveryState | undefined = engineRecovery
+    ?? (!engineChecking ? { kind: "unavailable" } : undefined);
+  const showEngineRecovery = !webEngine
+    && !engineAvailable
+    && onConfigureEnginePath
+    && effectiveEngineRecovery;
+  const showEngineUnavailable = !webEngine
+    && !engineAvailable
+    && !engineChecking
+    && !onConfigureEnginePath;
+  if (
+    !settingsLoadError
+    && !showEngineRecovery
+    && !showEngineUnavailable
+    && !webEngine
+    && !children
+  ) return null;
   return (
     <div className="workbench-banners">
       {settingsLoadError && (
@@ -36,12 +59,21 @@ export function WorkbenchBanners({
       {showEngineRecovery && (
         <EngineUnavailableBanner
           configuredPath={configuredEnginePath}
-          state={engineRecovery}
+          state={effectiveEngineRecovery}
           onSave={onConfigureEnginePath}
         />
       )}
       {showEngineUnavailable && (
         <div className="engine-banner" role="status">{messages.engineUnavailable}</div>
+      )}
+      {wasmEngineProgress && (
+        <WasmEngineProgressBanner
+          available={engineAvailable}
+          checking={engineChecking}
+          progress={wasmEngineProgress}
+          failureMessage={wasmEngineFailureMessage}
+          onRetry={onRetryWasmEngine}
+        />
       )}
       {children}
     </div>

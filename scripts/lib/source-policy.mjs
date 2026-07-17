@@ -483,6 +483,7 @@ function platformModule(source) {
     if (
       moduleName.startsWith("@tauri-apps/") ||
       moduleName.includes("platform-desktop") ||
+      moduleName.includes("platform-web") ||
       moduleName.includes("desktop-shell")
     ) {
       return moduleName;

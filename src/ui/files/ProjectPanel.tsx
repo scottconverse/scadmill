@@ -15,6 +15,7 @@ import { ProjectLifecycleControls } from "./ProjectLifecycleControls";
 export interface ProjectPanelProps {
   readonly runtime: WorkbenchRuntime;
   readonly canReveal?: boolean;
+  readonly canTrash?: boolean;
   readonly storage?: ProjectStorage;
   readonly recoveryPersistence?: RecoveryPersistence;
   readonly requestedNewFile?: number;
@@ -80,6 +81,7 @@ function leafName(path: string): string {
 export function ProjectPanel({
   runtime,
   canReveal = false,
+  canTrash = false,
   storage,
   recoveryPersistence,
   requestedNewFile,
@@ -287,19 +289,21 @@ export function ProjectPanel({
                 >
                   ✎
                 </button>
-                <button
-                  aria-label={messages.deleteProjectFile(entry.path)}
-                  disabled={busy || open}
-                  onClick={() => void run(() => runtime.dispatch({
-                    kind: "delete-project-file",
-                    origin: "user",
-                    path: entry.path,
-                  }))}
-                  title={open ? messages.closeBeforeTrash : undefined}
-                  type="button"
-                >
-                  ×
-                </button>
+                {canTrash && (
+                  <button
+                    aria-label={messages.deleteProjectFile(entry.path)}
+                    disabled={busy || open}
+                    onClick={() => void run(() => runtime.dispatch({
+                      kind: "delete-project-file",
+                      origin: "user",
+                      path: entry.path,
+                    }))}
+                    title={open ? messages.closeBeforeTrash : undefined}
+                    type="button"
+                  >
+                    ×
+                  </button>
+                )}
                 <button
                   aria-label={messages.moveProjectFile(entry.path)}
                   disabled={busy}

@@ -6,15 +6,25 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Added
 
+- Contributor architecture, task-oriented user guide, and FAQ documentation covering the typed platform boundary, worker and engine isolation, storage ownership, shipped workflows, recovery, privacy, and current M3 limitations.
+
 - A digest-pinned GitHub workflow that successfully builds OpenSCAD WebAssembly from the exact approved official source commit, with parsed mutation-tested validation and independently verified JavaScript, WASM, and manifest checksums.
+- An exact native/WASM parity harness for Appendix F and three pinned official CC0 examples, with raw length, SHA-256, and first-difference evidence and no silent output normalization.
+- A single typed platform runtime composed separately for web and desktop, with declared-capability feature unions, injected clipboard/location ports, and one `App` platform dependency instead of independent shell booleans and browser globals.
+- Native Tauri File, Edit, View, Render, and Help menus, with allow-listed typed command events routed back through the same Workbench file, editor, layout, render, and help handlers while the web target retains its in-window menu bar.
+- Native `.scad` file association and single-instance routing across startup, Windows/Linux secondary launches, and macOS open events, with a deduplicated FIFO queue, exact-entry opening in a clean workspace, dirty/recovery protection, existing-window focus, and visible fail-closed wire errors.
+- OS-standard desktop window-state persistence through the exact-pinned official Tauri plugin, including normal bounds, maximized/fullscreen state, and monitor-aware position restoration; the desktop bundle identifier is now macOS-safe.
 - An artifact-independent WebAssembly worker service boundary with structured text/binary transport, fail-closed response decoding, isolated concurrent operations, render-only supersession, finite version/render/export timeouts, targeted cancellation, output replay, and never-reject value failures.
 - A pure OpenSCAD WebAssembly runtime core with fail-closed Emscripten module decoding, safe text/binary virtual-file-system staging, deterministic native-aligned parameters and CLI arguments, 3D/2D render parsing, all export mappings and PNG policy, byte-accurate output capture, and cleanup after success or failure.
 - A separately fetched OpenSCAD WebAssembly loader that pins exact artifact paths, decoded lengths, and SHA-256 values; executes JavaScript only after both artifacts verify; bounds and aborts streamed downloads; and confines any WASM fallback to a verified, lifecycle-bounded Blob URL.
 - A versioned IndexedDB storage boundary for an atomic JavaScript/WASM artifact pair, with strict own-field validation, defensive byte ownership, commit/abort-aware transactions, blocked-open cleanup, and multi-tab version-change release.
 - Verified loader integration for fresh-hash offline cache hits, all-or-nothing corrupt-pair eviction and network refresh, abort-safe execution, truthful pair-level progress, version-isolated cache keys, and availability-safe cache read/write failures.
 - A dedicated OpenSCAD WebAssembly worker adapter with dense plain-record request/progress validation, job-scoped download/output events, one lazily created cache per worker across verified-runtime retries, exception-safe buffered output replay, operation-shaped value failures, and exact standalone render/export transfers.
+- Browser selection of the verified OpenSCAD WebAssembly service through a real Vite module worker, with immutable monotonic per-asset progress, cache/network-neutral loading copy, editor-preserving failure recovery, deduplicated retry, and honest non-retryable version-mismatch reporting.
+- The exact reproducible OpenSCAD JavaScript, WebAssembly, and source-build manifest bytes locally staged at the ignored versioned static paths used by the worker, guarded by length, SHA-256, source-commit, and toolchain assertions.
 - The M3 parse-gated OpenSCAD formatter with exact Appendix E output, document and selection commands, configurable indentation, format-on-save, syntax-refusal notices, deterministic idempotence coverage, and byte-identical native geometry evidence.
 - An offline Windows NSIS setup executable with standard per-user uninstall support, a statically linked Visual C++ runtime, and a CI lane that signs with Azure Artifact Signing when credentials are available, verifies the signature, and only then generates the published checksum.
+- Hosted macOS DMG and Linux AppImage build lanes that retain unsigned artifacts when owner-side signing/notarization credentials are unavailable, enforce the pinned Rust toolchain, hash the exact installer bytes, and fail if the expected artifact is absent or ambiguous.
 - An M3 first-run welcome surface with recent-project access, a durable suppress-on-launch preference, confirmation before replacing existing work, and the three exact Appendix F OpenSCAD samples wired through the command bus, Customizer, and normal render pipeline.
 - M0 repository and clean-room provenance foundation.
 - Owner-supplied isolated independence-gate workflow.
@@ -69,6 +79,12 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Changed
 
+- Corrected web-engine privacy and quick-start claims: browser rendering fetches a same-origin, integrity-verified JavaScript/WASM pair and caches it in IndexedDB, but the public repository quarantines those bytes while Q-0033 remains unresolved.
+- Updated clean-room contribution guidance for A-8's explicitly named permissive dependency/reference whitelist while preserving the prohibition on unapproved OpenSCAD editor sources.
+
+- Removed the misleading **Move to trash** action from browser workspaces, where IndexedDB could only permanently delete the record; desktop sessions explicitly retain the real OS-trash action.
+- Split web and desktop frontend builds so versioned OpenSCAD WebAssembly assets remain separately fetched web files and are never copied into Tauri desktop resources or installers.
+- Strengthened the shared-UI platform boundary so browser-adapter imports, including erased type-only imports, fail the source-policy gate just like desktop-shell and Tauri imports.
 - Corrected the WebAssembly loader abort contract test to require a pre-aborted request to fail before network access, while retaining explicit coverage that a live caller signal reaches both artifact fetches.
 - Narrowed the Appendix C TypeScript/TSX color-variable policy to real CSS contexts, so OpenSCAD CLI options no longer fail CI while `var(...)`, CSSOM calls, and style-object custom properties remain enforced.
 - Replaced FR-2.5's obsolete 2020-class minimum with the owner-designated AMD Radeon 780M benchmark baseline under amendment A-9. The benchmark is evidence hardware, not a minimum supported-hardware claim; each candidate qualifies only through retained external evidence bound to its exact source tree and profiler harness.
@@ -125,6 +141,8 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Known policy block
 
+- Q-0033 blocks committing or publicly deploying the separately fetched OpenSCAD WebAssembly bytes until owner counsel approves the exact GPL-2.0-or-later distribution materials; the browser implementation and local ignored validation bytes remain quarantined.
+- Q-0034 blocks declaring AC-4.a parity green until the owner specifies whether canonical SVG comparison may normalize only CRLF to LF; the retained raw Windows/native and WASM artifacts and hashes remain unchanged.
 - Q-0003 leaves the final preview facet-cap algorithm open; the preview-only configuration seam is implemented without claiming that a global `$fn` override is a true cap.
 - Q-0021 parks only explicit-camera PNG exports because the pinned snapshot CLI cannot preserve Appendix A's `CameraPose.up`; default-camera PNG and all non-PNG exports continue.
 - Q-0023 asks whether the exact-date official WebAssembly archives now visible in the snapshot manifest may replace v0.6's mandated same-commit source build; M2 native work is unaffected.
@@ -138,5 +156,6 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Known verification gaps
 
+- The post-review M3 exact tree still requires one bounded aggregate verification pass and hosted exact-candidate installer lifecycle evidence; earlier green totals are retained as historical evidence, not the final verdict.
 - FR-2.5 per-candidate qualification is intentionally external: accept it only from a retained Radeon 780M evidence envelope bound to the exact candidate source tree and profiler harness.
 - `cargo audit` reports zero vulnerability failures but 17 pre-existing informational warnings in the current Tauri dependency graph, including the GTK3/glib unsoundness advisory and unmaintained GTK3, proc-macro-error, and UNIC families; current compatible upstream releases do not remove them.

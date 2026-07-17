@@ -2,7 +2,7 @@ import { parseProjectPath, validateProjectLayout } from "./project-path";
 import type { ProjectFileContent, ProjectSnapshot } from "./project-snapshot";
 
 export interface ProjectStorage {
-  snapshot(projectId: string): Promise<ProjectSnapshot>;
+  snapshot(projectId: string, entryFile?: string): Promise<ProjectSnapshot>;
   read?(projectId: string, path: string): Promise<ProjectFileContent | undefined>;
   write(projectId: string, path: string, content: ProjectFileContent): Promise<void>;
   move(projectId: string, from: string, to: string): Promise<void>;

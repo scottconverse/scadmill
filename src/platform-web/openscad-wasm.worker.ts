@@ -19,8 +19,10 @@ const productionDependencies: OpenScadWasmWorkerProductionDependencies = {
 export function createProductionOpenScadWasmLoader(
   scope: OpenScadWasmWorkerScope,
   dependencies: OpenScadWasmWorkerProductionDependencies = productionDependencies,
+  deploymentBaseUrl = import.meta.env.BASE_URL,
 ): OpenScadWasmRuntimeLoader {
-  const artifactBaseUrl = new URL("/openscad-engine/", scope.location.href);
+  const applicationBaseUrl = new URL(deploymentBaseUrl, scope.location.href);
+  const artifactBaseUrl = new URL("openscad-engine/", applicationBaseUrl);
   let cacheCreated = false;
   let cache: ReturnType<typeof createAvailableOpenScadWasmArtifactCache>;
   return (onProgress) => {

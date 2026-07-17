@@ -40,6 +40,32 @@ describe("Tauri project storage", () => {
     ]);
   });
 
+  it("requests an entry-scoped snapshot for an OS-associated model", async () => {
+    const invoke = vi.fn().mockResolvedValue({
+      projectId: "C:\\Models",
+      workspaceIdentityMaterial: "C:\\Models",
+      files: [
+        {
+          path: "gear.scad",
+          text: true,
+          contentsBase64: "aW5jbHVkZSA8bGliL3RlZXRoLnNjYWQ+",
+        },
+        { path: "lib/teeth.scad", text: true, contentsBase64: "bW9kdWxlIHRlZXRoKCkge30=" },
+      ],
+    });
+
+    const snapshot = await createTauriProjectStorage(invoke).snapshot(
+      "C:\\Models",
+      "gear.scad",
+    );
+
+    expect(invoke).toHaveBeenCalledWith("project_snapshot", {
+      projectId: "C:\\Models",
+      entryFile: "gear.scad",
+    });
+    expect([...snapshot.files.keys()]).toEqual(["gear.scad", "lib/teeth.scad"]);
+  });
+
   it("reads only one requested file for external-change monitoring", async () => {
     const invoke = vi.fn().mockResolvedValue({
       path: "main.scad",

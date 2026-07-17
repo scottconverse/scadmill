@@ -147,7 +147,7 @@ async function preserveRunner(): Promise<Record<string, string>> {
 test.describe("M2 real-browser gate", () => {
   test.use({ viewport: { width: 1280, height: 720 } });
 
-  test("fresh missing-engine session preserves autosave and composes a startup share", async ({
+  test("fresh browser-engine session preserves autosave and composes a startup share", async ({
     page,
   }) => {
     const pageErrors: string[] = [];
@@ -159,9 +159,11 @@ test.describe("M2 real-browser gate", () => {
 
     await page.goto("/");
     await dismissWelcome(page);
-    await expect(page.getByRole("status").filter({ hasText: "OpenSCAD is unavailable" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Render preview", exact: true })).toBeDisabled();
-    await expect(page.getByRole("button", { name: "Full render", exact: true })).toBeDisabled();
+    await expect(page.locator(".status-engine")).toHaveText("OpenSCAD 2026.06.12", {
+      timeout: 30_000,
+    });
+    await expect(page.getByRole("button", { name: "Render preview", exact: true })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Full render", exact: true })).toBeEnabled();
     await expect(page.getByRole("tab", { name: "Untitled", exact: true })).toBeVisible();
     expect(await editorSource(page)).toBe("");
     expect(await page.evaluate(() => Object.keys(localStorage).sort())).toEqual([]);
@@ -176,10 +178,10 @@ test.describe("M2 real-browser gate", () => {
       await mkdir(GATE_ARTIFACT_DIR, { recursive: true });
       await page.screenshot({
         fullPage: true,
-        path: join(GATE_ARTIFACT_DIR, "first-run-dependency-absent.png"),
+        path: join(GATE_ARTIFACT_DIR, "first-run-browser-engine-ready.png"),
       });
       await writeFile(
-        join(GATE_ARTIFACT_DIR, "first-run-dependency-absent.html"),
+        join(GATE_ARTIFACT_DIR, "first-run-browser-engine-ready.html"),
         await page.content(),
         "utf8",
       );
@@ -226,10 +228,10 @@ test.describe("M2 real-browser gate", () => {
       generatedAt: new Date().toISOString(),
       profile: "fresh Playwright Chromium context",
       viewport: { width: 1280, height: 720 },
-      dependency: { openscad: "ABSENT (web target uses UnavailableEngineService)" },
+      dependency: { openscad: "PINNED WASM 2026.06.12 (verified browser artifact)" },
       initialData: { document: "Untitled", source: "", project: "none" },
       initialStorageKeys: [],
-      renderDisabled: true,
+      renderEnabled: true,
       consoleInitiallyHidden: true,
       viewerMinimumObservedHeight: 260,
       autosave: { key: SCRATCH_AUTOSAVE_KEY, exactSource: persistedSource, survivedReload: true },
@@ -249,7 +251,7 @@ test.describe("M2 real-browser gate", () => {
     });
   });
 
-  test("real IndexedDB persists create, write, move, trash, reload, and binary bytes", async ({
+  test("real IndexedDB persists create, write, move, reload, and binary bytes without OS trash", async ({
     page,
   }) => {
     const pageErrors: string[] = [];
@@ -306,11 +308,9 @@ test.describe("M2 real-browser gate", () => {
 
     await page.getByRole("button", { name: "Close draft.scad" }).click();
     await files.getByRole("button", { name: "Expand parts" }).click();
-    await files.getByRole("button", { name: "Move parts/draft.scad to trash" }).click();
-    await expect.poll(async () => {
-      const project = (await indexedDbProjects(page)).find((record) => record.projectId === projectId);
-      return project?.files.some(({ path }) => path === "parts/draft.scad");
-    }).toBe(false);
+    await expect(files.getByRole("button", { name: "Move parts/draft.scad to trash" }))
+      .toHaveCount(0);
+    await expect(files.getByRole("button", { name: "draft.scad", exact: true })).toBeVisible();
 
     await files.getByLabel("Import project ZIP").setInputFiles({
       name: "binary-gate.zip",
@@ -335,6 +335,9 @@ test.describe("M2 real-browser gate", () => {
       .getByRole("button", { name: "Confirm project replacement" }).click();
     await expect.poll(() => editorSource(page)).toBe(mainSource);
     const afterReload = await indexedDbProjects(page);
+    const reloadedProject = afterReload.find(({ projectId: id }) => id === projectId);
+    expect(reloadedProject?.files.find(({ path }) => path === "parts/draft.scad")?.text)
+      .toBe(draftSource);
     const reloadedImported = afterReload.find(({ projectId: id }) => id === imported?.projectId);
     expect(reloadedImported?.files.find(({ path }) => path === "assets/pixel.bin")?.bytes)
       .toEqual([...binaryBytes]);
@@ -347,11 +350,12 @@ test.describe("M2 real-browser gate", () => {
       generatedAt: new Date().toISOString(),
       browserStorage: "native Chromium IndexedDB",
       databaseName: DATABASE_NAME,
-      operations: ["discoverable create", "write", "move", "trash", "reload", "binary roundtrip"],
+      operations: ["discoverable create", "write", "move", "reload", "binary roundtrip"],
       projectName,
       projectId,
       exactMainSource: mainSource,
-      trashedPathAbsent: true,
+      osTrashControlAbsent: true,
+      movedPathRetained: true,
       importedProjectId: imported?.projectId,
       binaryPath: "assets/pixel.bin",
       binaryBytes: [...binaryBytes],
@@ -365,7 +369,7 @@ test.describe("M2 real-browser gate", () => {
 test.describe("M2 compact first run", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test("keeps the missing-engine first run usable on a mobile viewport", async ({ page }) => {
+  test("keeps the browser-engine first run usable on a mobile viewport", async ({ page }) => {
     const pageErrors: string[] = [];
     const consoleErrors: string[] = [];
     page.on("pageerror", (error) => pageErrors.push(error.message));
@@ -376,8 +380,10 @@ test.describe("M2 compact first run", () => {
     await dismissWelcome(page);
     await expect(page.getByRole("tab", { name: "Untitled", exact: true })).toBeVisible();
     expect(await editorSource(page)).toBe("");
-    await expect(page.getByRole("button", { name: "Render preview", exact: true })).toBeDisabled();
-    await expect(page.getByRole("status").filter({ hasText: "OpenSCAD is unavailable" })).toBeVisible();
+    await expect(page.locator(".status-engine")).toHaveText("OpenSCAD 2026.06.12", {
+      timeout: 30_000,
+    });
+    await expect(page.getByRole("button", { name: "Render preview", exact: true })).toBeEnabled();
     await page.getByRole("button", { name: "Model", exact: true }).click();
     await expect(page.locator(".workspace-viewer-surface")).toBeVisible();
     await expect(page.getByRole("region", { name: "Console" })).toBeHidden();

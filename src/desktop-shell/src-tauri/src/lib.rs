@@ -12,8 +12,10 @@ use std::time::Duration;
 use tauri::{AppHandle, Manager, State, ipc::Channel};
 
 mod artifact_storage;
+mod associated_files;
 mod desktop_settings;
 mod keychain;
+mod native_menu;
 mod project_storage;
 
 #[derive(Debug, Deserialize)]
@@ -377,9 +379,32 @@ mod tests;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(
+            |app, arguments, working_directory| {
+                let pending = app.state::<associated_files::AssociatedFileQueue>();
+                let queued = pending.enqueue_arguments(
+                    arguments.into_iter().skip(1).map(Into::into),
+                    Path::new(&working_directory),
+                );
+                associated_files::focus_main_window(app);
+                if queued > 0 {
+                    associated_files::wake_frontend(app);
+                }
+            },
+        ))
+        .menu(native_menu::build)
+        .on_menu_event(native_menu::handle_event)
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_window_state::Builder::default().build())
+        .manage(associated_files::AssociatedFileQueue::default())
         .manage(NativeJobs::default())
+        .setup(|app| {
+            let current_directory = std::env::current_dir().unwrap_or_default();
+            app.state::<associated_files::AssociatedFileQueue>()
+                .enqueue_arguments(std::env::args_os().skip(1), &current_directory);
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             render_native,
             export_native,
@@ -396,8 +421,23 @@ pub fn run() {
             project_storage::project_move,
             project_storage::project_trash,
             project_storage::project_reveal,
-            artifact_storage::save_artifact
+            artifact_storage::save_artifact,
+            associated_files::take_pending_associated_files,
+            native_menu::update_native_menu_state,
+            native_menu::disable_native_menu,
         ])
-        .run(tauri::generate_context!())
+        .build(tauri::generate_context!())
         .expect("ScadMill desktop runtime failed");
+    app.run(|app, event| {
+        #[cfg(target_os = "macos")]
+        if let tauri::RunEvent::Opened { urls } = event {
+            let pending = app.state::<associated_files::AssociatedFileQueue>();
+            if pending.enqueue_macos_urls(urls) > 0 {
+                associated_files::focus_main_window(app);
+                associated_files::wake_frontend(app);
+            }
+        }
+        #[cfg(not(target_os = "macos"))]
+        let _ = (app, event);
+    });
 }

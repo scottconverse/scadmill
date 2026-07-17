@@ -317,6 +317,23 @@ describe("OpenScadWasmWorkerAdapter", () => {
     ]);
   });
 
+  it("keeps separately fetched engine assets beneath a configured static-host subpath", async () => {
+    const scope = new FakeScope();
+    const cache = { read: vi.fn(), write: vi.fn(), remove: vi.fn() };
+    const loadVerified = vi.fn().mockResolvedValue(runtime());
+    const load = createProductionOpenScadWasmLoader(
+      scope,
+      { createCache: () => cache, loadVerified },
+      "/scadmill/",
+    );
+
+    await expect(load(() => undefined)).resolves.toBeDefined();
+
+    expect(String(loadVerified.mock.calls[0]?.[0].artifactBaseUrl)).toBe(
+      "https://studio.example/scadmill/openscad-engine/",
+    );
+  });
+
   it("isolates postMessage failures and boots the production message handler", async () => {
     const scope = new FakeScope();
     scope.postError = new Error("port closed");

@@ -9,16 +9,17 @@ import { DiagnosticConsole } from "./diagnostics/DiagnosticConsole";
 import { useDiagnosticNavigation } from "./diagnostics/use-diagnostic-navigation";
 import type { CodeEditorSession, CursorPosition } from "./editor/CodeEditor";
 import { DocumentTabBar, documentTabId } from "./editor/DocumentTabBar";
-import { useProjectCompletionContext } from "./editor/use-project-completion-context";
 import { useDocumentKeybindings } from "./editor/use-document-keybindings";
 import { useEditorCommandCoordinator } from "./editor/use-editor-command-coordinator";
-import type { EngineRecoveryState } from "./engine/EngineUnavailableBanner";
+import { useProjectCompletionContext } from "./editor/use-project-completion-context";
 import { FilesActivity } from "./files/FilesActivity";
-import type { ProjectOpenRequest } from "./files/ProjectLifecycleControls";
 import { ProjectSessionHost } from "./files/ProjectSessionHost";
 import { useFileCommands } from "./files/use-file-commands";
+import { useProjectOpenQueue } from "./files/use-project-open-queue";
 import { useLayoutKeybindings } from "./layout/use-layout-keybindings";
 import { useNarrowLayout } from "./layout/use-narrow-layout";
+import { useNativeMenuState } from "./layout/use-native-menu-state";
+import { usePlatformMenuCommands } from "./layout/use-platform-menu-commands";
 import { WebMenuBar } from "./layout/WebMenuBar";
 import { WorkbenchStatusBar } from "./layout/WorkbenchStatusBar";
 import { WorkspaceFrame } from "./layout/WorkspaceFrame";
@@ -29,30 +30,28 @@ import { SettingsLauncher } from "./settings/SettingsLauncher";
 import { useReadonlyStore } from "./use-readonly-store";
 import { resolveActiveViewerPresentation } from "./viewer/active-viewer-presentation";
 import { ViewerPaneConnector } from "./viewer/ViewerPaneConnector";
+import { WorkbenchBanners } from "./WorkbenchBanners";
+import { DismissibleNotice, NativeHelpPanel } from "./WorkbenchOverlays";
 import { WelcomeLauncher } from "./welcome/WelcomeLauncher";
 import type { WorkbenchProps } from "./workbench-props";
-import { WorkbenchBanners } from "./WorkbenchBanners";
 import { diagnosticStatusLabel, renderStatusLabel } from "./workbench-status";
 import "./workbench.css";
 const CodeEditor = lazy(() => import("./editor/CodeEditor").then((module) => ({ default: module.CodeEditor })));
 export function Workbench({
   runtime, engine, secretStore = EPHEMERAL_SECRET_STORE,
-  engineLabel,
-  engineAvailable = true,
-  engineChecking = false,
-  engineRecovery,
+  engineLabel, engineAvailable = true, engineChecking = false, engineRecovery,
+  wasmEngineProgress, wasmEngineFailureMessage,
   activeTheme,
   customThemes = [],
   themePreference,
-  showWebMenu = true,
-  forceNarrowLayout = false,
-  canRevealProjectFiles, projectStorage, directoryPicker, workspaceDirectory,
+  showWebMenu = true, menuCommandSource, associatedFileOpenSource, forceNarrowLayout = false,
+  canRevealProjectFiles, canTrashProjectFiles, clipboard,
+  projectStorage, directoryPicker, workspaceDirectory,
   recoveryPersistence,
   projectPortability,
   scratchAutosavePersistence, showWelcomeOnLaunch = false,
   onThemePreferenceChange, onWelcomePreferenceChange = () => undefined,
-  configuredEnginePath = "",
-  onConfigureEnginePath,
+  configuredEnginePath = "", onConfigureEnginePath, onRetryWasmEngine,
 }: WorkbenchProps) {
   const documents = useReadonlyStore(runtime.documents, (state) => state);
   const document = activeDocument(documents);
@@ -80,14 +79,14 @@ export function Workbench({
     runtime,
     workspace: documents,
   });
-  const effectiveEngineRecovery: EngineRecoveryState | undefined = engineRecovery
-    ?? (!engineChecking ? { kind: "unavailable" } : undefined);
   const workbenchRoot = useRef<HTMLElement>(null);
   const editorSessions = useRef(new Map<string, CodeEditorSession>());
   const statusConsoleButton = useRef<HTMLButtonElement>(null);
   const [cursor, setCursor] = useState<CursorPosition>({ line: 1, column: 1 });
-  const [requestedProject, setRequestedProject] = useState<ProjectOpenRequest>();
+  const { dismissError: dismissAssociatedFileOpenError, enqueue: enqueueProject,
+    error: associatedFileOpenError, request: requestedProject, settle: settleProjectRequest } = useProjectOpenQueue(associatedFileOpenSource);
   const [recoveryPending, setRecoveryPending] = useState(false);
+  const [nativeHelpVisible, setNativeHelpVisible] = useState(false);
   const diagnosticStatus = diagnosticStatusLabel(presentation.failure ?? presentation.result, document.path);
   const renderStatus = renderStatusLabel(render, presentation.stale, document.path);
   const consoleVisible = narrow
@@ -96,6 +95,7 @@ export function Workbench({
   const consoleContent = (
     <DiagnosticConsole
       canNavigate={diagnosticNavigation.canNavigate}
+      clipboard={clipboard}
       emptyMessage={messages.noCurrentDiagnostics(document.path)}
       navigableJobId={presentation.currentResult ? render.jobId : undefined}
       onClear={() => void runtime.dispatch({ kind: "clear-console", origin: "user" })}
@@ -130,9 +130,9 @@ export function Workbench({
     scratchPersistence: scratchAutosavePersistence,
     narrow, onLayoutAction: dispatchLayout, directoryPicker,
     formatter: formatterSettings,
-    onProjectSelected: (selection) => setRequestedProject((current) =>
-      ({ sequence: (current?.sequence ?? 0) + 1, ...selection })),
+    onProjectSelected: enqueueProject,
   });
+  const nativeMenuState = useNativeMenuState({ activeDocumentId: document.id, documents, engineAvailable, keybindings, layout, narrow, rendering: render.status === "rendering", saveAllDisabled: fileCommands.saveAllDisabled, saveDisabled: fileCommands.saveDisabled });
   const focusConsole = useCallback(() => {
     if (!consoleVisible) {
       dispatchLayout(narrow
@@ -184,6 +184,20 @@ export function Workbench({
     onNewFile: fileCommands.newFile, onOpenProject: fileCommands.openProject,
     onExport: fileCommands.exportModel,
   });
+  usePlatformMenuCommands(menuCommandSource, layout, narrow, {
+    closeDocument: () => closeDocument(document.id),
+    editorCommand: editorCommands.requestCommand,
+    exportModel: fileCommands.exportModel,
+    layoutAction: dispatchLayout,
+    newFile: fileCommands.newFile,
+    openProject: fileCommands.openProject,
+    renderFull,
+    renderPreview,
+    reopenDocument,
+    save: fileCommands.save,
+    saveAll: fileCommands.saveAll,
+    showHelp: () => setNativeHelpVisible((visible) => !visible),
+  }, nativeMenuState);
   const cachedEditorSession = editorSessions.current.get(document.id);
   const initialEditorSession = cachedEditorSession?.state.doc.toString() === document.source
     ? cachedEditorSession
@@ -266,57 +280,36 @@ export function Workbench({
   );
   const viewer = (
     <ViewerPaneConnector
-      colors={activeTheme.viewer}
-      dimmed={presentation.dimmed}
-      documentId={document.id}
-      engineAvailable={engineAvailable}
-      engineChecking={engineChecking}
-      failure={presentation.failure}
-      maximized={layout.maximized === "viewer"}
-      narrow={narrow}
-      quality={presentation.quality}
+      colors={activeTheme.viewer} dimmed={presentation.dimmed} documentId={document.id}
+      engineAvailable={engineAvailable} engineChecking={engineChecking}
+      failure={presentation.failure} maximized={layout.maximized === "viewer"}
+      narrow={narrow} quality={presentation.quality}
       renderJobId={presentation.status === "rendering" ? render.jobId : undefined}
       renderStartedAtMonotonicMs={presentation.status === "rendering" ? render.startedAtMonotonicMs : undefined}
       renderStartedAtMs={presentation.status === "rendering" ? render.startedAtMs : undefined}
-      renderStatus={presentation.status}
-      result={presentation.result}
-      runtime={runtime}
-      viewer={activeViewer}
-      onLayoutAction={dispatchLayout}
-      onShowConsole={focusConsole}
+      renderStatus={presentation.status} result={presentation.result} runtime={runtime}
+      viewer={activeViewer} onLayoutAction={dispatchLayout} onShowConsole={focusConsole}
     />
   );
   return (
     <main className={`workbench${showWebMenu ? " workbench-with-web-menu" : ""}`} ref={workbenchRoot}>
       {showWebMenu && (
         <WebMenuBar
-          closeDocumentDisabled={!canCloseDocument(documents, document.id)}
-          layout={layout}
-          keybindings={keybindings}
-          narrow={narrow}
+          closeDocumentDisabled={!canCloseDocument(documents, document.id)} layout={layout}
+          keybindings={keybindings} narrow={narrow}
           reopenDocumentDisabled={!canReopenDocument(documents)}
           renderDisabled={!engineAvailable || render.status === "rendering"}
-          saveDocumentDisabled={fileCommands.saveDisabled}
-          saveAllDocumentsDisabled={fileCommands.saveAllDisabled}
+          saveDocumentDisabled={fileCommands.saveDisabled} saveAllDocumentsDisabled={fileCommands.saveAllDisabled}
           saveDocumentUnavailableReason={fileCommands.saveUnavailableReason}
           saveAllDocumentsUnavailableReason={fileCommands.saveAllUnavailableReason}
-          onCloseDocument={() => closeDocument(document.id)}
-          onEditorCommand={editorCommands.requestCommand}
-          onLayoutAction={dispatchLayout}
-          onReopenDocument={reopenDocument}
-          onSaveDocument={fileCommands.save}
-          onSaveAllDocuments={fileCommands.saveAll}
-          onNewFile={fileCommands.newFile}
-          onOpenProject={fileCommands.openProject}
+          onCloseDocument={() => closeDocument(document.id)} onEditorCommand={editorCommands.requestCommand}
+          onLayoutAction={dispatchLayout} onReopenDocument={reopenDocument}
+          onSaveDocument={fileCommands.save} onSaveAllDocuments={fileCommands.saveAll}
+          onNewFile={fileCommands.newFile} onOpenProject={fileCommands.openProject}
           onExport={fileCommands.exportModel}
           recentProjects={projectState.recentProjects}
-          onOpenRecentProject={(projectId, displayName) => setRequestedProject((current) => ({
-            sequence: (current?.sequence ?? 0) + 1,
-            projectId,
-            displayName,
-          }))}
-          onRenderFull={renderFull}
-          onRenderPreview={renderPreview}
+          onOpenRecentProject={(projectId, displayName) => enqueueProject({ projectId, displayName })}
+          onRenderFull={renderFull} onRenderPreview={renderPreview}
         />
       )}
       <header className="titlebar">
@@ -324,7 +317,7 @@ export function Workbench({
           <span className="brand-mark" aria-hidden="true">S</span>
           <h1>{messages.appName}</h1>
         </div>
-        <WelcomeLauncher documents={documents} project={projectState} runtime={runtime} showOnLaunch={showWelcomeOnLaunch} onNewFile={fileCommands.newFile} onOpenProject={fileCommands.openProject} onOpenRecentProject={(projectId, displayName) => setRequestedProject((current) => ({ sequence: (current?.sequence ?? 0) + 1, projectId, displayName }))} onShowOnLaunchChange={onWelcomePreferenceChange} />
+        <WelcomeLauncher documents={documents} project={projectState} runtime={runtime} showOnLaunch={showWelcomeOnLaunch} onNewFile={fileCommands.newFile} onOpenProject={fileCommands.openProject} onOpenRecentProject={(projectId, displayName) => enqueueProject({ projectId, displayName })} onShowOnLaunchChange={onWelcomePreferenceChange} />
         <SettingsLauncher engineLabel={engineLabel} runtime={runtime} secretStore={secretStore} />
         <RenderControls
           autoRender={autoRender}
@@ -339,34 +332,39 @@ export function Workbench({
           onRenderPreview={renderPreview}
         />
       </header>
+      {!showWebMenu && nativeHelpVisible && (
+        <NativeHelpPanel onClose={() => setNativeHelpVisible(false)} onOpenSettings={() => {
+          setNativeHelpVisible(false); workbenchRoot.current?.querySelector<HTMLButtonElement>(".settings-launcher")?.click();
+        }} />
+      )}
       <WorkbenchBanners
-        configuredEnginePath={configuredEnginePath}
-        engineAvailable={engineAvailable}
-        engineChecking={engineChecking}
-        engineRecovery={effectiveEngineRecovery}
+        configuredEnginePath={configuredEnginePath} engineAvailable={engineAvailable}
+        engineChecking={engineChecking} engineRecovery={engineRecovery}
         settingsLoadError={settingsPersistenceStatus.status === "load-error"}
+        wasmEngineProgress={wasmEngineProgress} wasmEngineFailureMessage={wasmEngineFailureMessage}
         onConfigureEnginePath={settingsPersistenceStatus.status === "load-error"
           ? undefined
           : onConfigureEnginePath}
+        onRetryWasmEngine={onRetryWasmEngine}
       >
+        {associatedFileOpenError && <DismissibleNotice message={associatedFileOpenError} onDismiss={dismissAssociatedFileOpenError} />}
         {fileCommands.notice && (
           <p className="file-command-notice" role="alert">{fileCommands.notice}</p>
         )}
         <ProjectSessionHost
-          portability={projectPortability}
-          recoveryPersistence={recoveryPersistence}
-          requestedProject={requestedProject}
-          runtime={runtime}
-          scratchAutosavePersistence={scratchAutosavePersistence}
-          storage={projectStorage}
-          onRecoveryPendingChange={setRecoveryPending}
+          portability={projectPortability} recoveryPersistence={recoveryPersistence}
+          requestedProject={requestedProject} onRequestedProjectSettled={settleProjectRequest}
+          onSaveAll={fileCommands.saveAll} saveAllDisabled={fileCommands.saveAllDisabled} saveAllUnavailableReason={fileCommands.saveAllUnavailableReason}
+          runtime={runtime} scratchAutosavePersistence={scratchAutosavePersistence}
+          storage={projectStorage} onRecoveryPendingChange={setRecoveryPending}
         />
       </WorkbenchBanners>
       <WorkspaceFrame
         activityContent={{
           files: (
             <FilesActivity
-              canReveal={canRevealProjectFiles} directoryPicker={directoryPicker}
+              canReveal={canRevealProjectFiles} canTrash={canTrashProjectFiles}
+              directoryPicker={directoryPicker}
               engine={engineAvailable ? engine : undefined}
               portability={projectPortability}
               recoveryPersistence={recoveryPersistence}

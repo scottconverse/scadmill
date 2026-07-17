@@ -1,10 +1,10 @@
 // @vitest-environment happy-dom
 import { EditorView } from "@codemirror/view";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { StrictMode } from "react";
+import { type ComponentProps, StrictMode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { App } from "../../src/app/App";
+import { App as ProductionApp } from "../../src/app/App";
 import type { EngineService, RenderFailure, RenderSuccess3D } from "../../src/application/engine/contracts";
 import { PINNED_OPENSCAD_VERSION } from "../../src/application/engine/engine-pin";
 import type { WorkspaceLayoutPersistence } from "../../src/application/runtime/layout-persistence";
@@ -17,6 +17,14 @@ import { SHIPPED_THEMES } from "../../src/application/theme/shipped-themes";
 import { customThemePreference } from "../../src/application/theme/theme-registry";
 import { messages } from "../../src/messages/en";
 import { createBrowserSettingsPersistence } from "../../src/platform-web/browser-settings-persistence";
+import { createTestPlatform, type TestPlatformOverrides } from "../helpers/test-platform";
+
+function App({ engine, themeHost, ...overrides }: TestPlatformOverrides & {
+  readonly engine: EngineService;
+  readonly themeHost?: ComponentProps<typeof ProductionApp>["themeHost"];
+}) {
+  return <ProductionApp platform={createTestPlatform(engine, overrides)} themeHost={themeHost} />;
+}
 
 class FakeDarkModeQuery {
   matches: boolean;
@@ -44,6 +52,10 @@ function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((done) => { resolve = done; });
   return { promise, resolve };
+}
+
+function nonEmptyScratch(source = "cube(10);") {
+  return { load: () => source, save: vi.fn() };
 }
 
 describe("App", () => {
@@ -95,10 +107,11 @@ describe("App", () => {
     );
     const app = within(view.container);
 
-    await waitFor(() => expect(engine.render).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(engine.version).toHaveBeenCalledTimes(1));
+    expect(engine.render).not.toHaveBeenCalled();
     fireEvent.click(app.getByRole("button", { name: "Open sample Parametric storage box" }));
 
-    await waitFor(() => expect(engine.render).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(engine.render).toHaveBeenCalledTimes(1));
     const request = vi.mocked(engine.render).mock.calls.at(-1)?.[0];
     expect(request?.entryFile).toBe("parametric_box.scad");
     expect(request?.files.get("parametric_box.scad")).toContain("module box()");
@@ -186,7 +199,7 @@ describe("App", () => {
 
     render(
       <StrictMode>
-        <App engine={engine} />
+        <App engine={engine} scratchAutosavePersistence={nonEmptyScratch()} />
       </StrictMode>,
     );
 
@@ -270,7 +283,13 @@ describe("App", () => {
       save: vi.fn(),
     };
 
-    render(<App engine={engine} settingsPersistence={settingsPersistence} />);
+    render(
+      <App
+        engine={engine}
+        scratchAutosavePersistence={nonEmptyScratch()}
+        settingsPersistence={settingsPersistence}
+      />,
+    );
 
     await waitFor(() => expect(engine.render).toHaveBeenCalledTimes(1));
     expect(engine.render).toHaveBeenCalledWith(expect.objectContaining({
@@ -373,7 +392,13 @@ describe("App", () => {
       load: vi.fn(() => configuredPath),
       save: vi.fn((path: string) => { configuredPath = path; }),
     };
-    const view = render(<App engine={engine} enginePathConfiguration={configuration} />);
+    const view = render(
+      <App
+        engine={engine}
+        enginePathConfiguration={configuration}
+        scratchAutosavePersistence={nonEmptyScratch()}
+      />,
+    );
     const app = within(view.container);
     const fix = await app.findByRole("button", { name: messages.fixEngine });
 

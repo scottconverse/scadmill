@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-16-m3-typed-platform-runtime",
+  "createdAt": "2026-07-16T14:24:00-06:00",
+  "summary": "Replace independent shell booleans and browser-global fallbacks with one typed platform runtime composed honestly for web and desktop.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 M3 delivery protocol",
+    "FR-13.1 typed platform interface",
+    "FR-13.3 declared web degradation",
+    "AC-13.a platform import boundary",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-16-m3-typed-platform-runtime.json", "status": "added" },
+    { "path": "src/app/App.tsx", "status": "modified" },
+    { "path": "src/application/files/workbench-portability.ts", "status": "modified" },
+    { "path": "src/application/platform/scadmill-platform.ts", "status": "added" },
+    { "path": "src/main.tsx", "status": "modified" },
+    { "path": "src/platform-desktop/desktop-platform.ts", "status": "added" },
+    { "path": "src/platform-web/web-platform.ts", "status": "added" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/diagnostics/DiagnosticConsole.tsx", "status": "modified" },
+    { "path": "src/ui/workbench-props.ts", "status": "modified" },
+    { "path": "tests/app/App.portability-fallback.test.tsx", "status": "modified" },
+    { "path": "tests/app/App.test.tsx", "status": "modified" },
+    { "path": "tests/app/App.wasm-engine.test.tsx", "status": "modified" },
+    { "path": "tests/helpers/test-platform.ts", "status": "added" },
+    { "path": "tests/platform-desktop/desktop-platform.test.ts", "status": "added" },
+    { "path": "tests/platform-web/web-platform.test.ts", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0267",
+      "topic": "One honest platform composition root",
+      "decision": "Require App to receive a ScadMillPlatform value that groups engine, files, dialogs, menus, clipboard, location, persistence, keychain-backed secrets, MCP, window controls, and engine management. Represent optional features with a discriminated available/service union and compose separate web and desktop values at the entry point.",
+      "rationale": "Independent booleans and optional services could contradict each other, while clipboard and share-link fallbacks let shared code reach browser globals directly. One typed value makes capability absence explicit, confines globals to adapters, and creates the command/window seams required for the remaining C13 shell work.",
+      "specBasis": ["FR-13.1", "FR-13.3", "AC-13.a", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Web and desktop composition declare only implemented capabilities, shared portability/UI code uses injected ports, and existing App behavior remains intact.",
+      "test": "Exercise both platform factories, the portability controller, source-policy scanner, App recovery/portability journeys, diagnostic clipboard path, and strict TypeScript.",
+      "red": {
+        "command": "Independent C13 source audit",
+        "observedAt": "2026-07-16T14:08:00-06:00",
+        "outcome": "RED: one major unified-contract gap remained; App accepted unrelated platform booleans/services and shared portability/diagnostic code directly accessed browser clipboard globals."
+      },
+      "green": {
+        "command": "Focused Vitest platform/portability/source-policy 67/67; focused App/UI 29/29; pnpm.cmd typecheck; node scripts/check-source-policy.mjs; git diff --check",
+        "observedAt": "2026-07-16T14:24:00-06:00",
+        "outcome": "GREEN: all 96 focused tests passed. Strict TypeScript and source policy exited 0; shared UI stayed within the 400-line cap and imports no platform implementation."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

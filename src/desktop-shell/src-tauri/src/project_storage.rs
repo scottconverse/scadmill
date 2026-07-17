@@ -1,5 +1,6 @@
 use base64::Engine as _;
 use serde::Serialize;
+use std::collections::{HashMap, VecDeque};
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -272,6 +273,315 @@ fn snapshot_project(root: &Path) -> Result<ProjectSnapshotWire, String> {
     })
 }
 
+fn skip_open_scad_trivia(source: &[u8], mut index: usize) -> usize {
+    loop {
+        while source.get(index).is_some_and(u8::is_ascii_whitespace) {
+            index += 1;
+        }
+        if source.get(index..index + 2) == Some(b"//") {
+            index += 2;
+            while source.get(index).is_some_and(|byte| *byte != b'\n') {
+                index += 1;
+            }
+            continue;
+        }
+        if source.get(index..index + 2) == Some(b"/*") {
+            index += 2;
+            while index + 1 < source.len() && &source[index..index + 2] != b"*/" {
+                index += 1;
+            }
+            index = (index + 2).min(source.len());
+            continue;
+        }
+        return index;
+    }
+}
+
+fn open_scad_string_literal(source: &str, start: usize) -> Option<(Option<String>, usize)> {
+    let bytes = source.as_bytes();
+    if bytes.get(start) != Some(&b'"') {
+        return None;
+    }
+    let mut index = start + 1;
+    let mut escaped = false;
+    while index < bytes.len() {
+        match bytes[index] {
+            b'\\' => {
+                escaped = true;
+                index = (index + 2).min(bytes.len());
+            }
+            b'"' => {
+                let value = if escaped {
+                    None
+                } else {
+                    Some(source[start + 1..index].to_string())
+                };
+                return Some((value, index + 1));
+            }
+            _ => index += 1,
+        }
+    }
+    Some((None, bytes.len()))
+}
+
+fn open_scad_call_reference(
+    source: &str,
+    identifier_end: usize,
+    named_parameter: &str,
+    positional: bool,
+) -> Option<String> {
+    let bytes = source.as_bytes();
+    let open = skip_open_scad_trivia(bytes, identifier_end);
+    if bytes.get(open) != Some(&b'(') {
+        return None;
+    }
+    let first_argument = skip_open_scad_trivia(bytes, open + 1);
+    if positional
+        && let Some((Some(reference), _)) = open_scad_string_literal(source, first_argument)
+    {
+        return Some(reference);
+    }
+
+    let mut depth = 1_u32;
+    let mut index = open + 1;
+    while index < bytes.len() && depth > 0 {
+        let next = skip_open_scad_trivia(bytes, index);
+        if next != index {
+            index = next;
+            continue;
+        }
+        match bytes[index] {
+            b'"' => {
+                let (_, end) = open_scad_string_literal(source, index)?;
+                index = end;
+            }
+            b'(' => {
+                depth += 1;
+                index += 1;
+            }
+            b')' => {
+                depth -= 1;
+                index += 1;
+            }
+            byte if depth == 1 && (byte.is_ascii_alphabetic() || byte == b'_') => {
+                let parameter_start = index;
+                index += 1;
+                while bytes
+                    .get(index)
+                    .is_some_and(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
+                {
+                    index += 1;
+                }
+                if &source[parameter_start..index] != named_parameter {
+                    continue;
+                }
+                let equals = skip_open_scad_trivia(bytes, index);
+                if bytes.get(equals) != Some(&b'=') {
+                    continue;
+                }
+                let value_start = skip_open_scad_trivia(bytes, equals + 1);
+                if let Some((Some(reference), _)) = open_scad_string_literal(source, value_start) {
+                    return Some(reference);
+                }
+                index = value_start;
+            }
+            _ => index += 1,
+        }
+    }
+    None
+}
+
+fn local_font_reference(reference: &str) -> bool {
+    Path::new(reference)
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| {
+            matches!(
+                extension.to_ascii_lowercase().as_str(),
+                "ttf" | "otf" | "woff" | "woff2"
+            )
+        })
+}
+
+fn open_scad_references(source: &str) -> Vec<String> {
+    let bytes = source.as_bytes();
+    let mut references = Vec::new();
+    let mut index = 0;
+    while index < bytes.len() {
+        let next = skip_open_scad_trivia(bytes, index);
+        if next != index {
+            index = next;
+            continue;
+        }
+        if bytes[index] == b'"' {
+            index += 1;
+            while index < bytes.len() {
+                if bytes[index] == b'\\' {
+                    index = (index + 2).min(bytes.len());
+                } else if bytes[index] == b'"' {
+                    index += 1;
+                    break;
+                } else {
+                    index += 1;
+                }
+            }
+            continue;
+        }
+        if bytes[index].is_ascii_alphabetic() || bytes[index] == b'_' {
+            let identifier_start = index;
+            index += 1;
+            while bytes
+                .get(index)
+                .is_some_and(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
+            {
+                index += 1;
+            }
+            let identifier = &source[identifier_start..index];
+            if identifier == "import" {
+                if let Some(reference) = open_scad_call_reference(source, index, "file", true) {
+                    references.push(reference);
+                }
+                continue;
+            }
+            if identifier == "surface" {
+                if let Some(reference) = open_scad_call_reference(source, index, "file", true) {
+                    references.push(reference);
+                }
+                continue;
+            }
+            if matches!(identifier, "text" | "textmetrics" | "fontmetrics") {
+                if let Some(reference) = open_scad_call_reference(source, index, "font", false)
+                    && local_font_reference(&reference)
+                {
+                    references.push(reference);
+                }
+                continue;
+            }
+            if identifier != "include" && identifier != "use" {
+                continue;
+            }
+            let path_start = skip_open_scad_trivia(bytes, index);
+            if bytes.get(path_start) != Some(&b'<') {
+                continue;
+            }
+            let mut path_end = path_start + 1;
+            while bytes
+                .get(path_end)
+                .is_some_and(|byte| *byte != b'>' && *byte != b'\r' && *byte != b'\n')
+            {
+                path_end += 1;
+            }
+            if bytes.get(path_end) == Some(&b'>') && path_end > path_start + 1 {
+                references.push(source[path_start + 1..path_end].to_string());
+                index = path_end + 1;
+            }
+            continue;
+        }
+        index += 1;
+    }
+    references
+}
+
+fn resolve_open_scad_reference(declaring_path: &str, reference: &str) -> Option<String> {
+    if reference.is_empty()
+        || reference.starts_with('/')
+        || reference.starts_with('\\')
+        || reference.contains('\\')
+        || reference.contains('\0')
+    {
+        return None;
+    }
+    let mut resolved = declaring_path.split('/').collect::<Vec<_>>();
+    resolved.pop();
+    for component in reference.split('/') {
+        match component {
+            "" => return None,
+            "." => {}
+            ".." => {
+                resolved.pop()?;
+            }
+            value => resolved.push(value),
+        }
+    }
+    let path = resolved.join("/");
+    project_relative(&path).ok()?;
+    Some(path)
+}
+
+fn is_open_scad_source_path(path: &str) -> bool {
+    Path::new(path)
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("scad"))
+}
+
+fn snapshot_project_entry(root: &Path, entry_file: &str) -> Result<ProjectSnapshotWire, String> {
+    let root = project_root(root)?;
+    let entry_file = portable_project_path(&project_relative(entry_file)?)?;
+    let project_id = unicode_project_id(&root)?;
+    let mut pending = VecDeque::from([entry_file.clone()]);
+    let mut discovered = HashMap::from([(entry_file.to_lowercase(), entry_file.clone())]);
+    let mut total_size = 0_u64;
+    let mut files = Vec::new();
+
+    while let Some(path) = pending.pop_front() {
+        let Some(file) = read_existing_file(&root, &path)? else {
+            if path == entry_file {
+                return Err(format!("Project entry file {path} does not exist."));
+            }
+            continue;
+        };
+        let metadata = fs::metadata(&file)
+            .map_err(|error| format!("Could not inspect project file {path}: {error}"))?;
+        if metadata.len() > FILE_SIZE_LIMIT {
+            return Err(format!("Project file {path} is too large."));
+        }
+        total_size = total_size
+            .checked_add(metadata.len())
+            .ok_or_else(|| "Project size overflowed.".to_string())?;
+        if total_size > PROJECT_SIZE_LIMIT || files.len() >= PROJECT_FILE_LIMIT {
+            return Err(
+                "Project dependency closure exceeds the supported snapshot size.".to_string(),
+            );
+        }
+        let bytes = fs::read(&file)
+            .map_err(|error| format!("Could not read project file {}: {error}", file.display()))?;
+        if is_open_scad_source_path(&path)
+            && let Ok(source) = std::str::from_utf8(&bytes)
+        {
+            for reference in open_scad_references(source) {
+                if let Some(resolved) = resolve_open_scad_reference(&path, &reference) {
+                    let key = resolved.to_lowercase();
+                    if let Some(existing) = discovered.get(&key) {
+                        if existing != &resolved {
+                            return Err(format!(
+                                "Project dependency paths collide case-insensitively: {existing} and {resolved}."
+                            ));
+                        }
+                        continue;
+                    }
+                    if discovered.len() >= PROJECT_FILE_LIMIT {
+                        return Err(
+                            "Project dependency closure exceeds the supported file count."
+                                .to_string(),
+                        );
+                    }
+                    discovered.insert(key, resolved.clone());
+                    pending.push_back(resolved);
+                }
+            }
+        }
+        files.push(project_file_wire(path, &file, bytes));
+    }
+
+    files.sort_by(|left, right| left.path.cmp(&right.path));
+    Ok(ProjectSnapshotWire {
+        workspace_identity_material: project_id.clone(),
+        project_id,
+        files,
+    })
+}
+
 #[cfg(target_os = "windows")]
 fn atomic_install(temporary: &Path, destination: &Path) -> Result<(), String> {
     use std::os::windows::ffi::OsStrExt;
@@ -479,10 +789,16 @@ fn reveal_project_file(root: &Path, path: &str) -> Result<(), String> {
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub(crate) async fn project_snapshot(project_id: String) -> Result<ProjectSnapshotWire, String> {
-    tauri::async_runtime::spawn_blocking(move || snapshot_project(Path::new(&project_id)))
-        .await
-        .map_err(|error| format!("Project snapshot task failed: {error}"))?
+pub(crate) async fn project_snapshot(
+    project_id: String,
+    entry_file: Option<String>,
+) -> Result<ProjectSnapshotWire, String> {
+    tauri::async_runtime::spawn_blocking(move || match entry_file {
+        Some(entry_file) => snapshot_project_entry(Path::new(&project_id), &entry_file),
+        None => snapshot_project(Path::new(&project_id)),
+    })
+    .await
+    .map_err(|error| format!("Project snapshot task failed: {error}"))?
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -548,9 +864,9 @@ pub(crate) async fn project_reveal(project_id: String, path: String) -> Result<(
 #[cfg(test)]
 mod tests {
     use super::{
-        move_project_file, portable_project_path, read_project_file, snapshot_project,
-        trash_project_file_with, unicode_project_id, write_project_file,
-        write_project_file_with_installer,
+        FILE_SIZE_LIMIT, move_project_file, portable_project_path, read_project_file,
+        snapshot_project, snapshot_project_entry, trash_project_file_with, unicode_project_id,
+        write_project_file, write_project_file_with_installer,
     };
     use base64::Engine as _;
     use std::fs;
@@ -613,6 +929,181 @@ mod tests {
                 .decode(&files[1].contents_base64)
                 .expect("decode text"),
             b"cube(10);"
+        );
+        fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn entry_snapshot_follows_include_and_use_without_ingesting_unrelated_content() {
+        let root = temp_project();
+        write_project_file(
+            &root,
+            "gear.scad",
+            b"// include <unrelated/notes.txt>\nlabel = \"use <unrelated/notes.txt>\";\ninclude <lib/assembly.scad>\ngear();",
+        )
+        .expect("write entry");
+        write_project_file(
+            &root,
+            "lib/assembly.scad",
+            b"use <../parts/wheel.scad>\nmodule gear() { wheel(); }",
+        )
+        .expect("write include");
+        write_project_file(
+            &root,
+            "parts/wheel.scad",
+            b"module wheel() { cylinder(4); }",
+        )
+        .expect("write use");
+
+        let unrelated = root.join("unrelated-large.bin");
+        let unrelated_file = fs::File::create(&unrelated).expect("create unrelated sparse file");
+        unrelated_file
+            .set_len(FILE_SIZE_LIMIT + 1)
+            .expect("size unrelated sparse file");
+        write_project_file(&root, "unrelated/notes.txt", b"not project input")
+            .expect("write unrelated note");
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(&unrelated, root.join("unrelated-link"))
+            .expect("create unrelated symlink");
+
+        let snapshot = snapshot_project_entry(&root, "gear.scad").expect("targeted snapshot");
+        let paths = snapshot
+            .files
+            .iter()
+            .map(|file| file.path.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            paths,
+            ["gear.scad", "lib/assembly.scad", "parts/wheel.scad"]
+        );
+        fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn entry_snapshot_follows_literal_local_assets_and_preserves_binary_bytes() {
+        let root = temp_project();
+        write_project_file(
+            &root,
+            "models/main.scad",
+            br#"include <../lib/labels.scad>
+import("../assets/reference.stl");
+import(file = "../assets/profile.dxf", convexity = 4);
+surface(file = "../assets/heightmap.png", center = true);
+labels();"#,
+        )
+        .expect("write entry");
+        write_project_file(
+            &root,
+            "lib/labels.scad",
+            br#"module labels() { text("A", font = "../fonts/workshop.ttf"); }"#,
+        )
+        .expect("write included source");
+        write_project_file(&root, "assets/reference.stl", &[0, 255, 1, 254]).expect("write STL");
+        write_project_file(&root, "assets/profile.dxf", &[68, 88, 70, 0, 255]).expect("write DXF");
+        write_project_file(&root, "assets/heightmap.png", &[137, 80, 78, 71, 0, 255])
+            .expect("write PNG");
+        write_project_file(&root, "fonts/workshop.ttf", &[0, 1, 0, 0, 255, 17])
+            .expect("write font");
+
+        let snapshot =
+            snapshot_project_entry(&root, "models/main.scad").expect("targeted snapshot");
+        let paths = snapshot
+            .files
+            .iter()
+            .map(|file| file.path.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            paths,
+            [
+                "assets/heightmap.png",
+                "assets/profile.dxf",
+                "assets/reference.stl",
+                "fonts/workshop.ttf",
+                "lib/labels.scad",
+                "models/main.scad",
+            ]
+        );
+        let font = snapshot
+            .files
+            .iter()
+            .find(|file| file.path == "fonts/workshop.ttf")
+            .expect("font asset");
+        assert!(!font.text);
+        assert_eq!(
+            base64::engine::general_purpose::STANDARD
+                .decode(&font.contents_base64)
+                .expect("decode font"),
+            [0, 1, 0, 0, 255, 17]
+        );
+        fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn entry_snapshot_follows_literal_assets_only_when_safely_inferable() {
+        let root = temp_project();
+        write_project_file(
+            &root,
+            "main.scad",
+            br#"asset = "assets/dynamic.stl";
+font_name = "fonts/dynamic.ttf";
+import(asset);
+text("A", font = font_name);
+text("B", font = "Liberation Sans:style=Bold");
+label = "surface(file=\"assets/string.png\")";
+// import("assets/comment.stl");
+/* surface(file="assets/comment.png"); */
+import("assets/decoy.dxf");
+cube(1);"#,
+        )
+        .expect("write entry");
+        for path in [
+            "assets/dynamic.stl",
+            "fonts/dynamic.ttf",
+            "assets/string.png",
+            "assets/comment.stl",
+            "assets/comment.png",
+        ] {
+            write_project_file(&root, path, &[0, 255]).expect("write decoy asset");
+        }
+        write_project_file(
+            &root,
+            "assets/decoy.dxf",
+            b"include <nested.scad>\nimport(\"nested.stl\");\n0\nSECTION\n2\nENTITIES\n0\nENDSEC\n0\nEOF",
+        )
+        .expect("write ASCII DXF with decoy syntax");
+        write_project_file(&root, "assets/nested.scad", b"sphere(99);")
+            .expect("write nested SCAD decoy");
+        write_project_file(&root, "assets/nested.stl", b"solid decoy\nendsolid decoy")
+            .expect("write nested STL decoy");
+
+        let snapshot = snapshot_project_entry(&root, "main.scad").expect("targeted snapshot");
+        let paths = snapshot
+            .files
+            .iter()
+            .map(|file| file.path.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(paths, ["assets/decoy.dxf", "main.scad"]);
+        fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn entry_snapshot_rejects_case_colliding_dependency_paths() {
+        let root = temp_project();
+        write_project_file(
+            &root,
+            "main.scad",
+            b"include <lib/part.scad>\ninclude <LIB/PART.scad>\npart();",
+        )
+        .expect("write entry");
+        write_project_file(&root, "lib/part.scad", b"module part() { cube(1); }")
+            .expect("write dependency");
+
+        assert_eq!(
+            snapshot_project_entry(&root, "main.scad").expect_err("collision must fail"),
+            "Project dependency paths collide case-insensitively: lib/part.scad and LIB/PART.scad."
         );
         fs::remove_dir_all(root).expect("cleanup");
     }

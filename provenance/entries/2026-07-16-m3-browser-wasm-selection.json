@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-16-m3-browser-wasm-selection",
+  "createdAt": "2026-07-16T12:50:37-06:00",
+  "summary": "Select the verified OpenSCAD WebAssembly service in the browser through a real module worker and expose immutable, cache-neutral load progress plus editor-preserving recovery.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 M3 delivery protocol",
+    "Architecture A-2 dedicated Web Worker boundary",
+    "FR-4.1 WebAssembly EngineService implementation",
+    "FR-4.7 separate fetch, cache, progress, and offline operation",
+    "FR-4.9 bounded worker lifecycle",
+    "N-2 bounded resource use",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-16-m3-browser-wasm-selection.json", "status": "added" },
+    { "path": "src/app/App.tsx", "status": "modified" },
+    { "path": "src/application/engine/engine-load-progress.ts", "status": "added" },
+    { "path": "src/main.tsx", "status": "modified" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/platform-web/browser-wasm-engine.ts", "status": "added" },
+    { "path": "src/ui/engine/WasmEngineProgressBanner.tsx", "status": "added" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/WorkbenchBanners.tsx", "status": "modified" },
+    { "path": "src/ui/workbench-props.ts", "status": "modified" },
+    { "path": "src/ui/workbench.css", "status": "modified" },
+    { "path": "tests/app/App.wasm-engine.test.tsx", "status": "added" },
+    { "path": "tests/platform-web/browser-wasm-engine.test.ts", "status": "added" },
+    { "path": "tests/ui/engine/WasmEngineProgressBanner.test.tsx", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0258",
+      "topic": "Browser ownership and recovery for the verified WebAssembly engine",
+      "decision": "Select WasmEngineService only on the web path and create its worker lazily with Vite's exact module-worker URL form. Publish frozen monotonic per-asset progress through a platform-neutral application contract without claiming network transfer, preserve the editor when initialization fails, clear stale progress and start exactly one new version probe on Retry, and suppress Retry for a deterministic pinned-version mismatch. Keep the desktop NativeEngineService selection unchanged.",
+      "rationale": "The web application needs the same typed engine boundary without running OpenSCAD on the UI thread or confusing cache verification with a download. Initialization is recoverable after transient worker, cache, or fetch failure, but repeating an exact version mismatch cannot succeed and would be misleading. Browser recovery must not discard source or local project state.",
+      "specBasis": ["Architecture A-2", "FR-4.1", "FR-4.7", "FR-4.9", "N-2", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The browser uses the exact module worker, publishes immutable monotonic progress, preserves editing on failure, deduplicates retry, and reports version mismatch without retry while desktop selection remains native.",
+      "test": "Exercise the browser engine factory, external progress store, loading/failure banner, retrying App probe under StrictMode, and version-mismatch presentation with fake worker and EngineService boundaries.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/platform-web/browser-wasm-engine.test.ts tests/ui/engine/WasmEngineProgressBanner.test.tsx tests/app/App.wasm-engine.test.tsx",
+        "observedAt": "2026-07-16T12:24:00-06:00",
+        "outcome": "RED: all three focused suites failed to load because the browser selection and progress-banner modules did not yet exist."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/platform-web/browser-wasm-engine.test.ts tests/ui/engine/WasmEngineProgressBanner.test.tsx tests/app/App.wasm-engine.test.tsx",
+        "observedAt": "2026-07-16T14:31:39-06:00",
+        "outcome": "GREEN: the fresh bounded confirmation passed all 3 focused files and 6 tests in 2.16 s, covering the real module-worker factory contract, immutable monotonic progress, editor-preserving failure, deduplicated retry, and non-retryable version mismatch."
+      }
+    },
+    {
+      "criterion": "The browser wiring preserves the hard 400-physical-line UI source cap without weakening desktop recovery behavior.",
+      "test": "Count each touched source file, inspect the recovery-state ownership, move the default unavailable recovery state into the banner component that consumes it, and rerun only scoped static checks.",
+      "red": {
+        "command": "Physical line count and coordinator serial review of the uncommitted browser-WASM diff",
+        "observedAt": "2026-07-16T12:53:00-06:00",
+        "outcome": "RED: 0/0/1/0/0. Workbench.tsx grew from the cap boundary to 407 physical lines after browser-engine props were threaded through it."
+      },
+      "green": {
+        "command": "pnpm.cmd exec biome check src/ui/Workbench.tsx src/ui/WorkbenchBanners.tsx; pnpm.cmd typecheck; node scripts/check-source-policy.mjs; git diff --check",
+        "observedAt": "2026-07-16T12:54:00-06:00",
+        "outcome": "GREEN: WorkbenchBanners now owns the default recovery-state derivation; Workbench.tsx is 398 lines and WorkbenchBanners.tsx is 81. Scoped Biome, strict TypeScript, the source-policy cap/platform-boundary gate, and diff checks exited 0. Coordinator serial rereview is 0/0/0/0/0."
+      }
+    },
+    {
+      "criterion": "Application and UI modules depend on a platform-neutral engine-load progress contract rather than the browser implementation class.",
+      "test": "Trace every changed application/UI import, move the read-only progress-store shape into the application engine layer, and rerun scoped formatting, strict TypeScript, source-policy, and diff checks.",
+      "red": {
+        "command": "Coordinator literal AC-13.a dependency review of the uncommitted browser-WASM diff",
+        "observedAt": "2026-07-16T13:04:00-06:00",
+        "outcome": "RED: 0/0/1/0/0. App and three UI modules imported the BrowserWasmEngineProgressStore implementation type directly from platform-web even though the existing policy script allowed erased type-only edges."
+      },
+      "green": {
+        "command": "pnpm.cmd exec biome check src/application/engine/engine-load-progress.ts src/platform-web/browser-wasm-engine.ts src/app/App.tsx src/ui/workbench-props.ts src/ui/WorkbenchBanners.tsx src/ui/engine/WasmEngineProgressBanner.tsx; pnpm.cmd typecheck; node scripts/check-source-policy.mjs; git diff --check",
+        "observedAt": "2026-07-16T13:05:00-06:00",
+        "outcome": "GREEN: all application/UI consumers now import EngineLoadProgressStore from the application layer; only the web adapter owns the concrete store. After one compile-only correction widened the adapter's private sort-table index, strict TypeScript, source-policy, and diff checks exited 0; scoped Biome was already clean. Coordinator final rereview is 0/0/0/0/0."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

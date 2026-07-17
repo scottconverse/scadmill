@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-16-m3-web-trash-capability",
+  "createdAt": "2026-07-16T14:15:00-06:00",
+  "summary": "Hide the desktop-only OS-trash action from browser workspaces instead of permanently deleting IndexedDB records behind misleading trash copy.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 M3 delivery protocol",
+    "FR-6.1 desktop OS-trash file action",
+    "FR-13.3 declared web capability degradation",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-16-m3-web-trash-capability.json", "status": "added" },
+    { "path": "src/app/App.tsx", "status": "modified" },
+    { "path": "src/main.tsx", "status": "modified" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/files/FilesActivity.tsx", "status": "modified" },
+    { "path": "src/ui/files/ProjectPanel.tsx", "status": "modified" },
+    { "path": "src/ui/workbench-props.ts", "status": "modified" },
+    { "path": "tests/e2e/m2-browser-gate.e2e.ts", "status": "modified" },
+    { "path": "tests/e2e/m2-workspace-onboarding.e2e.ts", "status": "modified" },
+    { "path": "tests/ui/files/ProjectPanel.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0264",
+      "topic": "Platform-honest file deletion controls",
+      "decision": "Make OS trash an explicit platform capability, omit the action by default, and enable it only for the desktop composition root that supplies a real trash implementation.",
+      "rationale": "The browser adapter's IndexedDB trash method permanently removed a record, so presenting it as an OS-trash operation violated FR-13.3 and gave users no recovery path. Capability-gated absence is the required web behavior.",
+      "specBasis": ["FR-6.1", "FR-13.3", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Browser/default project panels expose no trash action, while an explicitly capable desktop panel retains the functional action.",
+      "test": "Render the project panel without a trash capability and assert the named control is absent, then rerender with the capability and assert it is visible; retain the existing functional desktop trash journey.",
+      "red": {
+        "command": "Independent C13 adversarial source audit of ProjectPanel and indexeddb-project-storage",
+        "observedAt": "2026-07-16T14:08:00-06:00",
+        "outcome": "RED: the shared panel always rendered Move to trash while the browser storage adapter permanently deleted the IndexedDB record, producing one critical honesty defect."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/files/ProjectPanel.test.tsx tests/ui/files/FilesActivity.test.tsx; pnpm.cmd typecheck",
+        "observedAt": "2026-07-16T14:15:00-06:00",
+        "outcome": "GREEN: both focused files passed 7/7 tests in 1.46 s and strict TypeScript exited 0. The regression covers absent-by-default and explicitly enabled trash states."
+      }
+    },
+    {
+      "criterion": "Real browser journeys assert that OS trash is absent while moved IndexedDB files remain durable across reload.",
+      "test": "Run the complete single-worker Playwright browser acceptance gate after replacing stale trash-action expectations with absence and retained-file assertions.",
+      "red": {
+        "command": "pnpm.cmd test:e2e",
+        "observedAt": "2026-07-16T18:27:00-06:00",
+        "outcome": "RED: 20/22 journeys passed; two timed out waiting for the intentionally removed Move to trash controls."
+      },
+      "green": {
+        "command": "pnpm.cmd test:e2e",
+        "observedAt": "2026-07-16T18:29:00-06:00",
+        "outcome": "GREEN: all 22 browser journeys passed in 38.5 s. The real IndexedDB journey proves the moved source remains byte-for-byte durable after reload while no OS-trash control is exposed."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

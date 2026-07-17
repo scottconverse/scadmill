@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-16-m3-browser-platform-boundary-policy",
+  "createdAt": "2026-07-16T13:31:30-06:00",
+  "summary": "Enforce the literal shared-UI platform boundary against browser-adapter imports, including erased type-only edges.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 M3 delivery protocol",
+    "Architecture A-6 modularity caps",
+    "FR-13.1 typed platform interfaces",
+    "AC-13.a zero direct platform-specific UI imports",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-16-m3-browser-platform-boundary-policy.json", "status": "added" },
+    { "path": "scripts/lib/source-policy.mjs", "status": "modified" },
+    { "path": "tests/scripts/source-policy.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0261",
+      "topic": "Literal browser-platform import enforcement in shared UI",
+      "decision": "Treat any shared App/UI import whose module path names platform-web as a platform-boundary violation, including import type declarations that TypeScript erases.",
+      "rationale": "AC-13.a requires zero direct platform-specific UI imports, not merely zero runtime edges. The prior scanner covered Tauri, desktop-shell, and platform-desktop but silently accepted browser implementation types, allowing shared UI contracts to become coupled to one adapter.",
+      "specBasis": ["A-6", "FR-13.1", "AC-13.a", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "A shared UI file cannot import a browser adapter even when the declaration is type-only, while the production tree remains platform-clean.",
+      "test": "Create a temporary shared-UI fixture with an import type edge into platform-web, require the exact platform-boundary finding, then run the real repository scan.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/source-policy.test.ts",
+        "observedAt": "2026-07-16T13:30:01-06:00",
+        "outcome": "RED: 1 new regression failed and 58 existing tests passed because the scanner returned no violation for a browser-platform type import."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/source-policy.test.ts; pnpm.cmd exec biome check scripts/lib/source-policy.mjs tests/scripts/source-policy.test.ts; node scripts/check-source-policy.mjs; git diff --check",
+        "observedAt": "2026-07-16T13:31:14-06:00",
+        "outcome": "GREEN: all 59 focused source-policy tests passed in 1.01 seconds; scoped Biome checked both files with zero diagnostics; the production source-policy and diff gates exited 0."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { fireEvent, render, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import type { EngineService } from "../../../src/application/engine/contracts";
@@ -90,5 +91,64 @@ describe("WelcomeLauncher", () => {
 
     await waitFor(() => expect(runtime.documents.getState().documents[0].source)
       .toBe(BUILT_IN_SAMPLES[1].source));
+  });
+
+  it("contains focus in the active dialog and restores the sample trigger after cancellation", async () => {
+    const runtime = createWorkbenchRuntime(engine);
+    await runtime.dispatch({
+      kind: "edit-document",
+      origin: "user",
+      documentId: "document-main",
+      source: "cube(99);",
+    });
+    const user = userEvent.setup();
+    const view = render(
+      <WelcomeLauncher
+        documents={runtime.documents.getState()}
+        project={runtime.project.getState()}
+        runtime={runtime}
+        showOnLaunch
+        onNewFile={vi.fn()}
+        onOpenProject={vi.fn()}
+        onOpenRecentProject={vi.fn()}
+        onShowOnLaunchChange={vi.fn()}
+      />,
+    );
+    const ui = within(view.container);
+    const dialog = ui.getByRole("dialog", { name: "Welcome to ScadMill" });
+    const close = ui.getByRole("button", { name: "Close welcome" });
+    const startup = ui.getByRole("checkbox", { name: "Show welcome screen on startup" });
+
+    expect(dialog).toHaveAccessibleDescription(
+      "Start from a blank file, reopen a project, or explore a built-in OpenSCAD model.",
+    );
+    await waitFor(() => expect(ui.getByRole("button", { name: "New file" })).toHaveFocus());
+    close.focus();
+    await user.tab({ shift: true });
+    expect(startup).toHaveFocus();
+    await user.tab();
+    expect(close).toHaveFocus();
+
+    await user.click(ui.getByRole("button", { name: "Open sample Gear knob" }));
+    const confirmation = ui.getByRole("alertdialog", { name: "Replace current work?" });
+    const keep = ui.getByRole("button", { name: "Keep current work" });
+    const replace = ui.getByRole("button", { name: "Replace with Gear knob" });
+    expect(confirmation).toHaveAccessibleDescription(
+      "Opening Gear knob replaces the current workspace. Unsaved work will be lost.",
+    );
+    await waitFor(() => expect(keep).toHaveFocus());
+    replace.focus();
+    await user.tab();
+    expect(keep).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(replace).toHaveFocus();
+
+    await user.keyboard("{Escape}");
+    expect(ui.queryByRole("alertdialog", { name: "Replace current work?" }))
+      .not.toBeInTheDocument();
+    await waitFor(() => expect(
+      ui.getByRole("button", { name: "Open sample Gear knob" }),
+    ).toHaveFocus());
+    expect(dialog).toBeVisible();
   });
 });
