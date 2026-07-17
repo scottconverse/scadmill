@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-mcp-handler-aggregate-green",
+  "createdAt": "2026-07-17T04:34:25-06:00",
+  "summary": "Record the bounded aggregate verification after the MCP workbench handler and unopened-project read correction: 170 files and 1264 tests pass.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "verifier" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "C11", "Appendix B", "N-7 evidence and status honesty"],
+  "filesTouched": [{ "path": "provenance/entries/2026-07-17-m4-mcp-handler-aggregate-green.json", "status": "added" }],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [{ "id": "D-0355", "topic": "Bounded MCP aggregate verification", "decision": "Run one aggregate suite after the handler crossed the runtime, engine, artifact, and parameter seams; do not repeat while green.", "rationale": "The focused handler tests and production build were already green, and one aggregate run is sufficient to falsify cross-boundary regressions without entering a test loop.", "specBasis": ["C11", "N-7"] }],
+  "testEvidence": [{ "criterion": "Existing application behavior remains green after the MCP handler addition.", "test": "Run the complete Vitest suite once after the final handler correction.", "red": { "command": "pnpm.cmd test -- --reporter=dot", "observedAt": "2026-07-17T04:33:59-06:00", "outcome": "No red run was required; the focused handler and build gates were green before this bounded aggregate." }, "green": { "command": "pnpm.cmd test -- --reporter=dot", "observedAt": "2026-07-17T04:34:19-06:00", "outcome": "GREEN: 170 test files passed and 1264 tests passed in 19.84s." } }],
+  "nearMisses": [],
+  "questions": ["Desktop MCP process/toggle lifecycle, permission UI, screenshot capture, approval-to-apply path, and hosted AC-11.b/c evidence remain pending."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
