@@ -17,6 +17,28 @@ export const EPHEMERAL_CONVERSATION_PERSISTENCE: ConversationPersistence = Objec
   clear: () => undefined,
 });
 
+export interface StringStorage {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+  removeItem(key: string): void;
+}
+
+export function createLocalConversationPersistence(documentId: string, storage?: StringStorage): ConversationPersistence {
+  const key = `scadmill.ai.conversation.v1.${documentId}`;
+  const target = storage ?? (globalThis.localStorage as StringStorage | undefined);
+  return {
+    load: () => {
+      try { return target?.getItem(key) ?? null; } catch { return null; }
+    },
+    save: (serialized) => {
+      try { target?.setItem(key, serialized); } catch { /* Persistence is fail-safe for editing. */ }
+    },
+    clear: () => {
+      try { target?.removeItem(key); } catch { /* Persistence is fail-safe for editing. */ }
+    },
+  };
+}
+
 function safeText(value: unknown, maxLength: number): string | null {
   return typeof value === "string" && value.length <= maxLength ? value : null;
 }

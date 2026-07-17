@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-ai-hydration-aggregate-green",
+  "createdAt": "2026-07-17T04:23:50-06:00",
+  "summary": "Record the bounded aggregate regression and root-cause repair after wiring document-scoped AI conversation hydration: all 169 test files and 1261 tests pass.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "verifier" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "C10", "N-7 evidence and status honesty"],
+  "filesTouched": [{ "path": "src/ui/Workbench.tsx", "status": "modified" }, { "path": "provenance/entries/2026-07-17-m4-ai-hydration-aggregate-green.json", "status": "added" }],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [{ "id": "D-0351", "topic": "Hydration aggregate correction", "decision": "Treat the missing useMemo import exposed by the first aggregate run as one root-cause compile/runtime defect, repair it once, confirm focused Workbench/App coverage, then run one aggregate suite.", "rationale": "The failure was deterministic and cascading; no repeated test loop was warranted after the root cause was isolated.", "specBasis": ["C10", "N-7"] }],
+  "testEvidence": [{ "criterion": "The full suite remains green after AI persistence hydration and the root-cause repair.", "test": "Run focused Workbench/App tests once after the repair, then one bounded aggregate suite.", "red": { "command": "pnpm.cmd test -- --reporter=dot", "observedAt": "2026-07-17T04:22:36-06:00", "outcome": "RED: 8 UI/App files failed with the same ReferenceError because Workbench used useMemo without importing it; 52 tests failed as cascades." }, "green": { "command": "pnpm.cmd exec vitest run tests/ui/Workbench.test.tsx tests/ui/Workbench.native-menu.test.tsx tests/app/App.test.tsx; pnpm.cmd test -- --reporter=dot", "observedAt": "2026-07-17T04:23:18-06:00", "outcome": "GREEN: focused Workbench/App checks passed 3 files and 43 tests; aggregate passed 169 files and 1261 tests in 19.37s." } }],
+  "nearMisses": [],
+  "questions": ["Provider-secret hydration for redaction, project-export conversation policy, and hosted AC-10.d evidence remain pending."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

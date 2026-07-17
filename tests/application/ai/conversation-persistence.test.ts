@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createAgentLoop, requestAgentRound } from "../../../src/application/ai/agent-loop";
 import { conversationReducer, createConversationState } from "../../../src/application/ai/conversation";
-import { deserializeConversation, loadConversation, saveConversation } from "../../../src/application/ai/conversation-persistence";
+import { createLocalConversationPersistence, deserializeConversation, loadConversation, saveConversation } from "../../../src/application/ai/conversation-persistence";
 
 describe("AI conversation persistence and agent caps", () => {
   it("round-trips review state while redacting the provider secret", () => {
@@ -18,6 +18,17 @@ describe("AI conversation persistence and agent caps", () => {
   it("fails closed on malformed or oversized persisted data", () => {
     expect(deserializeConversation("not json").messages).toHaveLength(0);
     expect(deserializeConversation(JSON.stringify({ schemaVersion: 1, messages: [{ id: "x", role: "user", content: "x".repeat(70_000) }] })).messages).toHaveLength(0);
+  });
+
+  it("stores conversations under a document-scoped key and supports deletion", () => {
+    const values = new Map<string, string>();
+    const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => void values.set(key, value), removeItem: (key: string) => void values.delete(key) };
+    const persistence = createLocalConversationPersistence("doc-1", storage);
+    persistence.save(JSON.stringify({ schemaVersion: 1, messages: [], proposals: [] }));
+    expect(persistence.load()).toContain("schemaVersion");
+    expect(values.size).toBe(1);
+    persistence.clear();
+    expect(persistence.load()).toBeNull();
   });
 
   it("halts an opted-in loop at the configured round cap", () => {

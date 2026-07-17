@@ -621,6 +621,7 @@ export const messages = {
   aiSend: "Send",
   aiCopy: "Copy",
   aiInsertAtCursor: "Insert at cursor",
+  aiClearConversation: "Clear conversation",
   aiRequestFailed: "The AI request failed.",
   applyEdit: "Apply edit",
   aiContextLegend: "Send context",

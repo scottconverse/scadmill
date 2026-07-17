@@ -1,8 +1,9 @@
-import { type FormEvent, useReducer, useRef, useState } from "react";
+import { type FormEvent, useEffect, useReducer, useRef, useState } from "react";
 import { type AiContextInputs, type AiContextToggles, buildAiContextMessage, DEFAULT_AI_CONTEXT_TOGGLES } from "../../application/ai/ai-context";
 import { DEFAULT_AI_SYSTEM_PROMPT, type AiMessage } from "../../application/ai/ai-provider";
 import type { ProposedEdit } from "../../application/ai/conversation";
-import { conversationReducer, createConversationState, extractCodeBlocks } from "../../application/ai/conversation";
+import { conversationReducer, extractCodeBlocks } from "../../application/ai/conversation";
+import { EPHEMERAL_CONVERSATION_PERSISTENCE, loadConversation, saveConversation, type ConversationPersistence } from "../../application/ai/conversation-persistence";
 import { messages } from "../../messages/en";
 import { ExternalChangeDiff } from "../files/ExternalChangeDiff";
 import { AiMarkdown } from "./AiMarkdown";
@@ -17,14 +18,16 @@ export interface AiConversationPanelProps {
   readonly onCopy?: (text: string) => Promise<void>;
   readonly onInsertAtCursor?: (text: string) => void;
   readonly model?: string;
+  readonly persistence?: ConversationPersistence;
 }
 
-export function AiConversationPanel({ configured, contextInputs, currentSource, documentId, requestStream, onApplyEdit, onCopy, onInsertAtCursor, model }: AiConversationPanelProps) {
-  const [state, dispatch] = useReducer(conversationReducer, undefined, createConversationState);
+export function AiConversationPanel({ configured, contextInputs, currentSource, documentId, requestStream, onApplyEdit, onCopy, onInsertAtCursor, model, persistence = EPHEMERAL_CONVERSATION_PERSISTENCE }: AiConversationPanelProps) {
+  const [state, dispatch] = useReducer(conversationReducer, persistence, loadConversation);
   const [input, setInput] = useState("");
   const [error, setError] = useState<string>();
   const [contextToggles, setContextToggles] = useState<AiContextToggles>(DEFAULT_AI_CONTEXT_TOGGLES);
   const abortRef = useRef<AbortController | undefined>(undefined);
+  useEffect(() => { saveConversation(persistence, state); }, [persistence, state]);
   if (!configured) return <section aria-label={messages.activityAi}><p>{messages.aiNotConfigured}</p><p>{messages.aiSetupGuidance}</p></section>;
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -80,6 +83,7 @@ export function AiConversationPanel({ configured, contextInputs, currentSource, 
       ))}
       <form onSubmit={(event) => void submit(event)}>
         {model && <p><span>{messages.aiModel}: </span>{model}</p>}
+        <button onClick={() => { persistence.clear(); dispatch({ kind: "clear" }); }} type="button">{messages.aiClearConversation}</button>
         {contextInputs && <fieldset className="ai-context-toggles"><legend>{messages.aiContextLegend}</legend>
           <label><input checked={contextToggles.source} onChange={(event) => setContextToggles((current) => ({ ...current, source: event.currentTarget.checked }))} type="checkbox" />{messages.aiContextSource}</label>
           <label><input checked={contextToggles.diagnostics} onChange={(event) => setContextToggles((current) => ({ ...current, diagnostics: event.currentTarget.checked }))} type="checkbox" />{messages.aiContextDiagnostics}</label>

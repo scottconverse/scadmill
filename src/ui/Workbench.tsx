@@ -1,5 +1,6 @@
-import { lazy, Suspense, useCallback, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useMemo, useRef, useState } from "react";
 import { activeDocument, canCloseDocument, canReopenDocument } from "../application/documents/document-workspace";
+import { createLocalConversationPersistence } from "../application/ai/conversation-persistence";
 import type { WorkspaceLayoutAction } from "../application/layout/workspace-layout";
 import { parameterDocument } from "../application/parameters/parameter-state";
 import { EPHEMERAL_SECRET_STORE } from "../application/settings/secret-store";
@@ -64,6 +65,7 @@ export function Workbench({
   const viewerState = useReadonlyStore(runtime.viewer, (state) => state);
   const parameterState = useReadonlyStore(runtime.parameters, (state) => state);
   const currentParameters = parameterDocument(parameterState, document.id);
+  const aiPersistence = useMemo(() => createLocalConversationPersistence(document.id), [document.id]);
   const projectState = useReadonlyStore(runtime.project, (state) => state);
   const editorProjectCompletion = useProjectCompletionContext(projectState, documents);
   const narrow = useNarrowLayout(undefined, forceNarrowLayout);
@@ -365,7 +367,7 @@ export function Workbench({
         />
       </WorkbenchBanners>
       <WorkspaceFrame aiConfigured={profile.ai.provider !== "none"} activityContent={{
-          ai: <AiConversationPanel configured={profile.ai.provider !== "none"} contextInputs={{ source: document.source, diagnostics: aiDiagnostics, parameters: aiParameters }} currentSource={document.source} documentId={document.id} model={profile.ai.model} onApplyEdit={aiBridge.applyEdit} onCopy={clipboard?.writeText} onInsertAtCursor={(code) => { const session = editorSessions.current.get(document.id); const head = session?.state.selection.main.head ?? document.source.length; const offset = Math.max(0, Math.min(document.source.length, head)); void runtime.dispatch({ kind: "edit-document", origin: "ai-panel", documentId: document.id, source: `${document.source.slice(0, offset)}${code}${document.source.slice(offset)}` }).catch(() => undefined); }} requestStream={profile.ai.provider === "none" ? undefined : aiBridge.requestStream} />,
+          ai: <AiConversationPanel key={document.id} configured={profile.ai.provider !== "none"} contextInputs={{ source: document.source, diagnostics: aiDiagnostics, parameters: aiParameters }} currentSource={document.source} documentId={document.id} model={profile.ai.model} onApplyEdit={aiBridge.applyEdit} onCopy={clipboard?.writeText} onInsertAtCursor={(code) => { const session = editorSessions.current.get(document.id); const head = session?.state.selection.main.head ?? document.source.length; const offset = Math.max(0, Math.min(document.source.length, head)); void runtime.dispatch({ kind: "edit-document", origin: "ai-panel", documentId: document.id, source: `${document.source.slice(0, offset)}${code}${document.source.slice(offset)}` }).catch(() => undefined); }} persistence={aiPersistence} requestStream={profile.ai.provider === "none" ? undefined : aiBridge.requestStream} />,
           files: <FilesActivity canReveal={canRevealProjectFiles} canTrash={canTrashProjectFiles} directoryPicker={directoryPicker} engine={engineAvailable ? engine : undefined} portability={projectPortability} recoveryPersistence={recoveryPersistence} projectTransitionsBlocked={recoveryPending} requestedExport={fileCommands.requestedExport} requestedNewFile={fileCommands.requestedNewFile} runtime={runtime} storage={projectStorage} workspaceDirectory={workspaceDirectory} />,
         }}
         layout={layout}
