@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-mcp-review-aggregate-green",
+  "createdAt": "2026-07-17T04:43:45-06:00",
+  "summary": "Record the bounded aggregate verification after the MCP pending-review queue: 172 files and 1268 tests pass.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "verifier" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "C11", "FR-10.5", "FR-11.6", "N-7 evidence and status honesty"],
+  "filesTouched": [{ "path": "provenance/entries/2026-07-17-m4-mcp-review-aggregate-green.json", "status": "added" }],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [{ "id": "D-0361", "topic": "Bounded review-queue aggregate verification", "decision": "Run one aggregate suite after the pending-review queue crossed MCP handler, validation, and state seams; stop while green.", "rationale": "Focused tests, lint, and build were green; one aggregate run is sufficient evidence without a test loop.", "specBasis": ["C11", "N-7"] }],
+  "testEvidence": [{ "criterion": "Existing application behavior remains green after MCP review queue integration.", "test": "Run the complete Vitest suite once after the queue commit.", "red": { "command": "pnpm.cmd test -- --reporter=dot", "observedAt": "2026-07-17T04:43:18-06:00", "outcome": "No red run was required; focused queue/handler tests, lint, and build were green before this bounded aggregate." }, "green": { "command": "pnpm.cmd test -- --reporter=dot", "observedAt": "2026-07-17T04:43:38-06:00", "outcome": "GREEN: 172 test files passed and 1268 tests passed in 19.81s." } }],
+  "nearMisses": [],
+  "questions": ["Desktop review UI, approval-to-runtime-dispatch path, MCP process/toggle integration, and hosted AC-11.b/c evidence remain pending."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
