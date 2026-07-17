@@ -1,5 +1,6 @@
 export interface RecentProject {
   readonly projectId: string;
+  readonly workspaceIdentity: string;
   readonly displayName: string;
   readonly openedAt: string;
 }
@@ -16,6 +17,7 @@ export const EPHEMERAL_RECENT_PROJECTS_PERSISTENCE: RecentProjectsPersistence = 
 
 function validateEntry(entry: RecentProject): void {
   if (entry.projectId.trim().length === 0) throw new Error("Project id must be non-empty.");
+  if (entry.workspaceIdentity.trim().length === 0) throw new Error("Workspace identity must be non-empty.");
   if (entry.displayName.trim().length === 0) throw new Error("Display name must be non-empty.");
   if (entry.openedAt.trim().length === 0) throw new Error("Opened-at value must be non-empty.");
 }

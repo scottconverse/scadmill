@@ -1173,6 +1173,7 @@ describe("ProjectLifecycleControls", () => {
         recentProjectsPersistence: {
           load: () => [{
             projectId: "project-b",
+            workspaceIdentity: "project-b",
             displayName: "Project B",
             openedAt: "2026-07-10T00:00:00.000Z",
           }],
@@ -1351,6 +1352,7 @@ describe("ProjectLifecycleControls", () => {
       recentProjectsPersistence: {
         load: () => [{
           projectId: "workspace:opaque-recent",
+          workspaceIdentity: "workspace:opaque-recent",
           displayName: "Recent Wheel",
           openedAt: "2026-07-11T00:00:00.000Z",
         }],

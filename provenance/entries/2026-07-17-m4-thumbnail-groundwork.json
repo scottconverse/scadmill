@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-thumbnail-groundwork",
+  "createdAt": "2026-07-17T02:55:00-06:00",
+  "summary": "Establish the M4 render-thumbnail foundation: strict fixed-size PNG records, bounded clone-safe application storage, opaque desktop profile persistence, recent-project workspace identity migration, and an accepted-render identity seam for later capture and presentation work.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "FR-15.13 thumbnails", "FR-6.5 recent projects", "N-2 memory stability", "N-7 evidence and status honesty"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-17-m4-thumbnail-groundwork.json", "status": "added" },
+    { "path": "src/application/files/project-session.ts", "status": "modified" },
+    { "path": "src/application/files/recent-projects.ts", "status": "modified" },
+    { "path": "src/application/render-cache/render-thumbnail-persistence.ts", "status": "added" },
+    { "path": "src/application/thumbnails/thumbnail-store.ts", "status": "added" },
+    { "path": "src/application/viewer/viewer-state.ts", "status": "modified" },
+    { "path": "src/platform-desktop/desktop-thumbnail-persistence.ts", "status": "added" },
+    { "path": "src/platform-web/browser-project-metadata.ts", "status": "modified" },
+    { "path": "tests/application/thumbnails/thumbnail-store.test.ts", "status": "added" },
+    { "path": "tests/application/render-cache/render-thumbnail-persistence.test.ts", "status": "added" },
+    { "path": "tests/platform-desktop/desktop-thumbnail-persistence.test.ts", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0299", "topic": "Thumbnail record contract", "decision": "Store only strict version-1 240x160 PNG records with bounded bytes, canonical paths and identities, optional application-owned geometry identity, and defensive copies.", "rationale": "A fixed raster contract keeps preview memory and persistence bounded while preventing malformed or source-owned data from entering the application store.", "specBasis": ["FR-15.13", "N-2", "N-7"] },
+    { "id": "D-0300", "topic": "Thumbnail ownership and eviction", "decision": "Keep thumbnails in app/profile storage, isolate by opaque workspace identity, replace by document path, and evict least-recently-used records under a 16 MiB in-memory budget and platform persistence caps.", "rationale": "Thumbnails are derived workspace state, never project source or exported project bytes; bounded eviction prevents unbounded retention.", "specBasis": ["FR-15.13", "N-2"] },
+    { "id": "D-0301", "topic": "Recent-project migration", "decision": "Persist recent projects as strict v2 entries carrying workspaceIdentity, while reading strict v1 entries through a deterministic projectId fallback and deleting the legacy key only after a successful v2 write.", "rationale": "The thumbnail scope needs a stable opaque project boundary without breaking existing profile data or deleting it before the replacement is durable.", "specBasis": ["FR-6.5", "FR-15.13", "N-7"] },
+    { "id": "D-0302", "topic": "Accepted render identity", "decision": "Record each accepted render action as presentation.renderIdentity while retaining modelIdentity for geometry-continuity and measurement semantics.", "rationale": "A cache hit or cosmetic rerender can preserve geometry state while still requiring a distinct capture identity; conflating the two would mislabel thumbnails and deltas.", "specBasis": ["FR-15.2", "FR-15.13", "N-7"] }
+  ],
+  "testEvidence": [
+    { "criterion": "Thumbnail records reject malformed dimensions, identities, paths, timestamps, MIME types, non-PNG bytes, unknown fields, malformed base64, and oversized payloads while round-tripping defensively.", "test": "Run the thumbnail codec and store tests.", "red": { "command": "pnpm.cmd exec vitest run tests/application/thumbnails/thumbnail-store.test.ts", "observedAt": "2026-07-17T02:45:00-06:00", "outcome": "RED: the thumbnail module and render-identity seam were absent; 2 focused viewer assertions and the new module import failed." }, "green": { "command": "pnpm.cmd exec vitest run tests/application/thumbnails/thumbnail-store.test.ts tests/application/viewer/viewer-state.test.ts", "observedAt": "2026-07-17T02:46:47-06:00", "outcome": "GREEN: Test Files 2 passed (2); Tests 26 passed (26); Duration 503ms." } },
+    { "criterion": "Recent-project v1 data migrates safely to strict v2 and desktop thumbnail persistence is fail-closed, bounded, opaque-keyed, and clone-safe.", "test": "Run the recent-project and persistence focused suites.", "red": { "command": "pnpm.cmd exec vitest run tests/application/files/recent-projects.test.ts tests/platform-web/browser-project-metadata.test.ts tests/application/render-cache/render-thumbnail-persistence.test.ts tests/platform-desktop/desktop-thumbnail-persistence.test.ts", "observedAt": "2026-07-17T02:40:00-06:00", "outcome": "RED: the v2 workspace identity and thumbnail persistence contracts were not implemented." }, "green": { "command": "pnpm.cmd exec vitest run tests/application/files/recent-projects.test.ts tests/platform-web/browser-project-metadata.test.ts tests/application/render-cache/render-thumbnail-persistence.test.ts tests/platform-desktop/desktop-thumbnail-persistence.test.ts", "observedAt": "2026-07-17T02:46:47-06:00", "outcome": "GREEN: included in the combined focused run; 64 tests passed across 8 files." } },
+    { "criterion": "The complete TypeScript surface and affected source remain clean.", "test": "Run TypeScript and Biome checks.", "red": { "command": "pnpm.cmd exec tsc --noEmit --pretty false", "observedAt": "2026-07-17T02:42:00-06:00", "outcome": "RED: missing thumbnail-store module and ViewerPresentation.renderIdentity caused three diagnostics while BUILD A was incomplete." }, "green": { "command": "pnpm.cmd exec tsc --noEmit --pretty false; pnpm.cmd exec biome check src/application/thumbnails/thumbnail-store.ts src/application/viewer/viewer-state.ts src/application/files/recent-projects.ts src/application/files/project-session.ts src/platform-web/browser-project-metadata.ts src/application/render-cache/render-thumbnail-persistence.ts src/platform-desktop/desktop-thumbnail-persistence.ts tests/application/thumbnails/thumbnail-store.test.ts tests/application/viewer/viewer-state.test.ts tests/application/files/recent-projects.test.ts tests/application/files/project-session.test.ts tests/application/render-cache/render-thumbnail-persistence.test.ts tests/platform-desktop/desktop-thumbnail-persistence.test.ts tests/platform-web/browser-project-metadata.test.ts", "observedAt": "2026-07-17T02:48:00-06:00", "outcome": "GREEN: tsc exited 0; Biome checked 14 files with no fixes." } }
+  ],
+  "nearMisses": [
+    { "url": "https://github.com/scottconverse/scadmill", "sought": "Native and browser capture/UI walkthrough evidence for FR-15.13", "confirmation": "Not claimed in this groundwork unit; capture, runtime wiring, Welcome/file-tree presentation, and clean-host timing remain pending for the FR-15.13 exit gate." }
+  ],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

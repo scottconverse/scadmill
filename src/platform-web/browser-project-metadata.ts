@@ -1,12 +1,12 @@
-import type { RecoveryPersistence } from "../application/files/recovery-state";
-import type { ScratchAutosavePersistence } from "../application/files/scratch-autosave";
 import { parseProjectPath } from "../application/files/project-path";
-import type { WorkspaceMetadataPersistence } from "../application/viewer/annotation-persistence";
 import {
   type RecentProject,
   type RecentProjectsPersistence,
   validateRecentProjects,
 } from "../application/files/recent-projects";
+import type { RecoveryPersistence } from "../application/files/recovery-state";
+import type { ScratchAutosavePersistence } from "../application/files/scratch-autosave";
+import type { WorkspaceMetadataPersistence } from "../application/viewer/annotation-persistence";
 import { messages } from "../messages/en";
 
 interface KeyValueStorage {
@@ -16,7 +16,8 @@ interface KeyValueStorage {
 }
 
 const RECOVERY_KEY = "scadmill.recovery.v1";
-const RECENT_PROJECTS_KEY = "scadmill.recent-projects.v1";
+const LEGACY_RECENT_PROJECTS_KEY = "scadmill.recent-projects.v1";
+const RECENT_PROJECTS_KEY = "scadmill.recent-projects.v2";
 const LEGACY_SCRATCH_AUTOSAVE_KEY = "scadmill.scratch-autosave.v1";
 const SCRATCH_AUTOSAVE_KEY = "scadmill.scratch-autosave.v2";
 const WORKSPACE_METADATA_KEY = "scadmill.workspace-metadata.v1";
@@ -81,7 +82,7 @@ export function createBrowserRecoveryPersistence(
   };
 }
 
-function decodeRecentProjects(serialized: string | null): readonly RecentProject[] {
+function decodeRecentProjects(serialized: string | null, version: 1 | 2): readonly RecentProject[] {
   if (serialized === null) return [];
   try {
     const parsed: unknown = JSON.parse(serialized);
@@ -92,15 +93,21 @@ function decodeRecentProjects(serialized: string | null): readonly RecentProject
       || Object.keys(parsed).sort().join(",") !== "projects,version"
     ) return [];
     const record = parsed as Record<string, unknown>;
-    if (record.version !== 1 || !Array.isArray(record.projects)) return [];
+    if (record.version !== version || !Array.isArray(record.projects)) return [];
     const projects = record.projects.map((value) => {
+      const expectedKeys = version === 1
+        ? "displayName,openedAt,projectId"
+        : "displayName,openedAt,projectId,workspaceIdentity";
       if (
         typeof value !== "object"
         || value === null
         || Array.isArray(value)
-        || Object.keys(value).sort().join(",") !== "displayName,openedAt,projectId"
+        || Object.keys(value).sort().join(",") !== expectedKeys
       ) throw new Error("Invalid recent project entry.");
-      return value as unknown as RecentProject;
+      const entry = value as Record<string, unknown>;
+      return version === 1
+        ? { ...entry, workspaceIdentity: entry.projectId } as unknown as RecentProject
+        : value as unknown as RecentProject;
     });
     return validateRecentProjects(projects);
   } catch {
@@ -114,15 +121,21 @@ export function createBrowserRecentProjectsPersistence(
   const selected = availableStorage(storage);
   return {
     load: () => {
-      try { return decodeRecentProjects(selected?.getItem(RECENT_PROJECTS_KEY) ?? null); } catch { return []; }
+      try {
+        const current = selected?.getItem(RECENT_PROJECTS_KEY) ?? null;
+        return current === null
+          ? decodeRecentProjects(selected?.getItem(LEGACY_RECENT_PROJECTS_KEY) ?? null, 1)
+          : decodeRecentProjects(current, 2);
+      } catch { return []; }
     },
     save: (projects) => {
       try {
         if (!selected) throw new Error("unavailable");
         selected.setItem(RECENT_PROJECTS_KEY, JSON.stringify({
-          version: 1,
+          version: 2,
           projects: validateRecentProjects(projects),
         }));
+        selected.removeItem(LEGACY_RECENT_PROJECTS_KEY);
       } catch {
         throw new Error(messages.recentProjectsCouldNotBeSaved);
       }

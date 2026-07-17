@@ -2,8 +2,8 @@ import { expect, it } from "vitest";
 
 import {
   createDesktopRecentProjectsPersistence,
-  createDesktopRenderDiskCachePreferencePersistence,
   createDesktopRecoveryPersistence,
+  createDesktopRenderDiskCachePreferencePersistence,
   createDesktopScratchAutosavePersistence,
   createDesktopWorkspaceLayoutPersistence,
   createDesktopWorkspaceMetadataPersistence,
@@ -24,6 +24,7 @@ it("uses durable desktop-webview storage for C6 recovery, recent projects, and s
   });
   createDesktopRecentProjectsPersistence(storage).save([{
     projectId: "project-a",
+    workspaceIdentity: `desktop-project:${"a".repeat(64)}`,
     displayName: "Project A",
     openedAt: "2026-07-10T00:00:00.000Z",
   }]);

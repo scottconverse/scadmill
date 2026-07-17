@@ -1,7 +1,7 @@
-import type { Point3 } from "./measurements";
 import type { Quality, RenderSuccess2D, RenderSuccess3D } from "../engine/contracts";
-import { geometryDelta, type GeometryDelta } from "../geometry/geometry-delta";
+import { type GeometryDelta, geometryDelta } from "../geometry/geometry-delta";
 import { isSha256GeometryIdentity } from "../geometry/geometry-identity";
+import type { Point3 } from "./measurements";
 
 export type ViewerMode = "auto" | "2d" | "3d";
 export type ProjectionMode = "perspective" | "orthographic";
@@ -37,6 +37,7 @@ export interface ViewerFurnitureState {
 
 export interface ViewerPresentation {
   readonly modelIdentity: string;
+  readonly renderIdentity: string;
   readonly quality: Quality;
   readonly result: RenderSuccess2D | RenderSuccess3D;
   readonly geometryDelta: GeometryDelta;
@@ -225,6 +226,7 @@ export function reduceViewerState(state: ViewerState, action: ViewerAction): Vie
         modelIdentity,
         presentation: {
           modelIdentity,
+          renderIdentity: action.modelIdentity,
           quality: action.quality,
           result: action.result,
           geometryDelta: geometryDelta(

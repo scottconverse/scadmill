@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
+import type {
+  RenderSuccess2D,
+  RenderSuccess3D,
+} from "../../../src/application/engine/contracts";
 import {
   createViewerState,
   reduceViewerState,
   viewerDocument,
 } from "../../../src/application/viewer/viewer-state";
-import type {
-  RenderSuccess2D,
-  RenderSuccess3D,
-} from "../../../src/application/engine/contracts";
 
 const cubeResult: RenderSuccess3D = {
   kind: "3d",
@@ -127,6 +127,7 @@ describe("per-document viewer state", () => {
 
     expect(first.presentation).toEqual({
       modelIdentity: "job-1",
+      renderIdentity: "job-1",
       quality: "preview",
       result: cubeResult,
       geometryDelta: { kind: "baseline" },
@@ -183,6 +184,7 @@ describe("per-document viewer state", () => {
 
     expect(viewerDocument(state, "doc-a").modelIdentity).toBe("job-1");
     expect(viewerDocument(state, "doc-a").presentation?.modelIdentity).toBe("job-1");
+    expect(viewerDocument(state, "doc-a").presentation?.renderIdentity).toBe("job-2");
     expect(viewerDocument(state, "doc-a").measurements).toHaveLength(1);
   });
 

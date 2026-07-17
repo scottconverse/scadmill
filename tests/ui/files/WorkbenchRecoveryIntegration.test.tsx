@@ -51,6 +51,7 @@ describe("Workbench recovery ownership", () => {
       recentProjectsPersistence: {
         load: () => [{
           projectId: "project-b",
+          workspaceIdentity: "project-b",
           displayName: "Project B",
           openedAt: "2026-07-10T00:00:00.000Z",
         }],

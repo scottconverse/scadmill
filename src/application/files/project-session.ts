@@ -1,15 +1,15 @@
+import { messages } from "../../messages/en";
 import type {
   DocumentWorkspaceAction,
   DocumentWorkspaceState,
 } from "../documents/document-workspace";
 import { createDocumentWorkspace } from "../documents/document-workspace";
-import { messages } from "../../messages/en";
 import { ProjectFileService, type ProjectStorage } from "./project-file-service";
 import { parseProjectPath } from "./project-path";
-import { recordRecentProject, type RecentProject, validateRecentProjects } from "./recent-projects";
+import { createProjectSnapshot, type ProjectFileContent, type ProjectSnapshot } from "./project-snapshot";
+import { type RecentProject, recordRecentProject, validateRecentProjects } from "./recent-projects";
 import { planRecoveryRestoration } from "./recovery-restoration";
 import type { RecoverySnapshot } from "./recovery-state";
-import { createProjectSnapshot, type ProjectFileContent, type ProjectSnapshot } from "./project-snapshot";
 
 export interface ProjectSessionState {
   readonly mode: "scratch" | "project";
@@ -201,6 +201,7 @@ export async function executeProjectCommand(
         displayName: command.displayName,
         recentProjects: recordRecentProject(state.recentProjects, {
           projectId: command.snapshot.projectId,
+          workspaceIdentity: command.snapshot.workspaceIdentity,
           displayName: command.displayName,
           openedAt: context.now().toISOString(),
         }),
@@ -243,6 +244,7 @@ export async function executeProjectCommand(
         displayName,
         recentProjects: recordRecentProject(state.recentProjects, {
           projectId: snapshot.projectId,
+          workspaceIdentity: snapshot.workspaceIdentity,
           displayName,
           openedAt: context.now().toISOString(),
         }),

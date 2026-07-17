@@ -4,8 +4,8 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import type { EngineService } from "../../../src/application/engine/contracts";
-import { BUILT_IN_SAMPLES } from "../../../src/application/welcome/built-in-samples";
 import { createWorkbenchRuntime } from "../../../src/application/runtime/workbench-runtime";
+import { BUILT_IN_SAMPLES } from "../../../src/application/welcome/built-in-samples";
 import { WelcomeLauncher } from "../../../src/ui/welcome/WelcomeLauncher";
 
 const engine: EngineService = {
@@ -20,6 +20,7 @@ describe("WelcomeLauncher", () => {
       recentProjectsPersistence: {
         load: () => [{
           projectId: "project-a",
+          workspaceIdentity: "project-a",
           displayName: "Gear assembly",
           openedAt: "2026-07-15T00:00:00.000Z",
         }],

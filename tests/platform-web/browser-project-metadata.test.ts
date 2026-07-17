@@ -100,16 +100,43 @@ describe("browser project metadata persistence", () => {
     const persistence = createBrowserRecentProjectsPersistence(storage);
     persistence.save([{
       projectId: "project-a",
+      workspaceIdentity: `desktop-project:${"a".repeat(64)}`,
       displayName: "Project A",
       openedAt: "2026-07-10T00:00:00.000Z",
     }]);
     expect(createBrowserRecentProjectsPersistence(storage).load()).toEqual([{
       projectId: "project-a",
+      workspaceIdentity: `desktop-project:${"a".repeat(64)}`,
       displayName: "Project A",
       openedAt: "2026-07-10T00:00:00.000Z",
     }]);
-    storage.setItem("scadmill.recent-projects.v1", "{bad");
+    expect(storage.values.get("scadmill.recent-projects.v2")).toContain('"version":2');
+    expect(storage.values.get("scadmill.recent-projects.v2")).toContain(`desktop-project:${"a".repeat(64)}`);
+    storage.setItem("scadmill.recent-projects.v2", "{bad");
     expect(persistence.load()).toEqual([]);
+  });
+
+  it("migrates v1 recent projects deterministically and removes legacy only after v2 saves", () => {
+    const storage = new MemoryStorage();
+    storage.setItem("scadmill.recent-projects.v1", JSON.stringify({
+      version: 1,
+      projects: [{ projectId: "workspace:legacy", displayName: "Legacy", openedAt: "2026-07-10T00:00:00.000Z" }],
+    }));
+    const persistence = createBrowserRecentProjectsPersistence(storage);
+
+    const migrated = persistence.load();
+    expect(migrated).toEqual([{
+      projectId: "workspace:legacy",
+      workspaceIdentity: "workspace:legacy",
+      displayName: "Legacy",
+      openedAt: "2026-07-10T00:00:00.000Z",
+    }]);
+    persistence.save(migrated);
+    expect(storage.values.has("scadmill.recent-projects.v1")).toBe(false);
+    expect(JSON.parse(storage.values.get("scadmill.recent-projects.v2") ?? "null")).toEqual({
+      version: 2,
+      projects: migrated,
+    });
   });
 
   it("degrades reads safely and reports blocked writes", () => {

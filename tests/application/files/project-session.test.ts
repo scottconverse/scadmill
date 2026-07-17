@@ -41,6 +41,7 @@ describe("project session commands", () => {
   it("replaces the workspace with a welcome sample without losing recent projects", async () => {
     const recent = [{
       projectId: "project-a",
+      workspaceIdentity: "project-a",
       displayName: "Project A",
       openedAt: "2026-07-10T23:00:00.000Z",
     }];
@@ -107,6 +108,7 @@ describe("project session commands", () => {
       revision: 1,
       recentProjects: [{
         projectId: "project-a",
+        workspaceIdentity: "project-a",
         displayName: "Project A",
         openedAt: "2026-07-10T23:00:00.000Z",
       }],

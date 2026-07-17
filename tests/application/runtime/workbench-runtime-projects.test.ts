@@ -3,11 +3,11 @@ import { describe, expect, it, vi } from "vitest";
 import { isDocumentDirty } from "../../../src/application/documents/document-workspace";
 import type { EngineService } from "../../../src/application/engine/contracts";
 import type { ProjectStorage } from "../../../src/application/files/project-file-service";
-import type { RecentProjectsPersistence } from "../../../src/application/files/recent-projects";
 import {
   createProjectSnapshot,
   type ProjectFileContent,
 } from "../../../src/application/files/project-snapshot";
+import type { RecentProjectsPersistence } from "../../../src/application/files/recent-projects";
 import { createWorkbenchRuntime } from "../../../src/application/runtime/workbench-runtime";
 import { viewerDocument } from "../../../src/application/viewer/viewer-state";
 
@@ -843,6 +843,7 @@ describe("workbench project integration", () => {
 
     expect(second.project.getState().recentProjects).toEqual([{
       projectId: "C:\\models\\cube",
+      workspaceIdentity: "C:\\models\\cube",
       displayName: "cube",
       openedAt: "2026-07-10T00:00:00.000Z",
     }]);
