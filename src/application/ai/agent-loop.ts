@@ -1,3 +1,5 @@
+import type { AiMessage } from "./ai-provider";
+
 export const DEFAULT_AGENT_ROUND_CAP = 10;
 
 export interface AgentLoopState {
@@ -5,6 +7,26 @@ export interface AgentLoopState {
   readonly rounds: number;
   readonly maxRounds: number;
   readonly status: "idle" | "running" | "capped" | "completed";
+}
+
+export interface AgentToolCall {
+  readonly name: string;
+  readonly arguments: Record<string, unknown>;
+}
+
+export interface AgentModelTurn {
+  readonly text?: string;
+  readonly toolCall?: AgentToolCall;
+}
+
+export interface AgentToolExecutor {
+  call(tool: AgentToolCall, signal: AbortSignal): Promise<unknown>;
+}
+
+export interface AgentRunResult {
+  readonly state: AgentLoopState;
+  readonly messages: readonly AiMessage[];
+  readonly toolResults: readonly unknown[];
 }
 
 export function createAgentLoop(enabled = false, requestedCap = DEFAULT_AGENT_ROUND_CAP): AgentLoopState {
@@ -20,4 +42,28 @@ export function requestAgentRound(state: AgentLoopState): AgentLoopState {
 
 export function completeAgentLoop(state: AgentLoopState): AgentLoopState {
   return state.status === "running" ? { ...state, status: "completed" } : state;
+}
+
+export async function runAgentLoop(
+  initialMessages: readonly AiMessage[],
+  model: (messages: readonly AiMessage[], signal: AbortSignal) => Promise<AgentModelTurn>,
+  tools: AgentToolExecutor,
+  signal: AbortSignal,
+  options?: { readonly enabled?: boolean; readonly maxRounds?: number },
+): Promise<AgentRunResult> {
+  let state = createAgentLoop(options?.enabled ?? true, options?.maxRounds ?? DEFAULT_AGENT_ROUND_CAP);
+  const messages: AiMessage[] = [...initialMessages];
+  const toolResults: unknown[] = [];
+  if (!state.enabled) return { state, messages, toolResults };
+  while (state.status === "running") {
+    if (signal.aborted) return { state: { ...state, status: "completed" }, messages, toolResults };
+    const turn = await model(messages, signal);
+    if (turn.text) messages.push({ role: "assistant", content: turn.text });
+    if (!turn.toolCall) return { state: completeAgentLoop(state), messages, toolResults };
+    state = requestAgentRound(state);
+    const result = await tools.call(turn.toolCall, signal);
+    toolResults.push(result);
+    messages.push({ role: "system", content: `<tool-result name="${turn.toolCall.name}">\n${JSON.stringify(result)}\n</tool-result>` });
+  }
+  return { state, messages, toolResults };
 }
