@@ -32,6 +32,7 @@ import { resolveActiveViewerPresentation } from "./viewer/active-viewer-presenta
 import { ViewerPaneConnector } from "./viewer/ViewerPaneConnector";
 import { WorkbenchBanners } from "./WorkbenchBanners";
 import { DismissibleNotice, NativeHelpPanel } from "./WorkbenchOverlays";
+import { AiConversationPanel, createAiConversationBridge } from "./ai";
 import { WelcomeLauncher } from "./welcome/WelcomeLauncher";
 import type { WorkbenchProps } from "./workbench-props";
 import { diagnosticStatusLabel, geometryDeltaStatus, renderStatusLabel } from "./workbench-status";
@@ -58,7 +59,7 @@ export function Workbench({
   const render = useReadonlyStore(runtime.render, (state) => state);
   const consoleState = useReadonlyStore(runtime.console, (state) => state);
   const { autoRender, editor: editorSettings, keybindings, persistenceStatus: settingsPersistenceStatus, profile } = useReadonlyStore(runtime.settings, (state) => state);
-  const formatterSettings = profile.formatter;
+  const formatterSettings = profile.formatter; const aiBridge = createAiConversationBridge(runtime, profile, secretStore, document.id);
   const layout = useReadonlyStore(runtime.layout, (state) => state);
   const viewerState = useReadonlyStore(runtime.viewer, (state) => state);
   const parameterState = useReadonlyStore(runtime.parameters, (state) => state);
@@ -360,8 +361,8 @@ export function Workbench({
           storage={projectStorage} onRecoveryPendingChange={setRecoveryPending}
         />
       </WorkbenchBanners>
-      <WorkspaceFrame aiConfigured={profile.ai.provider !== "none"}
-        activityContent={{
+      <WorkspaceFrame aiConfigured={profile.ai.provider !== "none"} activityContent={{
+          ai: <AiConversationPanel configured={profile.ai.provider !== "none"} currentSource={document.source} documentId={document.id} onApplyEdit={aiBridge.applyEdit} requestStream={profile.ai.provider === "none" ? undefined : aiBridge.requestStream} />,
           files: (
             <FilesActivity
               canReveal={canRevealProjectFiles} canTrash={canTrashProjectFiles}
@@ -379,8 +380,7 @@ export function Workbench({
         }}
         layout={layout}
         narrow={narrow}
-        consoleContent={consoleContent}
-        editor={editor}
+        consoleContent={consoleContent} editor={editor}
         parameterContent={<ParameterPanelConnector documentId={document.id} runtime={runtime}
           state={parameterDocument(parameterState, document.id)} />}
         viewer={viewer}
