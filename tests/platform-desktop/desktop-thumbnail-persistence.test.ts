@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createDesktopRenderThumbnailPersistence } from "../../src/platform-desktop/desktop-thumbnail-persistence";
+import { createBrowserRenderThumbnailPersistence, createDesktopRenderThumbnailPersistence } from "../../src/platform-desktop/desktop-thumbnail-persistence";
 
 class MemoryStorage {
   readonly values = new Map<string, string>();
@@ -76,5 +76,20 @@ describe("desktop render thumbnail persistence", () => {
       pngBytes: png(1),
     })).toThrow(/opaque desktop project identity/iu);
     expect([...storage.values.keys()].join("\n")).not.toContain("Models");
+  });
+
+  it("provides a durable browser-profile namespace for non-path workspace identities", () => {
+    const storage = new MemoryStorage();
+    const persistence = createBrowserRenderThumbnailPersistence(storage);
+    persistence.save("web-import-project", {
+      documentPath: "main.scad",
+      renderIdentity,
+      capturedAt: "2026-07-17T00:00:00.000Z",
+      pngBytes: png(3),
+    });
+    expect(persistence.load("web-import-project")[0].pngBytes).toEqual(png(3));
+    expect([...storage.values.keys()]).toEqual([
+      "scadmill.browser-render-thumbnails.v1:web-import-project",
+    ]);
   });
 });

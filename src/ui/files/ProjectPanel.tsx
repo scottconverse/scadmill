@@ -249,6 +249,9 @@ export function ProjectPanel({
         role="treeitem"
         tabIndex={0}
         onFocus={() => setPreviewPath(entry.path)}
+        onBlur={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setPreviewPath(null);
+        }}
         onMouseEnter={() => setPreviewPath(entry.path)}
         onMouseLeave={() => setPreviewPath(null)}
       >

@@ -148,11 +148,14 @@ export async function thumbnailPng(
   viewer: ViewerResources,
   canvas: HTMLCanvasElement,
 ): Promise<Uint8Array> {
-  viewer.renderer.render(viewer.scene, viewer.camera);
   const previousWidth = viewer.width;
   const previousHeight = viewer.height;
   viewer.renderer.setSize(240, 160, false);
-  const bytes = await canvasPng(canvas);
-  viewer.renderer.setSize(previousWidth, previousHeight, false);
-  return bytes;
+  try {
+    viewer.renderer.render(viewer.scene, viewer.camera);
+    return await canvasPng(canvas);
+  } finally {
+    viewer.renderer.setSize(previousWidth, previousHeight, false);
+    viewer.renderer.render(viewer.scene, viewer.camera);
+  }
 }

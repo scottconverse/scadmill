@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-thumbnail-review-correction",
+  "createdAt": "2026-07-17T03:12:00-06:00",
+  "summary": "Adversarial correction for FR-15.13 thumbnail capture ordering, async identity guards, durable browser profile persistence, Welcome refresh, file-tree focus dismissal, and evidence accuracy.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "review-correction" },
+  "specSections": ["Section 2.4 provenance ledger", "FR-15.13 thumbnails", "N-2 memory stability", "N-7 evidence and status honesty"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-17-m4-thumbnail-review-correction.json", "status": "added" },
+    { "path": "src/platform-desktop/desktop-thumbnail-persistence.ts", "status": "modified" },
+    { "path": "src/platform-web/web-platform.ts", "status": "modified" },
+    { "path": "src/ui/files/ProjectPanel.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/model-viewer-runtime.ts", "status": "modified" },
+    { "path": "src/ui/viewer/SvgViewer.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/use-viewer-thumbnail.ts", "status": "modified" },
+    { "path": "src/ui/welcome/WelcomeLauncher.tsx", "status": "modified" },
+    { "path": "tests/platform-desktop/desktop-thumbnail-persistence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0306", "topic": "Adversarial capture correction", "decision": "Resize the renderer before rendering the fixed thumbnail, restore the viewport in finally, and gate asynchronous 2D/3D callbacks by generation and one in-flight capture.", "rationale": "The first implementation could encode stale/blank buffers or let old promises overwrite a newer identity. The corrected ordering and guards make failure and replacement safe.", "specBasis": ["FR-15.13", "N-2", "N-7"] },
+    { "id": "D-0307", "topic": "Browser durability", "decision": "Use an app-owned browser profile storage namespace for render thumbnails rather than the ephemeral no-op port; desktop retains strict opaque desktop keys.", "rationale": "FR-15.13 requires durable non-source workspace state on the web target as well as desktop.", "specBasis": ["FR-15.13", "N-7"] },
+    { "id": "D-0308", "topic": "Freshness and focus", "decision": "Welcome reloads thumbnail metadata when opened, and file-tree previews dismiss when keyboard focus leaves the tree item.", "rationale": "Current-session saves and keyboard navigation must be immediately truthful and non-sticky.", "specBasis": ["FR-15.13", "N-3", "N-7"] }
+  ],
+  "testEvidence": [
+    { "criterion": "The corrected persistence and presentation implementation is type-safe, source-policy clean, provenance-valid, and behaviorally green.", "test": "Run static checks and focused persistence/presentation tests once.", "red": { "command": "pnpm.cmd exec vitest run tests/platform-desktop/desktop-thumbnail-persistence.test.ts", "observedAt": "2026-07-17T03:06:00-06:00", "outcome": "RED: browser durable namespace and review-correction paths were not yet covered." }, "green": { "command": "pnpm.cmd exec tsc --noEmit --pretty false; pnpm.cmd lint; pnpm.cmd exec vitest run tests/platform-desktop/desktop-thumbnail-persistence.test.ts tests/ui/files/ProjectLifecycleControls.test.tsx tests/ui/welcome/WelcomeLauncher.test.tsx tests/ui/viewer/ViewerPaneConnector.test.tsx; pnpm.cmd check:provenance; git diff --check", "observedAt": "2026-07-17T03:12:00-06:00", "outcome": "GREEN: TypeScript exited 0; source policy passed; focused tests 47/47 passed; provenance passed; diff check clean." } }
+  ],
+  "nearMisses": [],
+  "questions": ["Q-0037 remains open only for the M5 history-timeline thumbnail placement and project-level thumbnail selection; M4 capture, persistence, Welcome, and file-tree surfaces are delivered."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

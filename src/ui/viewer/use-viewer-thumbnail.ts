@@ -8,12 +8,22 @@ export function useViewerThumbnail(
   onThumbnail?: (bytes: Uint8Array) => void | Promise<void>,
 ): () => void {
   const capturedIdentity = useRef<string | null>(null);
+  const generation = useRef(0);
+  const inFlight = useRef(false);
+  const lastIdentity = useRef<string | null>(null);
+  if (lastIdentity.current !== renderIdentity) {
+    lastIdentity.current = renderIdentity;
+    generation.current += 1;
+    capturedIdentity.current = null;
+  }
   return useCallback(() => {
-    if (!onThumbnail || !renderIdentity || capturedIdentity.current === renderIdentity) return;
+    if (!onThumbnail || !renderIdentity || capturedIdentity.current === renderIdentity || inFlight.current) return;
+    const captureGeneration = generation.current;
+    inFlight.current = true;
     void modelViewer.current?.captureThumbnailPng().then(async (bytes) => {
-      if (capturedIdentity.current === renderIdentity) return;
+      if (generation.current !== captureGeneration || capturedIdentity.current === renderIdentity) return;
       await onThumbnail(bytes);
       capturedIdentity.current = renderIdentity;
-    }).catch(() => undefined);
+    }).catch(() => undefined).finally(() => { inFlight.current = false; });
   }, [modelViewer, onThumbnail, renderIdentity]);
 }

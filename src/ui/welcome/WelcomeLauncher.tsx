@@ -54,6 +54,7 @@ export function WelcomeLauncher({
   const [showAtStartup, setShowAtStartup] = useState(showOnLaunch);
   const [pendingSample, setPendingSample] = useState<BuiltInSample | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [thumbnailRevision, setThumbnailRevision] = useState(0);
   const launcher = useRef<HTMLButtonElement>(null);
   const firstAction = useRef<HTMLButtonElement>(null);
   const welcomeDialog = useRef<HTMLElement>(null);
@@ -69,6 +70,7 @@ export function WelcomeLauncher({
     && !isDocumentDirty(documents.documents[0])
     && documents.documents[0].source.trim().length === 0;
   const recentThumbnails = useMemo(() => {
+    void thumbnailRevision;
     const values = new Map<string, string>();
     for (const recent of project.recentProjects) {
       try {
@@ -82,10 +84,13 @@ export function WelcomeLauncher({
       }
     }
     return values;
-  }, [project.recentProjects, runtime]);
+  }, [project.recentProjects, runtime, thumbnailRevision]);
 
   useEffect(() => {
     if (open) firstAction.current?.focus();
+  }, [open]);
+  useEffect(() => {
+    if (open) setThumbnailRevision((revision) => revision + 1);
   }, [open]);
 
   useEffect(() => {

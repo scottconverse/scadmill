@@ -169,7 +169,10 @@ export function SvgViewer({ result, onThumbnail }: SvgViewerProps) {
       context.drawImage(image, (240 - width) / 2, (160 - height) / 2, width, height);
       canvas.toBlob((blob) => {
         if (!blob || !active) return;
-        void blob.arrayBuffer().then((bytes) => onThumbnail(new Uint8Array(bytes))).catch(() => undefined);
+        void blob.arrayBuffer().then((bytes) => {
+          if (!active) return undefined;
+          return onThumbnail(new Uint8Array(bytes));
+        }).catch(() => undefined);
       }, "image/png");
     };
     image.src = source;

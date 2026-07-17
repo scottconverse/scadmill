@@ -20,9 +20,9 @@ function availableStorage(storage?: DurableWebviewStorage): DurableWebviewStorag
   try { return globalThis.localStorage; } catch { return undefined; }
 }
 
-function storageKey(workspaceIdentity: string): string | null {
-  return OPAQUE_PROJECT_IDENTITY.test(workspaceIdentity)
-    ? `${STORAGE_PREFIX}:${workspaceIdentity}`
+function storageKey(workspaceIdentity: string, prefix = STORAGE_PREFIX, allowAny = false): string | null {
+  return (allowAny || OPAQUE_PROJECT_IDENTITY.test(workspaceIdentity))
+    ? `${prefix}:${workspaceIdentity}`
     : null;
 }
 
@@ -84,16 +84,17 @@ function decodeRecords(serialized: string | null): readonly RenderThumbnailRecor
 
 export function createDesktopRenderThumbnailPersistence(
   storage?: DurableWebviewStorage,
+  options: { readonly prefix?: string; readonly allowAnyWorkspace?: boolean } = {},
 ): RenderThumbnailPersistence {
   const selected = availableStorage(storage);
   return {
     load: (workspaceIdentity) => {
-      const key = storageKey(workspaceIdentity);
+      const key = storageKey(workspaceIdentity, options.prefix, options.allowAnyWorkspace);
       if (!key || !selected) return [];
       try { return decodeRecords(selected.getItem(key)); } catch { return []; }
     },
     save: (workspaceIdentity, thumbnail) => {
-      const key = storageKey(workspaceIdentity);
+      const key = storageKey(workspaceIdentity, options.prefix, options.allowAnyWorkspace);
       if (!key) throw new Error("Thumbnail persistence requires an opaque desktop project identity.");
       if (!selected) throw new Error("Desktop profile storage is unavailable.");
       const next = validateRenderThumbnailRecord(thumbnail);
@@ -114,10 +115,17 @@ export function createDesktopRenderThumbnailPersistence(
       }));
     },
     clear: (workspaceIdentity) => {
-      const key = storageKey(workspaceIdentity);
+      const key = storageKey(workspaceIdentity, options.prefix, options.allowAnyWorkspace);
       if (!key) throw new Error("Thumbnail persistence requires an opaque desktop project identity.");
       if (!selected) throw new Error("Desktop profile storage is unavailable.");
       selected.removeItem(key);
     },
   };
+}
+
+export function createBrowserRenderThumbnailPersistence(storage?: DurableWebviewStorage): RenderThumbnailPersistence {
+  return createDesktopRenderThumbnailPersistence(storage, {
+    prefix: "scadmill.browser-render-thumbnails.v1",
+    allowAnyWorkspace: true,
+  });
 }
