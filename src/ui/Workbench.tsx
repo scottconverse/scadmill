@@ -362,7 +362,7 @@ export function Workbench({
         />
       </WorkbenchBanners>
       <WorkspaceFrame aiConfigured={profile.ai.provider !== "none"} activityContent={{
-          ai: <AiConversationPanel configured={profile.ai.provider !== "none"} currentSource={document.source} documentId={document.id} onApplyEdit={aiBridge.applyEdit} requestStream={profile.ai.provider === "none" ? undefined : aiBridge.requestStream} />,
+          ai: <AiConversationPanel configured={profile.ai.provider !== "none"} contextInputs={{ source: document.source, diagnostics: [], parameters: [] }} currentSource={document.source} documentId={document.id} onApplyEdit={aiBridge.applyEdit} requestStream={profile.ai.provider === "none" ? undefined : aiBridge.requestStream} />,
           files: (
             <FilesActivity
               canReveal={canRevealProjectFiles} canTrash={canTrashProjectFiles}
