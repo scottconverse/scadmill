@@ -49,6 +49,9 @@ button:focus-visible, select:focus-visible, [tabindex]:focus-visible { outline: 
 .welcome-start ul { display: grid; gap: 6px; padding: 0; margin: 0; list-style: none; }
 .welcome-start button, .welcome-sample-grid button, .welcome-confirmation button { min-height: 34px; border: 1px solid var(--chrome-border); border-radius: 6px; background: var(--chrome-surface-raised); color: var(--chrome-text); cursor: pointer; }
 .welcome-start li button { width: 100%; padding: 5px 8px; overflow: hidden; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+.welcome-start li { display: flex; align-items: center; gap: 8px; }
+.welcome-recent-thumbnail { width: 48px; height: 32px; flex: 0 0 auto; object-fit: contain; border: 1px solid var(--chrome-border); border-radius: 4px; background: var(--chrome-surface); }
+.project-file-thumbnail { position: absolute; z-index: 2; right: 8px; width: 120px; height: 80px; object-fit: contain; border: 1px solid var(--chrome-border); border-radius: 4px; background: var(--chrome-surface); box-shadow: 0 4px 12px var(--chrome-border); }
 .welcome-sample-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .welcome-sample-grid article { display: grid; grid-template-rows: auto 1fr auto; gap: 10px; min-width: 0; padding: 14px; border: 1px solid var(--chrome-border); border-radius: 8px; background: var(--chrome-surface); }
 .welcome-sample-icon { width: 32px; height: 32px; border-width: 1px; border-radius: 7px; }

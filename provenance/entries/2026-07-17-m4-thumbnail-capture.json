@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-thumbnail-capture",
+  "createdAt": "2026-07-17T03:00:00-06:00",
+  "summary": "Wire the M4 thumbnail capture path through accepted viewer renders, platform-owned persistence, and Welcome recent-project presentation.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "FR-15.13 thumbnails", "AC-15.m thumbnail presentation", "N-7 evidence and status honesty"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-17-m4-thumbnail-capture.json", "status": "added" },
+    { "path": "src/app/App.tsx", "status": "modified" },
+    { "path": "src/application/engine/engine-version-cache.ts", "status": "added" },
+    { "path": "src/application/platform/scadmill-platform.ts", "status": "modified" },
+    { "path": "src/application/runtime/workbench-runtime-contracts.ts", "status": "modified" },
+    { "path": "src/application/runtime/workbench-runtime.ts", "status": "modified" },
+    { "path": "src/platform-desktop/desktop-platform.ts", "status": "modified" },
+    { "path": "src/platform-web/web-platform.ts", "status": "modified" },
+    { "path": "src/ui/viewer/ModelViewer.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/model-viewer-runtime.ts", "status": "modified" },
+    { "path": "src/ui/viewer/SvgViewer.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/ViewerPane.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/ViewerPaneConnector.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/use-viewer-thumbnail.ts", "status": "added" },
+    { "path": "src/ui/viewer/viewer-bounds-label.ts", "status": "added" },
+    { "path": "src/ui/files/ProjectPanel.tsx", "status": "modified" },
+    { "path": "src/ui/welcome/WelcomeLauncher.tsx", "status": "modified" },
+    { "path": "src/ui/workbench.css", "status": "modified" },
+    { "path": "tests/helpers/test-platform.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0303", "topic": "Capture timing", "decision": "Capture only after the viewer has accepted and rendered the current result identity; deduplicate by renderIdentity so stale, failed, and repeated animation frames cannot overwrite a newer thumbnail.", "rationale": "The viewer can retain geometry continuity across renders and can repaint repeatedly. Identity-gated post-frame capture prevents old scene bytes from being attributed to a new result.", "specBasis": ["FR-15.13", "N-7"] },
+    { "id": "D-0304", "topic": "Platform ownership", "decision": "Expose one thumbnail persistence port on ScadMillPlatform and WorkbenchRuntime; desktop uses opaque profile storage and web/tests use an ephemeral fail-safe implementation until a browser durable adapter is selected.", "rationale": "Derived thumbnails must not enter project source or portability archives, and an unavailable profile must not block editing or opening a project.", "specBasis": ["FR-15.13", "N-7"] },
+    { "id": "D-0305", "topic": "Welcome presentation", "decision": "Welcome loads the newest available thumbnail defensively and renders it as a decorative preview beside the recent-project action; malformed or unavailable records are ignored.", "rationale": "Recent-project recovery remains usable even when profile-derived media is unavailable, while the preview provides immediate visual orientation.", "specBasis": ["FR-15.13", "AC-15.m", "N-7"] }
+  ],
+  "testEvidence": [
+    { "criterion": "Viewer, platform, and Welcome surfaces remain type-correct after thumbnail capture integration.", "test": "Compile the complete TypeScript surface.", "red": { "command": "pnpm.cmd exec tsc --noEmit --pretty false", "observedAt": "2026-07-17T02:51:00-06:00", "outcome": "RED: test platform fixtures lacked the newly required renderThumbnails port." }, "green": { "command": "pnpm.cmd exec tsc --noEmit --pretty false", "observedAt": "2026-07-17T02:59:32-06:00", "outcome": "GREEN: tsc exited 0 with no diagnostics." } },
+    { "criterion": "Existing viewer, Welcome, runtime, and platform behavior remains green with the new optional capture callbacks and decorative recent previews.", "test": "Run the affected UI/runtime suite once.", "red": { "command": "pnpm.cmd exec vitest run tests/app/App.test.tsx tests/application/runtime/workbench-runtime.test.ts tests/ui/Workbench.test.tsx tests/ui/welcome/WelcomeLauncher.test.tsx tests/ui/viewer/SvgViewer.test.tsx tests/ui/viewer/ModelViewer.test.tsx tests/ui/viewer/ViewerPane.test.tsx tests/ui/viewer/ViewerPaneConnector.test.tsx tests/platform-web/web-platform.test.ts tests/platform-desktop/desktop-platform.test.ts", "observedAt": "2026-07-17T02:58:52-06:00", "outcome": "RED: sharing engine-version promises without the configured-path key suppressed expected path-change probes; the bounded retry exposed three App assertions." }, "green": { "command": "pnpm.cmd exec vitest run tests/app/App.test.tsx tests/application/runtime/workbench-runtime.test.ts tests/ui/Workbench.test.tsx tests/ui/welcome/WelcomeLauncher.test.tsx tests/ui/viewer/SvgViewer.test.tsx tests/ui/viewer/ModelViewer.test.tsx tests/ui/viewer/ViewerPane.test.tsx tests/ui/viewer/ViewerPaneConnector.test.tsx tests/platform-web/web-platform.test.ts tests/platform-desktop/desktop-platform.test.ts", "observedAt": "2026-07-17T03:00:02-06:00", "outcome": "GREEN: Test Files 9 passed (9); Tests 98 passed (98); Duration 4.89s." } },
+    { "criterion": "Affected implementation files pass formatting and import policy.", "test": "Run Biome on the modified capture/platform/UI files.", "red": { "command": "pnpm.cmd exec biome check src/application/platform/scadmill-platform.ts src/application/runtime/workbench-runtime-contracts.ts src/application/runtime/workbench-runtime.ts src/app/App.tsx src/platform-web/web-platform.ts src/platform-desktop/desktop-platform.ts tests/helpers/test-platform.ts src/ui/viewer/ModelViewer.tsx src/ui/viewer/SvgViewer.tsx src/ui/viewer/ViewerPane.tsx src/ui/viewer/ViewerPaneConnector.tsx", "observedAt": "2026-07-17T02:52:00-06:00", "outcome": "RED: import ordering and a conditional SvgViewer hook were reported." }, "green": { "command": "pnpm.cmd exec biome check src/application/platform/scadmill-platform.ts src/application/runtime/workbench-runtime-contracts.ts src/application/runtime/workbench-runtime.ts src/app/App.tsx src/platform-web/web-platform.ts src/platform-desktop/desktop-platform.ts tests/helpers/test-platform.ts src/ui/viewer/ModelViewer.tsx src/ui/viewer/SvgViewer.tsx src/ui/viewer/ViewerPane.tsx src/ui/viewer/ViewerPaneConnector.tsx", "observedAt": "2026-07-17T02:56:00-06:00", "outcome": "GREEN: Checked 11 files; no fixes applied." } }
+  ],
+  "nearMisses": [
+    { "url": "https://github.com/scottconverse/scadmill", "sought": "Clean-host native timing and full browser walkthrough evidence for thumbnail persistence and capture.", "confirmation": "Not claimed in this local integration unit; the M4 exit gate still requires the clean-host/native and walkthrough evidence lanes." }
+  ],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

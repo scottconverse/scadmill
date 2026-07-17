@@ -6,6 +6,7 @@ import {
   acceptsPinnedEngineVersion,
   PINNED_OPENSCAD_VERSION,
 } from "../application/engine/engine-pin";
+import { cachedEngineVersion } from "../application/engine/engine-version-cache";
 import {
   createWorkbenchProjectPortabilityController,
 } from "../application/files/workbench-portability";
@@ -54,6 +55,7 @@ export function App({
     workspaceMetadata: workspaceMetadataPersistence,
     welcome: welcomePreferencePersistence,
     renderCachePreferences: renderDiskCachePreferencePersistence,
+    renderThumbnails: renderThumbnailPersistence,
   } = platform.persistence;
   const artifactDestination = platform.artifacts;
   const renderDiskCacheStorage = platform.persistence.renderCache.available
@@ -76,6 +78,7 @@ export function App({
         workspaceMetadataPersistence,
         renderDiskCacheStorage,
         renderDiskCachePreferencePersistence,
+        renderThumbnailPersistence,
       });
     },
     [
@@ -89,6 +92,7 @@ export function App({
       workspaceMetadataPersistence,
       renderDiskCacheStorage,
       renderDiskCachePreferencePersistence,
+      renderThumbnailPersistence,
     ],
   );
   const pendingRuntimeDisposals = useRef(
@@ -159,11 +163,12 @@ export function App({
       versionProbe.current?.engine !== engine
       || versionProbe.current.revision !== engineProbeRevision
     ) {
+      const result = cachedEngineVersion(engine, configuredPathForProbe.current);
       versionProbe.current = {
         engine,
         revision: engineProbeRevision,
         configuredPath: configuredPathForProbe.current,
-        result: engine.version(),
+        result,
       };
     }
     const probe = versionProbe.current;

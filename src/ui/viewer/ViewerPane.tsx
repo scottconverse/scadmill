@@ -1,16 +1,14 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
-
+import {
+  type KeybindingSettings,
+  matchesKeybinding,
+  primaryModifierForPlatform,
+} from "../../application/commands/default-keybindings";
 import type {
   Quality,
   RenderFailure,
   RenderResult,
-  RenderSuccess3D,
 } from "../../application/engine/contracts";
-import {
-  matchesKeybinding,
-  primaryModifierForPlatform,
-  type KeybindingSettings,
-} from "../../application/commands/default-keybindings";
 import type { WorkspaceLayoutAction } from "../../application/layout/workspace-layout";
 import type { ThemeTokens } from "../../application/theme/theme-schema";
 import type { WorkspaceAnnotationPersistenceState } from "../../application/viewer/annotation-persistence";
@@ -23,11 +21,14 @@ import {
   type ViewerMode,
 } from "../../application/viewer/viewer-state";
 import { messages } from "../../messages/en";
-import { ViewerDetailsPanel } from "./ViewerDetailsPanel";
 import type { ModelViewerHandle } from "./ModelViewer";
 import { RenderProgressOverlay } from "./RenderProgressOverlay";
-import { ViewerToolbar, type ViewerTool } from "./ViewerToolbar";
+import { useViewerThumbnail } from "./use-viewer-thumbnail";
+import { ViewerDetailsPanel } from "./ViewerDetailsPanel";
+import { type ViewerTool, ViewerToolbar } from "./ViewerToolbar";
+import { boundsLabel } from "./viewer-bounds-label";
 import type { ViewerDegradation } from "./viewer-furniture";
+
 const ModelViewer = lazy(() =>
   import("./ModelViewer").then((module) => ({ default: module.ModelViewer })),
 );
@@ -76,14 +77,9 @@ export interface ViewerPaneProps {
   readonly onLayoutAction: (action: WorkspaceLayoutAction) => void;
   readonly onModeChange?: (mode: ViewerMode) => void;
   readonly onScreenshot?: (bytes: Uint8Array) => void | Promise<void>;
+  readonly onThumbnail?: (bytes: Uint8Array) => void | Promise<void>;
   readonly onShowConsole?: () => void;
   readonly onViewerAction?: (action: ViewerAction) => void;
-}
-function boundsLabel(result: RenderSuccess3D): string | null {
-  const bounds = result.stats.boundingBox;
-  if (!bounds) return null;
-  const size = bounds.max.map((maximum, axis) => maximum - bounds.min[axis]);
-  return messages.dimensionsMillimeters(size.map((value) => Number(value.toFixed(3))));
 }
 export function ViewerPane({
   colors,
@@ -113,6 +109,7 @@ export function ViewerPane({
   onLayoutAction,
   onModeChange,
   onScreenshot,
+  onThumbnail,
   onShowConsole,
   onViewerAction,
 }: ViewerPaneProps) {
@@ -139,7 +136,6 @@ export function ViewerPane({
     : undefined;
   const modelIdentity = viewer.modelIdentity ?? "";
   const visibleKind = visibleGeometry?.kind;
-
   useEffect(() => {
     void documentId;
     void modelIdentity;
@@ -148,6 +144,7 @@ export function ViewerPane({
     setAnnotationDraft("");
     setNotice(null);
   }, [documentId, modelIdentity]);
+  const captureThumbnail = useViewerThumbnail(modelViewer, viewer.presentation?.renderIdentity ?? "", onThumbnail);
 
   const dispatchViewer = useCallback(
     (action: ViewerAction) => onViewerAction?.(action),
@@ -304,7 +301,7 @@ export function ViewerPane({
       <div className="viewer-content">
         <Suspense fallback={<div className="surface-loading" role="status">{messages.loadingViewer}</div>}>
           {visibleGeometry?.kind === "2d" ? (
-            <SvgViewer result={visibleGeometry} />
+            <SvgViewer result={visibleGeometry} onThumbnail={onThumbnail} />
           ) : visibleGeometry?.kind === "3d" ? (
             <ModelViewer
               annotations={viewer.annotations}
@@ -318,6 +315,7 @@ export function ViewerPane({
               onCameraChange={(camera) => dispatchViewer({ kind: "set-camera", documentId, camera })}
               onDegradationChange={updateDegradation}
               onPointPick={pickPoint}
+              onFrameRendered={captureThumbnail}
               ref={modelViewer}
               result={visibleGeometry}
               tool={tool}

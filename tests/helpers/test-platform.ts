@@ -8,13 +8,14 @@ import type { RecoveryPersistence } from "../../src/application/files/recovery-s
 import type { ScratchAutosavePersistence } from "../../src/application/files/scratch-autosave";
 import type { ImportedProjectStorage } from "../../src/application/files/workbench-portability";
 import type { ProjectDirectoryPicker, WorkspaceDirectory } from "../../src/application/files/workspace-directory";
-import { available, type AssociatedFileOpenSource, type ScadMillPlatform, unavailable } from "../../src/application/platform/scadmill-platform";
+import { type AssociatedFileOpenSource, available, type ScadMillPlatform, unavailable } from "../../src/application/platform/scadmill-platform";
+import { EPHEMERAL_RENDER_DISK_CACHE_PREFERENCES, type RenderDiskCachePreferencePersistence } from "../../src/application/render-cache/render-cache-preference";
+import { EPHEMERAL_RENDER_THUMBNAIL_PERSISTENCE, type RenderThumbnailPersistence } from "../../src/application/render-cache/render-thumbnail-persistence";
 import { EPHEMERAL_WORKSPACE_LAYOUT_PERSISTENCE, type WorkspaceLayoutPersistence } from "../../src/application/runtime/layout-persistence";
 import { EPHEMERAL_SECRET_STORE, type SecretStore } from "../../src/application/settings/secret-store";
 import { EPHEMERAL_SETTINGS_PERSISTENCE, type SettingsPersistence } from "../../src/application/settings/settings-persistence";
 import { EPHEMERAL_WORKSPACE_METADATA_PERSISTENCE, type WorkspaceMetadataPersistence } from "../../src/application/viewer/annotation-persistence";
 import { HIDDEN_WELCOME_PREFERENCE, type WelcomePreferencePersistence } from "../../src/application/welcome/welcome-preference";
-import { EPHEMERAL_RENDER_DISK_CACHE_PREFERENCES, type RenderDiskCachePreferencePersistence } from "../../src/application/render-cache/render-cache-preference";
 
 const EMPTY_RECOVERY: RecoveryPersistence = {
   load: () => null,
@@ -50,6 +51,7 @@ export interface TestPlatformOverrides {
   readonly wasmEngineProgress?: EngineLoadProgressStore;
   readonly onRetryWasmEngine?: () => void;
   readonly renderDiskCachePreferencePersistence?: RenderDiskCachePreferencePersistence;
+  readonly renderThumbnailPersistence?: RenderThumbnailPersistence;
 }
 
 export function createTestPlatform(
@@ -102,6 +104,7 @@ export function createTestPlatform(
       welcome: overrides.welcomePreferencePersistence ?? HIDDEN_WELCOME_PREFERENCE,
       renderCache: unavailable(),
       renderCachePreferences: overrides.renderDiskCachePreferencePersistence ?? EPHEMERAL_RENDER_DISK_CACHE_PREFERENCES,
+      renderThumbnails: overrides.renderThumbnailPersistence ?? EPHEMERAL_RENDER_THUMBNAIL_PERSISTENCE,
     },
     artifacts: overrides.artifactDestination ?? UNAVAILABLE_ARTIFACT_DESTINATION,
     enginePathConfiguration: overrides.enginePathConfiguration

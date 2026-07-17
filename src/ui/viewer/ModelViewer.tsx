@@ -1,10 +1,10 @@
 import {
   forwardRef,
+  type MouseEvent as ReactMouseEvent,
   useEffect,
   useImperativeHandle,
   useRef,
   useState,
-  type MouseEvent as ReactMouseEvent,
 } from "react";
 import {
   AmbientLight,
@@ -29,28 +29,27 @@ import type {
   ViewerFurnitureState,
 } from "../../application/viewer/viewer-state";
 import { messages } from "../../messages/en";
-import type { ViewerTool } from "./ViewerToolbar";
-import { rebuildFurniture, type ViewerDegradation } from "./viewer-furniture";
-import { applyViewerTheme, type ViewerThemeColors } from "./viewer-theme";
+import { DEFAULT_CAMERA, DEFAULT_FURNITURE, DEFAULT_MESH_PARSER, DEFAULT_MOUSE_MAPPING, type ModelMeshParser } from "./model-viewer-defaults";
+import { ModelViewerOverlays, type SpatialOverlays } from "./model-viewer-overlays";
 import {
   canvasPng,
   configureMouse,
   controlsCameraState,
-  makeCamera,
-  projectPoint,
-  projectionOf,
-  removeModel,
-  updateProjection,
   type MouseButton,
+  makeCamera,
   type OverlayPosition,
+  projectionOf,
+  projectPoint,
+  removeModel,
+  thumbnailPng,
+  updateProjection,
   type ViewerResources,
 } from "./model-viewer-runtime";
-import { ModelViewerOverlays, type SpatialOverlays } from "./model-viewer-overlays";
-import { DEFAULT_CAMERA, DEFAULT_FURNITURE, DEFAULT_MESH_PARSER, DEFAULT_MOUSE_MAPPING, type ModelMeshParser } from "./model-viewer-defaults";
-
-export interface ModelViewerHandle { capturePng(): Promise<Uint8Array>; }
+import type { ViewerTool } from "./ViewerToolbar";
+import { rebuildFurniture, type ViewerDegradation } from "./viewer-furniture";
+import { applyViewerTheme, type ViewerThemeColors } from "./viewer-theme";
+export interface ModelViewerHandle { capturePng(): Promise<Uint8Array>; captureThumbnailPng(): Promise<Uint8Array>; }
 export type { ModelMeshParser } from "./model-viewer-defaults";
-
 export interface ModelViewerProps {
   readonly result?: RenderSuccess3D;
   readonly emptyMessage?: string;
@@ -69,7 +68,6 @@ export interface ModelViewerProps {
   readonly onDegradationChange?: (degradation: ViewerDegradation) => void;
   readonly onFrameRendered?: (durationMs: number) => void;
 }
-
 export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(function ModelViewer({
   result,
   emptyMessage = messages.modelAwaitingRender,
@@ -142,7 +140,6 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
     ...measurements.flatMap(({ id, start, end }) => [id, ...start, ...end]),
     ...annotations.flatMap(({ id, point, text }) => [id, ...point, text]),
   ].join("|");
-
   useEffect(() => {
     if (!canvas.current) return;
     if (typeof WebGLRenderingContext === "undefined") {
@@ -298,7 +295,6 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
       if (resources.current === viewer) resources.current = null;
     };
   }, []);
-
   useEffect(() => resources.current?.applyCamera(camera), [camera]);
   useEffect(() => {
     const viewer = resources.current;
@@ -355,8 +351,13 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
       viewer.renderer.render(viewer.scene, viewer.camera);
       return canvasPng(element);
     },
+    async captureThumbnailPng() {
+      const viewer = resources.current;
+      const element = canvas.current;
+      if (!viewer || !element) throw new Error(messages.modelViewportUnavailable);
+      return thumbnailPng(viewer, element);
+    },
   }), []);
-
   const pickPoint = (event: ReactMouseEvent<HTMLCanvasElement>) => {
     const viewer = resources.current;
     if (!viewer?.mesh || toolRef.current === "navigate") return;

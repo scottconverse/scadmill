@@ -1,5 +1,7 @@
 import { UnavailableEngineService } from "../application/engine/unavailable-engine-service";
 import { available, type ScadMillPlatform, unavailable } from "../application/platform/scadmill-platform";
+import { EPHEMERAL_RENDER_DISK_CACHE_PREFERENCES } from "../application/render-cache/render-cache-preference";
+import { EPHEMERAL_RENDER_THUMBNAIL_PERSISTENCE } from "../application/render-cache/render-thumbnail-persistence";
 import { createBrowserArtifactDestination } from "./browser-artifact-destination";
 import { createBrowserLayoutPersistence } from "./browser-layout-persistence";
 import {
@@ -14,7 +16,6 @@ import { createBrowserWasmEngine } from "./browser-wasm-engine";
 import { createBrowserWelcomePreferencePersistence } from "./browser-welcome-preference";
 import { createAvailableBrowserProjectStorage } from "./indexeddb-project-storage";
 import { isMobileWebClient } from "./mobile-web";
-import { EPHEMERAL_RENDER_DISK_CACHE_PREFERENCES } from "../application/render-cache/render-cache-preference";
 
 export function createWebPlatform(): ScadMillPlatform {
   const wasm = createBrowserWasmEngine();
@@ -64,6 +65,7 @@ export function createWebPlatform(): ScadMillPlatform {
       welcome: createBrowserWelcomePreferencePersistence(),
       renderCache: unavailable(),
       renderCachePreferences: EPHEMERAL_RENDER_DISK_CACHE_PREFERENCES,
+      renderThumbnails: EPHEMERAL_RENDER_THUMBNAIL_PERSISTENCE,
     },
     artifacts: createBrowserArtifactDestination(),
     enginePathConfiguration: unavailable(),

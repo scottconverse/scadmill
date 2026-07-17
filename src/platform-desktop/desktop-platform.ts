@@ -2,12 +2,13 @@ import { NativeEngineService } from "../application/engine/native-engine-service
 import { available, type ScadMillPlatform, unavailable } from "../application/platform/scadmill-platform";
 import {
   createDesktopRecentProjectsPersistence,
-  createDesktopRenderDiskCachePreferencePersistence,
   createDesktopRecoveryPersistence,
+  createDesktopRenderDiskCachePreferencePersistence,
   createDesktopScratchAutosavePersistence,
   createDesktopWorkspaceLayoutPersistence,
   createDesktopWorkspaceMetadataPersistence,
 } from "./desktop-project-metadata";
+import { createDesktopRenderThumbnailPersistence } from "./desktop-thumbnail-persistence";
 import { createDesktopWelcomePreferencePersistence } from "./desktop-welcome-preference";
 import { createEnginePathConfiguration } from "./engine-path-configuration";
 import { createTauriArtifactDestination } from "./tauri-artifact-destination";
@@ -81,6 +82,7 @@ export async function createDesktopPlatform(): Promise<ScadMillPlatform> {
       welcome: createDesktopWelcomePreferencePersistence(),
       renderCache: available(createTauriRenderCacheStorage()),
       renderCachePreferences: createDesktopRenderDiskCachePreferencePersistence(),
+      renderThumbnails: createDesktopRenderThumbnailPersistence(),
     },
     artifacts: createTauriArtifactDestination(),
     enginePathConfiguration: available(enginePathConfiguration),

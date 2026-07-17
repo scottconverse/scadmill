@@ -1,31 +1,32 @@
-import type { ConsoleState } from "../diagnostics/console-state";
-import type { EditorCommandOutcome } from "../commands/editor-commands";
 import type { KeybindingSettings } from "../commands/default-keybindings";
+import type { EditorCommandOutcome } from "../commands/editor-commands";
+import type { ConsoleState } from "../diagnostics/console-state";
 import type { DocumentSeed, DocumentWorkspaceState } from "../documents/document-workspace";
 import type { ParamValue, Quality, RenderResult } from "../engine/contracts";
+import type { ArtifactDestination } from "../files/artifact-destination";
+import type { ProjectStorage } from "../files/project-file-service";
+import type { ProjectCommand, ProjectSessionState } from "../files/project-session";
+import type { ProjectFileContent, ProjectSnapshot } from "../files/project-snapshot";
+import type { RecentProjectsPersistence } from "../files/recent-projects";
 import type {
   WorkspaceLayoutAction,
   WorkspaceLayoutState,
 } from "../layout/workspace-layout";
-import type { ThemePreference } from "../theme/theme-runtime";
-import type { ViewerAction, ViewerState } from "../viewer/viewer-state";
 import type { ParameterAction, ParameterState } from "../parameters/parameter-state";
-import type { WorkspaceLayoutPersistence } from "./layout-persistence";
-import type { RenderingSettings, SettingsState } from "./render-settings";
+import type { RenderCache } from "../render-cache/render-cache";
+import type { RenderDiskCachePreferencePersistence } from "../render-cache/render-cache-preference";
+import type { RenderDiskCacheStorage } from "../render-cache/render-disk-cache";
+import type { RenderThumbnailPersistence } from "../render-cache/render-thumbnail-persistence";
 import type { SettingsPersistence } from "../settings/settings-persistence";
 import type { PersistedSettings, SettingsSection } from "../settings/settings-schema";
-import type { ArtifactDestination } from "../files/artifact-destination";
-import type { ProjectStorage } from "../files/project-file-service";
-import type { RecentProjectsPersistence } from "../files/recent-projects";
-import type { ProjectCommand, ProjectSessionState } from "../files/project-session";
-import type { ProjectFileContent, ProjectSnapshot } from "../files/project-snapshot";
+import type { ThemePreference } from "../theme/theme-runtime";
 import type {
   WorkspaceAnnotationPersistenceState,
   WorkspaceMetadataPersistence,
 } from "../viewer/annotation-persistence";
-import type { RenderCache } from "../render-cache/render-cache";
-import type { RenderDiskCacheStorage } from "../render-cache/render-disk-cache";
-import type { RenderDiskCachePreferencePersistence } from "../render-cache/render-cache-preference";
+import type { ViewerAction, ViewerState } from "../viewer/viewer-state";
+import type { WorkspaceLayoutPersistence } from "./layout-persistence";
+import type { RenderingSettings, SettingsState } from "./render-settings";
 
 export type CommandOrigin = "user" | "ai-panel" | "external-agent" | "system";
 
@@ -112,6 +113,7 @@ export interface WorkbenchRuntime {
   parameters: ReadonlyStore<ParameterState>;
   project: ReadonlyStore<ProjectSessionState>;
   history: ReadonlyStore<readonly HistoryEntry[]>;
+  readonly renderThumbnails: RenderThumbnailPersistence;
   dispatch(command: WorkbenchCommand): Promise<void>;
   dispose(): void;
 }
@@ -134,4 +136,5 @@ export interface RuntimeOptions {
   renderCache?: RenderCache | null;
   renderDiskCacheStorage?: RenderDiskCacheStorage;
   renderDiskCachePreferencePersistence?: RenderDiskCachePreferencePersistence;
+  renderThumbnailPersistence?: RenderThumbnailPersistence;
 }

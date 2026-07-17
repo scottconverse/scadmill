@@ -1,13 +1,14 @@
 import { type FormEvent, useEffect, useRef, useState } from "react";
 
 import { activeDocument } from "../../application/documents/document-workspace";
-import type { WorkbenchRuntime } from "../../application/runtime/workbench-runtime";
 import type { ProjectStorage } from "../../application/files/project-file-service";
 import type { RecoveryPersistence } from "../../application/files/recovery-state";
 import type {
   ProjectDirectoryPicker,
   WorkspaceDirectory,
 } from "../../application/files/workspace-directory";
+import { thumbnailDataUrl } from "../../application/render-cache/render-thumbnail-persistence";
+import type { WorkbenchRuntime } from "../../application/runtime/workbench-runtime";
 import { messages } from "../../messages/en";
 import { useReadonlyStore } from "../use-readonly-store";
 import { ProjectLifecycleControls } from "./ProjectLifecycleControls";
@@ -78,6 +79,14 @@ function leafName(path: string): string {
   return path.slice(path.lastIndexOf("/") + 1);
 }
 
+function projectThumbnail(runtime: WorkbenchRuntime, workspaceIdentity: string, path: string) {
+  try {
+    return runtime.renderThumbnails.load(workspaceIdentity).find(({ documentPath }) => documentPath === path);
+  } catch {
+    return undefined;
+  }
+}
+
 export function ProjectPanel({
   runtime,
   canReveal = false,
@@ -101,6 +110,7 @@ export function ProjectPanel({
   const [dragging, setDragging] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [previewPath, setPreviewPath] = useState<string | null>(null);
   const handledNewFileRequest = useRef(requestedNewFile);
   const entries = projectTree(project.snapshot.files.keys());
   const openPaths = new Set(workspace.documents.map(({ path }) => path));
@@ -227,6 +237,9 @@ export function ProjectPanel({
     const editing = renaming === entry.path;
     const movingFile = moving === entry.path;
     const open = openPaths.has(entry.path);
+    const preview = previewPath === entry.path
+      ? projectThumbnail(runtime, project.snapshot.workspaceIdentity, entry.path)
+      : undefined;
     return (
       <div
         draggable
@@ -235,7 +248,11 @@ export function ProjectPanel({
         onDragStart={() => setDragging(entry.path)}
         role="treeitem"
         tabIndex={0}
+        onFocus={() => setPreviewPath(entry.path)}
+        onMouseEnter={() => setPreviewPath(entry.path)}
+        onMouseLeave={() => setPreviewPath(null)}
       >
+        {preview && <img alt="" className="project-file-thumbnail" src={thumbnailDataUrl(preview.pngBytes)} />}
         {editing
           ? (
               <form onSubmit={(event) => renameFile(event, entry.path)}>

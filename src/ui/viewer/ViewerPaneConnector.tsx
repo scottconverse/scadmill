@@ -5,6 +5,7 @@ import type {
   RenderFailure,
   RenderResult,
 } from "../../application/engine/contracts";
+import { isSha256GeometryIdentity } from "../../application/geometry/geometry-identity";
 import type { WorkspaceLayoutAction } from "../../application/layout/workspace-layout";
 import type { WorkbenchRuntime } from "../../application/runtime/workbench-runtime";
 import type { ThemeTokens } from "../../application/theme/theme-schema";
@@ -66,6 +67,8 @@ export function ViewerPaneConnector({
     runtime.annotationPersistence,
     (state) => state,
   );
+  const project = useReadonlyStore(runtime.project, (state) => state);
+  const documents = useReadonlyStore(runtime.documents, (state) => state);
   const effectiveViewer = useMemo<ViewerDocumentState>(() => ({
     ...viewer,
     camera: { ...viewer.camera, projection: preferences.projection },
@@ -158,6 +161,23 @@ export function ViewerPaneConnector({
             bytes,
             mimeType: "image/png",
           }).then(() => undefined)
+        : undefined}
+      onThumbnail={runtime.renderThumbnails
+        ? (bytes) => {
+            const result = viewer.presentation?.result;
+            const renderIdentity = result?.kind === "2d"
+              ? result.geometryIdentity
+              : result?.kind === "3d"
+                ? result.mesh.geometryIdentity
+                : undefined;
+            if (!isSha256GeometryIdentity(renderIdentity)) return;
+            runtime.renderThumbnails.save(project.snapshot.workspaceIdentity, {
+              documentPath: documents.documents.find(({ id }) => id === documentId)?.path ?? "Untitled",
+              renderIdentity,
+              capturedAt: new Date().toISOString(),
+              pngBytes: bytes,
+            });
+          }
         : undefined}
       onCancel={cancel}
       onLayoutAction={onLayoutAction}

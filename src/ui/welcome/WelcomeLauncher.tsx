@@ -2,15 +2,17 @@ import {
   type KeyboardEvent,
   useEffect,
   useId,
+  useMemo,
   useRef,
   useState,
 } from "react";
 
 import {
-  isDocumentDirty,
   type DocumentWorkspaceState,
+  isDocumentDirty,
 } from "../../application/documents/document-workspace";
 import type { ProjectSessionState } from "../../application/files/project-session";
+import { thumbnailDataUrl } from "../../application/render-cache/render-thumbnail-persistence";
 import type { WorkbenchRuntime } from "../../application/runtime/workbench-runtime";
 import {
   BUILT_IN_SAMPLES,
@@ -66,6 +68,21 @@ export function WelcomeLauncher({
     && documents.documents.length === 1
     && !isDocumentDirty(documents.documents[0])
     && documents.documents[0].source.trim().length === 0;
+  const recentThumbnails = useMemo(() => {
+    const values = new Map<string, string>();
+    for (const recent of project.recentProjects) {
+      try {
+        const newest = runtime.renderThumbnails.load(recent.workspaceIdentity)
+          .slice()
+          .sort((left, right) => Date.parse(right.capturedAt) - Date.parse(left.capturedAt))[0];
+        if (!newest) continue;
+        values.set(recent.projectId, thumbnailDataUrl(newest.pngBytes));
+      } catch {
+        // A corrupt or unavailable profile thumbnail must not block the welcome list.
+      }
+    }
+    return values;
+  }, [project.recentProjects, runtime]);
 
   useEffect(() => {
     if (open) firstAction.current?.focus();
@@ -200,6 +217,9 @@ export function WelcomeLauncher({
                     ? <p>{messages.noRecentProjects}</p>
                     : <ul>{project.recentProjects.map(({ projectId, displayName }) => (
                       <li key={projectId}>
+                        {recentThumbnails.get(projectId) && (
+                          <img alt="" className="welcome-recent-thumbnail" src={recentThumbnails.get(projectId)} />
+                        )}
                         <button onClick={() => { onOpenRecentProject(projectId, displayName); close(); }} type="button">
                           {messages.reopenProject(displayName)}
                         </button>

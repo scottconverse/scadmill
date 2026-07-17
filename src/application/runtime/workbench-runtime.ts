@@ -2,28 +2,56 @@ import { createStore, type StoreApi } from "zustand/vanilla";
 import { messages } from "../../messages/en";
 
 import {
+  type ConsoleState,
   createConsoleState,
   reduceConsoleState,
-  type ConsoleState,
 } from "../diagnostics/console-state";
 import {
   activeDocument,
   createDocumentWorkspace,
-  reduceDocumentWorkspace,
   type DocumentWorkspaceAction,
   type DocumentWorkspaceState,
+  reduceDocumentWorkspace,
 } from "../documents/document-workspace";
 import type { EngineInfo, EngineService, ParamValue, Quality, RenderRequest } from "../engine/contracts";
+import { cachedEngineVersion } from "../engine/engine-version-cache";
 import { UNAVAILABLE_ARTIFACT_DESTINATION } from "../files/artifact-destination";
-import { EPHEMERAL_RECENT_PROJECTS_PERSISTENCE } from "../files/recent-projects";
+import { parseProjectPath } from "../files/project-path";
 import {
   createProjectSessionState,
   executeProjectCommand,
   isProjectCommand,
   type ProjectSessionState,
 } from "../files/project-session";
-import { parseProjectPath } from "../files/project-path";
 import { createProjectSnapshot, type ProjectFileContent } from "../files/project-snapshot";
+import { EPHEMERAL_RECENT_PROJECTS_PERSISTENCE } from "../files/recent-projects";
+import { ensureGeometryIdentity } from "../geometry/geometry-identity";
+import {
+  parseWorkspaceLayout,
+  reduceWorkspaceLayout,
+  serializeWorkspaceLayout,
+  type WorkspaceLayoutAction,
+  type WorkspaceLayoutState,
+} from "../layout/workspace-layout";
+import { writeParameterValues } from "../parameters/parameter-overrides";
+import {
+  createParameterState,
+  type ParameterAction,
+  type ParameterState,
+  parameterDocument,
+  parameterRecordsEqual,
+  reduceParameterState,
+} from "../parameters/parameter-state";
+import type { CachedRenderResult, RenderCache } from "../render-cache/render-cache";
+import {
+  createRenderCacheKey,
+  RenderCacheKeyIndex,
+  RenderMemoryCache,
+  TieredRenderCache,
+} from "../render-cache/render-cache";
+import { EPHEMERAL_RENDER_DISK_CACHE_PREFERENCES } from "../render-cache/render-cache-preference";
+import { RenderDiskCache } from "../render-cache/render-disk-cache";
+import { EPHEMERAL_RENDER_THUMBNAIL_PERSISTENCE, type RenderThumbnailPersistence } from "../render-cache/render-thumbnail-persistence";
 import {
   createDefaultPersistedSettings,
   parsePersistedSettings,
@@ -35,55 +63,29 @@ import {
   type SettingsPersistence,
 } from "../settings/settings-persistence";
 import {
-  parseWorkspaceLayout,
-  reduceWorkspaceLayout,
-  serializeWorkspaceLayout,
-  type WorkspaceLayoutAction,
-  type WorkspaceLayoutState,
-} from "../layout/workspace-layout";
-import {
-  createParameterState,
-  type ParameterAction,
-  type ParameterState,
-  parameterDocument,
-  parameterRecordsEqual,
-  reduceParameterState,
-} from "../parameters/parameter-state";
-import { writeParameterValues } from "../parameters/parameter-overrides";
-import {
   EPHEMERAL_WORKSPACE_METADATA_PERSISTENCE,
   WorkspaceAnnotationRepository,
 } from "../viewer/annotation-persistence";
 import {
   createViewerState,
   reduceViewerState,
-  viewerDocument,
   type ViewerState,
+  viewerDocument,
 } from "../viewer/viewer-state";
 import { createDeferredAction } from "./deferred-action";
 import { summarizeLayoutAction } from "./layout-action-summary";
-import { sameLayout } from "./same-layout";
-import {
-  createSettingsState,
-  type SettingsState,
-  type SettingsPersistenceStatus,
-  settingsStateFromProfile,
-} from "./render-settings";
 import {
   EPHEMERAL_WORKSPACE_LAYOUT_PERSISTENCE,
 } from "./layout-persistence";
 import { buildRuntimeRenderFileMap } from "./project-render-files";
-import { ensureGeometryIdentity } from "../geometry/geometry-identity";
-import {
-  createRenderCacheKey,
-  RenderCacheKeyIndex,
-  RenderMemoryCache,
-  TieredRenderCache,
-} from "../render-cache/render-cache";
-import type { CachedRenderResult, RenderCache } from "../render-cache/render-cache";
-import { RenderDiskCache } from "../render-cache/render-disk-cache";
-import { EPHEMERAL_RENDER_DISK_CACHE_PREFERENCES } from "../render-cache/render-cache-preference";
 import { applyProjectTransition } from "./project-transition";
+import {
+  createSettingsState,
+  type SettingsPersistenceStatus,
+  type SettingsState,
+  settingsStateFromProfile,
+} from "./render-settings";
+import { sameLayout } from "./same-layout";
 import type {
   HistoryEntry,
   ReadonlyStore,
@@ -118,6 +120,8 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
   const settingsPersistence = options.settingsPersistence ?? EPHEMERAL_SETTINGS_PERSISTENCE;
   const renderDiskCachePreferences = options.renderDiskCachePreferencePersistence
     ?? EPHEMERAL_RENDER_DISK_CACHE_PREFERENCES;
+  const renderThumbnails: RenderThumbnailPersistence = options.renderThumbnailPersistence
+    ?? EPHEMERAL_RENDER_THUMBNAIL_PERSISTENCE;
   const recentProjectsPersistence = options.recentProjectsPersistence
     ?? EPHEMERAL_RECENT_PROJECTS_PERSISTENCE;
   const annotationRepository = new WorkspaceAnnotationRepository(
@@ -243,7 +247,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
   }
 
   function engineInfoForCache(): Promise<EngineInfo | null> {
-    engineInfoPromise ??= Promise.resolve(engine.version())
+    engineInfoPromise ??= cachedEngineVersion(engine, settings.getState().profile.engine.executablePath)
       .then((info) => {
         resolvedEngineInfo = info ?? null;
         return resolvedEngineInfo;
@@ -1173,6 +1177,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     parameters: readonlyStore(parameters),
     project: readonlyStore(project),
     history: readonlyStore(history),
+    renderThumbnails,
     dispatch,
     dispose() {
       if (disposed) return;

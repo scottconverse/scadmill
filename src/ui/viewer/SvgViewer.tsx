@@ -1,31 +1,32 @@
 import {
+  type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
-  type PointerEvent as ReactPointerEvent,
 } from "react";
 
 import type { RenderSuccess2D } from "../../application/engine/contracts";
 import { sanitizeEngineSvg } from "../../application/viewer/engine-svg";
 import {
   fitSvgViewport,
-  zoomSvgViewportAt,
   type SvgViewportState,
   type ViewportSize,
+  zoomSvgViewportAt,
 } from "../../application/viewer/svg-viewport";
 import { messages } from "../../messages/en";
 
 export interface SvgViewerProps {
   readonly result: RenderSuccess2D;
+  readonly onThumbnail?: (bytes: Uint8Array) => void | Promise<void>;
 }
 
 function exactDimension(value: number): number {
   return Number(value.toFixed(6));
 }
 
-export function SvgViewer({ result }: SvgViewerProps) {
+export function SvgViewer({ result, onThumbnail }: SvgViewerProps) {
   const container = useRef<HTMLButtonElement>(null);
   const pointer = useRef<{ id: number; x: number; y: number } | null>(null);
   const [size, setSize] = useState<ViewportSize | null>(null);
@@ -147,6 +148,34 @@ export function SvgViewer({ result }: SvgViewerProps) {
     });
   };
 
+  const source = safeSvg ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(safeSvg)}` : "";
+
+  useEffect(() => {
+    if (!onThumbnail || !safeSvg || typeof document === "undefined" || typeof Image === "undefined") return;
+    let active = true;
+    const image = new Image();
+    image.onload = () => {
+      if (!active) return;
+      const canvas = document.createElement("canvas");
+      canvas.width = 240;
+      canvas.height = 160;
+      const context = canvas.getContext("2d");
+      if (!context) return;
+      context.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--viewer-background").trim() || "transparent";
+      context.fillRect(0, 0, 240, 160);
+      const scale = Math.min(240 / Math.max(image.naturalWidth, 1), 160 / Math.max(image.naturalHeight, 1));
+      const width = image.naturalWidth * scale;
+      const height = image.naturalHeight * scale;
+      context.drawImage(image, (240 - width) / 2, (160 - height) / 2, width, height);
+      canvas.toBlob((blob) => {
+        if (!blob || !active) return;
+        void blob.arrayBuffer().then((bytes) => onThumbnail(new Uint8Array(bytes))).catch(() => undefined);
+      }, "image/png");
+    };
+    image.src = source;
+    return () => { active = false; image.onload = null; };
+  }, [onThumbnail, safeSvg, source]);
+
   if (!safeSvg) {
     return <p className="viewer-empty" role="alert">{messages.unsafeSvg}</p>;
   }
@@ -163,8 +192,6 @@ export function SvgViewer({ result }: SvgViewerProps) {
   const translateY = viewport
     ? (viewport.center[1] - drawingCenter[1]) / viewport.mmPerPixel
     : 0;
-  const source = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(safeSvg)}`;
-
   return (
     <div className="svg-viewer-shell">
       <button

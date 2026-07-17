@@ -1,9 +1,9 @@
 import {
-  MOUSE,
   type BufferGeometry,
   type DirectionalLight,
   type Mesh,
   type MeshStandardMaterial,
+  MOUSE,
   OrthographicCamera,
   PerspectiveCamera,
   type Scene,
@@ -142,4 +142,17 @@ export function canvasPng(canvas: HTMLCanvasElement): Promise<Uint8Array> {
   if (!encoded) return Promise.reject(new Error("The viewport could not be encoded as PNG."));
   const binary = globalThis.atob(encoded);
   return Promise.resolve(Uint8Array.from(binary, (character) => character.charCodeAt(0)));
+}
+
+export async function thumbnailPng(
+  viewer: ViewerResources,
+  canvas: HTMLCanvasElement,
+): Promise<Uint8Array> {
+  viewer.renderer.render(viewer.scene, viewer.camera);
+  const previousWidth = viewer.width;
+  const previousHeight = viewer.height;
+  viewer.renderer.setSize(240, 160, false);
+  const bytes = await canvasPng(canvas);
+  viewer.renderer.setSize(previousWidth, previousHeight, false);
+  return bytes;
 }
