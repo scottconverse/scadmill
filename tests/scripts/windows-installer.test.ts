@@ -72,6 +72,10 @@ describe("installer lifecycle contract", () => {
     expect(cargoConfig).toContain(
       'rustflags = ["-C", "target-feature=+crt-static"]',
     );
+    expect(installerHooks).toContain("NSIS_HOOK_POSTINSTALL");
+    expect(installerHooks).toContain(
+      String.raw`WriteRegStr SHELL_CONTEXT "Software\Classes\OpenSCAD model\shell\open\command" "" "$\"$INSTDIR\${MAINBINARYNAME}.exe$\" $\"%1$\""`,
+    );
     expect(installerHooks).toContain("NSIS_HOOK_POSTUNINSTALL");
     expect(installerHooks).toContain('DeleteRegValue SHELL_CONTEXT "Software\\Classes\\.scad"');
     expect(installerHooks).toContain('ReadRegStr $R0 SHELL_CONTEXT "Software\\Classes\\.scad" ""');
@@ -99,6 +103,7 @@ describe("installer lifecycle contract", () => {
       "Install, launch, verify association, and uninstall exact setup",
     );
     const upload = namedStep(job, "Upload Windows setup");
+    expect(lifecycle).toContain("Actual: '$openCommand'. Expected: '$expectedOpenCommand'.");
     expect(job.steps.indexOf(hash)).toBeLessThan(job.steps.indexOf(lifecycleStep));
     expect(job.steps.indexOf(lifecycleStep)).toBeLessThan(job.steps.indexOf(upload));
     expect(buildProof.run).toContain("7z e -y");
@@ -142,11 +147,27 @@ describe("installer lifecycle contract", () => {
     expect(mac.run).toContain("owner.int32Value == pid");
     expect(mac.run).toContain('test "$installed_executable_hash" = "$source_executable_hash"');
     expect(linux.run).toContain("Xvfb");
-    expect(linux.run).toContain("xdotool search --onlyvisible --pid");
-    expect(linux.run).toContain('readlink -f "/proc/$pid/exe"');
+    expect(linux.run).toContain('APPIMAGE_EXTRACT_AND_RUN=1 "$installed"');
+    expect(linux.run).toContain("collect_descendants()");
+    expect(linux.run).toContain('readlink -f "/proc/$candidate_pid/exe"');
+    expect(linux.run).toContain(
+      'xdotool search --all --onlyvisible --pid "$candidate_pid" --name \'^ScadMill$\'',
+    );
+    expect(linux.run).toContain('xdotool getwindowpid "$window_id"');
+    expect(linux.run).toContain('xdotool getwindowname "$window_id"');
+    expect(linux.run).toContain('xdotool getwindowgeometry --shell "$window_id"');
+    expect(linux.run).toContain("ps -eo pid=,ppid=,stat=,comm=,args=");
+    expect(linux.run).toContain("AppImage launch proof failed");
+    expect(linux.run).toContain("trap cleanup EXIT");
+    expect(linux.run).toContain('rm -f "$installed" || cleanup_status=1');
+    expect(linux.run).toContain('[ -e "$installed" ] || [ -e "$extract_root" ]');
+    expect(linux.run).toContain("AppImage cleanup failed to remove");
+    expect(linux.run).toContain("visible_window_pid=$runtime_pid");
+    expect(linux.run).not.toContain('readlink -f "/proc/$pid/exe"');
     expect(linux.run).toContain('test "$installed_hash" = "$expected_hash"');
     expect(upload.if).toBe("always() && env.SCADMILL_DESKTOP_INSTALLER != ''");
     expect(upload.with?.path).toContain("scadmill-*-window-evidence.txt");
+    expect(upload.with?.path).toContain("scadmill-*-window-diagnostics.txt");
     expect(job.steps.indexOf(mac)).toBeLessThan(job.steps.indexOf(upload));
     expect(job.steps.indexOf(linux)).toBeLessThan(job.steps.indexOf(upload));
   });

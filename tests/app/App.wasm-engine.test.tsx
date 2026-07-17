@@ -47,7 +47,10 @@ describe("App browser WASM engine recovery", () => {
       <StrictMode>
         <App
           engine={engine}
-          scratchAutosavePersistence={{ load: () => "cube(10);", save: vi.fn() }}
+          scratchAutosavePersistence={{
+            load: () => ({ path: "Untitled", source: "cube(10);" }),
+            save: vi.fn(),
+          }}
           wasmEngineProgress={progress}
           onRetryWasmEngine={() => progress.clear()}
         />

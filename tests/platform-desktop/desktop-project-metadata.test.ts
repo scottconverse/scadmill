@@ -17,7 +17,10 @@ it("uses durable desktop-webview storage for C6 recovery, recent projects, and s
   };
 
   createDesktopRecoveryPersistence(storage).save("recovery");
-  createDesktopScratchAutosavePersistence(storage).save("cube(3);");
+  createDesktopScratchAutosavePersistence(storage).save({
+    path: "gear_knob.scad",
+    source: "cube(3);",
+  });
   createDesktopRecentProjectsPersistence(storage).save([{
     projectId: "project-a",
     displayName: "Project A",
@@ -25,7 +28,10 @@ it("uses durable desktop-webview storage for C6 recovery, recent projects, and s
   }]);
 
   expect(createDesktopRecoveryPersistence(storage).load()).toBe("recovery");
-  expect(createDesktopScratchAutosavePersistence(storage).load()).toBe("cube(3);");
+  expect(createDesktopScratchAutosavePersistence(storage).load()).toEqual({
+    path: "gear_knob.scad",
+    source: "cube(3);",
+  });
   expect(createDesktopRecentProjectsPersistence(storage).load()).toHaveLength(1);
 });
 

@@ -105,10 +105,12 @@ describe("useFileCommands", () => {
   });
 
   it("never overwrites the scratch slot for additional tabs or marks them saved", async () => {
-    let saved: string | null = null;
+    let saved: { readonly path: string; readonly source: string } | null = null;
     const persistence = {
       load: () => saved,
-      save: vi.fn((source: string) => { saved = source; }),
+      save: vi.fn((snapshot: { readonly path: string; readonly source: string }) => {
+        saved = snapshot;
+      }),
     };
     const runtime = createWorkbenchRuntime(engine(), {
       initialScratchPath: "Untitled",
@@ -155,14 +157,17 @@ describe("useFileCommands", () => {
     view.rerender();
     expect(view.result.current.saveDisabled).toBe(false);
     act(() => view.result.current.save());
-    await waitFor(() => expect(persistence.save).toHaveBeenCalledWith("cube(11);"));
+    await waitFor(() => expect(persistence.save).toHaveBeenCalledWith({
+      path: "Untitled",
+      source: "cube(11);",
+    }));
     await waitFor(() => expect(runtime.documents.getState().documents.find(
       ({ id }) => id === "document-main",
     )).toMatchObject({ source: "cube(11);", savedSource: "cube(11);" }));
     expect(runtime.documents.getState().documents.find(
       ({ id }) => id === additional,
     )).toMatchObject({ source: "sphere(7);", savedSource: "" });
-    expect(saved).toBe("cube(11);");
+    expect(saved).toEqual({ path: "Untitled", source: "cube(11);" });
   });
 
   it("formats a dirty OpenSCAD scratch document before saving when enabled", async () => {
@@ -191,7 +196,10 @@ describe("useFileCommands", () => {
     act(() => view.result.current.save());
 
     const expected = "module part() {\n  cube(1);\n}";
-    await waitFor(() => expect(persistence.save).toHaveBeenCalledWith(expected));
+    await waitFor(() => expect(persistence.save).toHaveBeenCalledWith({
+      path: "Untitled.scad",
+      source: expected,
+    }));
     expect(runtime.documents.getState().documents[0]).toMatchObject({
       savedSource: expected,
       source: expected,
@@ -227,7 +235,7 @@ describe("useFileCommands", () => {
     await waitFor(() => expect(view.result.current.notice).toContain(
       "Formatting was not applied because the source contains a syntax error.",
     ));
-    expect(persistence.save).toHaveBeenCalledWith(source);
+    expect(persistence.save).toHaveBeenCalledWith({ path: "Untitled.scad", source });
     expect(runtime.documents.getState().documents[0]).toMatchObject({ source, savedSource: source });
   });
 });

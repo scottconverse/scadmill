@@ -368,36 +368,173 @@ jobs:
           expected_runtime="$(find "$extract_root/squashfs-root" -type f -name scadmill -perm -111 -print -quit)"
           test -n "$expected_runtime"
           expected_runtime_hash="$(sha256sum "$expected_runtime" | cut -d ' ' -f 1)"
+          diagnostics="$RUNNER_TEMP/scadmill-linux-window-diagnostics.txt"
+          launcher_pid=""
+          launcher_pgid=""
+          xvfb_pid=""
+
+          collect_descendants() {
+            local parent_pid="$1"
+            local child_pid
+            while IFS= read -r child_pid; do
+              [ -n "$child_pid" ] || continue
+              printf '%s\n' "$child_pid"
+              collect_descendants "$child_pid"
+            done < <(pgrep -P "$parent_pid" 2>/dev/null || true)
+          }
+
+          write_diagnostics() {
+            local reason="$1"
+            {
+              printf 'AppImage launch proof failed: %s\n' "$reason"
+              printf 'launcher_pid=%s launcher_pgid=%s expected_runtime_sha256=%s appimage_sha256=%s\n' \
+                "${launcher_pid:-unset}" "${launcher_pgid:-unset}" "$expected_runtime_hash" "$installed_hash"
+              printf '%s\n' '--- process tree ---'
+              ps -eo pid=,ppid=,stat=,comm=,args= --forest || true
+              printf '%s\n' '--- launcher descendants ---'
+              if [ -n "${launcher_pid:-}" ]; then
+                while IFS= read -r candidate_pid; do
+                  [ -n "$candidate_pid" ] || continue
+                  candidate_runtime="$(readlink -f "/proc/$candidate_pid/exe" 2>/dev/null || true)"
+                  candidate_hash=""
+                  if [ -n "$candidate_runtime" ] && [ -r "$candidate_runtime" ]; then
+                    candidate_hash="$(sha256sum "$candidate_runtime" 2>/dev/null | cut -d ' ' -f 1 || true)"
+                  fi
+                  printf 'pid=%s exe=%s sha256=%s\n' "$candidate_pid" "${candidate_runtime:-unavailable}" "${candidate_hash:-unavailable}"
+                done < <(collect_descendants "$launcher_pid")
+              fi
+              printf '%s\n' '--- visible X11 windows ---'
+              while IFS= read -r diagnostic_window_id; do
+                [ -n "$diagnostic_window_id" ] || continue
+                printf 'window_id=%s pid=%s title=%q geometry=%q\n' \
+                  "$diagnostic_window_id" \
+                  "$(xdotool getwindowpid "$diagnostic_window_id" 2>/dev/null || true)" \
+                  "$(xdotool getwindowname "$diagnostic_window_id" 2>/dev/null || true)" \
+                  "$(xdotool getwindowgeometry --shell "$diagnostic_window_id" 2>/dev/null | tr '\n' ' ' || true)"
+              done < <(xdotool search --onlyvisible --name '.*' 2>/dev/null || true)
+              printf '%s\n' '--- AppImage launch log ---'
+              cat "$launch_log" 2>/dev/null || true
+              printf '%s\n' '--- Xvfb log ---'
+              cat "$RUNNER_TEMP/scadmill-xvfb.log" 2>/dev/null || true
+            } >"$diagnostics" 2>&1
+            cat "$diagnostics" >&2 || true
+          }
+
+          cleanup() {
+            local status=$?
+            local cleanup_status=0
+            trap - EXIT
+            set +e
+            if [ -n "${launcher_pid:-}" ]; then
+              mapfile -t remaining_descendants < <(collect_descendants "$launcher_pid")
+              for (( index=${#remaining_descendants[@]} - 1; index >= 0; index-- )); do
+                kill -TERM "${remaining_descendants[$index]}" 2>/dev/null || true
+              done
+            fi
+            if [ -n "${launcher_pgid:-}" ]; then
+              kill -TERM -- "-$launcher_pgid" 2>/dev/null || true
+              sleep 0.5
+              kill -KILL -- "-$launcher_pgid" 2>/dev/null || true
+            fi
+            if [ -n "${launcher_pid:-}" ]; then
+              kill -TERM "$launcher_pid" 2>/dev/null || true
+              wait "$launcher_pid" 2>/dev/null || true
+            fi
+            if [ -n "${xvfb_pid:-}" ]; then
+              kill "$xvfb_pid" 2>/dev/null || true
+              wait "$xvfb_pid" 2>/dev/null || true
+            fi
+            rm -f "$installed" || cleanup_status=1
+            rm -rf "$extract_root" || cleanup_status=1
+            if [ -e "$installed" ] || [ -e "$extract_root" ]; then
+              cleanup_status=1
+            fi
+            if [ "$status" -eq 0 ] && [ "$cleanup_status" -ne 0 ]; then
+              printf '%s\n' 'AppImage cleanup failed to remove the installed candidate or extraction tree.' >&2
+              exit "$cleanup_status"
+            fi
+            exit "$status"
+          }
+          trap cleanup EXIT
+
           display=":99"
           Xvfb "$display" -screen 0 1280x800x24 >"$RUNNER_TEMP/scadmill-xvfb.log" 2>&1 &
           xvfb_pid=$!
           export DISPLAY="$display"
-          APPIMAGE_EXTRACT_AND_RUN=1 "$installed" >"$launch_log" 2>&1 &
-          pid=$!
+          x_ready=0
+          for _ in $(seq 1 20); do
+            if xdotool getmouselocation >/dev/null 2>&1; then
+              x_ready=1
+              break
+            fi
+            sleep 0.25
+          done
+          if [ "$x_ready" -ne 1 ]; then
+            write_diagnostics "Xvfb did not accept X11 clients within 5 seconds."
+            exit 1
+          fi
+
+          setsid env APPIMAGE_EXTRACT_AND_RUN=1 "$installed" >"$launch_log" 2>&1 &
+          launcher_pid=$!
+          observed_launcher_pgid="$(ps -o pgid= -p "$launcher_pid" 2>/dev/null | tr -d ' ' || true)"
+          if [ -z "$observed_launcher_pgid" ] || [ "$observed_launcher_pgid" != "$launcher_pid" ]; then
+            write_diagnostics "the exact AppImage launcher did not become its own isolated process group."
+            exit 1
+          fi
+          launcher_pgid="$observed_launcher_pgid"
           ready=0
+          runtime_pid=""
+          runtime=""
+          runtime_hash=""
+          window_id=""
+          window_title=""
+          window_width=""
+          window_height=""
           for _ in $(seq 1 60); do
-            if ! kill -0 "$pid" 2>/dev/null; then
-              cat "$launch_log"
+            if ! kill -0 "$launcher_pid" 2>/dev/null; then
+              write_diagnostics "the exact AppImage launcher exited before a verified window appeared."
               exit 1
             fi
-            runtime="$(readlink -f "/proc/$pid/exe")"
-            runtime_hash="$(sha256sum "$runtime" | cut -d ' ' -f 1)"
-            if [ "$runtime_hash" = "$expected_runtime_hash" ] \
-              && xdotool search --onlyvisible --pid "$pid" --name '^ScadMill$' >/dev/null 2>&1; then
-              ready=1
+            while IFS= read -r candidate_pid; do
+              [ -n "$candidate_pid" ] || continue
+              candidate_runtime="$(readlink -f "/proc/$candidate_pid/exe" 2>/dev/null || true)"
+              [ -n "$candidate_runtime" ] && [ -r "$candidate_runtime" ] || continue
+              candidate_hash="$(sha256sum "$candidate_runtime" | cut -d ' ' -f 1)"
+              [ "$candidate_hash" = "$expected_runtime_hash" ] || continue
+              while IFS= read -r candidate_window_id; do
+                [ -n "$candidate_window_id" ] || continue
+                window_id="$candidate_window_id"
+                window_pid="$(xdotool getwindowpid "$window_id" 2>/dev/null || true)"
+                window_title="$(xdotool getwindowname "$window_id" 2>/dev/null || true)"
+                window_geometry="$(xdotool getwindowgeometry --shell "$window_id" 2>/dev/null || true)"
+                window_width="$(printf '%s\n' "$window_geometry" | sed -n 's/^WIDTH=//p')"
+                window_height="$(printf '%s\n' "$window_geometry" | sed -n 's/^HEIGHT=//p')"
+                if [ "$window_pid" = "$candidate_pid" ] \
+                  && [ "$window_title" = "ScadMill" ] \
+                  && [[ "$window_width" =~ ^[1-9][0-9]*$ ]] \
+                  && [[ "$window_height" =~ ^[1-9][0-9]*$ ]]; then
+                  runtime_pid="$candidate_pid"
+                  runtime="$candidate_runtime"
+                  runtime_hash="$candidate_hash"
+                  ready=1
+                  break
+                fi
+                window_id=""
+              done < <(xdotool search --all --onlyvisible --pid "$candidate_pid" --name '^ScadMill$' 2>/dev/null || true)
+              if [ "$ready" -eq 1 ]; then
+                break
+              fi
+            done < <(collect_descendants "$launcher_pid")
+            if [ "$ready" -eq 1 ]; then
               break
             fi
             sleep 0.5
           done
-          test "$ready" -eq 1
-          echo "visible_window_pid=$pid runtime_sha256=$runtime_hash appimage_sha256=$installed_hash" >"$RUNNER_TEMP/scadmill-linux-window-evidence.txt"
-          kill "$pid"
-          wait "$pid" || true
-          kill "$xvfb_pid"
-          wait "$xvfb_pid" || true
-          rm -f "$installed"
-          rm -rf "$extract_root"
-          test ! -e "$installed"
+          if [ "$ready" -ne 1 ]; then
+            write_diagnostics "no descendant exact-runtime process owned an exact-title visible positive-geometry window within 30 seconds."
+            exit 1
+          fi
+          echo "launcher_pid=$launcher_pid visible_window_pid=$runtime_pid window_id=$window_id window_title=$window_title window_width=$window_width window_height=$window_height runtime_path=$runtime runtime_sha256=$runtime_hash appimage_sha256=$installed_hash" >"$RUNNER_TEMP/scadmill-linux-window-evidence.txt"
       - name: Upload platform installer
         if: always() && env.SCADMILL_DESKTOP_INSTALLER != ''
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -408,6 +545,7 @@ jobs:
             ${{ env.SCADMILL_DESKTOP_INSTALLER }}.sha256
             ${{ runner.temp }}/scadmill-*-launch.log
             ${{ runner.temp }}/scadmill-*-window-evidence.txt
+            ${{ runner.temp }}/scadmill-*-window-diagnostics.txt
             ${{ runner.temp }}/scadmill-xvfb.log
           if-no-files-found: error
 

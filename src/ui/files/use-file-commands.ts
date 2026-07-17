@@ -102,7 +102,7 @@ export function useFileCommands(options: FileCommandOptions): FileCommandCoordin
     if (documentId !== primaryScratchDocumentId.current) {
       throw new Error(messages.additionalScratchNotPersisted);
     }
-    options.scratchPersistence.save(document.source);
+    options.scratchPersistence.save({ path: document.path, source: document.source });
     await options.runtime.dispatch({
       kind: "mark-document-autosaved",
       origin: "user",

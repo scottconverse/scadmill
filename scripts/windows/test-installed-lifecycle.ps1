@@ -210,7 +210,7 @@ $openCommand = [Environment]::ExpandEnvironmentVariables(
 )
 $expectedOpenCommand = "`"$($application.FullName)`" `"%1`""
 if (-not [string]::Equals($openCommand.Trim(), $expectedOpenCommand, [StringComparison]::OrdinalIgnoreCase)) {
-  throw "The .scad ProgID open command did not target the exact installed ScadMill executable and quoted %1."
+  throw "The .scad ProgID open command did not target the exact installed ScadMill executable and quoted %1. Actual: '$openCommand'. Expected: '$expectedOpenCommand'."
 }
 Write-Host "Installed ProgID/open command verified: $progId"
 

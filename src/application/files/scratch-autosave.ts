@@ -1,4 +1,9 @@
+export interface ScratchAutosaveSnapshot {
+  readonly path: string;
+  readonly source: string;
+}
+
 export interface ScratchAutosavePersistence {
-  load(): string | null;
-  save(source: string): void;
+  load(): ScratchAutosaveSnapshot | null;
+  save(snapshot: ScratchAutosaveSnapshot): void;
 }

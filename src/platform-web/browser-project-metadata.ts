@@ -1,5 +1,6 @@
 import type { RecoveryPersistence } from "../application/files/recovery-state";
 import type { ScratchAutosavePersistence } from "../application/files/scratch-autosave";
+import { parseProjectPath } from "../application/files/project-path";
 import type { WorkspaceMetadataPersistence } from "../application/viewer/annotation-persistence";
 import {
   type RecentProject,
@@ -16,7 +17,8 @@ interface KeyValueStorage {
 
 const RECOVERY_KEY = "scadmill.recovery.v1";
 const RECENT_PROJECTS_KEY = "scadmill.recent-projects.v1";
-const SCRATCH_AUTOSAVE_KEY = "scadmill.scratch-autosave.v1";
+const LEGACY_SCRATCH_AUTOSAVE_KEY = "scadmill.scratch-autosave.v1";
+const SCRATCH_AUTOSAVE_KEY = "scadmill.scratch-autosave.v2";
 const WORKSPACE_METADATA_KEY = "scadmill.workspace-metadata.v1";
 
 function availableStorage(storage?: KeyValueStorage): KeyValueStorage | null {
@@ -134,12 +136,39 @@ export function createBrowserScratchAutosavePersistence(
   const selected = availableStorage(storage);
   return {
     load: () => {
-      try { return selected?.getItem(SCRATCH_AUTOSAVE_KEY) ?? null; } catch { return null; }
+      try {
+        const serialized = selected?.getItem(SCRATCH_AUTOSAVE_KEY) ?? null;
+        if (serialized !== null) {
+          const parsed: unknown = JSON.parse(serialized);
+          if (
+            typeof parsed !== "object"
+            || parsed === null
+            || Array.isArray(parsed)
+            || Object.keys(parsed).sort().join(",") !== "path,source,version"
+          ) return null;
+          const record = parsed as Record<string, unknown>;
+          if (record.version !== 2 || typeof record.path !== "string" || typeof record.source !== "string") {
+            return null;
+          }
+          return { path: parseProjectPath(record.path), source: record.source };
+        }
+        const legacySource = selected?.getItem(LEGACY_SCRATCH_AUTOSAVE_KEY) ?? null;
+        return legacySource === null ? null : { path: "Untitled.scad", source: legacySource };
+      } catch {
+        return null;
+      }
     },
-    save: (source) => {
+    save: (snapshot) => {
       try {
         if (!selected) throw new Error("unavailable");
-        selected.setItem(SCRATCH_AUTOSAVE_KEY, source);
+        const path = parseProjectPath(snapshot.path);
+        if (typeof snapshot.source !== "string") throw new Error("invalid source");
+        selected.setItem(SCRATCH_AUTOSAVE_KEY, JSON.stringify({
+          version: 2,
+          path,
+          source: snapshot.source,
+        }));
+        selected.removeItem(LEGACY_SCRATCH_AUTOSAVE_KEY);
       } catch {
         throw new Error(messages.scratchAutosaveFailed);
       }

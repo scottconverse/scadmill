@@ -8,7 +8,7 @@ import { gzipSync, strToU8, zipSync } from "fflate";
 import { dismissWelcome } from "./helpers/welcome";
 
 const DATABASE_NAME = "scadmill-projects-v1";
-const SCRATCH_AUTOSAVE_KEY = "scadmill.scratch-autosave.v1";
+const SCRATCH_AUTOSAVE_KEY = "scadmill.scratch-autosave.v2";
 const GATE_ARTIFACT_DIR = process.env.SCADMILL_GATE_ARTIFACT_DIR?.trim()
   ? resolve(process.env.SCADMILL_GATE_ARTIFACT_DIR)
   : null;
@@ -166,7 +166,14 @@ test.describe("M2 real-browser gate", () => {
     await expect(page.getByRole("button", { name: "Full render", exact: true })).toBeEnabled();
     await expect(page.getByRole("tab", { name: "Untitled", exact: true })).toBeVisible();
     expect(await editorSource(page)).toBe("");
-    expect(await page.evaluate(() => Object.keys(localStorage).sort())).toEqual([]);
+    await expect.poll(() => page.evaluate(
+      (key) => localStorage.getItem(key),
+      SCRATCH_AUTOSAVE_KEY,
+    )).toBe(JSON.stringify({ version: 2, path: "Untitled", source: "" }));
+    const initialStorageKeys = await page.evaluate(() => Object.keys(localStorage).sort());
+    expect(initialStorageKeys).toEqual([
+      SCRATCH_AUTOSAVE_KEY,
+    ]);
     await expect(page.getByRole("region", { name: "Console" })).toBeHidden();
     const viewer = page.locator(".workspace-viewer-surface");
     await expect(viewer).toBeVisible();
@@ -193,11 +200,16 @@ test.describe("M2 real-browser gate", () => {
       "}",
       "persisted_gate();",
     ].join("\n");
+    const persistedSnapshot = JSON.stringify({
+      version: 2,
+      path: "Untitled",
+      source: persistedSource,
+    });
     await replaceEditorSource(page, persistedSource);
     await expect.poll(() => page.evaluate(
       (key) => localStorage.getItem(key),
       SCRATCH_AUTOSAVE_KEY,
-    )).toBe(persistedSource);
+    )).toBe(persistedSnapshot);
     await expect(page.getByRole("tab", { name: "Untitled", exact: true })).toBeVisible();
 
     await page.reload();
@@ -230,7 +242,7 @@ test.describe("M2 real-browser gate", () => {
       viewport: { width: 1280, height: 720 },
       dependency: { openscad: "PINNED WASM 2026.06.12 (verified browser artifact)" },
       initialData: { document: "Untitled", source: "", project: "none" },
-      initialStorageKeys: [],
+      initialStorageKeys,
       renderEnabled: true,
       consoleInitiallyHidden: true,
       viewerMinimumObservedHeight: 260,

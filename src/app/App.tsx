@@ -59,16 +59,19 @@ export function App({
     try { return welcomePreferencePersistence?.load() ?? false; } catch { return false; }
   });
   const runtime = useMemo(
-    () => createWorkbenchRuntime(engine, {
-      artifactDestination,
-      layoutPersistence,
-      initialScratchPath: "Untitled",
-      initialScratchSource: scratchAutosavePersistence?.load() ?? "",
-      projectStorage,
-      recentProjectsPersistence,
-      settingsPersistence,
-      workspaceMetadataPersistence,
-    }),
+    () => {
+      const restoredScratch = scratchAutosavePersistence?.load();
+      return createWorkbenchRuntime(engine, {
+        artifactDestination,
+        layoutPersistence,
+        initialScratchPath: restoredScratch?.path ?? "Untitled",
+        initialScratchSource: restoredScratch?.source ?? "",
+        projectStorage,
+        recentProjectsPersistence,
+        settingsPersistence,
+        workspaceMetadataPersistence,
+      });
+    },
     [
       artifactDestination,
       engine,

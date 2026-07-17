@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-16-m3-candidate-lifecycle-repairs",
+  "createdAt": "2026-07-16T22:43:00-06:00",
+  "summary": "Restore a welcome sample with its renderable path, migrate scratch autosave atomically, quote the installed Windows file-association command, and bind Linux window evidence to the exact AppImage child runtime.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 M3 delivery protocol",
+    "FR-6.3 scratch mode and autosave",
+    "FR-13.1 Windows installer lifecycle",
+    "FR-14.1 welcome samples",
+    "AC-14.a fresh-profile sample journey",
+    "V-3 packaged desktop evidence",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": ".github/workflows/ci.yml", "status": "modified" },
+    { "path": "provenance/entries/2026-07-16-m3-candidate-lifecycle-repairs.json", "status": "added" },
+    { "path": "scripts/run-packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "scripts/windows/test-installed-lifecycle.ps1", "status": "modified" },
+    { "path": "src/app/App.tsx", "status": "modified" },
+    { "path": "src/application/files/scratch-autosave.ts", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/windows/installer-hooks.nsh", "status": "modified" },
+    { "path": "src/platform-web/browser-project-metadata.ts", "status": "modified" },
+    { "path": "src/ui/files/ScratchAutosave.tsx", "status": "modified" },
+    { "path": "src/ui/files/use-file-commands.ts", "status": "modified" },
+    { "path": "tests/app/App.test.tsx", "status": "modified" },
+    { "path": "tests/app/App.wasm-engine.test.tsx", "status": "modified" },
+    { "path": "tests/e2e/m2-browser-gate.e2e.ts", "status": "modified" },
+    { "path": "tests/e2e/m3-production-static.e2e.ts", "status": "modified" },
+    { "path": "tests/platform-desktop/desktop-project-metadata.test.ts", "status": "modified" },
+    { "path": "tests/platform-web/browser-project-metadata.test.ts", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" },
+    { "path": "tests/scripts/windows-installer.test.ts", "status": "modified" },
+    { "path": "tests/ui/Workbench.test.tsx", "status": "modified" },
+    { "path": "tests/ui/files/ScratchAutosave.test.tsx", "status": "modified" },
+    { "path": "tests/ui/files/use-file-commands.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29554621985",
+      "accessedOn": "2026-07-16",
+      "purpose": "Observe the exact-candidate production-static reload, Windows file-association, and Linux AppImage window-evidence failures and retain their hosted evidence."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0280",
+      "topic": "Atomic scratch recovery identity",
+      "decision": "Persist scratch recovery as a strictly validated version-2 snapshot containing both project-relative path and source. Read legacy version-1 source as Untitled.scad, write version 2 atomically through one storage value, and remove version 1 only after the new value is stored.",
+      "rationale": "Source-only recovery reconstructed a welcome sample as extensionless Untitled, changing the engine entry file after restart. The path is part of the render snapshot identity and must survive with the bytes. A renderable legacy fallback preserves old profiles without inventing a historical path that was never stored.",
+      "specBasis": ["FR-6.3", "FR-14.1", "AC-14.a", "N-7"]
+    },
+    {
+      "id": "D-0281",
+      "topic": "Clean scratch identity persistence",
+      "decision": "Persist a changed clean primary-scratch identity immediately while retaining the configured debounce for dirty edits. Keep additional scratch tabs explicitly unpersisted and clear their warning whenever the active state no longer violates that rule.",
+      "rationale": "Opening a clean built-in sample changes the path and source without making the document dirty. Waiting only for dirty edits omitted that state from recovery; applying the edit debounce to a clean sample also left a reload race. Immediate identity persistence is bounded and does not mark user edits saved.",
+      "specBasis": ["FR-6.3", "FR-14.1", "AC-14.a"]
+    },
+    {
+      "id": "D-0282",
+      "topic": "Windows file-association command quoting",
+      "decision": "Use the current-user NSIS post-install hook to rewrite the OpenSCAD model ProgID open command as an exactly quoted installed executable followed by an exactly quoted %1 argument. Preserve the existing backup, restore, and uninstall behavior.",
+      "rationale": "The generated association quoted the document argument but not the executable path. That failed the literal installed lifecycle and would parse incorrectly when the install path contains spaces.",
+      "specBasis": ["FR-13.1", "V-3", "N-7"]
+    },
+    {
+      "id": "D-0283",
+      "topic": "AppImage visible-runtime proof",
+      "decision": "Treat APPIMAGE_EXTRACT_AND_RUN as a supervising launcher. Prove the visible application by recursively locating a descendant whose executable hash equals the extracted embedded ScadMill runtime, then require an exact-title visible positive-geometry X11 window owned by that same PID using xdotool --all semantics. Isolate and clean up the process group and retain bounded timeout diagnostics.",
+      "rationale": "The prior check hashed and queried the supervisor PID even though the GUI runs as a child, and xdotool's default predicate combination was not conjunctive. Binding artifact hash, descendant runtime, PID, title, visibility, and geometry prevents a different process or window from satisfying the proof.",
+      "specBasis": ["V-3", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "A scratch document restores the same renderable entry path and source, including a clean welcome sample and legacy version-1 data.",
+      "test": "Focused adapter, application, autosave, packaged-evidence, and production-static recovery coverage.",
+      "red": {
+        "command": "pnpm.cmd exec playwright test tests/e2e/m3-production-static.e2e.ts --config playwright.production-static.config.ts; pnpm.cmd exec vitest run tests/platform-web/browser-project-metadata.test.ts tests/ui/Workbench.test.tsx tests/ui/files/ScratchAutosave.test.tsx tests/scripts/packaged-desktop-evidence.test.ts -t 'migrates legacy|routes every global File shortcut|keeps an additional scratch tab|validates the versioned scratch snapshot'",
+        "observedAt": "2026-07-16T22:26:44-06:00",
+        "outcome": "RED: the reloaded sample rendered as Untitled and failed; the strengthened focused contracts then reported four missing migration, packaged-evidence, save-contract, and warning-transition behaviors."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/platform-web/browser-project-metadata.test.ts tests/ui/files/ScratchAutosave.test.tsx tests/ui/files/use-file-commands.test.tsx tests/app/App.test.tsx tests/scripts/packaged-desktop-evidence.test.ts -t 'browser project metadata persistence|debounces a dirty scratch|keeps an additional scratch|persists a clean welcome|useFileCommands|restores the scratch entry path|validates the versioned scratch snapshot'; pnpm.cmd exec playwright test tests/e2e/m3-production-static.e2e.ts --config playwright.production-static.config.ts",
+        "observedAt": "2026-07-16T22:41:00-06:00",
+        "outcome": "GREEN: 16/16 focused unit/integration assertions passed and the production-static cached reload journey passed 1/1 with gear_knob.scad restored and rendered."
+      }
+    },
+    {
+      "criterion": "The installed Windows .scad command quotes both the exact installed executable and the file argument.",
+      "test": "Static NSIS hook contract plus the retained hosted installed-lifecycle assertion.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/windows-installer.test.ts",
+        "observedAt": "2026-07-16T22:35:00-06:00",
+        "outcome": "RED: the new exact post-install command assertion failed because NSIS_HOOK_POSTINSTALL was absent; hosted run 29554621985 independently failed the installed ProgID command assertion."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/windows-installer.test.ts -t 'produces an offline current-user NSIS installer'",
+        "observedAt": "2026-07-16T22:38:00-06:00",
+        "outcome": "FOCUSED GREEN / HOSTED REPLACEMENT PENDING: 1/1 selected contract passed; the next exact-candidate installer run must prove the registry value end to end."
+      }
+    },
+    {
+      "criterion": "Linux lifecycle evidence binds the exact AppImage to its exact child GUI runtime and that runtime's visible ScadMill window.",
+      "test": "Fail-closed workflow contract, exact extracted shell syntax check, and hosted AppImage lifecycle replacement.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/windows-installer.test.ts",
+        "observedAt": "2026-07-16T22:34:00-06:00",
+        "outcome": "RED: the strengthened workflow contract failed on missing recursive descendant proof; hosted run 29554621985 timed out while checking the supervising AppImage PID."
+      },
+      "green": {
+        "command": "node -e \"const fs=require('fs'),yaml=require('yaml'); const w=yaml.parse(fs.readFileSync('.github/workflows/ci.yml','utf8')); process.stdout.write(w.jobs['desktop-installers'].steps.find(s=>s.name==='Launch and remove Linux AppImage candidate').run)\" | & 'C:\\Program Files\\Git\\bin\\bash.exe' -n",
+        "observedAt": "2026-07-16T22:40:00-06:00",
+        "outcome": "FOCUSED GREEN / HOSTED REPLACEMENT PENDING: the exact YAML step parsed with bash -n and exited 0 with no diagnostics; the focused workflow contracts independently passed 3/3. The next hosted AppImage run remains the runtime proof."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

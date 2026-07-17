@@ -38,10 +38,61 @@ describe("browser project metadata persistence", () => {
     expect(persistence.load()).toBeNull();
   });
 
-  it("round-trips the original scratch autosave", () => {
+  it("round-trips the scratch entry path and source atomically", () => {
     const storage = new MemoryStorage();
-    createBrowserScratchAutosavePersistence(storage).save("cube(42);");
-    expect(createBrowserScratchAutosavePersistence(storage).load()).toBe("cube(42);");
+    createBrowserScratchAutosavePersistence(storage).save({
+      path: "gear_knob.scad",
+      source: "cube(42);",
+    });
+    expect(createBrowserScratchAutosavePersistence(storage).load()).toEqual({
+      path: "gear_knob.scad",
+      source: "cube(42);",
+    });
+    expect(storage.values.get("scadmill.scratch-autosave.v2")).toBe(
+      '{"version":2,"path":"gear_knob.scad","source":"cube(42);"}',
+    );
+  });
+
+  it("migrates legacy scratch source exactly and rejects an unsafe current path", () => {
+    const storage = new MemoryStorage();
+    storage.setItem("scadmill.scratch-autosave.v1", "// legacy\ncube(7);");
+    expect(createBrowserScratchAutosavePersistence(storage).load()).toEqual({
+      path: "Untitled.scad",
+      source: "// legacy\ncube(7);",
+    });
+
+    storage.setItem("scadmill.scratch-autosave.v2", JSON.stringify({
+      version: 2,
+      path: "../escape.scad",
+      source: "sphere(4);",
+    }));
+    expect(createBrowserScratchAutosavePersistence(storage).load()).toBeNull();
+  });
+
+  it("removes legacy scratch only after a versioned snapshot is stored", () => {
+    const storage = new MemoryStorage();
+    storage.setItem("scadmill.scratch-autosave.v1", "cube(1);");
+    const persistence = createBrowserScratchAutosavePersistence(storage);
+
+    persistence.save({ path: "Untitled.scad", source: "cube(2);" });
+
+    expect(storage.values.has("scadmill.scratch-autosave.v1")).toBe(false);
+    expect(storage.values.get("scadmill.scratch-autosave.v2")).toBe(
+      '{"version":2,"path":"Untitled.scad","source":"cube(2);"}',
+    );
+
+    storage.setItem("scadmill.scratch-autosave.v1", "cube(3);");
+    const setItem = storage.setItem.bind(storage);
+    storage.setItem = (key, value) => {
+      if (key === "scadmill.scratch-autosave.v2") {
+        throw new DOMException("blocked", "QuotaExceededError");
+      }
+      setItem(key, value);
+    };
+
+    expect(() => persistence.save({ path: "Untitled.scad", source: "cube(4);" }))
+      .toThrow(/could not be autosaved/iu);
+    expect(storage.values.get("scadmill.scratch-autosave.v1")).toBe("cube(3);");
   });
 
   it("round-trips recent projects and rejects malformed stored data", () => {
@@ -69,6 +120,7 @@ describe("browser project metadata persistence", () => {
     };
     const recovery = createBrowserRecoveryPersistence(blocked);
     const recent = createBrowserRecentProjectsPersistence(blocked);
+    const scratch = createBrowserScratchAutosavePersistence(blocked);
     const workspace = createBrowserWorkspaceMetadataPersistence(blocked);
 
     expect(recovery.load()).toBeNull();
@@ -76,6 +128,9 @@ describe("browser project metadata persistence", () => {
     expect(() => recovery.clear()).toThrow(/could not be cleared/iu);
     expect(recent.load()).toEqual([]);
     expect(() => recent.save([])).toThrow(/could not be saved/iu);
+    expect(scratch.load()).toBeNull();
+    expect(() => scratch.save({ path: "Untitled", source: "cube(1);" }))
+      .toThrow(/could not be autosaved/iu);
     expect(() => workspace.load()).toThrow(/could not be loaded/iu);
     expect(() => workspace.save("metadata")).toThrow(/could not be saved/iu);
   });

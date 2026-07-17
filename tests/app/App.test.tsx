@@ -55,7 +55,7 @@ function deferred<T>() {
 }
 
 function nonEmptyScratch(source = "cube(10);") {
-  return { load: () => source, save: vi.fn() };
+  return { load: () => ({ path: "Untitled", source }), save: vi.fn() };
 }
 
 describe("App", () => {
@@ -235,7 +235,7 @@ describe("App", () => {
     };
     let scratchSource = "cube(10);";
     const scratchAutosavePersistence = {
-      load: () => scratchSource,
+      load: () => ({ path: "Untitled", source: scratchSource }),
       save: vi.fn(),
     };
     const view = render(
@@ -350,6 +350,45 @@ describe("App", () => {
     expect(engine.render).toHaveBeenCalledWith(expect.objectContaining({
       quality: "full",
       timeoutMs: 600_000,
+    }));
+  });
+
+  it("restores the scratch entry path with its source for the initial render", async () => {
+    const source = "knob_diameter = 34; cylinder(d = knob_diameter, h = 14);";
+    const result: RenderFailure = {
+      kind: "failure",
+      reason: "engine-error",
+      diagnostics: [],
+      rawLog: "synthetic result",
+    };
+    const engine: EngineService = {
+      render: vi.fn().mockReturnValue({
+        jobId: "restored-gear-render",
+        done: Promise.resolve(result),
+      }),
+      export: vi.fn(),
+      version: vi.fn().mockResolvedValue({
+        version: PINNED_OPENSCAD_VERSION,
+        path: "native",
+        features: [],
+      }),
+      cancel: vi.fn(),
+    };
+
+    render(
+      <App
+        engine={engine}
+        scratchAutosavePersistence={{
+          load: () => ({ path: "gear_knob.scad", source }),
+          save: vi.fn(),
+        }}
+      />,
+    );
+
+    await waitFor(() => expect(engine.render).toHaveBeenCalledOnce());
+    expect(engine.render).toHaveBeenCalledWith(expect.objectContaining({
+      entryFile: "gear_knob.scad",
+      files: new Map([["gear_knob.scad", source]]),
     }));
   });
 

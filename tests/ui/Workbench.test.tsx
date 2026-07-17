@@ -135,9 +135,12 @@ describe("Workbench", () => {
       version: vi.fn(),
       cancel: vi.fn(),
     };
+    let durableScratch: { readonly path: string; readonly source: string } | null = null;
     const scratchPersistence = {
-      load: vi.fn(() => null),
-      save: vi.fn(),
+      load: vi.fn(() => durableScratch),
+      save: vi.fn((snapshot: { readonly path: string; readonly source: string }) => {
+        durableScratch = snapshot;
+      }),
     };
     let nextId = 0;
     const runtime = createWorkbenchRuntime(engine, {
@@ -160,6 +163,8 @@ describe("Workbench", () => {
       />,
     );
     const workbench = within(view.container);
+    await waitFor(() => expect(scratchPersistence.save).toHaveBeenCalledOnce());
+    scratchPersistence.save.mockClear();
 
     await act(async () => runtime.dispatch({
       kind: "edit-document",
@@ -168,7 +173,10 @@ describe("Workbench", () => {
       source: "cube(11);",
     }));
     fireEvent.keyDown(window, { key: "s", ctrlKey: true });
-    expect(scratchPersistence.save).toHaveBeenLastCalledWith("cube(11);");
+    expect(scratchPersistence.save).toHaveBeenLastCalledWith({
+      path: "Untitled.scad",
+      source: "cube(11);",
+    });
     await waitFor(() => expect(isDocumentDirty(runtime.documents.getState().documents[0])).toBe(false));
 
     await act(async () => runtime.dispatch({
@@ -179,7 +187,10 @@ describe("Workbench", () => {
     }));
     fireEvent.keyDown(window, { key: "s", ctrlKey: true, altKey: true });
     expect(scratchPersistence.save).toHaveBeenCalledTimes(2);
-    expect(scratchPersistence.save).toHaveBeenLastCalledWith("cube(12);");
+    expect(scratchPersistence.save).toHaveBeenLastCalledWith({
+      path: "Untitled.scad",
+      source: "cube(12);",
+    });
     await waitFor(() => expect(isDocumentDirty(runtime.documents.getState().documents[0])).toBe(false));
 
     fireEvent.keyDown(window, { key: "n", ctrlKey: true });

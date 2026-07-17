@@ -56,6 +56,16 @@ test("production static subpath renders from verified cache and omits desktop ca
   });
   await expect(page.locator(".cm-content")).toContainText("knob_diameter");
   await expect.poll(() => wasmCacheBytes(page)).toEqual([100_027, 10_760_714]);
+  await expect.poll(() => page.evaluate(() => {
+    const serialized = localStorage.getItem("scadmill.scratch-autosave.v2");
+    if (!serialized) return null;
+    const parsed = JSON.parse(serialized) as { version?: unknown; path?: unknown; source?: unknown };
+    return {
+      version: parsed.version,
+      path: parsed.path,
+      hasKnobSource: typeof parsed.source === "string" && parsed.source.includes("knob_diameter"),
+    };
+  })).toEqual({ version: 2, path: "gear_knob.scad", hasKnobSource: true });
 
   let blockedEngineRequests = 0;
   await page.route("**/openscad-engine/**", (route) => {
@@ -67,9 +77,8 @@ test("production static subpath renders from verified cache and omits desktop ca
   await expect(page.locator(".status-engine")).toHaveText("OpenSCAD 2026.06.12", {
     timeout: 30_000,
   });
-  await expect(page.locator(".status-render")).toHaveText("Idle");
-  await page.getByRole("button", { name: "Render preview", exact: true }).click();
-  await expect(page.locator(".status-render")).toHaveText(/Rendered .+ \(3d\)/u, {
+  await expect(page.getByRole("tab", { name: "gear_knob.scad", exact: true })).toBeVisible();
+  await expect(page.locator(".status-render")).toHaveText(/Rendered gear_knob\.scad \(3d\)/u, {
     timeout: 30_000,
   });
   await expect(page.locator(".cm-content")).toContainText("knob_diameter");
