@@ -65,7 +65,7 @@ export function Workbench({
   const currentParameters = parameterDocument(parameterState, document.id);
   const aiPersistence = useMemo(() => createLocalConversationPersistence(document.id), [document.id]);
   const [viewerScreenshotDataUrl, setViewerScreenshotDataUrl] = useState<string>(); const { capture: captureMcpScreenshot, setCapture: setMcpScreenshotCapture } = useMcpViewportCapture();
-  const { enabled: mcpEnabled, setEnabled: setMcpEnabled, pendingReviews, approveReview, dismissReview } = useMcpStdio(runtime, engine, mcpPort, captureMcpScreenshot);
+  const { enabled: mcpEnabled, setEnabled: setMcpEnabled, permissions: mcpPermissions, setPermission: setMcpPermission, pendingReviews, approveReview, dismissReview } = useMcpStdio(runtime, engine, mcpPort, captureMcpScreenshot);
   useEffect(() => { if (document.id) setViewerScreenshotDataUrl(undefined); }, [document.id]);
   const projectState = useReadonlyStore(runtime.project, (state) => state);
   const history = useReadonlyStore(runtime.history, (state) => state);
@@ -331,7 +331,7 @@ export function Workbench({
           <h1>{messages.appName}</h1>
         </div>
         <WelcomeLauncher documents={documents} project={projectState} runtime={runtime} showOnLaunch={showWelcomeOnLaunch} onNewFile={fileCommands.newFile} onOpenProject={fileCommands.openProject} onOpenRecentProject={(projectId, displayName) => enqueueProject({ projectId, displayName })} onShowOnLaunchChange={onWelcomePreferenceChange} />
-        <SettingsLauncher engineLabel={engineLabel} runtime={runtime} secretStore={secretStore} renderDiskCacheAvailable={renderDiskCacheAvailable} mcpPort={mcpPort} mcpEnabled={mcpEnabled} onMcpEnabledChange={setMcpEnabled} />
+        <SettingsLauncher engineLabel={engineLabel} runtime={runtime} secretStore={secretStore} renderDiskCacheAvailable={renderDiskCacheAvailable} mcpPort={mcpPort} mcpEnabled={mcpEnabled} onMcpEnabledChange={setMcpEnabled} mcpPermissions={mcpPermissions} onMcpPermissionChange={setMcpPermission} />
         <RenderControls
           autoRender={autoRender}
           autoRenderDisabled={settingsPersistenceStatus.status === "load-error"}

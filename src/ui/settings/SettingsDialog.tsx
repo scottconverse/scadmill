@@ -11,14 +11,12 @@ import {
   type ReactNode,
 } from "react";
 import { createKeybindingSettings, type KeybindingCommand } from "../../application/commands/default-keybindings";
-import {
-  parsePersistedSettings,
-  serializePersistedSettings,
-  SETTINGS_SIZE_LIMIT_BYTES,
-} from "../../application/settings/settings-codec";
+import { parsePersistedSettings, serializePersistedSettings, SETTINGS_SIZE_LIMIT_BYTES } from "../../application/settings/settings-codec";
 import type { PersistedSettings, SettingsSection } from "../../application/settings/settings-schema";
 import type { SecretStore } from "../../application/settings/secret-store";
+import type { McpPermission, McpToolPermissionState } from "../../application/mcp/mcp-tools";
 import { messages } from "../../messages/en";
+import { McpPermissionSettings } from "./McpPermissionSettings";
 import { CustomThemeSettings } from "./CustomThemeSettings";
 import { KeybindingSettingsFields } from "./KeybindingSettingsFields";
 import {
@@ -43,6 +41,8 @@ export interface SettingsDialogProps {
   readonly mcpAvailable?: boolean;
   readonly mcpEnabled?: boolean;
   readonly onMcpEnabledChange?: (enabled: boolean) => void;
+  readonly mcpPermissions?: McpToolPermissionState;
+  readonly onMcpPermissionChange?: (tool: "write_file" | "set_parameters", permission: McpPermission) => void;
 }
 const SECTION_TITLES: Readonly<Record<SettingsSection, string>> = {
   editor: messages.settingsEditor,
@@ -112,6 +112,8 @@ export function SettingsDialog({
   mcpAvailable = false,
   mcpEnabled = false,
   onMcpEnabledChange,
+  mcpPermissions,
+  onMcpPermissionChange,
 }: SettingsDialogProps) {
   const [query, setQuery] = useState("");
   const searchInput = useRef<HTMLInputElement>(null);
@@ -359,7 +361,7 @@ export function SettingsDialog({
             <Setting label={messages.aiProvider}><select aria-label={messages.aiProvider} value={settings.ai.provider} onChange={(event) => onChange({ ...settings, ai: { ...settings.ai, provider: event.currentTarget.value as PersistedSettings["ai"]["provider"] } })}><option value="none">{messages.aiProviderNone}</option><option value="openai">{messages.aiProviderOpenAi}</option><option value="anthropic">{messages.aiProviderAnthropic}</option><option value="compatible">{messages.aiProviderCompatible}</option><option value="local">{messages.aiProviderLocal}</option></select></Setting>
             <Setting label={messages.aiEndpoint}><input aria-label={messages.aiEndpoint} type="url" value={settings.ai.endpoint} onChange={(event) => onChange({ ...settings, ai: { ...settings.ai, endpoint: event.currentTarget.value } })} /></Setting>
             <Setting label={messages.aiModel}><input aria-label={messages.aiModel} type="text" value={settings.ai.model} onChange={(event) => onChange({ ...settings, ai: { ...settings.ai, model: event.currentTarget.value } })} /></Setting>
-            {mcpAvailable && <Setting label={messages.mcpServerEnabled}><input aria-label={messages.mcpServerEnabled} checked={mcpEnabled} onChange={(event) => onMcpEnabledChange?.(event.currentTarget.checked)} type="checkbox" /></Setting>}
+            {mcpAvailable && mcpPermissions && onMcpEnabledChange && onMcpPermissionChange && <McpPermissionSettings enabled={mcpEnabled} permissions={mcpPermissions} onEnabledChange={onMcpEnabledChange} onPermissionChange={onMcpPermissionChange} />}
             <Setting label={messages.aiApiKey}><input aria-label={messages.aiApiKey} autoComplete="off" disabled={aiSecret.locked || aiSecret.busy} onChange={(event) => aiSecret.change(event.currentTarget.value)} type="password" value={aiSecret.secret} /></Setting>
             <div className="settings-secret-actions"><button disabled={aiSecret.locked || aiSecret.busy} onClick={aiSecret.save} type="button">{messages.saveAiKey}</button><button disabled={aiSecret.locked || aiSecret.busy || aiSecret.secret.length === 0} onClick={aiSecret.clear} type="button">{messages.clearAiKey}</button></div>
             {secretStore.persistence === "web-session" ? <>

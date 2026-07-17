@@ -56,6 +56,7 @@ describe("SettingsDialog", () => {
 
   it("exposes the desktop MCP toggle only when the platform provides the port", () => {
     const onMcpEnabledChange = vi.fn();
+    const onMcpPermissionChange = vi.fn();
     const view = render(
       <SettingsDialog
         engineLabel="OpenSCAD 2026.06.12"
@@ -67,10 +68,14 @@ describe("SettingsDialog", () => {
         mcpAvailable
         mcpEnabled={false}
         onMcpEnabledChange={onMcpEnabledChange}
+        mcpPermissions={{ list_files: "allow-session", read_file: "allow-session", write_file: "allow-session", render_preview: "allow-session", export_model: "allow-session", get_diagnostics: "allow-session", get_parameters: "allow-session", set_parameters: "allow-session", take_screenshot: "allow-session", get_history: "allow-session" }}
+        onMcpPermissionChange={onMcpPermissionChange}
       />,
     );
     fireEvent.click(view.getByLabelText("Enable local MCP server (stdio)"));
     expect(onMcpEnabledChange).toHaveBeenCalledWith(true);
+    fireEvent.change(view.getByLabelText("MCP write-file permission"), { target: { value: "deny" } });
+    expect(onMcpPermissionChange).toHaveBeenCalledWith("write_file", "deny");
   });
 
   it("focuses search on open and closes from Escape", async () => {

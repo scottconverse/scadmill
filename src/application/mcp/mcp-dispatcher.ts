@@ -28,7 +28,7 @@ export async function dispatchMcpRequest(
   if (!validation.ok || !validation.tool || !validation.arguments) return { jsonrpc: "2.0", id: request.id, error: { code: -32602, message: validation.error ?? "Invalid MCP tool request." } };
   const permission = permissions[validation.tool];
   if (requiresMcpPermission(validation.tool) && permission === "deny") {
-    return { jsonrpc: "2.0", id: request.id, result: { status: "pending_review" } };
+    return { jsonrpc: "2.0", id: request.id, error: { code: -32001, message: "MCP mutation denied by the current permission gate." } };
   }
   try {
     return { jsonrpc: "2.0", id: request.id, result: await handler.call(validation.tool, validation.arguments) };

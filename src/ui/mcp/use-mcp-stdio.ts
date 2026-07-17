@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { EngineService } from "../../application/engine/contracts";
 import { createMcpReviewQueue } from "../../application/mcp/mcp-review-queue";
 import { createMcpStdioController } from "../../application/mcp/mcp-stdio-controller";
-import { DEFAULT_MCP_PERMISSIONS } from "../../application/mcp/mcp-tools";
+import { DEFAULT_MCP_PERMISSIONS, type McpPermission, type McpToolName, type McpToolPermissionState } from "../../application/mcp/mcp-tools";
 import { createWorkbenchMcpHandler } from "../../application/mcp/workbench-mcp-handler";
 import type { McpServerPort } from "../../application/platform/scadmill-platform";
 import type { WorkbenchRuntime } from "../../application/runtime/workbench-runtime-contracts";
@@ -15,8 +15,23 @@ export function useMcpStdio(
   captureScreenshot?: (width: number, height: number) => Promise<Uint8Array>,
 ) {
   const [enabled, setEnabled] = useState(false);
+  const [permissions, setPermissions] = useState<McpToolPermissionState>(() => ({
+    ...DEFAULT_MCP_PERMISSIONS,
+    write_file: "allow-session",
+    set_parameters: "allow-session",
+  }));
+  const permissionsRef = useRef(permissions);
   const [, setReviewVersion] = useState(0);
   const reviewQueue = useMemo(() => createMcpReviewQueue(), []);
+  const setPermission = useCallback((tool: McpToolName, permission: McpPermission) => {
+    const next = { ...permissionsRef.current, [tool]: permission };
+    permissionsRef.current = next;
+    setPermissions(next);
+  }, []);
+  const getPermissions = useCallback(() => permissionsRef.current, []);
+  const consumePermission = useCallback((tool: Extract<McpToolName, "write_file" | "set_parameters">) => {
+    setPermission(tool, "deny");
+  }, [setPermission]);
   const enqueueReview = useCallback((review: Parameters<typeof reviewQueue.enqueue>[0]) => {
     reviewQueue.enqueue(review);
     setReviewVersion((version) => version + 1);
@@ -33,11 +48,10 @@ export function useMcpStdio(
   }, [reviewQueue]);
   const controller = useMemo(() => mcpPort ? createMcpStdioController({
     handler: createWorkbenchMcpHandler({ engine, runtime, captureScreenshot, onPendingReview: enqueueReview }),
-    // The handler, rather than the transport, is the mutation gate: it always queues
-    // write_file and set_parameters for explicit in-app review.
-    permissions: { ...DEFAULT_MCP_PERMISSIONS, write_file: "allow-session", set_parameters: "allow-session" },
+    getPermissions,
+    onMutationPermissionConsumed: consumePermission,
     onResponse: (line) => { void mcpPort.writeResponse(line).catch(() => undefined); },
-  }) : undefined, [captureScreenshot, engine, enqueueReview, mcpPort, runtime]);
+  }) : undefined, [captureScreenshot, consumePermission, engine, enqueueReview, getPermissions, mcpPort, runtime]);
   useEffect(() => {
     if (!mcpPort || !controller) return;
     let disposed = false;
@@ -56,5 +70,5 @@ export function useMcpStdio(
       void mcpPort.setEnabled(false).catch(() => undefined);
     };
   }, [controller, enabled, mcpPort]);
-  return { enabled, setEnabled, pendingReviews: reviewQueue.list(), approveReview, dismissReview };
+  return { enabled, setEnabled, permissions, setPermission, pendingReviews: reviewQueue.list(), approveReview, dismissReview };
 }

@@ -7,6 +7,7 @@ import {
 } from "../../application/commands/default-keybindings";
 import type { WorkbenchRuntime } from "../../application/runtime/workbench-runtime";
 import type { McpServerPort } from "../../application/platform/scadmill-platform";
+import type { McpPermission, McpToolPermissionState } from "../../application/mcp/mcp-tools";
 import type { SecretStore } from "../../application/settings/secret-store";
 import { messages } from "../../messages/en";
 import { useReadonlyStore } from "../use-readonly-store";
@@ -20,9 +21,11 @@ export interface SettingsLauncherProps {
   readonly mcpPort?: McpServerPort;
   readonly mcpEnabled?: boolean;
   readonly onMcpEnabledChange?: (enabled: boolean) => void;
+  readonly mcpPermissions?: McpToolPermissionState;
+  readonly onMcpPermissionChange?: (tool: "write_file" | "set_parameters", permission: McpPermission) => void;
 }
 
-export function SettingsLauncher({ engineLabel, runtime, secretStore, renderDiskCacheAvailable = false, mcpPort, mcpEnabled = false, onMcpEnabledChange }: SettingsLauncherProps) {
+export function SettingsLauncher({ engineLabel, runtime, secretStore, renderDiskCacheAvailable = false, mcpPort, mcpEnabled = false, onMcpEnabledChange, mcpPermissions, onMcpPermissionChange }: SettingsLauncherProps) {
   const [open, setOpen] = useState(false);
   const [persistenceError, setPersistenceError] = useState<string | undefined>();
   const launcher = useRef<HTMLButtonElement>(null);
@@ -90,6 +93,8 @@ export function SettingsLauncher({ engineLabel, runtime, secretStore, renderDisk
           mcpAvailable={Boolean(mcpPort)}
           mcpEnabled={mcpEnabled}
           onMcpEnabledChange={onMcpEnabledChange}
+          mcpPermissions={mcpPermissions}
+          onMcpPermissionChange={onMcpPermissionChange}
           secretStore={secretStore}
           settings={profile}
           onChange={(settings) => {

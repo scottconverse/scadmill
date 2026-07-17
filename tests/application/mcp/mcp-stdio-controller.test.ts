@@ -33,4 +33,23 @@ describe("MCP stdio controller", () => {
     await controller.receive("bad\n");
     expect(errors).toEqual(["MCP frame is not valid JSON."]);
   });
+
+  it("reads a dynamic mutation permission and consumes allow-once after one accepted request", async () => {
+    let permissions = { ...DEFAULT_MCP_PERMISSIONS, write_file: "allow-once" as const };
+    const consumed = vi.fn((tool) => { permissions = { ...permissions, [tool]: "deny" }; });
+    const controller = createMcpStdioController({
+      handler: { call: vi.fn().mockResolvedValue({ status: "pending_review" }) },
+      getPermissions: () => permissions,
+      onMutationPermissionConsumed: consumed,
+      onResponse: vi.fn(),
+    });
+    controller.start();
+    const write = '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"write_file","arguments":{"path":"main.scad","content":"cube(1);"}}}\n';
+
+    await controller.receive(write);
+    await controller.receive(write.replace('"id":1', '"id":2'));
+
+    expect(consumed).toHaveBeenCalledWith("write_file");
+    expect(permissions.write_file).toBe("deny");
+  });
 });
