@@ -6,7 +6,7 @@ import { applyMcpPermission, DEFAULT_MCP_PERMISSIONS } from "../../../src/applic
 describe("MCP JSON-RPC dispatcher", () => {
   it("lists tools and returns protocol errors for unknown methods", async () => {
     const handler = { call: vi.fn() };
-    await expect(dispatchMcpRequest({ jsonrpc: "2.0", id: 1, method: "tools/list" }, handler, DEFAULT_MCP_PERMISSIONS)).resolves.toMatchObject({ result: { tools: [] } });
+    await expect(dispatchMcpRequest({ jsonrpc: "2.0", id: 1, method: "tools/list" }, handler, DEFAULT_MCP_PERMISSIONS)).resolves.toMatchObject({ result: { tools: expect.arrayContaining([expect.objectContaining({ name: "list_files" })]) } });
     await expect(dispatchMcpRequest({ jsonrpc: "2.0", id: 2, method: "nope" }, handler, DEFAULT_MCP_PERMISSIONS)).resolves.toMatchObject({ error: { code: -32601 } });
   });
 

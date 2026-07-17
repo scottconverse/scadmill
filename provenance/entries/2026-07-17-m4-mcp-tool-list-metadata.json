@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-mcp-tool-list-metadata",
+  "createdAt": "2026-07-17T04:04:00-06:00",
+  "summary": "Complete the MCP dispatcher tools/list result with the ten application-owned tool definitions instead of an empty placeholder list.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "C11", "FR-11.4", "AC-11.b", "N-7 evidence and status honesty"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-17-m4-mcp-tool-list-metadata.json", "status": "added" },
+    { "path": "src/application/mcp/mcp-tools.ts", "status": "modified" },
+    { "path": "src/application/mcp/mcp-dispatcher.ts", "status": "modified" },
+    { "path": "tests/application/mcp/mcp-dispatcher.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0337", "topic": "MCP tools/list honesty", "decision": "Return all ten named tool definitions from tools/list with application-owned descriptions and closed base object schemas; leave detailed per-tool schema refinement to the server acceptance unit.", "rationale": "An empty tools/list response would be a false MCP capability surface. Metadata now accurately advertises the contract foundation without claiming handlers or stdio readiness.", "specBasis": ["FR-11.4", "AC-11.b", "N-7"] }
+  ],
+  "testEvidence": [
+    { "criterion": "tools/list returns named definitions and MCP contract/dispatcher tests remain green.", "test": "Run the focused MCP contract and dispatcher suites once after replacing the empty metadata result.", "red": { "command": "pnpm.cmd exec vitest run tests/application/mcp/mcp-dispatcher.test.ts", "observedAt": "2026-07-17T04:02:20-06:00", "outcome": "RED: the dispatcher returned an empty tools list and the new definition assertion failed." }, "green": { "command": "pnpm.cmd exec vitest run tests/application/mcp/mcp-tools.test.ts tests/application/mcp/mcp-dispatcher.test.ts", "observedAt": "2026-07-17T04:03:04-06:00", "outcome": "GREEN: Test Files 2 passed (2); Tests 5 passed (5); Duration 430ms." } },
+    { "criterion": "The metadata refinement remains type-safe and source-policy clean.", "test": "Run TypeScript and repository lint/source policy once after the bounded correction.", "red": { "command": "pnpm.cmd lint", "observedAt": "2026-07-17T04:02:20-06:00", "outcome": "RED: the metadata refinement had not yet been applied." }, "green": { "command": "pnpm.cmd exec tsc --noEmit --pretty false; pnpm.cmd lint", "observedAt": "2026-07-17T04:03:04-06:00", "outcome": "GREEN: TypeScript exited 0; Checked 435 files in 218ms with source policy passed." } }
+  ],
+  "nearMisses": [],
+  "questions": ["Detailed Appendix B per-tool input/output schemas, stdio framing, initialize handshake, and desktop handler wiring remain pending."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

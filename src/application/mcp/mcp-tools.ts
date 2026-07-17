@@ -6,11 +6,13 @@ export const MCP_TOOL_NAMES = [
 export type McpToolName = (typeof MCP_TOOL_NAMES)[number];
 export type McpPermission = "allow-once" | "allow-session" | "deny";
 export type McpToolPermissionState = Readonly<Record<McpToolName, McpPermission>>;
+export interface McpToolDefinition { readonly name: McpToolName; readonly description: string; readonly inputSchema: Readonly<Record<string, unknown>>; }
 
 const MUTATING_TOOLS: ReadonlySet<McpToolName> = new Set(["write_file", "set_parameters"]);
 const PATH_TOOLS: ReadonlySet<McpToolName> = new Set(["read_file", "write_file", "render_preview", "export_model", "get_parameters", "set_parameters"]);
 
 export const DEFAULT_MCP_PERMISSIONS: McpToolPermissionState = Object.freeze(Object.fromEntries(MCP_TOOL_NAMES.map((name) => [name, MUTATING_TOOLS.has(name) ? "deny" : "allow-session"])) as McpToolPermissionState);
+export const MCP_TOOL_DEFINITIONS: readonly McpToolDefinition[] = Object.freeze(MCP_TOOL_NAMES.map((name) => ({ name, description: `${name.replaceAll("_", " ")} for the open project.`, inputSchema: { type: "object", additionalProperties: false } })));
 
 export interface McpRequest { readonly name: string; readonly arguments?: unknown; }
 export interface McpValidation { readonly ok: boolean; readonly tool?: McpToolName; readonly arguments?: Record<string, unknown>; readonly error?: string; }

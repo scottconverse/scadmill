@@ -1,4 +1,4 @@
-import { type McpToolName, type McpToolPermissionState, requiresMcpPermission, validateMcpRequest } from "./mcp-tools";
+import { MCP_TOOL_DEFINITIONS, type McpToolName, type McpToolPermissionState, requiresMcpPermission, validateMcpRequest } from "./mcp-tools";
 
 export interface McpJsonRpcRequest {
   readonly jsonrpc: "2.0";
@@ -20,7 +20,7 @@ export async function dispatchMcpRequest(
   handler: McpToolHandler,
   permissions: McpToolPermissionState,
 ): Promise<McpJsonRpcResponse> {
-  if (request.method === "tools/list") return { jsonrpc: "2.0", id: request.id, result: { tools: [] } };
+  if (request.method === "tools/list") return { jsonrpc: "2.0", id: request.id, result: { tools: MCP_TOOL_DEFINITIONS } };
   if (request.method !== "tools/call") return { jsonrpc: "2.0", id: request.id, error: { code: -32601, message: "MCP method not found." } };
   if (!request.params || typeof request.params !== "object" || Array.isArray(request.params)) return { jsonrpc: "2.0", id: request.id, error: { code: -32602, message: "MCP call params must be an object." } };
   const params = request.params as { name?: unknown; arguments?: unknown };
