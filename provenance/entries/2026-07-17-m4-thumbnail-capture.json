@@ -13,6 +13,7 @@
     { "path": "src/application/platform/scadmill-platform.ts", "status": "modified" },
     { "path": "src/application/runtime/workbench-runtime-contracts.ts", "status": "modified" },
     { "path": "src/application/runtime/workbench-runtime.ts", "status": "modified" },
+    { "path": "src/application/render-cache/render-thumbnail-persistence.ts", "status": "modified" },
     { "path": "src/platform-desktop/desktop-platform.ts", "status": "modified" },
     { "path": "src/platform-web/web-platform.ts", "status": "modified" },
     { "path": "src/ui/viewer/ModelViewer.tsx", "status": "modified" },

@@ -41,3 +41,11 @@ export const EPHEMERAL_RENDER_THUMBNAIL_PERSISTENCE: RenderThumbnailPersistence 
   save: () => undefined,
   clear: () => undefined,
 });
+
+export function thumbnailDataUrl(bytes: Uint8Array): string {
+  let binary = "";
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+  }
+  return `data:image/png;base64,${btoa(binary)}`;
+}
