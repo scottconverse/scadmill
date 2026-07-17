@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-ai-persistence-loop-cap",
+  "createdAt": "2026-07-17T03:30:00-06:00",
+  "summary": "Add the M4 AI persistence and agent-loop safety foundation: bounded project conversation serialization with secret redaction and an explicit opt-in round cap defaulting to ten.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "C10", "FR-10.5", "FR-10.6", "AC-10.c", "AC-10.d", "N-7 evidence and status honesty"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-17-m4-ai-persistence-loop-cap.json", "status": "added" },
+    { "path": "src/application/ai/conversation-persistence.ts", "status": "added" },
+    { "path": "src/application/ai/agent-loop.ts", "status": "added" },
+    { "path": "tests/application/ai/conversation-persistence.test.ts", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0314", "topic": "Conversation persistence boundary", "decision": "Persist only a strict bounded v1 conversation record containing messages and review proposals; provider secrets are redacted before serialization and active requests are never persisted.", "rationale": "FR-10.6 requires project-scoped durable conversations without transmitting or storing the provider key, while bounded records protect profile storage from unbounded transcript growth.", "specBasis": ["FR-10.6", "AC-10.d", "N-7"] },
+    { "id": "D-0315", "topic": "Agent round cap", "decision": "Agent mode is disabled by default and, when explicitly enabled, clamps the configurable round cap to 1..100 with a default of 10 and a terminal capped state.", "rationale": "FR-10.5 requires explicit opt-in and a hard configurable cap; a terminal state prevents a looping mock or provider from continuing silently.", "specBasis": ["FR-10.5", "AC-10.c"] }
+  ],
+  "testEvidence": [
+    { "criterion": "Persistence round-trips review state, redacts the provider secret, rejects malformed/oversized records, and the opted-in loop halts at its cap.", "test": "Run the focused persistence and loop suite once after implementation.", "red": { "command": "pnpm.cmd exec tsc --noEmit --pretty false", "observedAt": "2026-07-17T03:28:45-06:00", "outcome": "RED: the first persistence implementation inferred string roles/statuses; TypeScript reported TS2322 in conversation-persistence.ts and exited 2." }, "green": { "command": "pnpm.cmd exec vitest run tests/application/ai/conversation-persistence.test.ts", "observedAt": "2026-07-17T03:29:14-06:00", "outcome": "GREEN: Test Files 1 passed (1); Tests 3 passed (3); Duration 517ms." } },
+    { "criterion": "The complete TypeScript and source-policy gates remain clean after the bounded type fix.", "test": "Run TypeScript and repository lint/source policy once after implementation.", "red": { "command": "pnpm.cmd exec tsc --noEmit --pretty false", "observedAt": "2026-07-17T03:28:45-06:00", "outcome": "RED: TS2322 diagnostics reported inferred role/status strings were not assignable to ConversationMessage/ProposedEdit contracts." }, "green": { "command": "pnpm.cmd exec tsc --noEmit --pretty false; pnpm.cmd lint", "observedAt": "2026-07-17T03:29:14-06:00", "outcome": "GREEN: TypeScript exited 0; Checked 422 files in 246ms with source policy passed." } }
+  ],
+  "nearMisses": [
+    { "url": "https://github.com/scottconverse/scadmill", "sought": "A ready-made conversation persistence or agent-loop implementation", "confirmation": "No external source was consulted; the application-owned contract was authored from the v0.6 requirements and existing local persistence patterns." }
+  ],
+  "questions": ["Project identity wiring, delete-conversation UI, context toggles, and actual provider-driven tool rounds remain to be integrated in later C10 units; this foundation does not claim AC-10.c/d complete."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
