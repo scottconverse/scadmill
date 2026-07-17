@@ -11,3 +11,7 @@ export function cachedEngineVersion(engine: EngineService, configuredPath = ""):
   byPath.set(configuredPath, result);
   return result;
 }
+
+export function invalidateCachedEngineVersion(engine: EngineService, configuredPath = ""): void {
+  cache.get(engine)?.delete(configuredPath);
+}

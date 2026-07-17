@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-regression-repairs",
+  "createdAt": "2026-07-17T03:42:00-06:00",
+  "summary": "Repair two aggregate regressions found after M4 work: invalidate the cached WASM engine probe on an explicit retry, and update the localization contract test to follow the extracted bounds-label formatter.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "AC-4.a", "N-7 evidence and status honesty"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-17-m4-regression-repairs.json", "status": "added" },
+    { "path": "src/application/engine/engine-version-cache.ts", "status": "modified" },
+    { "path": "src/app/App.tsx", "status": "modified" },
+    { "path": "tests/ui/message-catalog-units.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0321", "topic": "Explicit WASM retry invalidation", "decision": "An explicit browser WASM retry invalidates only the current engine/path cache entry before starting the next probe; ordinary probes remain deduplicated.", "rationale": "The aggregate test exposed a real stale-null cache hit that made Retry inert. Narrow invalidation preserves normal cache behavior and lets a retry observe newly available assets.", "specBasis": ["AC-4.a", "N-7"] },
+    { "id": "D-0322", "topic": "Localization source ownership", "decision": "The unit-localization contract follows the extracted viewer-bounds-label formatter and also asserts that ViewerPane delegates to it.", "rationale": "The product already centralized the dimensions message call in the helper; the prior direct-source assertion was stale and did not reflect runtime ownership.", "specBasis": ["N-7"] }
+  ],
+  "testEvidence": [
+    { "criterion": "The two failures from the one aggregate suite are resolved without weakening behavior.", "test": "Run both formerly failing focused files after the bounded product/test repairs.", "red": { "command": "pnpm.cmd test -- --reporter=dot", "observedAt": "2026-07-17T03:39:03-06:00", "outcome": "RED: 162 files ran; 1,243 passed and 2 failed. WASM retry called engine.version once instead of twice; localization test expected a dimensions call in ViewerPane after extraction to viewer-bounds-label.ts." }, "green": { "command": "pnpm.cmd exec vitest run tests/app/App.wasm-engine.test.tsx tests/ui/message-catalog-units.test.ts", "observedAt": "2026-07-17T03:41:20-06:00", "outcome": "GREEN: Test Files 2 passed (2); Tests 5 passed (5); Duration 2.35s." } },
+    { "criterion": "The regression repairs remain type-safe and source-policy clean.", "test": "Run TypeScript and repository lint/source policy once after the bounded fixes.", "red": { "command": "pnpm.cmd exec tsc --noEmit --pretty false", "observedAt": "2026-07-17T03:39:03-06:00", "outcome": "RED: aggregate verification was not green before the cache and localization repairs." }, "green": { "command": "pnpm.cmd exec tsc --noEmit --pretty false; pnpm.cmd lint", "observedAt": "2026-07-17T03:41:20-06:00", "outcome": "GREEN: TypeScript exited 0; Checked 424 files in 219ms with source policy passed." } }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

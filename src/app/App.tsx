@@ -6,7 +6,7 @@ import {
   acceptsPinnedEngineVersion,
   PINNED_OPENSCAD_VERSION,
 } from "../application/engine/engine-pin";
-import { cachedEngineVersion } from "../application/engine/engine-version-cache";
+import { cachedEngineVersion, invalidateCachedEngineVersion } from "../application/engine/engine-version-cache";
 import {
   createWorkbenchProjectPortabilityController,
 } from "../application/files/workbench-portability";
@@ -276,6 +276,7 @@ export function App({
         } catch {
           // Progress cleanup cannot prevent a new engine probe.
         }
+        invalidateCachedEngineVersion(engine, configuredPathForProbe.current);
         setEngineHealth({ kind: "checking", configuredPath: "" });
         setEngineProbeRevision((revision) => revision + 1);
       };
