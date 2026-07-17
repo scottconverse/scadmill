@@ -4,7 +4,10 @@ use scadmill_native_engine::{
     RenderQuality, engine_version, export_project, find_engine_with_bundled, render_project,
 };
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::fs::File;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -17,6 +20,37 @@ mod desktop_settings;
 mod keychain;
 mod native_menu;
 mod project_storage;
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeEngineVersionWire {
+    version: String,
+    build_identity: String,
+}
+
+fn native_engine_build_identity(path: &Path) -> Result<String, String> {
+    let mut file =
+        File::open(path).map_err(|error| format!("Could not read engine executable: {error}"))?;
+    let mut digest = Sha256::new();
+    let mut buffer = [0_u8; 64 * 1024];
+    loop {
+        let read = file
+            .read(&mut buffer)
+            .map_err(|error| format!("Could not hash engine executable: {error}"))?;
+        if read == 0 {
+            break;
+        }
+        digest.update(&buffer[..read]);
+    }
+    let bytes = digest.finalize();
+    Ok(format!(
+        "native:sha256:{}",
+        bytes
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>()
+    ))
+}
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -359,16 +393,19 @@ fn cancel_native(jobs: State<'_, NativeJobs>, job_id: String) {
 async fn native_engine_version(
     app: AppHandle,
     configured_engine_path: Option<String>,
-) -> Result<Option<String>, String> {
+) -> Result<Option<NativeEngineVersionWire>, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let engine = match find_native_engine(&app, configured_engine_path.as_deref()) {
             Ok(engine) => engine,
             Err(EngineError::Missing) => return Ok(None),
             Err(error) => return Err(error.to_string()),
         };
-        engine_version(&engine)
-            .map(Some)
-            .map_err(|error| error.to_string())
+        let version = engine_version(&engine).map_err(|error| error.to_string())?;
+        let build_identity = native_engine_build_identity(&engine)?;
+        Ok(Some(NativeEngineVersionWire {
+            version,
+            build_identity,
+        }))
     })
     .await
     .map_err(|error| format!("Engine version task failed: {error}"))?

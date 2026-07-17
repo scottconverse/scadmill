@@ -79,6 +79,8 @@ export interface EngineInfo {
   version: string;
   path: "native" | "wasm";
   features: string[];
+  /** Verified artifact or executable digest; absent means cache reuse is disabled. */
+  buildIdentity?: string;
 }
 
 export interface EngineOutputEvent {

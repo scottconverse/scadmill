@@ -6,6 +6,7 @@ import type {
   RenderSuccess2D,
   RenderSuccess3D,
 } from "../../../src/application/engine/contracts";
+import type { RenderCache } from "../../../src/application/render-cache/render-cache";
 import { createWorkbenchRuntime } from "../../../src/application/runtime/workbench-runtime";
 
 function successfulEngine(): EngineService {
@@ -28,7 +29,108 @@ function successfulEngine(): EngineService {
   };
 }
 
+function cacheableEngine(): EngineService {
+  const engine = successfulEngine();
+  vi.mocked(engine.version).mockResolvedValue({
+    version: "2026.06.12",
+    path: "native",
+    features: [],
+    buildIdentity: "native:sha256:engine-a",
+  });
+  return engine;
+}
+
 describe("createWorkbenchRuntime", () => {
+  it("reuses an unchanged successful render without a second engine invocation", async () => {
+    const engine = cacheableEngine();
+    const runtime = createWorkbenchRuntime(engine);
+
+    await runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
+    const started = performance.now();
+    await runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
+
+    expect(performance.now() - started).toBeLessThan(100);
+    expect(engine.render).toHaveBeenCalledTimes(1);
+    expect(engine.version).toHaveBeenCalledTimes(1);
+    expect(runtime.render.getState()).toMatchObject({
+      status: "success",
+      cached: true,
+      result: { kind: "3d" },
+    });
+    expect(runtime.console.getState().runs).toHaveLength(1);
+  });
+
+  it("does not cache failures and changes every output-affecting cache key", async () => {
+    const failure: RenderFailure = {
+      kind: "failure",
+      reason: "engine-error",
+      diagnostics: [],
+      rawLog: "failed",
+    };
+    const success = await successfulEngine().render({
+      entryFile: "main.scad",
+      files: new Map(),
+      parameters: {},
+      quality: "preview",
+      timeoutMs: 30_000,
+    }).done;
+    const engine = cacheableEngine();
+    vi.mocked(engine.render)
+      .mockReturnValueOnce({ jobId: "failed", subscribeOutput: () => () => undefined, done: Promise.resolve(failure) })
+      .mockReturnValueOnce({ jobId: "recovered", subscribeOutput: () => () => undefined, done: Promise.resolve(success) })
+      .mockReturnValueOnce({ jobId: "full", subscribeOutput: () => () => undefined, done: Promise.resolve(success) });
+    const runtime = createWorkbenchRuntime(engine);
+
+    await runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
+    await runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
+    await runtime.dispatch({ kind: "render-active", origin: "user", quality: "full" });
+
+    expect(engine.render).toHaveBeenCalledTimes(3);
+    expect(runtime.render.getState()).toMatchObject({ status: "success", cached: false, quality: "full" });
+  });
+
+  it("does not present a result after cancellation during application hashing", async () => {
+    let releaseDigest!: () => void;
+    const digestReleased = new Promise<void>((resolve) => { releaseDigest = resolve; });
+    const digest = vi.spyOn(globalThis.crypto.subtle, "digest").mockImplementation(async () => {
+      await digestReleased;
+      return new ArrayBuffer(32);
+    });
+    const engine = successfulEngine();
+    const runtime = createWorkbenchRuntime(engine, { renderCache: null });
+    try {
+      const pending = runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
+
+      await vi.waitFor(() => expect(digest).toHaveBeenCalledTimes(1));
+      await runtime.dispatch({ kind: "cancel-render", origin: "user" });
+      releaseDigest();
+      await pending;
+
+      expect(engine.cancel).toHaveBeenCalledWith("render-1");
+      expect(runtime.viewer.getState().documents.get("document-main")?.presentation).toBeUndefined();
+    } finally {
+      digest.mockRestore();
+    }
+  });
+
+  it("publishes the viewer result before an optional cache write finishes", async () => {
+    let releasePut!: () => void;
+    const putReleased = new Promise<void>((resolve) => { releasePut = resolve; });
+    const cache: RenderCache = {
+      get: async () => undefined,
+      put: vi.fn(async () => putReleased),
+    };
+    const runtime = createWorkbenchRuntime(cacheableEngine(), { renderCache: cache });
+    const pending = runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
+
+    await vi.waitFor(() => expect(cache.put).toHaveBeenCalledOnce());
+    expect(runtime.viewer.getState().documents.get("document-main")?.presentation).toMatchObject({
+      result: { kind: "3d" },
+    });
+    releasePut();
+    await pending;
+  });
+
   it("routes edits and renders through one command history", async () => {
     const engine = successfulEngine();
     const runtime = createWorkbenchRuntime(engine, {
@@ -201,6 +303,12 @@ describe("createWorkbenchRuntime", () => {
     const runtime = createWorkbenchRuntime(engine);
 
     await runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
+    await runtime.dispatch({
+      kind: "edit-document",
+      origin: "user",
+      documentId: "document-main",
+      source: "cube(11);",
+    });
     await runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
     await runtime.dispatch({ kind: "render-active", origin: "user", quality: "full" });
 
@@ -492,7 +600,10 @@ describe("createWorkbenchRuntime", () => {
         subscribeOutput: () => () => undefined,
         done: new Promise<RenderSuccess3D>((resolve) => { resolveSecond = resolve; }),
       });
-    const runtime = createWorkbenchRuntime(engine, { makeId: () => "render-command" });
+    const runtime = createWorkbenchRuntime(engine, {
+      makeId: () => "render-command",
+      renderCache: null,
+    });
 
     const first = runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
     const second = runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });

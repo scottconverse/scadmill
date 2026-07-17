@@ -23,6 +23,7 @@ keyring = "=4.1.4"
 scadmill-native-engine = { path = "../../native-engine" }
 serde = { version = "=1.0.228", features = ["derive"] }
 serde_json = "=1.0.150"
+sha2 = "=0.10.9"
 tauri = { version = "=2.11.5", features = [] }
 tauri-plugin-dialog = "=2.7.1"
 tauri-plugin-single-instance = "=2.4.3"

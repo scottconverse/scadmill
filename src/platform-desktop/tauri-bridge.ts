@@ -33,6 +33,11 @@ interface NativeRenderSuccess2DWireResponse {
   rawLog: string;
 }
 
+interface NativeEngineVersionWireResponse {
+  version: string;
+  buildIdentity: string;
+}
+
 interface NativeRenderFailureWireResponse {
   kind: "failure";
   reason: "engine-error" | "timeout" | "cancelled" | "engine-missing";
@@ -195,12 +200,19 @@ export function createTauriBridge(
     },
     version: async () => {
       const configuredPath = configuredEnginePath()?.trim();
-      const version = configuredPath
-        ? await invokeCommand<string | null>("native_engine_version", {
+      const response = configuredPath
+        ? await invokeCommand<NativeEngineVersionWireResponse | string | null>("native_engine_version", {
             configuredEnginePath: configuredPath,
           })
-        : await invokeCommand<string | null>("native_engine_version");
-      return version ? { version, path: "native", features: [] } : null;
+        : await invokeCommand<NativeEngineVersionWireResponse | string | null>("native_engine_version");
+      if (!response) return null;
+      if (typeof response === "string") return { version: response, path: "native", features: [] };
+      return {
+        version: response.version,
+        path: "native",
+        features: [],
+        buildIdentity: response.buildIdentity,
+      };
     },
     cancel: (jobId) => {
       void invokeCommand("cancel_native", { jobId }).catch(() => undefined);

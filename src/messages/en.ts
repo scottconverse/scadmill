@@ -240,6 +240,8 @@ export const messages = {
   renderingDocument: (path: string) => `Rendering ${path}…`,
   renderedDocument: (path: string, kind: string) => `Rendered ${path} (${kind})`,
   renderedDocumentStale: (path: string, kind: string) => `Rendered ${path} (${kind}, stale)`,
+  renderedDocumentCached: (path: string, kind: string) => `Rendered ${path} (${kind}, cached)`,
+  renderedDocumentCachedStale: (path: string, kind: string) => `Rendered ${path} (${kind}, cached, stale)`,
   geometryBaseline: "Geometry baseline established",
   geometryUnchanged: "Geometry unchanged",
   geometryComparisonUnavailable: "Geometry comparison unavailable",

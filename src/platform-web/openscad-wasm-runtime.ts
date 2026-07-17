@@ -7,6 +7,7 @@ import type {
   RenderResult,
 } from "../application/engine/contracts";
 import { parseEngineLog } from "../application/diagnostics/parse-engine-log";
+import { PINNED_OPENSCAD_WASM_BUILD_IDENTITY } from "../application/engine/engine-pin";
 import { parseProjectPath, validateProjectLayout } from "../application/files/project-path";
 import { parseBinaryStl } from "../application/geometry/stl";
 import type {
@@ -325,7 +326,9 @@ class Runtime implements OpenScadWasmRuntime {
         .map((line) => line.trim())
         .find((line) => line.startsWith("OpenSCAD version "))
         ?.slice("OpenSCAD version ".length);
-      return version ? { version, path: "wasm", features: [] } : null;
+      return version
+        ? { version, path: "wasm", features: [], buildIdentity: PINNED_OPENSCAD_WASM_BUILD_IDENTITY }
+        : null;
     } catch {
       return null;
     } finally {

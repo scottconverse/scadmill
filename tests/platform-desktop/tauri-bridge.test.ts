@@ -340,6 +340,21 @@ describe("createTauriBridge", () => {
     expect(invoke).toHaveBeenCalledWith("native_engine_version");
   });
 
+  it("preserves the native executable build identity from version discovery", async () => {
+    const invoke = vi.fn().mockResolvedValue({
+      version: "2026.07",
+      buildIdentity: "native:sha256:abc123",
+    });
+    const bridge = createTauriBridge(invoke);
+
+    await expect(bridge.version()).resolves.toEqual({
+      version: "2026.07",
+      path: "native",
+      features: [],
+      buildIdentity: "native:sha256:abc123",
+    });
+  });
+
   it("forwards the configured engine path to render, export, and version discovery", async () => {
     const invoke = vi.fn().mockImplementation((command: string) => {
       if (command === "render_native") {

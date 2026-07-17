@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { EngineOutputEvent } from "../../src/application/engine/contracts";
+import { PINNED_OPENSCAD_WASM_BUILD_IDENTITY } from "../../src/application/engine/engine-pin";
 import {
   decodeOpenScadWasmModuleFactory,
   type OpenScadFileSystem,
@@ -175,7 +176,12 @@ describe("OpenSCAD WASM module boundary", () => {
 
 describe("OpenScadWasmRuntime", () => {
   it.each([
-    [0, "OpenSCAD version 2026.06.12\n", { version: "2026.06.12", path: "wasm", features: [] }],
+    [0, "OpenSCAD version 2026.06.12\n", {
+      version: "2026.06.12",
+      path: "wasm",
+      features: [],
+      buildIdentity: PINNED_OPENSCAD_WASM_BUILD_IDENTITY,
+    }],
     [7, "OpenSCAD version 2026.06.12\n", null],
     [0, "not an OpenSCAD version\n", null],
   ] as const)(

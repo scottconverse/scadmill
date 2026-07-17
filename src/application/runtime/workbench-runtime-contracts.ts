@@ -23,6 +23,7 @@ import type {
   WorkspaceAnnotationPersistenceState,
   WorkspaceMetadataPersistence,
 } from "../viewer/annotation-persistence";
+import type { RenderCache } from "../render-cache/render-cache";
 
 export type CommandOrigin = "user" | "ai-panel" | "external-agent" | "system";
 
@@ -39,6 +40,7 @@ export interface RenderState {
   projectRevision?: number;
   parameterValues?: Readonly<Record<string, ParamValue>>;
   result?: RenderResult;
+  cached?: boolean;
 }
 
 export type WorkbenchCommand =
@@ -125,4 +127,5 @@ export interface RuntimeOptions {
   workspaceMetadataPersistence?: WorkspaceMetadataPersistence;
   initialScratchSource?: string;
   initialScratchPath?: string;
+  renderCache?: RenderCache | null;
 }

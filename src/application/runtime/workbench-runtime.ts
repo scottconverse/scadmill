@@ -13,7 +13,7 @@ import {
   type DocumentWorkspaceAction,
   type DocumentWorkspaceState,
 } from "../documents/document-workspace";
-import type { EngineService, ParamValue, Quality } from "../engine/contracts";
+import type { EngineInfo, EngineService, ParamValue, Quality, RenderRequest } from "../engine/contracts";
 import { UNAVAILABLE_ARTIFACT_DESTINATION } from "../files/artifact-destination";
 import { EPHEMERAL_RECENT_PROJECTS_PERSISTENCE } from "../files/recent-projects";
 import {
@@ -74,6 +74,12 @@ import {
 } from "./layout-persistence";
 import { buildRuntimeRenderFileMap } from "./project-render-files";
 import { ensureGeometryIdentity } from "../geometry/geometry-identity";
+import {
+  createRenderCacheKey,
+  RenderCacheKeyIndex,
+  RenderMemoryCache,
+} from "../render-cache/render-cache";
+import type { CachedRenderResult } from "../render-cache/render-cache";
 import { applyProjectTransition } from "./project-transition";
 import type {
   HistoryEntry,
@@ -191,6 +197,13 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
   const makeId = options.makeId ?? (() => globalThis.crypto.randomUUID());
   const now = options.now ?? (() => new Date());
   const nowMs = options.nowMs ?? (() => Date.now());
+  const renderCache = options.renderCache === null
+    ? null
+    : options.renderCache ?? new RenderMemoryCache();
+  let engineInfoPromise: Promise<EngineInfo | null> | undefined;
+  let resolvedEngineInfo: EngineInfo | null | undefined;
+  const knownCacheKeys = new RenderCacheKeyIndex();
+  let renderAttemptGeneration = 0;
   let disposed = false;
   const pendingAutoRenders = new Map<string, Quality>();
   const autoRenderTimer = createDeferredAction(() => {
@@ -203,8 +216,47 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
   });
 
   function cancelActiveRender(): void {
+    renderAttemptGeneration += 1;
     const active = render.getState();
     if (active.status === "rendering" && active.jobId) engine.cancel(active.jobId);
+  }
+
+  function engineInfoForCache(): Promise<EngineInfo | null> {
+    engineInfoPromise ??= Promise.resolve(engine.version())
+      .then((info) => {
+        resolvedEngineInfo = info ?? null;
+        return resolvedEngineInfo;
+      })
+      .catch(() => null);
+    return engineInfoPromise;
+  }
+
+  function renderMemoKey(
+    workspace: DocumentWorkspaceState,
+    projectRevision: number,
+    workspaceIdentity: string,
+    documentId: string,
+    request: RenderRequest,
+    engineInfo: EngineInfo,
+    configuredEnginePath: string,
+  ): string {
+    return JSON.stringify({
+      workspaceIdentity,
+      projectRevision,
+      documentId,
+      documents: workspace.documents
+        .map(({ id, path, revision }) => ({ id, path, revision }))
+        .sort((left, right) => left.id.localeCompare(right.id)),
+      entryFile: request.entryFile,
+      parameters: Object.entries(request.parameters).sort(([left], [right]) => left.localeCompare(right)),
+      quality: request.quality,
+      previewFacetLimit: request.quality === "preview" ? request.previewFacetLimit ?? null : null,
+      engine: {
+        ...engineInfo,
+        features: [...engineInfo.features].sort(),
+        configuredEnginePath,
+      },
+    });
   }
 
   function schedulePendingRenderForActiveDocument(): void {
@@ -248,6 +300,8 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     const serialized = serializePersistedSettings(profile);
     const validated = parsePersistedSettings(serialized);
     const current = settings.getState();
+    const enginePathChanged = current.profile.engine.executablePath
+      !== validated.engine.executablePath;
     settings.setState(
       settingsStateFromProfile(validated, current.engineAvailable, current.persistenceStatus),
       true,
@@ -259,6 +313,10 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     settingsSaveTail = save.catch(() => undefined);
     try {
       await save;
+      if (enginePathChanged) {
+        engineInfoPromise = undefined;
+        resolvedEngineInfo = undefined;
+      }
     } catch (error) {
       const latest = settings.getState();
       if (latest.profile === validated) {
@@ -626,6 +684,8 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     }
 
     if (command.kind === "engine-availability-changed") {
+      engineInfoPromise = undefined;
+      resolvedEngineInfo = undefined;
       settings.setState({ engineAvailable: command.available });
       if (!command.available) {
         autoRenderTimer.clear();
@@ -674,7 +734,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     if (command.kind === "cancel-render") {
       const active = render.getState();
       if (active.status !== "rendering" || !active.jobId) return;
-      engine.cancel(active.jobId);
+      cancelActiveRender();
       record(command, makeId(), `Cancel render ${active.entryFile ?? active.jobId}`, false);
       return;
     }
@@ -804,18 +864,17 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
 
     autoRenderTimer.clear();
     cancelActiveRender();
+    const renderAttempt = renderAttemptGeneration;
     const commandId = makeId();
     const workspace = documents.getState();
     const document = activeDocument(workspace);
     pendingAutoRenders.delete(document.id);
-    const projectRevision = project.getState().revision;
-    const sourceFiles = buildRuntimeRenderFileMap(project.getState(), workspace);
+    const projectState = project.getState();
+    const projectRevision = projectState.revision;
+    const sourceFiles = buildRuntimeRenderFileMap(projectState, workspace);
     const parameterValues = engineParameterSnapshot(document.id);
     const rendering = settings.getState();
-    const startedMs = nowMs();
-    const startedAt = now();
-    const startedAtMonotonicMs = performance.now();
-    const job = engine.render({
+    const request: RenderRequest = {
       entryFile: document.path,
       files: sourceFiles,
       parameters: parameterValues,
@@ -825,8 +884,82 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
         : rendering.fullTimeoutMs,
       ...(command.quality === "preview"
         ? { previewFacetLimit: rendering.previewFacetLimit }
-        : {}),
-    });
+      : {}),
+    };
+    const snapshotIsCurrent = () => {
+      const currentWorkspace = documents.getState();
+      const currentTarget = currentWorkspace.documents.find(({ id }) => id === document.id);
+      return Boolean(
+        currentTarget
+        && currentTarget.path === document.path
+        && currentTarget.revision === document.revision
+        && sourceSnapshotIsCurrent(
+          sourceFiles,
+          parameterValues,
+          document.id,
+          projectRevision,
+        ),
+      );
+    };
+    if (renderCache) void engineInfoForCache();
+    const memoKey = renderCache && resolvedEngineInfo
+      ? renderMemoKey(
+          workspace,
+          projectRevision,
+          projectState.snapshot.workspaceIdentity,
+          document.id,
+          request,
+          resolvedEngineInfo,
+          rendering.profile.engine.executablePath,
+        )
+      : undefined;
+    const knownKey = memoKey ? knownCacheKeys.get(memoKey) : undefined;
+    let cachedResult: CachedRenderResult | undefined;
+    if (renderCache && knownKey) {
+      try {
+        cachedResult = await renderCache.get(projectState.snapshot.workspaceIdentity, knownKey);
+      } catch {
+        cachedResult = undefined;
+      }
+      if (!cachedResult && memoKey) knownCacheKeys.delete(memoKey);
+    }
+    if (renderAttempt !== renderAttemptGeneration || !snapshotIsCurrent()) return;
+    if (cachedResult && knownKey) {
+      const cacheJobId = `cache:${knownKey}`;
+      render.setState({
+        status: "success",
+        cached: true,
+        quality: command.quality,
+        documentId: document.id,
+        entryFile: document.path,
+        sourceRevision: document.revision,
+        sourceFiles,
+        projectRevision,
+        parameterValues,
+        result: cachedResult.result,
+      }, true);
+      record(
+        command,
+        commandId,
+        `Render ${document.path} at ${command.quality} quality`,
+        false,
+      );
+      viewer.setState(reduceViewerState(viewer.getState(), {
+        kind: "present-result",
+        documentId: document.id,
+        modelIdentity: cacheJobId,
+        quality: command.quality,
+        result: cachedResult.result,
+      }), true);
+      if (documents.getState().activeDocumentId === document.id) {
+        updateLayout({ kind: "render-succeeded", jobId: cacheJobId });
+      }
+      return;
+    }
+    const startedMs = nowMs();
+    const startedAt = now();
+    const startedAtMonotonicMs = performance.now();
+    const job = engine.render(request);
     runConsole.setState(reduceConsoleState(runConsole.getState(), {
       kind: "start-run",
       jobId: job.jobId,
@@ -874,21 +1007,6 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     if (render.getState().jobId !== job.jobId) {
       return;
     }
-    const snapshotIsCurrent = () => {
-      const currentWorkspace = documents.getState();
-      const currentTarget = currentWorkspace.documents.find(({ id }) => id === document.id);
-      return Boolean(
-        currentTarget
-        && currentTarget.path === document.path
-        && currentTarget.revision === document.revision
-        && sourceSnapshotIsCurrent(
-          sourceFiles,
-          parameterValues,
-          document.id,
-          projectRevision,
-        ),
-      );
-    };
     const result = snapshotIsCurrent()
       ? await ensureGeometryIdentity(rawResult)
       : rawResult;
@@ -904,25 +1022,57 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       projectRevision,
       parameterValues,
       result,
+      cached: false,
     }, true);
-    if (!snapshotIsCurrent()) return;
+    if (!snapshotIsCurrent() || renderAttempt !== renderAttemptGeneration) return;
     const currentWorkspace = documents.getState();
     if (result.kind !== "failure") {
+      const presentationJobId = job.jobId;
       viewer.setState(reduceViewerState(viewer.getState(), {
         kind: "present-result",
         documentId: document.id,
-        modelIdentity: job.jobId,
+        modelIdentity: presentationJobId,
         quality: command.quality,
         result,
       }), true);
+      if (currentWorkspace.activeDocumentId === document.id) {
+        updateLayout({ kind: "render-succeeded", jobId: presentationJobId });
+      }
+      const engineInfo = renderCache ? await engineInfoForCache() : null;
+      const cacheKey = engineInfo
+        ? await createRenderCacheKey(request, engineInfo, rendering.profile.engine.executablePath)
+        : undefined;
+      if (render.getState().jobId !== job.jobId || renderAttempt !== renderAttemptGeneration) return;
+      if (cacheKey && renderCache) {
+        try {
+          await renderCache.put(projectState.snapshot.workspaceIdentity, cacheKey, result);
+          if (engineInfo) {
+            knownCacheKeys.set(
+              renderMemoKey(
+                workspace,
+                projectRevision,
+                projectState.snapshot.workspaceIdentity,
+                document.id,
+                request,
+                engineInfo,
+                rendering.profile.engine.executablePath,
+              ),
+              cacheKey,
+            );
+          }
+        } catch {
+          // Cache failure must not hide or downgrade a successful engine result.
+        }
+      }
+      if (render.getState().jobId !== job.jobId || renderAttempt !== renderAttemptGeneration) return;
+      return;
     }
-    if (currentWorkspace.activeDocumentId !== document.id) return;
-    updateLayout({
-      kind: result.kind === "failure" && result.reason !== "cancelled"
-        ? "render-failed"
-        : "render-succeeded",
-      jobId: job.jobId,
-    });
+    if (currentWorkspace.activeDocumentId === document.id) {
+      updateLayout({
+        kind: result.reason !== "cancelled" ? "render-failed" : "render-succeeded",
+        jobId: job.jobId,
+      });
+    }
   }
 
   return {

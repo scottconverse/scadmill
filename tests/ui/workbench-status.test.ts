@@ -8,6 +8,23 @@ import {
 } from "../../src/ui/workbench-status";
 
 describe("workbench render status", () => {
+  it("labels a cache hit at the point of display", () => {
+    const render: RenderState = {
+      status: "success",
+      cached: true,
+      entryFile: "main.scad",
+      result: {
+        kind: "2d",
+        svg: "<svg/>",
+        boundingBox: { min: [0, 0], max: [1, 1] },
+        diagnostics: [],
+        rawLog: "rendered",
+      },
+    };
+
+    expect(renderStatusLabel(render, false, "main.scad")).toBe("Rendered main.scad (2d, cached)");
+  });
+
   it("reports a completed cancellation as cancelled rather than failed", () => {
     const render: RenderState = {
       status: "failure",

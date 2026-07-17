@@ -236,12 +236,16 @@ function exportResult(value: unknown): value is ExportResult {
 }
 
 function engineInfo(value: unknown): value is EngineInfo {
+  const record = plain(value) ? value : null;
   return (
-    plain(value)
-    && exact(value, ["version", "path", "features"])
-    && typeof value.version === "string"
-    && value.path === "wasm"
-    && dense(value.features, (feature): feature is string => typeof feature === "string")
+    record !== null
+    && (exact(record, ["version", "path", "features"])
+      || (exact(record, ["version", "path", "features", "buildIdentity"])
+        && typeof record.buildIdentity === "string"
+        && record.buildIdentity.length > 0))
+    && typeof record.version === "string"
+    && record.path === "wasm"
+    && dense(record.features, (feature): feature is string => typeof feature === "string")
   );
 }
 

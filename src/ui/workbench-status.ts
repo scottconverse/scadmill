@@ -32,6 +32,11 @@ export function renderStatusLabel(
   }
   const kind = render.result?.kind ?? "geometry";
   if (render.status === "success") {
+    if (render.cached) {
+      return stale
+        ? messages.renderedDocumentCachedStale(path, kind)
+        : messages.renderedDocumentCached(path, kind);
+    }
     return stale
       ? messages.renderedDocumentStale(path, kind)
       : messages.renderedDocument(path, kind);
