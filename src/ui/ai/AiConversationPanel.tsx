@@ -3,15 +3,17 @@ import type { AiMessage } from "../../application/ai/ai-provider";
 import type { ProposedEdit } from "../../application/ai/conversation";
 import { conversationReducer, createConversationState, extractCodeBlocks } from "../../application/ai/conversation";
 import { messages } from "../../messages/en";
+import { ExternalChangeDiff } from "../files/ExternalChangeDiff";
 
 export interface AiConversationPanelProps {
   readonly configured: boolean;
+  readonly currentSource: string;
   readonly documentId: string;
   readonly requestStream?: (messages: readonly AiMessage[], signal: AbortSignal) => AsyncIterable<string>;
   readonly onApplyEdit?: (proposal: ProposedEdit) => void;
 }
 
-export function AiConversationPanel({ configured, documentId, requestStream, onApplyEdit }: AiConversationPanelProps) {
+export function AiConversationPanel({ configured, currentSource, documentId, requestStream, onApplyEdit }: AiConversationPanelProps) {
   const [state, dispatch] = useReducer(conversationReducer, undefined, createConversationState);
   const [input, setInput] = useState("");
   const [error, setError] = useState<string>();
@@ -55,8 +57,14 @@ export function AiConversationPanel({ configured, documentId, requestStream, onA
       {error && <p role="alert">{error}</p>}
       {state.proposals.map((proposal) => (
         <div className="ai-proposal" key={proposal.id}>
-          <pre><code>{proposal.code}</code></pre>
-          {proposal.status === "pending" && <button onClick={() => { dispatch({ kind: "review-edit", proposalId: proposal.id, status: "accepted" }); onApplyEdit?.(proposal); }} type="button">{messages.applyEdit}</button>}
+          {proposal.status === "pending" ? <ExternalChangeDiff
+            diskSource={proposal.code}
+            localSource={currentSource}
+            onApply={(source) => {
+              dispatch({ kind: "review-edit", proposalId: proposal.id, status: "accepted" });
+              onApplyEdit?.({ ...proposal, code: source });
+            }}
+          /> : <pre><code>{proposal.code}</code></pre>}
           {proposal.status !== "pending" && <span>{proposal.status}</span>}
         </div>
       ))}
