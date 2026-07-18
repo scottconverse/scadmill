@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
 import { BUILT_IN_SAMPLES } from "../../src/application/welcome/built-in-samples";
+import { canonicalAc4Bytes } from "./ac4-parity-bytes";
 
 const REQUIRED_VERSION = "2026.06.12";
 const REQUIRED_EXECUTABLE_SHA256 =
@@ -212,9 +213,9 @@ function nativeExport(executable: string, parityCase: ParityCase): Uint8Array {
   }
 }
 
-test("AC-4.a preserves exact native/WASM bytes for Appendix F and official examples", async ({
+test("AC-4.a preserves exact STL and CRLF-canonical SVG bytes for Appendix F and official examples", async ({
   page,
-}) => {
+}, testInfo) => {
   const executable = process.env.SCADMILL_AC4_OPENSCAD;
   expect(executable, "SCADMILL_AC4_OPENSCAD must identify the pinned native executable").toBeTruthy();
   if (!executable) return;
@@ -225,6 +226,7 @@ test("AC-4.a preserves exact native/WASM bytes for Appendix F and official examp
   expect(`${version.stdout}${version.stderr}`).toContain(`OpenSCAD version ${REQUIRED_VERSION}`);
 
   await page.goto("/tests/parity/fixtures/ac4-parity.html");
+  const evidence: Array<Record<string, unknown>> = [];
 
   for (const parityCase of cases) {
     const nativeBytes = nativeExport(executable, parityCase);
@@ -240,14 +242,44 @@ test("AC-4.a preserves exact native/WASM bytes for Appendix F and official examp
     expect(browser.ok, `${parityCase.id} WASM export failed:\n${browser.rawLog}`).toBe(true);
     expect(browser.bytes, `${parityCase.id} WASM export returned no bytes`).toBeDefined();
     const wasmBytes = Uint8Array.from(browser.bytes ?? []);
-    const firstDiff = firstDifference(nativeBytes, wasmBytes);
+    const extension = parityCase.format === "svg" ? "svg" : "stl";
+    writeFileSync(testInfo.outputPath(`${parityCase.id}-native.${extension}`), nativeBytes);
+    writeFileSync(testInfo.outputPath(`${parityCase.id}-wasm.${extension}`), wasmBytes);
+    const nativeCanonical = canonicalAc4Bytes(parityCase.format, nativeBytes);
+    const wasmCanonical = canonicalAc4Bytes(parityCase.format, wasmBytes);
+    const firstDiff = firstDifference(nativeCanonical, wasmCanonical);
+    evidence.push({
+      id: parityCase.id,
+      format: parityCase.format,
+      normalization: parityCase.format === "svg" ? "CRLF-to-LF-only" : "none",
+      native: {
+        rawLength: nativeBytes.byteLength,
+        rawSha256: sha256(nativeBytes),
+        canonicalLength: nativeCanonical.byteLength,
+        canonicalSha256: sha256(nativeCanonical),
+      },
+      wasm: {
+        rawLength: wasmBytes.byteLength,
+        rawSha256: sha256(wasmBytes),
+        canonicalLength: wasmCanonical.byteLength,
+        canonicalSha256: sha256(wasmCanonical),
+      },
+      canonicalFirstDifference: firstDiff,
+    });
+    writeFileSync(
+      testInfo.outputPath("parity-evidence.json"),
+      `${JSON.stringify({ schemaVersion: 1, engineVersion: REQUIRED_VERSION, cases: evidence }, null, 2)}\n`,
+      "utf8",
+    );
     expect(
       firstDiff,
       [
-        `${parityCase.id} exact ${parityCase.format} parity mismatch`,
+        `${parityCase.id} canonical ${parityCase.format} parity mismatch`,
         `native length=${nativeBytes.length} sha256=${sha256(nativeBytes)}`,
         `wasm length=${wasmBytes.length} sha256=${sha256(wasmBytes)}`,
-        `first-diff=${firstDiff} native=${byteAt(nativeBytes, firstDiff)} wasm=${byteAt(wasmBytes, firstDiff)}`,
+        `native canonical length=${nativeCanonical.length} sha256=${sha256(nativeCanonical)}`,
+        `wasm canonical length=${wasmCanonical.length} sha256=${sha256(wasmCanonical)}`,
+        `canonical-first-diff=${firstDiff} native=${byteAt(nativeCanonical, firstDiff)} wasm=${byteAt(wasmCanonical, firstDiff)}`,
       ].join("\n"),
     ).toBe(-1);
   }

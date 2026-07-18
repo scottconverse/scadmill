@@ -1,0 +1,85 @@
+name: Package pinned OpenSCAD web engine compliance materials
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/package-openscad-web-engine.yml
+      - .github/workflows/build-openscad-wasm.yml
+      - engine-compliance/openscad-2026.06.12/README.md
+      - scripts/stage-openscad-wasm-artifact.mjs
+      - ENGINE_VERSION
+
+permissions:
+  actions: read
+  contents: read
+
+env:
+  OPENSCAD_COMMIT: 0a66508c67374febcfc814a73b5b948dd84a1ca3
+  OPENSCAD_VERSION: 2026.06.12
+  SOURCE_BUILD_RUN: "29529789154"
+
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Download the exact retained source-built engine
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: openscad-wasm-${{ env.OPENSCAD_COMMIT }}
+          path: ${{ runner.temp }}/openscad-wasm-source
+          github-token: ${{ github.token }}
+          repository: scottconverse/scadmill
+          run-id: ${{ env.SOURCE_BUILD_RUN }}
+
+      - name: Verify retained engine bytes
+        run: node scripts/stage-openscad-wasm-artifact.mjs "${{ runner.temp }}/openscad-wasm-source"
+
+      - name: Clone and verify exact corresponding official source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --no-checkout --recurse-submodules https://github.com/openscad/openscad.git "$RUNNER_TEMP/openscad"
+          git -C "$RUNNER_TEMP/openscad" fetch --depth 1 origin "$OPENSCAD_COMMIT"
+          git -C "$RUNNER_TEMP/openscad" checkout --detach "$OPENSCAD_COMMIT"
+          git -C "$RUNNER_TEMP/openscad" submodule update --init --recursive
+          test "$(git -C "$RUNNER_TEMP/openscad" rev-parse HEAD)" = "$OPENSCAD_COMMIT"
+          test -z "$(git -C "$RUNNER_TEMP/openscad" submodule status --recursive | grep -E '^[+-U]' || true)"
+          git -C "$RUNNER_TEMP/openscad" submodule status --recursive > "$RUNNER_TEMP/source-provenance.txt"
+          printf 'root %s\n' "$OPENSCAD_COMMIT" | cat - "$RUNNER_TEMP/source-provenance.txt" > "$RUNNER_TEMP/source-provenance.complete"
+          mv "$RUNNER_TEMP/source-provenance.complete" "$RUNNER_TEMP/source-provenance.txt"
+
+      - name: Assemble deterministic compliance payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          payload="$RUNNER_TEMP/scadmill-web-engine-$OPENSCAD_VERSION"
+          mkdir -p "$payload"
+          cp "public/openscad-engine/$OPENSCAD_VERSION/openscad.js" "$payload/openscad.js"
+          cp "public/openscad-engine/$OPENSCAD_VERSION/openscad.wasm" "$payload/openscad.wasm"
+          cp "public/openscad-engine/$OPENSCAD_VERSION/manifest.json" "$payload/manifest.json"
+          cp "$RUNNER_TEMP/openscad/COPYING" "$payload/COPYING"
+          cp .github/workflows/build-openscad-wasm.yml "$payload/build-openscad-wasm.yml"
+          cp ENGINE_VERSION "$payload/ENGINE_VERSION"
+          cp engine-compliance/openscad-2026.06.12/README.md "$payload/README.md"
+          cp "$RUNNER_TEMP/source-provenance.txt" "$payload/source-provenance.txt"
+          tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner --exclude-vcs \
+            -C "$RUNNER_TEMP" -czf "$payload/openscad-$OPENSCAD_COMMIT-corresponding-source.tar.gz" openscad
+          (cd "$payload" && sha256sum COPYING ENGINE_VERSION README.md build-openscad-wasm.yml manifest.json openscad.js openscad.wasm "openscad-$OPENSCAD_COMMIT-corresponding-source.tar.gz" source-provenance.txt > SHA256SUMS)
+          (cd "$RUNNER_TEMP" && zip -X -r "scadmill-web-engine-$OPENSCAD_VERSION-compliance.zip" "scadmill-web-engine-$OPENSCAD_VERSION")
+          sha256sum "$RUNNER_TEMP/scadmill-web-engine-$OPENSCAD_VERSION-compliance.zip" > "$RUNNER_TEMP/scadmill-web-engine-$OPENSCAD_VERSION-compliance.zip.sha256"
+
+      - name: Upload complete compliance payload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: scadmill-web-engine-${{ env.OPENSCAD_VERSION }}-compliance
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/scadmill-web-engine-${{ env.OPENSCAD_VERSION }}
+            ${{ runner.temp }}/scadmill-web-engine-${{ env.OPENSCAD_VERSION }}-compliance.zip
+            ${{ runner.temp }}/scadmill-web-engine-${{ env.OPENSCAD_VERSION }}-compliance.zip.sha256

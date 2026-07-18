@@ -55,6 +55,8 @@ describe("production static browser evidence contract", () => {
     expect(workflowSource).toContain("name: Native and WASM byte parity");
     expect(workflowSource).toContain("run: pnpm test:parity");
     expect(workflowSource).toContain("name: ac4-parity-evidence");
+    expect(workflowSource).toContain("name: Retain raw and canonical parity evidence");
+    expect(workflowSource).toContain("if: always()");
     const acceptance = workflowSource.indexOf("run: pnpm test:e2e:production-static");
     expect(acceptance).toBeGreaterThanOrEqual(0);
   });

@@ -143,8 +143,8 @@ jobs:
           "SCADMILL_AC4_OPENSCAD=$executable" | Out-File -FilePath $env:GITHUB_ENV -Append
       - name: Exact AC-4.a parity
         run: pnpm test:parity
-      - name: Retain parity evidence on failure
-        if: failure()
+      - name: Retain raw and canonical parity evidence
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ac4-parity-evidence
