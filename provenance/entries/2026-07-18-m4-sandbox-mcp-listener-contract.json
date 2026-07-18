@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-18-m4-sandbox-mcp-listener-contract",
+  "createdAt": "2026-07-18T17:28:00-06:00",
+  "summary": "Align packaged MCP listener validation with the authenticated endpoint manifest produced by the real desktop relay.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "AC-11.b", "AC-11.c", "N-7"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-18-m4-sandbox-mcp-listener-contract.json", "status": "added" },
+    { "path": "scripts/lib/packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0381",
+      "topic": "Authenticated manifest to listener-observation validation",
+      "decision": "Accept either the exact three-field loopback identity or a fully validated six-field authenticated manifest as the expected MCP endpoint, reduce a valid manifest to its address/port/PID identity, and continue requiring one exact observed listener row.",
+      "rationale": "The production walkthrough passes the already validated authenticated manifest, while the original helper test passed only its three-field identity. Reapplying the exact three-key identity predicate directly to the six-field manifest made every genuine listener fail. Validating the full manifest before reduction preserves token, process-identity, shape, and loopback guarantees without weakening the observed listener match.",
+      "specBasis": ["AC-11.b", "AC-11.c", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "A genuine listener observation must match the real authenticated manifest and malformed manifests must still fail closed.",
+      "test": "Run the packaged evidence helper suite with a six-field expected-manifest regression.",
+      "red": {
+        "command": "Windows Sandbox packaged walkthrough for a8d3b34f6701aaf24ff5c81f71a9a8d256136611; pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts",
+        "observedAt": "2026-07-18T17:27:24-06:00",
+        "outcome": "RED: the real package rendered the cube, exported and parsed a 12-triangle binary STL, created its authenticated MCP manifest, then timed out because the listener validator rejected the six-field manifest. The focused regression failed 1/32 at the same validator."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts; pnpm.cmd exec biome check scripts/lib/packaged-desktop-evidence.mjs tests/scripts/packaged-desktop-evidence.test.ts; node --check scripts/lib/packaged-desktop-evidence.mjs; git diff --check",
+        "observedAt": "2026-07-18T17:28:05-06:00",
+        "outcome": "GREEN: 32/32 focused tests passed; formatting/static syntax/diff checks passed. The authenticated manifest now reduces only after full validation, while malformed manifests, wrong listeners, duplicate listeners, and off-state listeners remain rejected."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://scripts/lib/packaged-desktop-evidence.mjs",
+      "sought": "Why a real listener could never satisfy the packaged evidence helper",
+      "confirmation": "The helper required Object.keys(address,pid,port) on the expected value even though the runner passed the validated address/pid/port/process_start_id/token/version manifest."
+    }
+  ],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

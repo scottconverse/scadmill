@@ -100,9 +100,16 @@ describe("packaged desktop evidence helpers", () => {
   it("requires no listener while MCP is off and one exact GUI-owned listener while on", () => {
     expect(validateMcpListenerObservation).toBeTypeOf("function");
     const endpoint = { address: "127.0.0.1", port: 49_152, pid: 4_242 };
+    const authenticatedManifest = {
+      ...endpoint,
+      version: 1,
+      token: "a1".repeat(32),
+      process_start_id: "01dc5a1b2c3d4e5f",
+    };
 
     expect(validateMcpListenerObservation([], false, endpoint)).toEqual([]);
     expect(validateMcpListenerObservation([endpoint], true, endpoint)).toEqual([endpoint]);
+    expect(validateMcpListenerObservation([endpoint], true, authenticatedManifest)).toEqual([endpoint]);
     expect(() => validateMcpListenerObservation([endpoint], false, endpoint)).toThrow(
       "MCP listener observation",
     );

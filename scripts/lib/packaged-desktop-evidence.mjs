@@ -65,13 +65,22 @@ export function validateMcpListenerObservation(payload, expectedEnabled, expecte
     }
     return payload;
   }
+  let expectedIdentity = expectedEndpoint;
+  if (!validMcpEndpointIdentity(expectedIdentity)) {
+    try {
+      const manifest = validateMcpEndpointManifest(expectedEndpoint, expectedEndpoint?.pid);
+      expectedIdentity = { address: manifest.address, port: manifest.port, pid: manifest.pid };
+    } catch {
+      expectedIdentity = null;
+    }
+  }
   if (
-    !validMcpEndpointIdentity(expectedEndpoint)
+    !validMcpEndpointIdentity(expectedIdentity)
     || payload.length !== 1
     || !validMcpEndpointIdentity(payload[0])
-    || payload[0].address !== expectedEndpoint.address
-    || payload[0].port !== expectedEndpoint.port
-    || payload[0].pid !== expectedEndpoint.pid
+    || payload[0].address !== expectedIdentity.address
+    || payload[0].port !== expectedIdentity.port
+    || payload[0].pid !== expectedIdentity.pid
   ) throw new Error("MCP listener observation does not exactly match the enabled endpoint.");
   return payload;
 }
