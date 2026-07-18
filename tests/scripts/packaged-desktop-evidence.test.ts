@@ -137,6 +137,17 @@ describe("packaged desktop evidence helpers", () => {
     expect(listenerWait).not.toContain("catch {\n      return false;");
   });
 
+  it("inspects the exact authenticated MCP port before comparing listener ownership", async () => {
+    const runner = await readFile(join(process.cwd(), "scripts", "run-packaged-desktop-evidence.mjs"), "utf8");
+    const portQueries = [
+      ...runner.matchAll(/tcpListenersForPort\(endpointRecord\.endpoint\.port\)/gu),
+    ];
+
+    expect(runner).toContain("async function tcpListenersForPort(port)");
+    expect(runner).toContain("Where-Object { $_.LocalPort -eq $" + "{port} }");
+    expect(portQueries).toHaveLength(2);
+  });
+
   it("omits the MCP token from retained endpoint and transcript evidence", () => {
     expect([sanitizeMcpEndpointManifest, sanitizeMcpTranscript].every(
       (candidate) => typeof candidate === "function",

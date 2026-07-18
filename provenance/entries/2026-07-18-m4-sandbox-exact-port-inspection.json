@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-18-m4-sandbox-exact-port-inspection",
+  "createdAt": "2026-07-18T17:51:00-06:00",
+  "summary": "Observe the exact authenticated MCP port before validating its reported address and owner, including during shutdown.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "AC-11.b", "AC-11.c", "N-7"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-18-m4-sandbox-exact-port-inspection.json", "status": "added" },
+    { "path": "scripts/run-packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0384",
+      "topic": "MCP listener observation key",
+      "decision": "Query Windows for listeners on the authenticated manifest's exact validated port, then require one row whose loopback address, port, and owner PID exactly match the manifest; query the same port for zero rows after disable.",
+      "rationale": "Filtering by expected PID before validation erased wrong-owner information and returned an empty observation in the isolated guest. The port is already unpredictable, authenticated, and fully validated. Port-first observation proves both presence and ownership and makes a wrong owner fail visibly rather than masquerade as absence.",
+      "specBasis": ["AC-11.b", "AC-11.c", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Enabled and disabled MCP checks must observe the exact manifest port before comparing ownership.",
+      "test": "Run the packaged helper suite with two exact-port query assertions and validate the Windows query shape against a bounded loopback fixture.",
+      "red": {
+        "command": "Windows Sandbox packaged walkthrough for 51d0e666b0a8f5279c595b2b3040d2d76cb71799; pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts",
+        "observedAt": "2026-07-18T17:50:07-06:00",
+        "outcome": "RED: retained evidence showed observed=[] for expected loopback port 61929/PID 6672 because the query pre-filtered ownership. The new contract regression failed 1/34 because no exact-port inspection existed."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts; pnpm.cmd exec biome check scripts/run-packaged-desktop-evidence.mjs tests/scripts/packaged-desktop-evidence.test.ts; node --check scripts/run-packaged-desktop-evidence.mjs; git diff --check; bounded host loopback Get-NetTCPConnection fixture",
+        "observedAt": "2026-07-18T17:51:00-06:00",
+        "outcome": "GREEN: 34/34 focused tests passed; Biome, Node syntax, and diff checks passed. The bounded host fixture returned one exact row with 127.0.0.1, port, and owner PID using the same PowerShell projection."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://scripts/run-packaged-desktop-evidence.mjs",
+      "sought": "Why listener ownership mismatch was indistinguishable from absence",
+      "confirmation": "Where-Object filtered OwningProcess before the observed rows reached validateMcpListenerObservation."
+    }
+  ],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

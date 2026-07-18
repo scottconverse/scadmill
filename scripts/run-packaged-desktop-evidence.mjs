@@ -595,6 +595,17 @@ async function tcpListenersForProcess(pid) {
   return Array.isArray(parsed) ? parsed : [parsed];
 }
 
+async function tcpListenersForPort(port) {
+  assert.ok(Number.isSafeInteger(port) && port >= 1 && port <= 65_535, "Listener inspection requires a valid port.");
+  const command = [
+    `$rows = @(Get-NetTCPConnection -State Listen -ErrorAction Stop | Where-Object { $_.LocalPort -eq ${port} } | Select-Object @{n='address';e={$_.LocalAddress}},@{n='port';e={[int]$_.LocalPort}},@{n='pid';e={[int]$_.OwningProcess}});`,
+    "ConvertTo-Json -InputObject @($rows) -Compress",
+  ].join(" ");
+  const result = await run("powershell.exe", ["-NoProfile", "-Command", command]);
+  const parsed = JSON.parse(result.stdout);
+  return Array.isArray(parsed) ? parsed : [parsed];
+}
+
 async function mcpEndpointsForProcess(application, pid) {
   const temporary = process.env.TEMP;
   assert.ok(temporary, "TEMP is required for MCP endpoint inspection.");
@@ -998,7 +1009,7 @@ try {
     return found.length === 1 ? found[0] : false;
   }, "one authenticated MCP endpoint manifest", 15_000, 100);
   const listenerObservation = await waitFor(async () => {
-    const listeners = await tcpListenersForProcess(lastVerifiedAppProcess.pid);
+    const listeners = await tcpListenersForPort(endpointRecord.endpoint.port);
     try {
       return validateMcpListenerObservation(listeners, true, endpointRecord.endpoint);
     } catch (error) {
@@ -1105,7 +1116,7 @@ try {
   mcpClient = null;
   await waitFor(async () => (await mcpEndpointsForProcess(args.app, lastVerifiedAppProcess.pid)).length === 0, "MCP manifest removal", 15_000, 100);
   const listenersAfterDisable = await waitFor(async () => {
-    const listeners = await tcpListenersForProcess(lastVerifiedAppProcess.pid);
+    const listeners = await tcpListenersForPort(endpointRecord.endpoint.port);
     try {
       return validateMcpListenerObservation(listeners, false);
     } catch {
