@@ -6,6 +6,8 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Added
 
+- Recorded the owner's 2026-07-18 public-beta decisions: Windows desktop `0.1.0-beta.1` ships first while macOS/Linux release proof is deferred without reducing the complete M0–M6 commitment; public OpenSCAD WASM distribution is approved only with exact corresponding source, applicable GPL materials, the reproducible build recipe, and checksums; SVG parity may canonicalize only `CRLF` to `LF` while retaining both raw artifacts and raw hashes.
+
 - M4 thumbnail groundwork: strict versioned 240x160 PNG records with a bounded clone-safe LRU store, opaque per-project profile persistence, recent-project workspace identities, and an explicit accepted-render identity seam that preserves geometry continuity.
 
 - M4 thumbnail capture integration: accepted 2D SVG and 3D scene renders produce bounded preview PNGs, persist through the platform-owned thumbnail port, and appear beside Welcome recent projects without making profile failures block project opening.
@@ -87,7 +89,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 - Scratch autosave now stores a strict versioned path-and-source snapshot, migrates legacy source-only profiles to a renderable filename, persists clean welcome-sample identity immediately, and restores cached production renders under the exact entry path.
 - Installer evidence now quotes the Windows association executable, binds Linux visibility to the exact AppImage child runtime, fails closed on candidate removal, and waits for causally identified stable Windows window restoration with exact diagnostics.
-- Corrected web-engine privacy and quick-start claims: browser rendering fetches a same-origin, integrity-verified JavaScript/WASM pair and caches it in IndexedDB, but the public repository quarantines those bytes while Q-0033 remains unresolved.
+- Corrected web-engine privacy and quick-start claims: browser rendering fetches a same-origin, integrity-verified JavaScript/WASM pair and caches it in IndexedDB. At that point the public repository quarantined those bytes pending Q-0033; the owner resolved Q-0033 on 2026-07-18 with a mandatory corresponding-source and GPL compliance package before public distribution.
 - Updated clean-room contribution guidance for A-8's explicitly named permissive dependency/reference whitelist while preserving the prohibition on unapproved OpenSCAD editor sources.
 
 - Removed the misleading **Move to trash** action from browser workspaces, where IndexedDB could only permanently delete the record; desktop sessions explicitly retain the real OS-trash action.
@@ -147,10 +149,10 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Bound packaged desktop evidence to its source by removing the arbitrary executable input, refusing dirty or changing worktrees, performing the frozen frontend and clean locked canonical release builds inside the wrapper, and retaining strict commit/tree, lockfile, tool, command, timestamp, and executable-hash provenance.
 - Made desktop artifact receipts exact: a Downloads path that cannot cross the string IPC boundary without substitution is rejected before any destination directory or file is created, while collision-safe no-overwrite saves retain their real Unicode location.
 
-### Known policy block
+### Known policy decisions and open questions
 
-- Q-0033 blocks committing or publicly deploying the separately fetched OpenSCAD WebAssembly bytes until owner counsel approves the exact GPL-2.0-or-later distribution materials; the browser implementation and local ignored validation bytes remain quarantined.
-- Q-0034 blocks declaring AC-4.a parity green until the owner specifies whether canonical SVG comparison may normalize only CRLF to LF; the retained raw Windows/native and WASM artifacts and hashes remain unchanged.
+- Q-0033 is resolved: public distribution of the separately fetched OpenSCAD WebAssembly bytes is approved only after the exact corresponding source, applicable GPL-2.0-or-later materials, reproducible build recipe, and artifact/source checksums are assembled and verified.
+- Q-0034 is resolved: canonical SVG parity may normalize only `CRLF` to `LF`, while the original Windows/native and WASM artifacts, lengths, and hashes remain retained. AC-4.a stays unproven until every required case completes under that rule.
 - Q-0003 leaves the final preview facet-cap algorithm open; the preview-only configuration seam is implemented without claiming that a global `$fn` override is a true cap.
 - Q-0021 parks only explicit-camera PNG exports because the pinned snapshot CLI cannot preserve Appendix A's `CameraPose.up`; default-camera PNG and all non-PNG exports continue.
 - Q-0023 remains a historical provenance interpretation: M3 conservatively completed the stricter same-commit source build, so no current implementation is parked.
@@ -164,7 +166,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Verification status
 
-- Exact-head candidate `1a5b38a` passed web, native, Ubuntu and Windows browser, production-static, DMG, AppImage, signed Windows install/association/window-state/uninstall, isolated similarity, and retained-WASM gates. Its only failed job is raw SVG parity under Q-0034: the first difference is native `CR` versus WASM `LF` and the length delta is consistent with line endings, but fail-fast comparison leaves later differences and examples unproven. Q-0033 separately blocks publishing the quarantined web-engine bytes.
+- Exact-head candidate `1a5b38a` passed web, native, Ubuntu and Windows browser, production-static, DMG, AppImage, signed Windows install/association/window-state/uninstall, isolated similarity, and retained-WASM gates. Its only failed job is the pre-resolution raw SVG parity lane: the first difference is native `CR` versus WASM `LF` and the length delta is consistent with line endings, but fail-fast comparison leaves later differences and examples unproven. The owner has since approved CRLF-to-LF-only canonical comparison and the conservative WASM compliance package; neither follow-up gate is claimed green until it produces exact-candidate evidence.
 - FR-2.5 per-candidate qualification is intentionally external: accept it only from a retained Radeon 780M evidence envelope bound to the exact candidate source tree and profiler harness.
 - `cargo audit` reports zero vulnerability failures but 17 pre-existing informational warnings in the current Tauri dependency graph, including the GTK3/glib unsoundness advisory and unmaintained GTK3, proc-macro-error, and UNIC families; current compatible upstream releases do not remove them.
 - M4 FR-15.1 render cache: successful 2D/3D results use a typed content-addressed key over resolved project inputs, parameters, quality policy, and verified engine build identity; a bounded 512 MiB memory LRU reuses unchanged renders without invoking the engine again. Desktop disk caching is default-off, persisted independently by opaque project identity, unavailable to scratch work, and excluded from portable global settings. Its app-cache records use strict integrity validation, a 4 MiB IPC-safe record cap, sidecar LRU metadata, cold-start hits, explicit stored-data disclosure, and a per-project clear action; disabling stops disk-tier use without silently claiming deletion. Cache hits are labeled at the status bar, payloads are cloned on read/write, and failures, stale completions, and superseded work are never cached.
