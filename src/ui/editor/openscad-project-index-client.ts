@@ -1,11 +1,15 @@
 import {
+  type CurrentFileIndexResult,
+  indexOpenScadCurrentFileCooperatively,
+} from "./openscad-current-file-index";
+import {
   abortError,
   indexOpenScadProject,
   MAX_PROJECT_INDEX_FILE_CODE_UNITS,
   OpenScadProjectIndexCache,
-  parseProjectFileEventsCooperatively,
   type ProjectIndexedSymbol,
   type ProjectReference,
+  parseProjectFileEventsCooperatively,
 } from "./openscad-project-index";
 
 interface WorkerMessageEvent {
@@ -31,10 +35,17 @@ interface IndexInput {
   readonly sources: ProjectSourceLookup;
 }
 
+interface CurrentFileIndexInput {
+  readonly documentPath: string;
+  readonly query: string;
+  readonly source: string;
+}
+
 interface PendingRequest {
-  readonly input: IndexInput;
+  readonly input: IndexInput | CurrentFileIndexInput;
+  readonly kind: "current-file" | "project";
   readonly signal: AbortSignal;
-  readonly resolve: (symbols: readonly ProjectIndexedSymbol[]) => void;
+  readonly resolve: (result: CurrentFileIndexResult | readonly ProjectIndexedSymbol[]) => void;
   readonly reject: (error: unknown) => void;
   readonly onAbort: () => void;
 }
@@ -64,6 +75,12 @@ function isProjectIndexedSymbol(value: unknown): value is ProjectIndexedSymbol {
 
 export class OpenScadProjectIndexClient {
   private readonly fallbackCache = new OpenScadProjectIndexCache();
+  private currentFileFallbackCache: {
+    readonly documentPath: string;
+    readonly query: string;
+    readonly result: CurrentFileIndexResult;
+    readonly source: string;
+  } | null = null;
   private readonly factory: ProjectIndexWorkerFactory;
   private readonly pending = new Map<number, PendingRequest>();
   private worker: ProjectIndexWorkerLike | null = null;
@@ -96,7 +113,14 @@ export class OpenScadProjectIndexClient {
         }
         reject(abortError());
       };
-      const pending = { input, signal, resolve, reject, onAbort };
+      const pending: PendingRequest = {
+        input,
+        kind: "project",
+        signal,
+        resolve: (result) => resolve(result as readonly ProjectIndexedSymbol[]),
+        reject,
+        onAbort,
+      };
       this.pending.set(requestId, pending);
       signal.addEventListener("abort", onAbort, { once: true });
       try {
@@ -105,6 +129,53 @@ export class OpenScadProjectIndexClient {
           requestId,
           documentPath: input.documentPath,
           references: input.references,
+        });
+      } catch {
+        this.failWorker();
+      }
+    });
+  }
+
+  async indexCurrentFile(
+    input: CurrentFileIndexInput,
+    signal: AbortSignal,
+  ): Promise<CurrentFileIndexResult> {
+    if (this.disposed || signal.aborted) throw abortError();
+    if (input.source.length > MAX_PROJECT_INDEX_FILE_CODE_UNITS) {
+      return { references: [], symbols: [] };
+    }
+    const worker = this.ensureWorker();
+    if (!worker) return this.indexCurrentFileWithFallback(input, signal);
+    const requestId = this.nextRequestId;
+    this.nextRequestId += 1;
+    return new Promise((resolve, reject) => {
+      const onAbort = () => {
+        if (!this.pending.delete(requestId)) return;
+        signal.removeEventListener("abort", onAbort);
+        try {
+          worker.postMessage({ type: "cancel-project-index", requestId });
+        } catch {
+          // The request is already cancelled; worker shutdown is handled on the next operation.
+        }
+        reject(abortError());
+      };
+      const pending: PendingRequest = {
+        input,
+        kind: "current-file",
+        signal,
+        resolve: (result) => resolve(result as CurrentFileIndexResult),
+        reject,
+        onAbort,
+      };
+      this.pending.set(requestId, pending);
+      signal.addEventListener("abort", onAbort, { once: true });
+      try {
+        worker.postMessage({
+          type: "index-current-file",
+          requestId,
+          documentPath: input.documentPath,
+          query: input.query,
+          source: input.source,
         });
       } catch {
         this.failWorker();
@@ -147,9 +218,13 @@ export class OpenScadProjectIndexClient {
     const pending = this.pending.get(requestId);
     if (!pending) return;
     if (value.type === "read-project-source" && typeof value.path === "string") {
+      if (pending.kind !== "project") {
+        this.failWorker();
+        return;
+      }
       let source: string | undefined;
       try {
-        source = pending.input.sources.get(value.path);
+        source = (pending.input as IndexInput).sources.get(value.path);
       } catch {
         source = undefined;
       }
@@ -169,11 +244,36 @@ export class OpenScadProjectIndexClient {
       return;
     }
     if (value.type === "project-index-result" && Array.isArray(value.symbols)) {
+      if (pending.kind !== "project") {
+        this.failWorker();
+        return;
+      }
       if (!value.symbols.every(isProjectIndexedSymbol)) {
         this.failWorker();
         return;
       }
       this.finish(requestId, () => pending.resolve(value.symbols as ProjectIndexedSymbol[]));
+      return;
+    }
+    if (
+      value.type === "current-file-index-result"
+      && Array.isArray(value.symbols)
+      && value.symbols.every(isProjectIndexedSymbol)
+      && Array.isArray(value.references)
+      && value.references.every((reference) => (
+        isRecord(reference)
+        && (reference.kind === "include" || reference.kind === "use")
+        && typeof reference.path === "string"
+      ))
+    ) {
+      if (pending.kind !== "current-file") {
+        this.failWorker();
+        return;
+      }
+      this.finish(requestId, () => pending.resolve({
+        references: value.references as unknown as ProjectReference[],
+        symbols: value.symbols as ProjectIndexedSymbol[],
+      }));
       return;
     }
     if (value.type === "project-index-error") {
@@ -199,7 +299,10 @@ export class OpenScadProjectIndexClient {
     }
     this.disableWorker();
     for (const request of requests) {
-      void this.indexWithFallback(request.input, request.signal).then(
+      const fallback = request.kind === "current-file"
+        ? this.indexCurrentFileWithFallback(request.input as CurrentFileIndexInput, request.signal)
+        : this.indexWithFallback(request.input as IndexInput, request.signal);
+      void fallback.then(
         request.resolve,
         request.reject,
       );
@@ -227,6 +330,29 @@ export class OpenScadProjectIndexClient {
       parseFile: parseProjectFileEventsCooperatively,
       cache: this.fallbackCache,
       isCancelled: () => this.disposed || signal.aborted,
+    });
+  }
+
+  private indexCurrentFileWithFallback(
+    input: CurrentFileIndexInput,
+    signal: AbortSignal,
+  ): Promise<CurrentFileIndexResult> {
+    const cached = this.currentFileFallbackCache;
+    if (
+      cached?.documentPath === input.documentPath
+      && cached.query === input.query
+      && cached.source === input.source
+    ) return Promise.resolve(cached.result);
+    return indexOpenScadCurrentFileCooperatively(
+      input.source,
+      input.documentPath,
+      input.query,
+      () => this.disposed || signal.aborted,
+    ).then((result) => {
+      if (!this.disposed && !signal.aborted) {
+        this.currentFileFallbackCache = { ...input, result };
+      }
+      return result;
     });
   }
 }

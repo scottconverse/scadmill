@@ -15,15 +15,15 @@ import {
   OPENSCAD_SPECIAL_VARIABLES,
 } from "./openscad-builtins";
 import {
-  currentFileCompletions,
-  type OpenScadUserCompletion,
-  projectSymbolCompletion,
-  rootProjectReferences,
-} from "./openscad-symbols";
-import {
   OpenScadProjectIndexClient,
   type ProjectIndexWorkerFactory,
 } from "./openscad-project-index-client";
+import {
+  currentFileCompletions,
+  indexedCurrentFileCompletion,
+  type OpenScadUserCompletion,
+  projectSymbolCompletion,
+} from "./openscad-symbols";
 
 type OpenScadCompletionName = keyof typeof openScadCompletionDescriptions;
 
@@ -219,6 +219,7 @@ interface PreparedCompletion {
   readonly options: Map<string, Completion>;
   readonly specialVariableContext: boolean;
   readonly expressionContext: boolean;
+  readonly query: string;
 }
 
 function prepareOpenScadCompletion(
@@ -251,16 +252,26 @@ function prepareOpenScadCompletion(
       completion,
     ]),
   );
-  return { from, options, specialVariableContext, expressionContext };
+  return { from, options, query: word?.text ?? "", specialVariableContext, expressionContext };
 }
 
 function finishOpenScadCompletion(
   context: CompletionContext,
   prepared: PreparedCompletion,
   projectCompletions: readonly OpenScadUserCompletion[],
+  indexedCurrentCompletions: readonly OpenScadUserCompletion[] = [],
 ): CompletionResult {
   const options = new Map(prepared.options);
   for (const completion of projectCompletions) {
+    if (userCompletionMatchesContext(
+      completion,
+      prepared.specialVariableContext,
+      prepared.expressionContext,
+    )) {
+      options.set(`${completion.symbolKind}:${completion.label}`, completion);
+    }
+  }
+  for (const completion of indexedCurrentCompletions) {
     if (userCompletionMatchesContext(
       completion,
       prepared.specialVariableContext,
@@ -302,23 +313,28 @@ export function createOpenScadCompletionSource(
     const prepared = prepareOpenScadCompletion(context);
     if (!prepared) return null;
     const projectContext = project();
-    if (!projectContext) return finishOpenScadCompletion(context, prepared, []);
-    const references = rootProjectReferences(context.state, projectContext.documentPath);
-    if (references.length === 0) return finishOpenScadCompletion(context, prepared, []);
-
     const controller = new AbortController();
     context.addEventListener("abort", () => controller.abort(), { onDocChange: true });
     try {
-      const symbols = await index.index({
-        documentPath: projectContext.documentPath,
-        references,
-        sources: projectContext.sources,
+      const documentPath = projectContext?.documentPath ?? "current.scad";
+      const current = await index.indexCurrentFile({
+        documentPath,
+        query: prepared.query,
+        source: context.state.doc.toString(),
       }, controller.signal);
+      const symbols = projectContext && current.references.length > 0
+        ? await index.index({
+            documentPath,
+            references: current.references,
+            sources: projectContext.sources,
+          }, controller.signal)
+        : [];
       if (context.aborted || controller.signal.aborted) return null;
       return finishOpenScadCompletion(
         context,
         prepared,
         symbols.map(projectSymbolCompletion),
+        current.symbols.map(indexedCurrentFileCompletion),
       );
     } catch (error) {
       return context.aborted

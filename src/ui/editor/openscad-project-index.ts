@@ -60,7 +60,7 @@ type ProjectFileParser = (
 export const MAX_PROJECT_INDEX_FILE_CODE_UNITS = 2_100_000;
 export const MAX_PROJECT_INDEX_TOTAL_CODE_UNITS = 8_000_000;
 const MAX_PROJECT_INDEX_FILES = 512;
-const MAX_PROJECT_INDEX_REFERENCES = 512;
+export const MAX_PROJECT_INDEX_REFERENCES = 512;
 const MAX_PROJECT_INDEX_SYMBOLS = 4_096;
 const MAX_PROJECT_INDEX_EVENTS = 16_384;
 const MAX_PROJECT_INDEX_DEPTH = 128;
@@ -120,10 +120,12 @@ function callableSymbol(
   const name = node.getChild("Identifier");
   const parameters = node.getChild("ParameterList");
   if (!name || !parameters) return null;
+  const detail = source.slice(name.from, parameters.to);
+  if (!detail.endsWith(")")) return null;
   return {
     label: source.slice(name.from, name.to),
     symbolKind,
-    detail: source.slice(name.from, parameters.to),
+    detail,
     projectPath,
   };
 }
@@ -145,7 +147,7 @@ function variableSymbol(
   };
 }
 
-function eventFromNode(
+export function projectFileEventFromNode(
   source: string,
   node: OpenScadSyntaxNode,
   projectPath: string,
@@ -170,7 +172,7 @@ function collectEvents(
   const events: ProjectFileEvent[] = [];
   let node = tree.topNode.firstChild;
   while (node && events.length < MAX_PROJECT_INDEX_EVENTS) {
-    const event = eventFromNode(source, node, projectPath);
+    const event = projectFileEventFromNode(source, node, projectPath);
     if (event) events.push(event);
     node = node.nextSibling;
   }
@@ -209,7 +211,7 @@ export async function parseProjectFileEventsCooperatively(
   let node = tree.topNode.firstChild;
   let traversed = 0;
   while (node && events.length < MAX_PROJECT_INDEX_EVENTS) {
-    const event = eventFromNode(source, node, projectPath);
+    const event = projectFileEventFromNode(source, node, projectPath);
     if (event) events.push(event);
     node = node.nextSibling;
     traversed += 1;

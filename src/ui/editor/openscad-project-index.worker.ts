@@ -1,9 +1,13 @@
 import {
+  indexOpenScadCurrentFileInWorker,
+} from "./openscad-current-file-index";
+import {
   indexOpenScadProject,
+  MAX_PROJECT_INDEX_FILE_CODE_UNITS,
   OpenScadProjectIndexCache,
   ProjectIndexWorkerRequestRegistry,
-  parseProjectFileEventsInWorker,
   type ProjectReference,
+  parseProjectFileEventsInWorker,
 } from "./openscad-project-index";
 
 interface WorkerScope {
@@ -19,6 +23,12 @@ const scope = globalThis as unknown as WorkerScope;
 const cache = new OpenScadProjectIndexCache();
 const requests = new ProjectIndexWorkerRequestRegistry();
 const sourceWaiters = new Map<string, SourceWaiter>();
+let currentFileCache: {
+  readonly documentPath: string;
+  readonly query: string;
+  readonly result: ReturnType<typeof indexOpenScadCurrentFileInWorker>;
+  readonly source: string;
+} | null = null;
 
 function waiterKey(requestId: number, path: string): string {
   return `${requestId}:${path}`;
@@ -74,6 +84,44 @@ scope.onmessage = (event) => {
     if (waiter) {
       sourceWaiters.delete(key);
       waiter.resolve(message.source as string | undefined);
+    }
+    return;
+  }
+  if (
+    message.type === "index-current-file"
+    && typeof message.documentPath === "string"
+    && typeof message.query === "string"
+    && typeof message.source === "string"
+    && message.source.length <= MAX_PROJECT_INDEX_FILE_CODE_UNITS
+  ) {
+    requests.start(requestId);
+    try {
+      const cached = currentFileCache;
+      const result = cached?.documentPath === message.documentPath
+        && cached.query === message.query
+        && cached.source === message.source
+        ? cached.result
+        : indexOpenScadCurrentFileInWorker(
+            message.source,
+            message.documentPath,
+            message.query,
+            () => requests.isCancelled(requestId),
+          );
+      currentFileCache = {
+        documentPath: message.documentPath,
+        query: message.query,
+        result,
+        source: message.source,
+      };
+      if (!requests.isCancelled(requestId)) {
+        scope.postMessage({ type: "current-file-index-result", requestId, ...result });
+      }
+      requests.finish(requestId);
+    } catch {
+      if (!requests.isCancelled(requestId)) {
+        scope.postMessage({ type: "project-index-error", requestId });
+      }
+      requests.finish(requestId);
     }
     return;
   }

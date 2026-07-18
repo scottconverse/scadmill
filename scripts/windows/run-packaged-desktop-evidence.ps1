@@ -218,7 +218,8 @@ $edgeDriverPath = Resolve-File $EdgeDriver "Microsoft EdgeDriver"
 $webViewPath = Resolve-Directory $FixedWebViewDirectory "fixed WebView2 runtime"
 $nodeCommand = Get-Command $Node -CommandType Application -ErrorAction Stop
 $nodePath = Resolve-File $nodeCommand.Source "Node.js"
-$pnpmCommand = Get-Command "pnpm.cmd" -CommandType Application -ErrorAction Stop
+$pnpmCommand = Get-Command "pnpm.cmd" -CommandType Application -All -ErrorAction Stop |
+  Select-Object -First 1
 $pnpmPath = Resolve-File $pnpmCommand.Source "pnpm"
 $cargoCommand = Get-Command "cargo.exe" -CommandType Application -ErrorAction Stop
 $cargoPath = Resolve-File $cargoCommand.Source "Cargo"

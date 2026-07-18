@@ -419,7 +419,7 @@ fn handle_client(
 fn validate_protocol_line(line: &str, kind: &str) -> Result<(), String> {
     if !line.ends_with('\n')
         || line[..line.len() - 1].contains('\n')
-        || line.as_bytes().len() > MAX_FRAME_BYTES
+        || line.len() > MAX_FRAME_BYTES
     {
         return Err(format!(
             "MCP {kind} must be one newline-terminated frame no larger than 1 MiB."
@@ -939,11 +939,10 @@ mod tests {
             .set_read_timeout(Some(Duration::from_secs(2)))
             .expect("read timeout should be configured");
         writeln!(client, "SCADMILL-MCP/1 {}", manifest.token).expect("auth should be written");
-        assert_eq!(
+        assert!(
             connection_rx
                 .recv_timeout(Duration::from_secs(2))
                 .expect("authenticated connection should be announced"),
-            true,
         );
         writeln!(
             client,
@@ -968,11 +967,10 @@ mod tests {
 
         let port = manifest.port;
         relay.stop().expect("relay should stop cleanly");
-        assert_eq!(
-            connection_rx
+        assert!(
+            !connection_rx
                 .recv_timeout(Duration::from_secs(2))
                 .expect("connection shutdown should be announced"),
-            false,
         );
         response.clear();
         assert_eq!(

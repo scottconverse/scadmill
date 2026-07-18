@@ -420,7 +420,7 @@ thickness = 3;`;
 
     await source(context());
     await source(context());
-    expect(parse).toHaveBeenCalledTimes(1);
+    expect(parse).toHaveBeenCalledTimes(2);
 
     project = {
       ...project,
@@ -431,7 +431,7 @@ thickness = 3;`;
     };
     const changed = await source(context());
 
-    expect(parse).toHaveBeenCalledTimes(2);
+    expect(parse).toHaveBeenCalledTimes(3);
     expect(changed?.options.map(({ label }) => label)).toContain("panel");
     parse.mockRestore();
   });
@@ -592,6 +592,50 @@ thickness = 3;`;
       info: "Module defined in the current file.",
       boost: 10,
     });
+  });
+
+  it("finds a typed tail declaration in a dense in-policy current file", async () => {
+    const declarations = Array.from(
+      { length: 60_000 },
+      (_, index) => `module m${index}(size = 2) {}`,
+    ).join("\n");
+    const document = `${declarations}\nm59999`;
+    const source = createOpenScadCompletionSource(() => undefined);
+    const state = EditorState.create({ doc: document, extensions: [openScad()] });
+
+    const result = await source(new CompletionContext(state, state.doc.length, false));
+
+    expect(result?.options.filter(({ label }) => label === "m59999")).toEqual([
+      expect.objectContaining({ detail: "m59999(size = 2)" }),
+    ]);
+    source.dispose();
+  });
+
+  it("rejects incomplete callable signatures from referenced project files", async () => {
+    const document = "include <lib.scad>\nbr";
+    const project: OpenScadProjectCompletionContext = {
+      documentPath: "main.scad",
+      sources: new Map([
+        ["main.scad", document],
+        ["lib.scad", "module bracket(size = 2"],
+      ]),
+    };
+
+    const result = await complete(document, undefined, false, project);
+
+    expect(result?.options.filter(({ label }) => label === "bracket")).toEqual([]);
+  });
+
+  it("finishes current-file signatures beyond the initial parser viewport", async () => {
+    const document = `${" ".repeat(2_985)}module bracket(size = 2) {}\nbr`;
+    const result = await complete(document);
+
+    expect(result?.options.filter(({ label }) => label === "bracket")).toEqual([
+      expect.objectContaining({
+        detail: "bracket(size = 2)",
+        info: "Module defined in the current file.",
+      }),
+    ]);
   });
 
   it("lets current-file declarations shadow a built-in completion", async () => {

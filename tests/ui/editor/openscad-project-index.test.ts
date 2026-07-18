@@ -1,15 +1,40 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  indexOpenScadCurrentFileInWorker,
+} from "../../../src/ui/editor/openscad-current-file-index";
+import {
   indexOpenScadProject,
   MAX_PROJECT_INDEX_TOTAL_CODE_UNITS,
   OpenScadProjectIndexCache,
+  type ProjectFileEvent,
   ProjectIndexWorkerRequestRegistry,
   resolveProjectReferencePath,
-  type ProjectFileEvent,
 } from "../../../src/ui/editor/openscad-project-index";
 
 describe("OpenSCAD project indexing budgets", () => {
+  it("worker-indexes typed current-file symbols and root references structurally", () => {
+    const source = [
+      "include <lib.scad>",
+      "module first() {}",
+      "module target(size = 2) {}",
+      "module malformed(size = 3",
+    ].join("\n");
+
+    const result = indexOpenScadCurrentFileInWorker(
+      source,
+      "main.scad",
+      "tar",
+      () => false,
+    );
+
+    expect(result.references).toEqual([{ kind: "include", path: "lib.scad" }]);
+    expect(result.symbols).toEqual([expect.objectContaining({
+      detail: "target(size = 2)",
+      label: "target",
+    })]);
+  });
+
   it("does not spend the reference budget on non-exported child uses", async () => {
     const emptyReferences: ProjectFileEvent[] = Array.from(
       { length: 511 },

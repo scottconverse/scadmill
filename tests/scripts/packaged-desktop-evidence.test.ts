@@ -61,6 +61,12 @@ describe("packaged desktop evidence helpers", () => {
     ));
     expect(() => mcpEndpointManifestPath("scadmill.exe", "C:\\Temp"))
       .toThrow("absolute executable");
+    for (const ambiguous of ["\\Temp", "/tmp", "C:Temp"]) {
+      expect(() => mcpEndpointManifestPath(
+        "C:\\Program Files\\ScadMill\\scadmill.exe",
+        ambiguous,
+      )).toThrow("absolute executable");
+    }
   });
 
   it("validates the exact loopback MCP endpoint manifest for the GUI process", () => {
@@ -653,6 +659,20 @@ describe("packaged desktop evidence helpers", () => {
     expect([retainedConfig, launchClean, launchTree, sandboxLaunch]).toEqual([
       ...[retainedConfig, launchClean, launchTree, sandboxLaunch].sort((left, right) => left - right),
     ]);
+  });
+
+  it("selects one exact pnpm application when the host PATH exposes multiple shims", async () => {
+    const wrapper = await readFile(
+      join(process.cwd(), "scripts", "windows", "run-packaged-desktop-evidence.ps1"),
+      "utf8",
+    );
+    expect(wrapper).toContain(
+      'Get-Command "pnpm.cmd" -CommandType Application -All -ErrorAction Stop |',
+    );
+    expect(wrapper).toContain("Select-Object -First 1");
+    expect(wrapper).not.toContain(
+      'Get-Command "pnpm.cmd" -CommandType Application -ErrorAction Stop\n',
+    );
   });
 
   it("fails closed when packaged process inspection cannot complete", async () => {

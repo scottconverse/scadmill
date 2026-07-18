@@ -1,5 +1,5 @@
 import type { Completion } from "@codemirror/autocomplete";
-import { syntaxTree } from "@codemirror/language";
+import { ensureSyntaxTree, syntaxTree } from "@codemirror/language";
 import type { EditorState } from "@codemirror/state";
 
 import {
@@ -23,8 +23,13 @@ export interface OpenScadUserCompletion extends Completion {
 }
 
 type OpenScadSyntaxNode = ReturnType<typeof syntaxTree>["topNode"];
+type OpenScadSyntaxTree = ReturnType<typeof syntaxTree>;
 type CompletionMap = Map<string, OpenScadUserCompletion>;
 type SourceReader = (from: number, to: number) => string;
+
+function completionSyntaxTree(state: EditorState): OpenScadSyntaxTree {
+  return ensureSyntaxTree(state, state.doc.length, 50) ?? syntaxTree(state);
+}
 
 function addCompletion(completions: CompletionMap, completion: OpenScadUserCompletion | null) {
   if (completion) completions.set(`${completion.symbolKind}:${completion.label}`, completion);
@@ -41,10 +46,12 @@ function callableCompletion(
   if (!name || !parameters) return null;
 
   const label = read(name.from, name.to);
+  const detail = read(name.from, parameters.to);
+  if (!detail.endsWith(")")) return null;
   return {
     label,
     symbolKind,
-    detail: read(name.from, parameters.to),
+    detail,
     info: projectPath
       ? openScadProjectFileSymbolDescriptions[symbolKind](projectPath)
       : openScadCurrentFileSymbolDescriptions[symbolKind],
@@ -146,9 +153,9 @@ function collectLetBindings(state: EditorState, scope: OpenScadSyntaxNode, into:
   }
 }
 
-function scopeChain(state: EditorState, position: number): OpenScadSyntaxNode[] {
+function scopeChain(tree: OpenScadSyntaxTree, position: number): OpenScadSyntaxNode[] {
   const scopes: OpenScadSyntaxNode[] = [];
-  let node: OpenScadSyntaxNode | null = syntaxTree(state).resolveInner(position, -1);
+  let node: OpenScadSyntaxNode | null = tree.resolveInner(position, -1);
   while (node) {
     scopes.push(node);
     node = node.parent;
@@ -162,9 +169,10 @@ export function currentFileCompletions(
 ): readonly OpenScadUserCompletion[] {
   const completions: CompletionMap = new Map();
   const read = (from: number, to: number) => state.sliceDoc(from, to);
-  collectDeclarations(read, syntaxTree(state).topNode, completions);
+  const tree = completionSyntaxTree(state);
+  collectDeclarations(read, tree.topNode, completions);
 
-  for (const scope of scopeChain(state, position)) {
+  for (const scope of scopeChain(tree, position)) {
     if (scope.name === "Block") collectDeclarations(read, scope, completions);
     if (
       scope.name === "ModuleDeclaration" ||
@@ -210,7 +218,7 @@ export function rootProjectReferences(
 ): readonly ProjectReference[] {
   const read = (from: number, to: number) => state.sliceDoc(from, to);
   const references: ProjectReference[] = [];
-  let node = syntaxTree(state).topNode.firstChild;
+  let node = completionSyntaxTree(state).topNode.firstChild;
   while (node && references.length < 512) {
     const reference = projectReference(read, node, documentPath);
     if (reference) references.push(reference);
@@ -229,5 +237,18 @@ export function projectSymbolCompletion(
     info: openScadProjectFileSymbolDescriptions[symbol.symbolKind](symbol.projectPath),
     type: symbol.symbolKind === "variable" ? "variable" : "function",
     boost: 5,
+  };
+}
+
+export function indexedCurrentFileCompletion(
+  symbol: ProjectIndexedSymbol,
+): OpenScadUserCompletion {
+  return {
+    label: symbol.label,
+    symbolKind: symbol.symbolKind,
+    detail: symbol.detail,
+    info: openScadCurrentFileSymbolDescriptions[symbol.symbolKind],
+    type: symbol.symbolKind === "variable" ? "variable" : "function",
+    boost: 10,
   };
 }

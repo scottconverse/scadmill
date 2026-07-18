@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-18-m4-ci-repair-and-bounded-mcp-cli",
+  "createdAt": "2026-07-18T16:43:00-06:00",
+  "summary": "Repair the exact hosted web and Rust lint failures, finish the interrupted Windows Sandbox wrapper preflight fix, and replace an obsolete unbounded MCP CLI integration test that left an orphan process.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "C1", "C11", "AC-11.c", "N-7"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-18-m4-mcp-authenticated-relay.json", "status": "modified" },
+    { "path": "provenance/entries/2026-07-18-m4-ci-repair-and-bounded-mcp-cli.json", "status": "added" },
+    { "path": "scripts/lib/packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "scripts/windows/run-packaged-desktop-evidence.ps1", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/src/mcp_stdio.rs", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/tests/mcp_stdio_cli.rs", "status": "modified" },
+    { "path": "src/ui/editor/openscad-current-file-index.ts", "status": "added" },
+    { "path": "src/ui/editor/openscad-completion.ts", "status": "modified" },
+    { "path": "src/ui/editor/openscad-project-index-client.ts", "status": "modified" },
+    { "path": "src/ui/editor/openscad-project-index.ts", "status": "modified" },
+    { "path": "src/ui/editor/openscad-project-index.worker.ts", "status": "modified" },
+    { "path": "src/ui/editor/openscad-symbols.ts", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" },
+    { "path": "tests/ui/editor/openscad-completion.test.ts", "status": "modified" },
+    { "path": "tests/ui/editor/openscad-project-index-client.test.ts", "status": "modified" },
+    { "path": "tests/ui/editor/openscad-project-index.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0376",
+      "topic": "Cross-host Windows evidence paths",
+      "decision": "Interpret the packaged MCP manifest inputs with node:path.win32 on every CI host while retaining host-native path handling for real temporary evidence files.",
+      "rationale": "The contract is explicitly a Windows path contract, but the unit suite also runs on Linux. Host-default path semantics rejected valid drive-letter paths and produced mixed separators.",
+      "specBasis": ["AC-11.c", "N-7"]
+    },
+    {
+      "id": "D-0377",
+      "topic": "Completion parse completeness",
+      "decision": "Index the complete current document and its root references through the dedicated completion worker, with a cooperative no-worker fallback and unchanged-source/query cache; filter the full structural scan by the typed query and reject incomplete callable signatures in current and referenced sources.",
+      "rationale": "The aggregate CI load exposed CodeMirror's documented partial-tree behavior as bracket( instead of the declared signature, and adversarial review proved that a bounded UI-thread parse could omit a valid tail declaration in a 60,000-declaration in-policy file. Worker/cooperative indexing preserves responsiveness without silently truncating a specific typed match.",
+      "specBasis": ["C1", "N-7"]
+    },
+    {
+      "id": "D-0378",
+      "topic": "Bounded exact MCP CLI integration test",
+      "decision": "Keep authenticated forwarding in relay and packaged-executable evidence, and make the standalone exact CLI integration test assert the disabled fail-closed state with a hard five-second child-process deadline.",
+      "rationale": "The former test fabricated an obsolete manifest without process creation identity, blocked forever in listener.accept after validation rejected it, and left its test executable and manifest behind. Tests must fail boundedly instead of consuming hours or locking later builds.",
+      "specBasis": ["C11", "AC-11.c", "N-7"]
+    },
+    {
+      "id": "D-0379",
+      "topic": "Completion worker result isolation",
+      "decision": "Bind each terminal completion-worker result type to the exact pending request kind; a cross-kind or malformed result disables the worker and completes through the typed cooperative fallback.",
+      "rationale": "The worker is bundled and trusted, but stale or corrupt messages must not violate the client API by resolving a project request with an object or a current-file request with an array.",
+      "specBasis": ["C1", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The exact hosted failures and orphaned-test condition are repaired without weakening the Windows, completion, MCP, or framing contracts.",
+      "test": "Run the two focused Vitest files, TypeScript, scoped Biome, Rust formatting, the bounded exact CLI integration test, all six MCP relay tests, desktop Clippy with warnings denied, and the provenance validator.",
+      "red": {
+        "command": "GitHub Actions run 29653361736 plus local cargo test reproduction",
+        "observedAt": "2026-07-18T16:34:00-06:00",
+        "outcome": "RED: 2 hosted web tests failed, 3 hosted Clippy diagnostics failed, and local Rust testing found orphan PID 2328 holding mcp_stdio_cli.exe since 11:04 because the obsolete integration test waited without a deadline after manifest rejection. Independent review then found B0/C0/M2/m1/n0: dense current-file tail omission, malformed referenced signatures, and ambiguous Windows rooted paths; re-review found one additional cross-kind worker-result Minor."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts tests/ui/editor/openscad-completion.test.ts; pnpm.cmd typecheck; pnpm.cmd exec biome check changed web files; cargo fmt --check; cargo test --test mcp_stdio_cli; cargo test mcp_stdio::tests; cargo clippy --all-targets -- -D warnings",
+        "observedAt": "2026-07-18T16:43:00-06:00",
+        "outcome": "GREEN: completion/index/helper family passed 4 files/75 tests including direct worker-protocol and cross-kind fallback coverage, a typed tail declaration across 60,000 modules, malformed referenced-signature rejection, and fully qualified Windows path validation; TypeScript, scoped Biome, source policy, and provenance passed; exact CLI integration passed 1/1 within its deadline; MCP relay tests passed 6/6; complete desktop Rust suite passed 49/49; desktop Clippy and Rust formatting passed. Independent web and Rust re-reviews both closed at B0/C0/M0/m0/n0."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://src/desktop-shell/src-tauri/tests/mcp_stdio_cli.rs",
+      "sought": "Unbounded test-cycle cause",
+      "confirmation": "The obsolete integration test wrote a pre-process-identity manifest and then blocked forever in listener.accept when the exact CLI rejected it. PID 2328 and its invalid stale manifest were identified, stopped, and removed before the bounded regression passed."
+    }
+  ],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

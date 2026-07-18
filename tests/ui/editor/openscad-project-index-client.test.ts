@@ -14,7 +14,19 @@ class ResultWorker implements ProjectIndexWorkerLike {
   postMessage(message: unknown): void {
     this.messages.push(message);
     const value = message as Record<string, unknown>;
-    if (value.type === "index-project") {
+    if (value.type === "index-current-file") {
+      queueMicrotask(() => this.onmessage?.({ data: {
+        type: "current-file-index-result",
+        requestId: value.requestId,
+        references: [{ kind: "include", path: "lib.scad" }],
+        symbols: [{
+          label: "current_part",
+          symbolKind: "module",
+          detail: "current_part(size = 3)",
+          projectPath: "main.scad",
+        }],
+      } }));
+    } else if (value.type === "index-project") {
       queueMicrotask(() => this.onmessage?.({ data: {
         type: "read-project-source",
         requestId: value.requestId,
@@ -36,6 +48,74 @@ class ResultWorker implements ProjectIndexWorkerLike {
 }
 
 describe("OpenSCAD project index worker client", () => {
+  it("indexes the complete current file through the worker protocol", async () => {
+    const worker = new ResultWorker();
+    const client = new OpenScadProjectIndexClient(() => worker);
+
+    const result = await client.indexCurrentFile({
+      documentPath: "main.scad",
+      query: "current_",
+      source: "include <lib.scad>\nmodule current_part(size = 3) {}",
+    }, new AbortController().signal);
+
+    expect(worker.messages).toContainEqual(expect.objectContaining({
+      type: "index-current-file",
+      query: "current_",
+    }));
+    expect(result.references).toEqual([{ kind: "include", path: "lib.scad" }]);
+    expect(result.symbols).toEqual([expect.objectContaining({ label: "current_part" })]);
+    client.dispose();
+  });
+
+  it("disables a worker that sends a current-file result for a project request", async () => {
+    const worker = new ResultWorker();
+    worker.postMessage = vi.fn((message: unknown) => {
+      const value = message as Record<string, unknown>;
+      if (value.type !== "index-project") return;
+      queueMicrotask(() => worker.onmessage?.({ data: {
+        type: "current-file-index-result",
+        requestId: value.requestId,
+        references: [],
+        symbols: [],
+      } }));
+    });
+    const client = new OpenScadProjectIndexClient(() => worker);
+
+    const result = await client.index({
+      documentPath: "main.scad",
+      references: [{ kind: "include", path: "lib.scad" }],
+      sources: { get: () => "module recovered() {}" },
+    }, new AbortController().signal);
+
+    expect(Array.isArray(result)).toBe(true);
+    expect(result).toContainEqual(expect.objectContaining({ label: "recovered" }));
+    expect(worker.terminate).toHaveBeenCalledOnce();
+  });
+
+  it("disables a worker that sends a project result for a current-file request", async () => {
+    const worker = new ResultWorker();
+    worker.postMessage = vi.fn((message: unknown) => {
+      const value = message as Record<string, unknown>;
+      if (value.type !== "index-current-file") return;
+      queueMicrotask(() => worker.onmessage?.({ data: {
+        type: "project-index-result",
+        requestId: value.requestId,
+        symbols: [],
+      } }));
+    });
+    const client = new OpenScadProjectIndexClient(() => worker);
+
+    const result = await client.indexCurrentFile({
+      documentPath: "main.scad",
+      query: "recovered",
+      source: "module recovered() {}",
+    }, new AbortController().signal);
+
+    expect(result).toMatchObject({ references: [] });
+    expect(result.symbols).toContainEqual(expect.objectContaining({ label: "recovered" }));
+    expect(worker.terminate).toHaveBeenCalledOnce();
+  });
+
   it("uses the injected worker and reads only the path requested by that worker", async () => {
     const worker = new ResultWorker();
     const factory = vi.fn(() => worker);

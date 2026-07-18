@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { open, readFile, writeFile } from "node:fs/promises";
-import { isAbsolute, join } from "node:path";
+import { join, win32 } from "node:path";
 
 function record(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -17,16 +17,20 @@ function validMcpEndpointIdentity(value) {
     && value.pid > 0;
 }
 
+function fullyQualifiedWindowsPath(value) {
+  if (typeof value !== "string" || !win32.isAbsolute(value)) return false;
+  const root = win32.parse(value).root.replaceAll("/", "\\");
+  return /^[A-Za-z]:\\$/u.test(root) || /^\\\\[^\\]+\\[^\\]+\\$/u.test(root);
+}
+
 export function mcpEndpointManifestPath(executablePath, temporaryDirectory) {
   if (
-    typeof executablePath !== "string"
-    || !isAbsolute(executablePath)
-    || typeof temporaryDirectory !== "string"
-    || !isAbsolute(temporaryDirectory)
+    !fullyQualifiedWindowsPath(executablePath)
+    || !fullyQualifiedWindowsPath(temporaryDirectory)
   ) throw new Error("MCP endpoint identity requires absolute executable and temporary paths.");
   const identity = executablePath.replaceAll("/", "\\").toLowerCase();
   const suffix = createHash("sha256").update(identity, "utf8").digest("hex").slice(0, 24);
-  return join(temporaryDirectory, `scadmill-mcp-${suffix}.json`);
+  return win32.join(temporaryDirectory, `scadmill-mcp-${suffix}.json`);
 }
 
 export function validateMcpEndpointManifest(payload, expectedGuiPid) {
