@@ -1001,8 +1001,10 @@ try {
     const listeners = await tcpListenersForProcess(lastVerifiedAppProcess.pid);
     try {
       return validateMcpListenerObservation(listeners, true, endpointRecord.endpoint);
-    } catch {
-      return false;
+    } catch (error) {
+      const expected = sanitizeMcpEndpointManifest(endpointRecord.endpoint);
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new Error(`MCP listener mismatch: observed=${JSON.stringify(listeners)} expected=${JSON.stringify(expected)} reason=${reason}`);
     }
   }, "one exact GUI-owned MCP listener", 15_000, 100);
   await record("mcp-endpoint-enabled", {

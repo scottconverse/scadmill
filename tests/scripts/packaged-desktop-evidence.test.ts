@@ -125,6 +125,18 @@ describe("packaged desktop evidence helpers", () => {
     ], true, endpoint)).toThrow("MCP listener observation");
   });
 
+  it("retains token-free listener mismatch details instead of swallowing the packaged failure", async () => {
+    const runner = await readFile(join(process.cwd(), "scripts", "run-packaged-desktop-evidence.mjs"), "utf8");
+    const listenerWait = runner.slice(
+      runner.indexOf("const listenerObservation = await waitFor"),
+      runner.indexOf('await record("mcp-endpoint-enabled"'),
+    );
+
+    expect(listenerWait).toContain("sanitizeMcpEndpointManifest(endpointRecord.endpoint)");
+    expect(listenerWait).toContain("throw new Error(`MCP listener mismatch:");
+    expect(listenerWait).not.toContain("catch {\n      return false;");
+  });
+
   it("omits the MCP token from retained endpoint and transcript evidence", () => {
     expect([sanitizeMcpEndpointManifest, sanitizeMcpTranscript].every(
       (candidate) => typeof candidate === "function",
