@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-18-m4-sandbox-stable-session-capture",
+  "createdAt": "2026-07-18T17:34:00-06:00",
+  "summary": "Keep the exact Windows Sandbox session capture bounded while tolerating the normal startup interval before stable process identity properties are available.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "AC-11.c", "N-7"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-18-m4-sandbox-stable-session-capture.json", "status": "added" },
+    { "path": "scripts/windows/run-packaged-desktop-evidence.ps1", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0382",
+      "topic": "Windows Sandbox startup identity stabilization",
+      "decision": "After matching the exact retained WSB path from the parsed process command line, continue the existing bounded wait until PID, executable path, and creation time are all readable; capture only then, and retain the same exact-identity cleanup checks.",
+      "rationale": "Windows exposed the newly launched exact WindowsSandboxRemoteSession command line before its ExecutablePath and CreationDate properties stabilized. Immediate conversion failed closed before the guest began. Waiting within the existing deadline treats this documented-by-observation startup state as transient without accepting an ambiguous process or weakening cleanup identity.",
+      "specBasis": ["AC-11.c", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The host wrapper must wait for a stable exact-session identity but still fail boundedly if it cannot obtain one.",
+      "test": "Run the packaged helper contract suite and PowerShell parser after adding a stable-property ordering assertion.",
+      "red": {
+        "command": "Windows Sandbox packaged wrapper for b6c4e2ad4adc4c4067473216893e4aadaa4c7f06; pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts",
+        "observedAt": "2026-07-18T17:33:38-06:00",
+        "outcome": "RED: the exact clean release build succeeded, but the wrapper stopped before guest execution because the just-launched exact Sandbox session temporarily lacked a stable CIM identity property. The new contract regression failed 1/32 because the wait converted immediately."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts; pnpm.cmd exec biome check tests/scripts/packaged-desktop-evidence.test.ts; PowerShell language parser; git diff --check",
+        "observedAt": "2026-07-18T17:34:11-06:00",
+        "outcome": "GREEN: 32/32 focused tests passed, Biome and git diff checks passed, and the wrapper parsed without PowerShell syntax errors. Stable properties are required before conversion and the 30-second exact-session deadline remains enforced."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://scripts/windows/run-packaged-desktop-evidence.ps1",
+      "sought": "Why the exact Sandbox never reached guest execution",
+      "confirmation": "The exact command-line match appeared before ExecutablePath or CreationDate. No competing Sandbox remained and host cleanup removed the retained staging directory."
+    }
+  ],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

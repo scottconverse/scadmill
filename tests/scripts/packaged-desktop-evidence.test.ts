@@ -785,6 +785,15 @@ describe("packaged desktop evidence helpers", () => {
     );
     expect(wrapper).toContain("function Wait-ExactSandboxSession");
     expect(wrapper).toContain("function Get-CapturedSandboxSession");
+    const waitHelper = wrapper.slice(
+      wrapper.indexOf("function Wait-ExactSandboxSession"),
+      wrapper.indexOf("function Get-CapturedSandboxSession"),
+    );
+    expect(wrapper).toContain("function Test-SandboxSessionIdentityProperties");
+    expect(waitHelper).toContain(
+      "if ($matches.Count -eq 1 -and (Test-SandboxSessionIdentityProperties -Process $matches[0]))",
+    );
+    expect(waitHelper).toContain("return ConvertTo-SandboxSessionIdentity -Process $matches[0]");
     expect(wrapper).toContain(
       "$sessionIdentity = Wait-ExactSandboxSession -ConfigPath $configPath",
     );

@@ -151,12 +151,16 @@ function Get-ExactSandboxSessions([string] $ConfigPath) {
   })
 }
 
-function ConvertTo-SandboxSessionIdentity([object] $Process) {
-  if (
+function Test-SandboxSessionIdentityProperties([object] $Process) {
+  return (
     [int]$Process.ProcessId -le 0 -or
     [string]::IsNullOrWhiteSpace([string]$Process.ExecutablePath) -or
     $null -eq $Process.CreationDate
-  ) {
+  ) -eq $false
+}
+
+function ConvertTo-SandboxSessionIdentity([object] $Process) {
+  if (-not (Test-SandboxSessionIdentityProperties -Process $Process)) {
     throw "Cannot capture Windows Sandbox session identity because a stable property is missing."
   }
   return [pscustomobject]@{
@@ -173,12 +177,12 @@ function Wait-ExactSandboxSession([string] $ConfigPath, [int] $TimeoutSeconds = 
     if ($matches.Count -gt 1) {
       throw "More than one Windows Sandbox session used the exact retained config path."
     }
-    if ($matches.Count -eq 1) {
+    if ($matches.Count -eq 1 -and (Test-SandboxSessionIdentityProperties -Process $matches[0])) {
       return ConvertTo-SandboxSessionIdentity -Process $matches[0]
     }
     Start-Sleep -Milliseconds 100
   } while ((Get-Date) -lt $deadline)
-  throw "Timed out capturing the exact Windows Sandbox session identity."
+  throw "Timed out capturing the exact Windows Sandbox session with stable identity properties."
 }
 
 function Get-CapturedSandboxSession([object] $Identity) {
