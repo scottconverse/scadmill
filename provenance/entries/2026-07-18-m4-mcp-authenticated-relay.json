@@ -33,6 +33,7 @@
     { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" },
     { "path": "tests/ui/layout/WorkbenchStatusBar.mcp.test.tsx", "status": "added" },
     { "path": "tests/ui/mcp/use-mcp-stdio.test.tsx", "status": "modified" },
+    { "path": "tests/ui/Workbench.editor-settings.test.tsx", "status": "modified" },
     { "path": "provenance/entries/2026-07-18-m4-mcp-authenticated-relay.json", "status": "added" }
   ],
   "externalInputs": [],

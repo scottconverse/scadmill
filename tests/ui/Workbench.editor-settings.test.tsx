@@ -87,9 +87,10 @@ it("surfaces an unavailable go-to-definition outcome instead of claiming success
 
   fireEvent.keyDown(content, { key: "F12", bubbles: true, cancelable: true });
 
-  expect(await rendered.findByRole("status")).toHaveTextContent(
+  const unavailable = await rendered.findByText(
     "Go to definition is unavailable until project symbol navigation is implemented.",
   );
+  expect(unavailable).toHaveAttribute("role", "status");
   expect(runtime.history.getState().at(-1)).toMatchObject({
     kind: "editor-command",
     summary: "Editor command unavailable: go-to-definition",
