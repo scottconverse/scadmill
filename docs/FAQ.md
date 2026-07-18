@@ -2,7 +2,7 @@
 
 ## Why can I edit in the browser but not render?
 
-The editor and browser project store do not require OpenSCAD. Rendering requires the separately fetched, version-pinned JavaScript/WASM engine pair. The public repository does not distribute that pair while Q-0033 remains unresolved. A load failure preserves editing and local projects.
+The editor and browser project store do not require OpenSCAD. Rendering requires the separately fetched, version-pinned JavaScript/WASM engine pair. Q-0033 permits public distribution only with the exact corresponding source, GPL-2.0-or-later materials, reproducible build recipe, and checksums. Until that complete package is published, a load failure preserves editing and local projects.
 
 ## Why does ScadMill reject my installed OpenSCAD?
 
@@ -14,7 +14,7 @@ Preview uses the fastest available backend, the preview timeout, and preview-onl
 
 ## Where are my projects stored?
 
-Desktop projects remain in the folder you selected. Browser workspaces live in IndexedDB under the browser profile. Browser ZIP export is the portable backup/transfer path.
+Desktop projects remain in the folder you selected. Browser workspaces live in IndexedDB under the browser profile. Browser ZIP export is the portable backup and transfer path.
 
 ## Does ScadMill upload my models or collect telemetry?
 
@@ -32,10 +32,22 @@ IndexedDB cannot provide real OS-trash semantics. The browser omits the action i
 
 ScadMill records recoverable unsaved buffers and presents them on restart. Retained release evidence also exercises normal restart and forced-process recovery for the packaged Windows path.
 
-## Why do native and browser SVG results not yet pass parity?
+## How is native/browser SVG parity checked?
 
-The pinned native engine currently emits CRLF while the WebAssembly path emits LF for the same SVG. The specification requires byte equality and forbids silent normalization, so Q-0034 asks the owner for the governing rule. STL parity is exact.
+STL parity remains exact byte-for-byte. Q-0034 permits SVG comparison to convert only CRLF line endings to LF before comparison. The gate still retains both raw artifacts, lengths, and hashes, and permits no other normalization or semantic fallback.
 
-## Are MCP, AI generation, libraries, slicing, and a CLI available?
+## How do I connect an MCP client on Windows?
 
-Not yet. Those capabilities are scheduled for M4–M6. The current M3 candidate does not claim them as shipped.
+MCP is a desktop-only, local beta feature and is off by default. Keep the ScadMill GUI open, open **Settings**, search for **AI**, configure the mutation permissions, and enable **local MCP server (stdio)**. Configure your MCP client to launch the exact installed executable:
+
+```text
+"C:\\Program Files\\ScadMill\\scadmill.exe" --mcp-stdio
+```
+
+Use the actual installed path if you chose a different location. The status bar reports when an external agent is connected. Read tools run directly; `write_file` and `set_parameters` are denied by default and require **Allow once** or **Allow for this session**. Even then, each proposed mutation appears in History for explicit approval or denial before it changes the project. Turning the MCP toggle off closes the relay, removes its session endpoint, and exits the client process.
+
+If a client cannot connect, confirm the GUI is running, the toggle is on, the command points to that same installed executable, and no older relay process remains.
+
+## Which later capabilities are not in this beta?
+
+AI assistance and the local MCP bridge are present in the current M4 workbench. Installed-library expansion, navigation and refactoring expansion, slicing and manufacturing estimates, and the headless CLI remain later M5/M6 work and are not claimed by this beta.

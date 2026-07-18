@@ -15,11 +15,8 @@ export function useMcpStdio(
   captureScreenshot?: (width: number, height: number) => Promise<Uint8Array>,
 ) {
   const [enabled, setEnabled] = useState(false);
-  const [permissions, setPermissions] = useState<McpToolPermissionState>(() => ({
-    ...DEFAULT_MCP_PERMISSIONS,
-    write_file: "allow-session",
-    set_parameters: "allow-session",
-  }));
+  const [connected, setConnected] = useState(false);
+  const [permissions, setPermissions] = useState<McpToolPermissionState>(() => ({ ...DEFAULT_MCP_PERMISSIONS }));
   const permissionsRef = useRef(permissions);
   const [, setReviewVersion] = useState(0);
   const reviewQueue = useMemo(() => createMcpReviewQueue(), []);
@@ -54,21 +51,53 @@ export function useMcpStdio(
   }) : undefined, [captureScreenshot, consumePermission, engine, enqueueReview, getPermissions, mcpPort, runtime]);
   useEffect(() => {
     if (!mcpPort || !controller) return;
+    if (!enabled) {
+      controller.stop();
+      setConnected(false);
+      void mcpPort.setEnabled(false).catch(() => undefined);
+      return;
+    }
     let disposed = false;
     let unsubscribe: (() => void) | undefined;
-    void mcpPort.setEnabled(enabled).then(async () => {
-      if (!enabled || disposed) return;
-      controller.start();
-      const nextUnsubscribe = await mcpPort.subscribeRequests((chunk) => { void controller.receive(chunk); });
-      if (disposed) nextUnsubscribe();
-      else unsubscribe = nextUnsubscribe;
-    }).catch(() => undefined);
+    let unsubscribeConnection: (() => void) | undefined;
+    controller.start();
+    void (async () => {
+      try {
+        const [nextUnsubscribe, nextConnectionUnsubscribe] = await Promise.all([
+          mcpPort.subscribeRequests((chunk) => { void controller.receive(chunk); }),
+          mcpPort.subscribeConnection((nextConnected) => {
+            setConnected(nextConnected);
+            if (!nextConnected) {
+              controller.stop();
+              controller.start();
+            }
+          }),
+        ]);
+        if (disposed) {
+          nextUnsubscribe();
+          nextConnectionUnsubscribe();
+          return;
+        }
+        unsubscribe = nextUnsubscribe;
+        unsubscribeConnection = nextConnectionUnsubscribe;
+        await mcpPort.setEnabled(true);
+        if (disposed) await mcpPort.setEnabled(false);
+      } catch {
+        unsubscribe?.();
+        unsubscribeConnection?.();
+        controller.stop();
+        setConnected(false);
+        if (!disposed) setEnabled(false);
+      }
+    })();
     return () => {
       disposed = true;
       controller.stop();
       unsubscribe?.();
+      unsubscribeConnection?.();
+      setConnected(false);
       void mcpPort.setEnabled(false).catch(() => undefined);
     };
   }, [controller, enabled, mcpPort]);
-  return { enabled, setEnabled, permissions, setPermission, pendingReviews: reviewQueue.list(), approveReview, dismissReview };
+  return { connected, enabled, setEnabled, permissions, setPermission, pendingReviews: reviewQueue.list(), approveReview, dismissReview };
 }

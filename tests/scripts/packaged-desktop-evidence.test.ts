@@ -5,18 +5,23 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  mcpEndpointManifestPath,
   mirrorWebViewDevToolsPort,
-  parseSourceMetadata,
   parseBinaryStl,
+  parseSourceMetadata,
   processHasExited,
+  sanitizeMcpEndpointManifest,
+  sanitizeMcpTranscript,
   scanFileForBytes,
   unwrapWebDriverValue,
+  validateCredentialProbe,
+  validateHarnessManifest,
+  validateMcpEndpointManifest,
+  validateMcpListenerObservation,
   validatePackagedWorkspaceLayoutObservation,
   validatePackagedWorkspaceLayoutRestart,
-  validateSourceMetadata,
-  validateHarnessManifest,
   validateSandboxConfig,
-  validateCredentialProbe,
+  validateSourceMetadata,
   webViewAutomationArgument,
 } from "../../scripts/lib/packaged-desktop-evidence.mjs";
 
@@ -42,6 +47,139 @@ function binaryStl(triangles: readonly (readonly [number, number, number])[][]):
 }
 
 describe("packaged desktop evidence helpers", () => {
+  it("derives the exact Windows MCP manifest identity from the absolute executable path", () => {
+    expect(mcpEndpointManifestPath(
+      "C:\\Program Files\\ScadMill\\scadmill.exe",
+      "C:\\Users\\sandbox\\AppData\\Local\\Temp",
+    )).toMatch(/^C:\\Users\\sandbox\\AppData\\Local\\Temp\\scadmill-mcp-[0-9a-f]{24}\.json$/u);
+    expect(mcpEndpointManifestPath(
+      "C:/PROGRAM FILES/ScadMill/scadmill.exe",
+      "C:\\Users\\sandbox\\AppData\\Local\\Temp",
+    )).toBe(mcpEndpointManifestPath(
+      "C:\\Program Files\\ScadMill\\scadmill.exe",
+      "C:\\Users\\sandbox\\AppData\\Local\\Temp",
+    ));
+    expect(() => mcpEndpointManifestPath("scadmill.exe", "C:\\Temp"))
+      .toThrow("absolute executable");
+  });
+
+  it("validates the exact loopback MCP endpoint manifest for the GUI process", () => {
+    expect(validateMcpEndpointManifest).toBeTypeOf("function");
+    const guiPid = 4_242;
+    const manifest = {
+      version: 1,
+      address: "127.0.0.1",
+      port: 49_152,
+      token: "a1".repeat(32),
+      pid: guiPid,
+      process_start_id: "01dc5a1b2c3d4e5f",
+    };
+
+    expect(validateMcpEndpointManifest(manifest, guiPid)).toEqual(manifest);
+    for (const invalid of [
+      { ...manifest, version: 2 },
+      { ...manifest, address: "0.0.0.0" },
+      { ...manifest, port: 0 },
+      { ...manifest, port: 65_536 },
+      { ...manifest, port: 49_152.5 },
+      { ...manifest, token: "A1".repeat(32) },
+      { ...manifest, token: "a1".repeat(31) },
+      { ...manifest, pid: guiPid + 1 },
+      { ...manifest, process_start_id: "0000000000000000" },
+      { ...manifest, process_start_id: "01DC5A1B2C3D4E5F" },
+      { ...manifest, extra: true },
+    ]) expect(() => validateMcpEndpointManifest(invalid, guiPid)).toThrow("MCP endpoint manifest");
+  });
+
+  it("requires no listener while MCP is off and one exact GUI-owned listener while on", () => {
+    expect(validateMcpListenerObservation).toBeTypeOf("function");
+    const endpoint = { address: "127.0.0.1", port: 49_152, pid: 4_242 };
+
+    expect(validateMcpListenerObservation([], false, endpoint)).toEqual([]);
+    expect(validateMcpListenerObservation([endpoint], true, endpoint)).toEqual([endpoint]);
+    expect(() => validateMcpListenerObservation([endpoint], false, endpoint)).toThrow(
+      "MCP listener observation",
+    );
+    expect(() => validateMcpListenerObservation([], true, endpoint)).toThrow(
+      "MCP listener observation",
+    );
+    expect(() => validateMcpListenerObservation([
+      { ...endpoint, pid: endpoint.pid + 1 },
+    ], true, endpoint)).toThrow("MCP listener observation");
+    expect(() => validateMcpListenerObservation([
+      endpoint,
+      endpoint,
+    ], true, endpoint)).toThrow("MCP listener observation");
+  });
+
+  it("omits the MCP token from retained endpoint and transcript evidence", () => {
+    expect([sanitizeMcpEndpointManifest, sanitizeMcpTranscript].every(
+      (candidate) => typeof candidate === "function",
+    )).toBe(true);
+    const token = "a1".repeat(32);
+    const manifest = {
+      version: 1,
+      address: "127.0.0.1",
+      port: 49_152,
+      token,
+      pid: 4_242,
+      process_start_id: "01dc5a1b2c3d4e5f",
+    };
+    const transcript = {
+      handshake: `SCADMILL-MCP/1 ${token}\n`,
+      messages: [
+        { direction: "client", text: `before-${token}-after`, token },
+        { direction: "server", text: "safe response" },
+      ],
+    };
+
+    expect(sanitizeMcpEndpointManifest(manifest)).toEqual({
+      version: 1,
+      address: "127.0.0.1",
+      port: 49_152,
+      pid: 4_242,
+      processIdentityBound: true,
+    });
+    const sanitizedTranscript = sanitizeMcpTranscript(transcript, token);
+    expect(sanitizedTranscript).toEqual({
+      handshake: "SCADMILL-MCP/1 [REDACTED]\n",
+      messages: [
+        { direction: "client", text: "before-[REDACTED]-after" },
+        { direction: "server", text: "safe response" },
+      ],
+    });
+    expect(JSON.stringify({ manifest: sanitizeMcpEndpointManifest(manifest), sanitizedTranscript }))
+      .not.toContain(token);
+  });
+
+  it("walks the packaged MCP lifecycle through a real relay process and literal off-state inspection", async () => {
+    const runner = await readFile(join(process.cwd(), "scripts", "run-packaged-desktop-evidence.mjs"), "utf8");
+    const defaultOff = runner.indexOf('record("mcp-default-off-process-inspection-passed"');
+    const childLaunch = runner.indexOf('spawn(application, ["--mcp-stdio"]');
+    const initialize = runner.indexOf('mcpClient.request("initialize"');
+    const listTools = runner.indexOf('mcpClient.request("tools/list"');
+    const render = runner.indexOf('name: "render_preview"');
+    const diagnostics = runner.indexOf('name: "get_diagnostics"');
+    const write = runner.indexOf('name: "write_file"');
+    const pendingDiff = runner.indexOf('"02-mcp-pending-diff.png"');
+    const toggleOff = runner.indexOf('record("mcp-toggle-off-process-inspection-passed"');
+
+    expect(defaultOff).toBeGreaterThanOrEqual(0);
+    expect(childLaunch).toBeGreaterThanOrEqual(0);
+    expect(initialize).toBeGreaterThan(defaultOff);
+    expect(listTools).toBeGreaterThan(initialize);
+    expect(render).toBeGreaterThan(listTools);
+    expect(diagnostics).toBeGreaterThan(render);
+    expect(write).toBeGreaterThan(diagnostics);
+    expect(pendingDiff).toBeGreaterThan(write);
+    expect(toggleOff).toBeGreaterThan(pendingDiff);
+    expect(runner).toContain("validateMcpListenerObservation");
+    expect(runner).toContain("sanitizeMcpTranscript");
+    expect(runner).toContain("stdio: [\"pipe\", \"pipe\", \"pipe\"]");
+    expect(runner).not.toContain("if (payload?.pid !== pid) continue");
+    expect(runner).toContain("never ignore a crash-retained token");
+  });
+
   it("parses exact binary-STL triangle counts and finite bounds", () => {
     const evidence = parseBinaryStl(binaryStl([
       [[0, 0, 0], [10, 0, 0], [0, 10, 0]],

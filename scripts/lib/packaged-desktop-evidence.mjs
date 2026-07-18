@@ -1,8 +1,120 @@
+import { createHash } from "node:crypto";
 import { open, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { isAbsolute, join } from "node:path";
 
 function record(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function validMcpEndpointIdentity(value) {
+  return record(value)
+    && Object.keys(value).sort().join(",") === "address,pid,port"
+    && value.address === "127.0.0.1"
+    && Number.isInteger(value.port)
+    && value.port >= 1
+    && value.port <= 65_535
+    && Number.isSafeInteger(value.pid)
+    && value.pid > 0;
+}
+
+export function mcpEndpointManifestPath(executablePath, temporaryDirectory) {
+  if (
+    typeof executablePath !== "string"
+    || !isAbsolute(executablePath)
+    || typeof temporaryDirectory !== "string"
+    || !isAbsolute(temporaryDirectory)
+  ) throw new Error("MCP endpoint identity requires absolute executable and temporary paths.");
+  const identity = executablePath.replaceAll("/", "\\").toLowerCase();
+  const suffix = createHash("sha256").update(identity, "utf8").digest("hex").slice(0, 24);
+  return join(temporaryDirectory, `scadmill-mcp-${suffix}.json`);
+}
+
+export function validateMcpEndpointManifest(payload, expectedGuiPid) {
+  if (
+    !Number.isSafeInteger(expectedGuiPid)
+    || expectedGuiPid <= 0
+    || !record(payload)
+    || Object.keys(payload).sort().join(",") !== "address,pid,port,process_start_id,token,version"
+    || payload.version !== 1
+    || !validMcpEndpointIdentity({
+      address: payload.address,
+      port: payload.port,
+      pid: payload.pid,
+    })
+    || payload.pid !== expectedGuiPid
+    || typeof payload.process_start_id !== "string"
+    || !/^[0-9a-f]{16}$/u.test(payload.process_start_id)
+    || payload.process_start_id === "0000000000000000"
+    || typeof payload.token !== "string"
+    || !/^[0-9a-f]{64}$/u.test(payload.token)
+  ) throw new Error("MCP endpoint manifest is invalid or does not belong to the GUI process.");
+  return payload;
+}
+
+export function validateMcpListenerObservation(payload, expectedEnabled, expectedEndpoint) {
+  if (!Array.isArray(payload) || typeof expectedEnabled !== "boolean") {
+    throw new Error("MCP listener observation has the wrong shape.");
+  }
+  if (!expectedEnabled) {
+    if (payload.length !== 0) {
+      throw new Error("MCP listener observation must be empty while MCP is off.");
+    }
+    return payload;
+  }
+  if (
+    !validMcpEndpointIdentity(expectedEndpoint)
+    || payload.length !== 1
+    || !validMcpEndpointIdentity(payload[0])
+    || payload[0].address !== expectedEndpoint.address
+    || payload[0].port !== expectedEndpoint.port
+    || payload[0].pid !== expectedEndpoint.pid
+  ) throw new Error("MCP listener observation does not exactly match the enabled endpoint.");
+  return payload;
+}
+
+export function sanitizeMcpEndpointManifest(manifest) {
+  const checked = validateMcpEndpointManifest(manifest, manifest?.pid);
+  return {
+    version: checked.version,
+    address: checked.address,
+    port: checked.port,
+    pid: checked.pid,
+    processIdentityBound: true,
+  };
+}
+
+function sanitizeMcpTranscriptValue(value, token, ancestors) {
+  if (typeof value === "string") return value.replaceAll(token, "[REDACTED]");
+  if (value === null || typeof value === "boolean" || typeof value === "number") return value;
+  if (typeof value !== "object") {
+    throw new Error("MCP transcript must contain only JSON-compatible evidence.");
+  }
+  if (ancestors.has(value)) throw new Error("MCP transcript must not be cyclic.");
+  ancestors.add(value);
+  try {
+    if (Array.isArray(value)) {
+      return value.map((entry) => sanitizeMcpTranscriptValue(entry, token, ancestors));
+    }
+    const sanitized = {};
+    for (const [key, entry] of Object.entries(value)) {
+      if (key.toLowerCase() === "token") continue;
+      sanitized[key.replaceAll(token, "[REDACTED]")] = sanitizeMcpTranscriptValue(
+        entry,
+        token,
+        ancestors,
+      );
+    }
+    return sanitized;
+  } finally {
+    ancestors.delete(value);
+  }
+}
+
+export function sanitizeMcpTranscript(payload, token) {
+  if (typeof token !== "string" || !/^[0-9a-f]{64}$/u.test(token)) {
+    throw new Error("MCP transcript token must be 64 lowercase hexadecimal characters.");
+  }
+  return sanitizeMcpTranscriptValue(payload, token, new Set());
 }
 
 export function webViewAutomationArgument() {

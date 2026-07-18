@@ -1,11 +1,12 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { activeDocument, canCloseDocument, canReopenDocument } from "../application/documents/document-workspace";
 import { createLocalConversationPersistence } from "../application/ai/conversation-persistence";
+import { activeDocument, canCloseDocument, canReopenDocument } from "../application/documents/document-workspace";
 import type { WorkspaceLayoutAction } from "../application/layout/workspace-layout";
 import { parameterDocument } from "../application/parameters/parameter-state";
 import { EPHEMERAL_SECRET_STORE } from "../application/settings/secret-store";
 import { viewerDocument } from "../application/viewer/viewer-state";
 import { messages } from "../messages/en";
+import { AiConversationPanel, createAiConversationBridge } from "./ai";
 import { DiagnosticConsole } from "./diagnostics/DiagnosticConsole";
 import { useDiagnosticNavigation } from "./diagnostics/use-diagnostic-navigation";
 import type { CodeEditorSession, CursorPosition } from "./editor/CodeEditor";
@@ -25,17 +26,16 @@ import { useWorkbenchRenderCommands } from "./render/use-workbench-render-comman
 import { SettingsLauncher } from "./settings/SettingsLauncher";
 import { useReadonlyStore } from "./use-readonly-store";
 import { resolveActiveViewerPresentation } from "./viewer/active-viewer-presentation";
-import { ViewerPaneConnector } from "./viewer/ViewerPaneConnector";
 import { pngDataUrl } from "./viewer/png-data-url";
+import { ViewerPaneConnector } from "./viewer/ViewerPaneConnector";
 import { WorkbenchBanners } from "./WorkbenchBanners";
 import { DismissibleNotice, NativeHelpPanel } from "./WorkbenchOverlays";
-import { AiConversationPanel, createAiConversationBridge } from "./ai";
 import { WelcomeLauncher } from "./welcome/WelcomeLauncher";
 import type { WorkbenchProps } from "./workbench-props";
 import { diagnosticStatusLabel, geometryDeltaStatus, renderStatusLabel } from "./workbench-status";
 import "./workbench.css";
-const CodeEditor = lazy(() => import("./editor/CodeEditor").then((module) => ({ default: module.CodeEditor })));
 
+const CodeEditor = lazy(() => import("./editor/CodeEditor").then((module) => ({ default: module.CodeEditor })));
 export function Workbench({
   runtime, engine, secretStore = EPHEMERAL_SECRET_STORE,
   engineLabel, engineAvailable = true, engineChecking = false, engineRecovery,
@@ -65,7 +65,7 @@ export function Workbench({
   const currentParameters = parameterDocument(parameterState, document.id);
   const aiPersistence = useMemo(() => createLocalConversationPersistence(document.id), [document.id]);
   const [viewerScreenshotDataUrl, setViewerScreenshotDataUrl] = useState<string>(); const { capture: captureMcpScreenshot, setCapture: setMcpScreenshotCapture } = useMcpViewportCapture();
-  const { enabled: mcpEnabled, setEnabled: setMcpEnabled, permissions: mcpPermissions, setPermission: setMcpPermission, pendingReviews, approveReview, dismissReview } = useMcpStdio(runtime, engine, mcpPort, captureMcpScreenshot);
+  const { connected: mcpConnected, enabled: mcpEnabled, setEnabled: setMcpEnabled, permissions: mcpPermissions, setPermission: setMcpPermission, pendingReviews, approveReview, dismissReview } = useMcpStdio(runtime, engine, mcpPort, captureMcpScreenshot);
   useEffect(() => { if (document.id) setViewerScreenshotDataUrl(undefined); }, [document.id]);
   const projectState = useReadonlyStore(runtime.project, (state) => state);
   const history = useReadonlyStore(runtime.history, (state) => state);
@@ -389,7 +389,7 @@ export function Workbench({
       <WorkbenchStatusBar
         customThemes={customThemes} cursor={cursor}
         diagnosticStatus={diagnosticStatus} engineLabel={engineLabel}
-        geometryStatus={geometryStatus} renderStatus={renderStatus}
+        geometryStatus={geometryStatus} renderStatus={renderStatus} mcpConnected={mcpConnected}
         consoleVisible={consoleVisible} consoleButtonRef={statusConsoleButton}
         themePreference={themePreference} onFocusConsole={focusConsole}
         themePreferenceDisabled={settingsPersistenceStatus.status === "load-error"}

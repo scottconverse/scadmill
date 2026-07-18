@@ -4,27 +4,33 @@ import { createHash, randomBytes } from "node:crypto";
 import {
   cp,
   mkdir,
-  readFile,
   readdir,
+  readFile,
   rm,
   stat,
   writeFile,
 } from "node:fs/promises";
 import { basename, dirname, join, normalize, resolve } from "node:path";
+import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 
 import {
+  mcpEndpointManifestPath,
   mirrorWebViewDevToolsPort,
-  parseSourceMetadata,
   parseBinaryStl,
+  parseSourceMetadata,
   processHasExited,
+  sanitizeMcpEndpointManifest,
+  sanitizeMcpTranscript,
   scanFileForBytes,
   unwrapWebDriverValue,
+  validateCredentialProbe,
   validateHarnessManifest,
+  validateMcpEndpointManifest,
+  validateMcpListenerObservation,
   validatePackagedWorkspaceLayoutObservation,
   validatePackagedWorkspaceLayoutRestart,
   validateSandboxConfig,
-  validateCredentialProbe,
   webViewAutomationArgument,
 } from "./lib/packaged-desktop-evidence.mjs";
 
@@ -116,6 +122,103 @@ async function run(file, args, { timeoutMs = 30_000, allowFailure = false } = {}
       }
     });
   });
+}
+
+class McpStdioClient {
+  constructor(application) {
+    this.child = spawn(application, ["--mcp-stdio"], {
+      stdio: ["pipe", "pipe", "pipe"],
+      windowsHide: true,
+    });
+    this.nextId = 1;
+    this.messages = [];
+    this.waiters = [];
+    this.stderr = [];
+    this.transcript = [];
+    this.child.stderr.on("data", (chunk) => this.stderr.push(chunk));
+    this.lines = createInterface({ input: this.child.stdout, crlfDelay: Infinity });
+    this.lines.on("line", (line) => {
+      let message;
+      try {
+        message = JSON.parse(line);
+      } catch {
+        message = { invalidJson: line };
+      }
+      this.transcript.push({ direction: "from-server", message });
+      const waiter = this.waiters.shift();
+      if (waiter) waiter.resolve(message);
+      else this.messages.push(message);
+    });
+  }
+
+  send(message) {
+    const line = `${JSON.stringify(message)}\n`;
+    this.transcript.push({ direction: "to-server", message });
+    this.child.stdin.write(line);
+  }
+
+  notify(method, params) {
+    this.send({ jsonrpc: "2.0", method, ...(params === undefined ? {} : { params }) });
+  }
+
+  async request(method, params, timeoutMs = 60_000) {
+    const id = this.nextId++;
+    this.send({ jsonrpc: "2.0", id, method, ...(params === undefined ? {} : { params }) });
+    const response = await this.nextMessage(timeoutMs);
+    assert.equal(response?.jsonrpc, "2.0", `${method} returned the wrong JSON-RPC version.`);
+    assert.equal(response?.id, id, `${method} returned the wrong request id.`);
+    assert.equal(response?.error, undefined, `${method} returned ${JSON.stringify(response?.error)}.`);
+    return response.result;
+  }
+
+  nextMessage(timeoutMs) {
+    if (this.messages.length > 0) return Promise.resolve(this.messages.shift());
+    return new Promise((resolveMessage, rejectMessage) => {
+      const waiter = {
+        resolve: (message) => {
+          clearTimeout(timeout);
+          resolveMessage(message);
+        },
+      };
+      const timeout = setTimeout(() => {
+        const index = this.waiters.indexOf(waiter);
+        if (index >= 0) this.waiters.splice(index, 1);
+        rejectMessage(new Error(`Timed out waiting for an MCP response after ${timeoutMs} ms.`));
+      }, timeoutMs);
+      this.waiters.push(waiter);
+    });
+  }
+
+  async waitForExit(timeoutMs = 15_000) {
+    if (processHasExited(this.child.exitCode, this.child.signalCode)) return this.child.exitCode;
+    return await new Promise((resolveExit, rejectExit) => {
+      const timeout = setTimeout(() => {
+        rejectExit(new Error(`MCP relay did not exit after ${timeoutMs} ms.`));
+      }, timeoutMs);
+      this.child.once("exit", (code) => {
+        clearTimeout(timeout);
+        resolveExit(code);
+      });
+    });
+  }
+
+  stop() {
+    this.lines.close();
+    if (!processHasExited(this.child.exitCode, this.child.signalCode)) this.child.kill();
+  }
+
+  stderrText() {
+    return Buffer.concat(this.stderr).toString("utf8").trim();
+  }
+}
+
+function structuredMcpToolResult(result, label) {
+  assert.ok(result && typeof result === "object", `${label} returned no MCP tool result.`);
+  assert.equal(result.isError, false, `${label} returned an MCP tool error.`);
+  assert.ok(Array.isArray(result.content) && result.content.length === 1, `${label} returned the wrong MCP content shape.`);
+  assert.equal(result.content[0]?.type, "text", `${label} did not return text content.`);
+  assert.deepEqual(JSON.parse(result.content[0].text), result.structuredContent, `${label} text and structured content differ.`);
+  return result.structuredContent;
 }
 
 class WebDriverClient {
@@ -434,6 +537,64 @@ async function exactExecutableProcesses(executablePath) {
   return Array.isArray(parsed) ? parsed : [parsed];
 }
 
+async function tcpListenersForProcess(pid) {
+  assert.ok(Number.isSafeInteger(pid) && pid > 0, "Listener inspection requires a positive process id.");
+  const command = [
+    `$rows = @(Get-NetTCPConnection -State Listen -ErrorAction Stop | Where-Object { $_.OwningProcess -eq ${pid} } | Select-Object @{n='address';e={$_.LocalAddress}},@{n='port';e={[int]$_.LocalPort}},@{n='pid';e={[int]$_.OwningProcess}});`,
+    "ConvertTo-Json -InputObject @($rows) -Compress",
+  ].join(" ");
+  const result = await run("powershell.exe", ["-NoProfile", "-Command", command]);
+  const parsed = JSON.parse(result.stdout);
+  return Array.isArray(parsed) ? parsed : [parsed];
+}
+
+async function mcpEndpointsForProcess(application, pid) {
+  const temporary = process.env.TEMP;
+  assert.ok(temporary, "TEMP is required for MCP endpoint inspection.");
+  const expectedPath = normalize(mcpEndpointManifestPath(application, temporary));
+  const entries = await readdir(temporary, { withFileTypes: true });
+  const matches = [];
+  for (const entry of entries) {
+    if (!entry.isFile() || !/^scadmill-mcp-[0-9a-f]{24}\.json$/u.test(entry.name)) continue;
+    const path = normalize(join(temporary, entry.name));
+    assert.equal(
+      path.toLowerCase(),
+      expectedPath.toLowerCase(),
+      `Unexpected ScadMill MCP manifest remained in the isolated Sandbox: ${entry.name}.`,
+    );
+    let payload;
+    try {
+      payload = JSON.parse(await readFile(path, "utf8"));
+    } catch (error) {
+      throw new Error(`ScadMill MCP manifest ${entry.name} is unreadable or invalid.`, {
+        cause: error,
+      });
+    }
+    // This harness runs in a fresh, isolated Sandbox with one staged ScadMill
+    // executable. Any matching manifest belongs to this candidate lifecycle;
+    // never ignore a crash-retained token merely because its embedded PID is stale.
+    matches.push({ path, endpoint: validateMcpEndpointManifest(payload, pid) });
+  }
+  return matches;
+}
+
+async function mcpDiffSources(client) {
+  const sources = await client.execute(`
+    const read = (label) => {
+      const content = document.querySelector('.cm-content[aria-label="' + CSS.escape(label) + '"]');
+      const view = content?.cmView?.view;
+      return view?.state?.doc?.toString() ?? content?.innerText ?? null;
+    };
+    return { local: read('Your version'), proposed: read('Disk version') };
+  `);
+  assert.equal(typeof sources?.local, "string", "MCP review did not expose the local source.");
+  assert.equal(typeof sources?.proposed, "string", "MCP review did not expose the proposed source.");
+  return {
+    local: sources.local.replaceAll("\r\n", "\n"),
+    proposed: sources.proposed.replaceAll("\r\n", "\n"),
+  };
+}
+
 async function requireSingleAppProcess(appPath, expectedSha256) {
   const processes = await waitFor(async () => {
     const found = await exactAppProcesses(appPath);
@@ -611,6 +772,7 @@ const evidence = {
 };
 let driver = null;
 let client = null;
+let mcpClient = null;
 let lastVerifiedAppProcess = null;
 
 async function persist() {
@@ -766,6 +928,146 @@ try {
     sha256: fingerprint(stlBytes),
     byteLength: stlBytes.byteLength,
     ...stlEvidence,
+  });
+
+  assert.deepEqual(await mcpEndpointsForProcess(args.app, lastVerifiedAppProcess.pid), []);
+  validateMcpListenerObservation(
+    await tcpListenersForProcess(lastVerifiedAppProcess.pid),
+    false,
+  );
+  await record("mcp-default-off-process-inspection-passed", {
+    applicationPid: lastVerifiedAppProcess.pid,
+    endpointManifestPresent: false,
+    ownedListeners: [],
+  });
+
+  await clickAria(client, "Open settings");
+  await setControl(client, "Search settings", "AI");
+  await setControl(client, "MCP write-file permission", "allow-session");
+  await clickAria(client, "Enable local MCP server (stdio)");
+  const endpointRecord = await waitFor(async () => {
+    const found = await mcpEndpointsForProcess(args.app, lastVerifiedAppProcess.pid);
+    return found.length === 1 ? found[0] : false;
+  }, "one authenticated MCP endpoint manifest", 15_000, 100);
+  const listenerObservation = await waitFor(async () => {
+    const listeners = await tcpListenersForProcess(lastVerifiedAppProcess.pid);
+    try {
+      return validateMcpListenerObservation(listeners, true, endpointRecord.endpoint);
+    } catch {
+      return false;
+    }
+  }, "one exact GUI-owned MCP listener", 15_000, 100);
+  await record("mcp-endpoint-enabled", {
+    manifestPathSha256: fingerprint(endpointRecord.path),
+    manifestSha256: await fileSha256(endpointRecord.path),
+    endpoint: sanitizeMcpEndpointManifest(endpointRecord.endpoint),
+    listener: listenerObservation,
+  });
+  await clickAria(client, "Close settings");
+
+  mcpClient = new McpStdioClient(args.app);
+  const twoAppProcesses = await waitFor(async () => {
+    const found = await exactExecutableProcesses(args.app);
+    return found.length === 2 ? found : false;
+  }, "GUI and MCP relay ScadMill processes", 15_000, 100);
+  for (const processRecord of twoAppProcesses) {
+    assert.equal(await fileSha256(processRecord.path), appSha256, "MCP process executable hash mismatch.");
+  }
+  const relayProcess = twoAppProcesses.find(({ pid }) => pid !== lastVerifiedAppProcess.pid);
+  assert.ok(relayProcess, "The exact MCP relay child process was not distinguishable from the GUI.");
+
+  const initialize = await mcpClient.request("initialize", {
+    protocolVersion: "2025-11-25",
+    capabilities: {},
+    clientInfo: { name: "scadmill-packaged-evidence", version: "1" },
+  });
+  assert.equal(initialize?.protocolVersion, "2025-11-25");
+  assert.equal(initialize?.serverInfo?.name, "scadmill");
+  mcpClient.notify("notifications/initialized");
+  assert.deepEqual(await mcpClient.request("ping"), {});
+
+  const toolsResult = await mcpClient.request("tools/list");
+  assert.equal(toolsResult?.tools?.length, 10, "MCP tools/list did not return the ten Appendix B tools.");
+  assert.deepEqual(
+    toolsResult.tools.map(({ name }) => name).sort(),
+    ["export_model", "get_diagnostics", "get_history", "get_parameters", "list_files", "read_file", "render_preview", "set_parameters", "take_screenshot", "write_file"],
+  );
+  for (const tool of toolsResult.tools) {
+    assert.equal(tool.inputSchema?.type, "object", `${tool.name} did not expose an object input schema.`);
+  }
+
+  const listed = structuredMcpToolResult(
+    await mcpClient.request("tools/call", { name: "list_files", arguments: {} }),
+    "list_files",
+  );
+  assert.deepEqual(listed.files.map(({ path }) => path), ["Untitled"]);
+  const mcpPath = listed.files[0].path;
+  const preview = structuredMcpToolResult(
+    await mcpClient.request("tools/call", { name: "render_preview", arguments: { path: mcpPath } }),
+    "render_preview",
+  );
+  assert.equal(preview.kind, "3d");
+  assert.equal(preview.stats?.triangles, 12);
+  const diagnostics = structuredMcpToolResult(
+    await mcpClient.request("tools/call", { name: "get_diagnostics", arguments: { path: mcpPath } }),
+    "get_diagnostics",
+  );
+  assert.equal(diagnostics.quality, "preview");
+  assert.ok(Array.isArray(diagnostics.diagnostics));
+
+  await clickAria(client, "History");
+  const proposedSource = "cube([12, 10, 10]);";
+  const pending = structuredMcpToolResult(
+    await mcpClient.request("tools/call", {
+      name: "write_file",
+      arguments: { path: mcpPath, content: proposedSource },
+    }),
+    "write_file",
+  );
+  assert.equal(pending.status, "pending_review");
+  assert.match(pending.commandId, /^mcp-review-/u);
+  await waitForBody(client, "MCP file change: Untitled");
+  await waitForBody(client, "Pending review");
+  assert.deepEqual(await mcpDiffSources(client), { local: cubeSource, proposed: proposedSource });
+  await client.screenshot(join(args.output, "02-mcp-pending-diff.png"));
+  await writeFile(
+    join(args.output, "mcp-transcript.json"),
+    `${JSON.stringify(sanitizeMcpTranscript(mcpClient.transcript, endpointRecord.endpoint.token), null, 2)}\n`,
+  );
+  await record("mcp-appendix-b-walkthrough-passed", {
+    guiPid: lastVerifiedAppProcess.pid,
+    relayPid: relayProcess.pid,
+    protocolVersion: initialize.protocolVersion,
+    toolCount: toolsResult.tools.length,
+    path: mcpPath,
+    preview: { kind: preview.kind, triangles: preview.stats.triangles },
+    diagnostics: { quality: diagnostics.quality, count: diagnostics.diagnostics.length },
+    pendingReview: { status: pending.status, commandIdSha256: fingerprint(pending.commandId) },
+    transcriptSha256: await fileSha256(join(args.output, "mcp-transcript.json")),
+  });
+  await clickButton(client, "Deny change");
+
+  await clickAria(client, "Open settings");
+  await setControl(client, "Search settings", "AI");
+  await clickAria(client, "Enable local MCP server (stdio)");
+  await clickAria(client, "Close settings");
+  assert.equal(await mcpClient.waitForExit(), 0, `MCP relay exited with stderr: ${mcpClient.stderrText()}`);
+  mcpClient = null;
+  await waitFor(async () => (await mcpEndpointsForProcess(args.app, lastVerifiedAppProcess.pid)).length === 0, "MCP manifest removal", 15_000, 100);
+  const listenersAfterDisable = await waitFor(async () => {
+    const listeners = await tcpListenersForProcess(lastVerifiedAppProcess.pid);
+    try {
+      return validateMcpListenerObservation(listeners, false);
+    } catch {
+      return false;
+    }
+  }, "MCP listener shutdown", 15_000, 100);
+  await waitFor(async () => (await exactExecutableProcesses(args.app)).length === 1, "MCP relay process shutdown", 15_000, 100);
+  await record("mcp-toggle-off-process-inspection-passed", {
+    applicationPid: lastVerifiedAppProcess.pid,
+    endpointManifestPresent: false,
+    ownedListeners: listenersAfterDisable,
+    relayExited: true,
   });
 
   await clickAria(client, "Open settings");
@@ -1133,6 +1435,7 @@ try {
   console.error(error);
   process.exitCode = 1;
 } finally {
+  if (mcpClient) mcpClient.stop();
   if (client?.sessionId) await client.deleteSession().catch(() => undefined);
   if (driver) await driver.stop().catch(() => undefined);
   if (lastVerifiedAppProcess) {

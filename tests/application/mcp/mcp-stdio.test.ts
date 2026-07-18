@@ -11,6 +11,13 @@ describe("MCP stdio framing", () => {
     expect(encodeMcpStdioResponse({ jsonrpc: "2.0", id: 1, result: {} })).toBe('{"jsonrpc":"2.0","id":1,"result":{}}\n');
   });
 
+  it("decodes JSON-RPC notifications without inventing a request id", () => {
+    const result = decodeMcpStdioLines('{"jsonrpc":"2.0","method":"notifications/initialized"}\n');
+
+    expect(result.errors).toEqual([]);
+    expect(result.frames).toEqual([{ jsonrpc: "2.0", method: "notifications/initialized" }]);
+  });
+
   it("reports malformed and oversized lines without throwing", () => {
     const result = decodeMcpStdioLines(`bad\n${"x".repeat(1_048_577)}\n`);
     expect(result.frames).toHaveLength(0);

@@ -11,6 +11,7 @@ export interface WorkbenchStatusBarProps {
   readonly diagnosticStatus: string;
   readonly engineLabel: string;
   readonly geometryStatus: { readonly detail: string; readonly summary: string } | null;
+  readonly mcpConnected?: boolean;
   readonly renderStatus: string;
   readonly consoleVisible: boolean;
   readonly consoleButtonRef: RefObject<HTMLButtonElement | null>;
@@ -25,6 +26,16 @@ export function WorkbenchStatusBar(props: WorkbenchStatusBarProps) {
     <footer className="statusbar">
       <span className="status-engine">{props.engineLabel}</span>
       <span className="status-render">{props.renderStatus}</span>
+      <span
+        aria-label={messages.mcpConnectionStatus}
+        aria-live="polite"
+        className={props.mcpConnected
+          ? "external-agent-badge status-mcp"
+          : "visually-hidden status-mcp"}
+        role="status"
+      >
+        {props.mcpConnected ? messages.mcpClientConnected : messages.mcpClientDisconnected}
+      </span>
       {props.geometryStatus && (
         props.geometryStatus.detail === props.geometryStatus.summary
           ? <span className="status-geometry">{props.geometryStatus.detail}</span>

@@ -98,6 +98,7 @@ export interface WindowControlsPort {
 
 export interface McpServerPort {
   setEnabled(enabled: boolean): Promise<void>;
+  subscribeConnection(listener: (connected: boolean) => void): Promise<() => void>;
   subscribeRequests(listener: (chunk: string) => void): Promise<() => void>;
   writeResponse(line: string): Promise<void>;
 }

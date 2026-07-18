@@ -1,5 +1,3 @@
-import type { McpToolHandler } from "./mcp-dispatcher";
-import type { McpToolName } from "./mcp-tools";
 import type {
   Diagnostic,
   EngineService,
@@ -7,14 +5,16 @@ import type {
   ParamValue,
   RenderResult,
 } from "../engine/contracts";
-import type { WorkbenchRuntime } from "../runtime/workbench-runtime-contracts";
-import { buildRuntimeRenderFileMap } from "../runtime/project-render-files";
 import { parseProjectPath } from "../files/project-path";
 import type { ProjectFileContent } from "../files/project-snapshot";
-import { parameterDocument } from "../parameters/parameter-state";
-import type { ParameterValue } from "../parameters/customizer-schema";
 import { extractCustomizerParameters } from "../parameters/customizer-parser";
+import type { ParameterValue } from "../parameters/customizer-schema";
+import { parameterDocument } from "../parameters/parameter-state";
+import { buildRuntimeRenderFileMap } from "../runtime/project-render-files";
+import type { WorkbenchRuntime } from "../runtime/workbench-runtime-contracts";
+import type { McpToolHandler } from "./mcp-dispatcher";
 import type { McpPendingReview } from "./mcp-review-queue";
+import type { McpToolName } from "./mcp-tools";
 
 export interface WorkbenchMcpHandlerOptions {
   readonly runtime: WorkbenchRuntime;
@@ -54,6 +54,7 @@ interface PreviewRecord {
   readonly renderId: string;
   readonly quality: "preview";
   readonly diagnostics: readonly Diagnostic[];
+  readonly supersededUiRenderId?: string;
 }
 
 function isTextPath(path: string): boolean {
@@ -179,6 +180,10 @@ export function createWorkbenchMcpHandler({ runtime, engine, captureScreenshot, 
           const found = target(args.path);
           if (!found) throw new Error(`Project file ${String(args.path)} does not exist.`);
           const settings = runtime.settings.getState();
+          const currentRender = runtime.render.getState();
+          const supersededUiRenderId = currentRender.entryFile?.toLowerCase() === found.path.toLowerCase()
+            ? currentRender.jobId
+            : undefined;
           const job = engine.render({
             entryFile: found.path,
             files: fileMap(),
@@ -189,7 +194,7 @@ export function createWorkbenchMcpHandler({ runtime, engine, captureScreenshot, 
           });
           const result: RenderResult = await job.done;
           const diagnostics = result.diagnostics;
-          lastPreview = new Map(lastPreview).set(found.path.toLowerCase(), { renderId: job.jobId, quality: "preview", diagnostics });
+          lastPreview = new Map(lastPreview).set(found.path.toLowerCase(), { renderId: job.jobId, quality: "preview", diagnostics, supersededUiRenderId });
           return { kind: result.kind, stats: result.kind === "3d" ? result.stats : null, diagnostics };
         }
         case "export_model": {
@@ -212,7 +217,8 @@ export function createWorkbenchMcpHandler({ runtime, engine, captureScreenshot, 
           const render = runtime.render.getState();
           const preview = found ? lastPreview.get(found.path.toLowerCase()) : undefined;
           const current = found && render.entryFile?.toLowerCase() === found.path.toLowerCase() ? render : undefined;
-          return { ...(current?.jobId || preview?.renderId ? { renderId: current?.jobId ?? preview?.renderId } : {}), quality: current?.quality ?? preview?.quality ?? null, diagnostics: current?.result?.diagnostics ?? preview?.diagnostics ?? [] };
+          const latestPreview = preview && (!current || current.jobId === preview.supersededUiRenderId) ? preview : undefined;
+          return { ...(latestPreview?.renderId || current?.jobId ? { renderId: latestPreview?.renderId ?? current?.jobId } : {}), quality: latestPreview?.quality ?? current?.quality ?? null, diagnostics: latestPreview?.diagnostics ?? current?.result?.diagnostics ?? [] };
         }
         case "get_parameters": {
           const found = target(args.path);

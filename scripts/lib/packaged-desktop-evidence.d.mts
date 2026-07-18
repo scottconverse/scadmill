@@ -13,6 +13,48 @@ export interface CredentialProbe {
   lastError: number;
 }
 
+export interface McpEndpointManifest {
+  version: 1;
+  address: "127.0.0.1";
+  port: number;
+  token: string;
+  pid: number;
+  process_start_id: string;
+}
+
+export interface SanitizedMcpEndpointManifest {
+  version: 1;
+  address: "127.0.0.1";
+  port: number;
+  pid: number;
+  processIdentityBound: true;
+}
+
+export interface McpListenerObservation {
+  address: "127.0.0.1";
+  port: number;
+  pid: number;
+}
+
+export function mcpEndpointManifestPath(
+  executablePath: string,
+  temporaryDirectory: string,
+): string;
+
+export function validateMcpEndpointManifest(
+  payload: unknown,
+  expectedGuiPid: number,
+): McpEndpointManifest;
+export function validateMcpListenerObservation(
+  payload: unknown,
+  expectedEnabled: boolean,
+  expectedEndpoint?: unknown,
+): McpListenerObservation[];
+export function sanitizeMcpEndpointManifest(
+  manifest: unknown,
+): SanitizedMcpEndpointManifest;
+export function sanitizeMcpTranscript(payload: unknown, token: string): unknown;
+
 export function parseBinaryStl(bytes: Uint8Array): StlEvidence;
 export function webViewAutomationArgument(): "--edge-webview-switches=--remote-debugging-port=0";
 export function processHasExited(exitCode: number | null, signalCode: NodeJS.Signals | null): boolean;

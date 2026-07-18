@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { EngineService, RenderSuccess3D } from "../../../src/application/engine/contracts";
-import { createWorkbenchRuntime } from "../../../src/application/runtime/workbench-runtime";
 import { createWorkbenchMcpHandler } from "../../../src/application/mcp/workbench-mcp-handler";
+import { createWorkbenchRuntime } from "../../../src/application/runtime/workbench-runtime";
 
 function engine(): EngineService {
   const result: RenderSuccess3D = {
@@ -39,6 +39,62 @@ describe("workbench MCP handler", () => {
     expect(reviews).toEqual(["write_file", "set_parameters"]);
     await expect(handler.call("render_preview", { path: "main.scad" })).resolves.toMatchObject({ kind: "3d", stats: { triangles: 1 } });
     await expect(handler.call("get_diagnostics", { path: "main.scad" })).resolves.toMatchObject({ renderId: "mcp-render-1", quality: "preview", diagnostics: [{ message: "ok" }] });
+    runtime.dispose();
+  });
+
+  it("returns diagnostics from the newest UI or MCP render for a file", async () => {
+    const renderEngine = engine();
+    vi.mocked(renderEngine.render)
+      .mockReturnValueOnce({
+        jobId: "ui-full-old",
+        subscribeOutput: () => () => undefined,
+        done: Promise.resolve({
+          kind: "3d",
+          mesh: { format: "stl-binary", bytes: new Uint8Array([1]) },
+          stats: { triangles: 1, engineTimeMs: 1 },
+          diagnostics: [{ severity: "warning", message: "old UI full" }],
+          rawLog: "",
+        }),
+      })
+      .mockReturnValueOnce({
+        jobId: "mcp-preview-newer",
+        subscribeOutput: () => () => undefined,
+        done: Promise.resolve({
+          kind: "3d",
+          mesh: { format: "stl-binary", bytes: new Uint8Array([2]) },
+          stats: { triangles: 2, engineTimeMs: 2 },
+          diagnostics: [{ severity: "info", message: "newer MCP preview" }],
+          rawLog: "",
+        }),
+      })
+      .mockReturnValueOnce({
+        jobId: "ui-full-newest",
+        subscribeOutput: () => () => undefined,
+        done: Promise.resolve({
+          kind: "3d",
+          mesh: { format: "stl-binary", bytes: new Uint8Array([3]) },
+          stats: { triangles: 3, engineTimeMs: 3 },
+          diagnostics: [{ severity: "warning", message: "newest UI full" }],
+          rawLog: "",
+        }),
+      });
+    const runtime = createWorkbenchRuntime(renderEngine, { initialScratchSource: "cube(1);", renderCache: null });
+    const handler = createWorkbenchMcpHandler({ runtime, engine: renderEngine });
+
+    await runtime.dispatch({ kind: "render-active", origin: "user", quality: "full" });
+    await handler.call("render_preview", { path: "main.scad" });
+    await expect(handler.call("get_diagnostics", { path: "main.scad" })).resolves.toEqual({
+      renderId: "mcp-preview-newer",
+      quality: "preview",
+      diagnostics: [{ severity: "info", message: "newer MCP preview" }],
+    });
+
+    await runtime.dispatch({ kind: "render-active", origin: "user", quality: "full" });
+    await expect(handler.call("get_diagnostics", { path: "main.scad" })).resolves.toEqual({
+      renderId: "ui-full-newest",
+      quality: "full",
+      diagnostics: [{ severity: "warning", message: "newest UI full" }],
+    });
     runtime.dispose();
   });
 

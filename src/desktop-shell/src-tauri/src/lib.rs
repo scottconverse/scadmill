@@ -23,6 +23,8 @@ mod native_menu;
 mod project_storage;
 mod render_cache;
 
+pub use mcp_stdio::run_mcp_stdio_client;
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct NativeEngineVersionWire {
