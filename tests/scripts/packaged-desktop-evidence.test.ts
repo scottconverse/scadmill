@@ -409,6 +409,21 @@ describe("packaged desktop evidence helpers", () => {
     expect(runner).not.toContain("querySelectorAll('[role=\"separator\"]')");
   });
 
+  it("dismisses the fresh-profile welcome dialog before editing the packaged model", async () => {
+    const runner = await readFile(join(process.cwd(), "scripts", "run-packaged-desktop-evidence.mjs"), "utf8");
+    const dismissWelcome = runner.indexOf('await dismissWelcome(client);');
+    const editCube = runner.indexOf('await replaceEditorSource(client, cubeSource);');
+    const sessionCount = [...runner.matchAll(/await client\.createSession\(args\.app, args\.webview\);/gu)].length;
+    const disabledChecks = [...runner.matchAll(/await assertWelcomeStaysDisabled\(client\);/gu)].length;
+
+    expect(dismissWelcome).toBeGreaterThan(0);
+    expect(editCube).toBeGreaterThan(dismissWelcome);
+    expect(runner).toContain("document.querySelector('.welcome-modal-layer')");
+    expect(runner).toContain("await client.clickElement(startupToggle);");
+    expect(runner).toContain("await client.clickElement(closeWelcome);");
+    expect(disabledChecks).toBe(sessionCount);
+  });
+
   it("validates the versioned scratch snapshot during packaged restart evidence", async () => {
     const runner = await readFile(
       join(process.cwd(), "scripts", "run-packaged-desktop-evidence.mjs"),

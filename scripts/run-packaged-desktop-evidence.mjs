@@ -420,6 +420,53 @@ async function clickAria(client, label) {
   if (clicked !== true) throw new Error(`Could not click element labelled ${JSON.stringify(label)}.`);
 }
 
+async function welcomeState(client) {
+  return await client.execute(`
+    const layer = document.querySelector('.welcome-modal-layer');
+    let preference = null;
+    try { preference = JSON.parse(localStorage.getItem('scadmill.welcome.v1')); } catch { /* invalid */ }
+    return { visible: Boolean(layer && layer.getClientRects().length > 0), preference };
+  `);
+}
+
+async function assertWelcomeStaysDisabled(client) {
+  assert.deepEqual(await welcomeState(client), {
+    visible: false,
+    preference: { version: 1, showOnLaunch: false },
+  });
+}
+
+async function dismissWelcome(client) {
+  const initial = await welcomeState(client);
+  assert.equal(initial.visible, true, "The fresh-profile Welcome dialog was not visible.");
+  assert.equal(initial.preference, null, "The fresh profile already contained a Welcome preference.");
+  const startupToggle = await client.find('[aria-label="Show welcome screen on startup"]');
+  assert.equal(await client.execute(`
+    return document.querySelector('[aria-label="Show welcome screen on startup"]')?.checked ?? null;
+  `), true, "The fresh-profile Welcome startup toggle was not enabled.");
+  await client.clickElement(startupToggle);
+  await waitFor(async () => {
+    const state = await client.execute(`
+      const toggle = document.querySelector('[aria-label="Show welcome screen on startup"]');
+      return {
+        checked: toggle?.checked ?? null,
+        serialized: localStorage.getItem('scadmill.welcome.v1'),
+      };
+    `);
+    return state?.checked === false
+      && state.serialized === '{"version":1,"showOnLaunch":false}';
+  }, "persisted disabled Welcome startup preference", 10_000, 50);
+  const closeWelcome = await client.find('[aria-label="Close welcome"]');
+  await client.clickElement(closeWelcome);
+  await waitFor(
+    async () => (await client.execute("return document.querySelector('.welcome-modal-layer') === null;")) === true,
+    "closed fresh-profile Welcome dialog",
+    10_000,
+    50,
+  );
+  await assertWelcomeStaysDisabled(client);
+}
+
 async function setControl(client, label, value) {
   const selected = await client.execute(`
     const control = document.querySelector('[aria-label="' + CSS.escape(arguments[0]) + '"]');
@@ -901,6 +948,7 @@ try {
     return Boolean(button && !button.disabled);
   `)) === true, "enabled render controls", 30_000, 100);
   await record("exact-pinned-engine-enabled", { configuredPath: args.engine });
+  await dismissWelcome(client);
 
   const cubeSource = "cube([10, 10, 10]);";
   await waitFor(async () => Boolean(await client.find(".cm-content").catch(() => null)), "CodeMirror editor", 30_000, 100);
@@ -1123,6 +1171,7 @@ try {
   client = new WebDriverClient(DRIVER_URL);
   await client.createSession(args.app, args.webview);
   await waitForBody(client, `OpenSCAD ${EXPECTED_ENGINE_VERSION}`, 60_000);
+  await assertWelcomeStaysDisabled(client);
   await waitFor(async () => (await editorSource(client)) === cubeSource, "source after normal restart", 30_000, 100);
   lastVerifiedAppProcess = await requireSingleAppProcess(args.app, appSha256);
   await clickAria(client, "Open settings");
@@ -1168,6 +1217,7 @@ try {
   client = new WebDriverClient(DRIVER_URL);
   await client.createSession(args.app, args.webview);
   await waitForBody(client, `OpenSCAD ${EXPECTED_ENGINE_VERSION}`, 60_000);
+  await assertWelcomeStaysDisabled(client);
   await openDesktopProject(client, recoveryProjectDirectory, cubeSource);
   assert.equal(await readFile(recoveryProjectFile, "utf8"), cubeSource);
   lastVerifiedAppProcess = await requireSingleAppProcess(args.app, appSha256);
@@ -1231,6 +1281,7 @@ try {
   client = new WebDriverClient(DRIVER_URL);
   await client.createSession(args.app, args.webview);
   await waitForBody(client, `OpenSCAD ${EXPECTED_ENGINE_VERSION}`, 60_000);
+  await assertWelcomeStaysDisabled(client);
   const applicationAfterLayoutRestart = await requireSingleAppProcess(args.app, appSha256);
   const webViewsAfterLayoutRestart = await requireExactExecutableProcesses(
     webViewExecutable,
@@ -1353,6 +1404,7 @@ try {
   client = new WebDriverClient(DRIVER_URL);
   await client.createSession(args.app, args.webview);
   await waitForBody(client, "Restore unsaved work", 30_000);
+  await assertWelcomeStaysDisabled(client);
   lastVerifiedAppProcess = await requireSingleAppProcess(args.app, appSha256);
   await clickButton(client, "Restore unsaved work");
   await waitFor(async () => (await editorSource(client)) === dirtySource, "exact recovered source", 15_000, 50);
