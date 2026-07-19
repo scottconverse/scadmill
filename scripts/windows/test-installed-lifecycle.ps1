@@ -408,6 +408,7 @@ $debugPort = New-LoopbackPort
 $debugArgument = "--edge-webview-switches=--remote-debugging-port=$debugPort"
 $first = Start-Process -FilePath $application.FullName -ArgumentList $debugArgument -PassThru
 $firstHandle = Wait-MainWindow $first
+Wait-WebViewReady $debugPort
 if (-not [ScadMillWindowProbe]::MoveWindow($firstHandle, 137, 149, 1111, 713, $true)) {
   throw "Could not set the window-state persistence probe rectangle."
 }

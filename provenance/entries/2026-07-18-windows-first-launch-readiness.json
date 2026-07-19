@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-18-windows-first-launch-readiness",
+  "createdAt": "2026-07-18T18:45:00-06:00",
+  "summary": "Require full application readiness before the Windows installer lifecycle mutates and normally closes its first launched window.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "FR-13.4", "AC-13.b", "N-7"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-18-windows-first-launch-readiness.json", "status": "added" },
+    { "path": "scripts/windows/test-installed-lifecycle.ps1", "status": "modified" },
+    { "path": "tests/scripts/windows-installer.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29666733917/job/88138296569",
+      "accessedOn": "2026-07-18",
+      "purpose": "Inspect the exact hosted Windows installer lifecycle failure and its execution boundary."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0388",
+      "topic": "First-launch Windows lifecycle readiness boundary",
+      "decision": "Wait for the active WebView application-ready state after the first main HWND appears and before moving or normally closing that window; retain the existing single 15-second normal-close assertion.",
+      "rationale": "The failing hosted run closed the first launch before applying the readiness check already used by the second and third launches. The identical packaged executable passed the preceding hosted lifecycle, and the intervening commit changed only browser-test files, isolating the defect to a harness startup race rather than product shutdown behavior.",
+      "specBasis": ["FR-13.4", "AC-13.b", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The first installed launch must reach the same active WebView readiness boundary as later launches before window mutation and normal close.",
+      "test": "Assert first-launch ordering in the static installer lifecycle contract and run that focused contract once red and once green.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/windows-installer.test.ts",
+        "observedAt": "2026-07-18T18:44:40-06:00",
+        "outcome": "RED: 1/3 failed because no first-launch Wait-WebViewReady call existed between Wait-MainWindow and MoveWindow."
+      },
+      "green": {
+        "command": "pnpm.cmd exec biome check tests/scripts/windows-installer.test.ts; pnpm.cmd exec vitest run tests/scripts/windows-installer.test.ts; git diff --check",
+        "observedAt": "2026-07-18T18:44:54-06:00",
+        "outcome": "GREEN: scoped Biome passed, the installer lifecycle contract passed 3/3, and the diff check was clean. The normal-close timeout and single-attempt failure bar remain unchanged. Independent review returned literal 0/0/0/0/0."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29666733917/job/88138296569",
+      "sought": "Whether the hosted close failure demonstrated a product shutdown regression",
+      "confirmation": "The failure occurred on the first launch before readiness; the identical app passed the immediately preceding lifecycle and only browser-test files changed between commits."
+    }
+  ],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
