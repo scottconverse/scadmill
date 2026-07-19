@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createMcpReviewQueue } from "../../../src/application/mcp/mcp-review-queue";
 
-const review = (commandId: string) => ({ commandId, tool: "write_file" as const, arguments: { path: "main.scad", content: "cube(2);" }, createdAt: "2026-07-17T00:00:00.000Z" });
+const review = (commandId: string) => ({ commandId, tool: "write_file" as const, arguments: { path: "main.scad", content: "cube(2);" }, createdAt: "2026-07-17T00:00:00.000Z", origin: "external-agent" as const });
 
 describe("MCP review queue", () => {
   it("bounds entries and removes only the approved or denied review", () => {

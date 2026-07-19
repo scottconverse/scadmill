@@ -21,6 +21,7 @@ export interface ConversationState {
   readonly messages: readonly ConversationMessage[];
   readonly proposals: readonly ProposedEdit[];
   readonly activeRequestId: string | null;
+  readonly configurationId: string | null;
 }
 
 export type ConversationAction =
@@ -31,10 +32,11 @@ export type ConversationAction =
   | { readonly kind: "cancel"; readonly requestId: string }
   | { readonly kind: "propose-edit"; readonly proposal: ProposedEdit }
   | { readonly kind: "review-edit"; readonly proposalId: string; readonly status: Exclude<ProposalStatus, "pending"> }
+  | { readonly kind: "select-configuration"; readonly configurationId: string }
   | { readonly kind: "clear" };
 
 export function createConversationState(): ConversationState {
-  return { messages: [], proposals: [], activeRequestId: null };
+  return { messages: [], proposals: [], activeRequestId: null, configurationId: null };
 }
 
 export function extractCodeBlocks(markdown: string): readonly { language: string; code: string }[] {
@@ -92,6 +94,8 @@ export function conversationReducer(state: ConversationState, action: Conversati
         ...state,
         proposals: state.proposals.map((proposal) => proposal.id === action.proposalId ? { ...proposal, status: action.status } : proposal),
       };
+    case "select-configuration":
+      return { ...state, configurationId: action.configurationId };
     case "clear":
       return createConversationState();
   }

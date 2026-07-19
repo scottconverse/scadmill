@@ -1,12 +1,11 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createLocalConversationPersistence } from "../application/ai/conversation-persistence";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { activeDocument, canCloseDocument, canReopenDocument } from "../application/documents/document-workspace";
 import type { WorkspaceLayoutAction } from "../application/layout/workspace-layout";
 import { parameterDocument } from "../application/parameters/parameter-state";
 import { EPHEMERAL_SECRET_STORE } from "../application/settings/secret-store";
 import { viewerDocument } from "../application/viewer/viewer-state";
 import { messages } from "../messages/en";
-import { AiConversationPanel, createAiConversationBridge } from "./ai";
+import { AiWorkbenchPanel } from "./ai";
 import { DiagnosticConsole } from "./diagnostics/DiagnosticConsole";
 import { useDiagnosticNavigation } from "./diagnostics/use-diagnostic-navigation";
 import type { CodeEditorSession, CursorPosition } from "./editor/CodeEditor";
@@ -57,19 +56,18 @@ export function Workbench({
   const render = useReadonlyStore(runtime.render, (state) => state);
   const consoleState = useReadonlyStore(runtime.console, (state) => state);
   const { autoRender, editor: editorSettings, keybindings, persistenceStatus: settingsPersistenceStatus, profile } = useReadonlyStore(runtime.settings, (state) => state);
-  const formatterSettings = profile.formatter; const aiBridge = createAiConversationBridge(runtime, profile, secretStore, document.id);
+  const formatterSettings = profile.formatter;
   const layout = useReadonlyStore(runtime.layout, (state) => state);
   const viewerState = useReadonlyStore(runtime.viewer, (state) => state);
   const parameterState = useReadonlyStore(runtime.parameters, (state) => state);
   const currentParameters = parameterDocument(parameterState, document.id);
-  const aiPersistence = useMemo(() => createLocalConversationPersistence(document.id), [document.id]);
   const [viewerScreenshotDataUrl, setViewerScreenshotDataUrl] = useState<string>(); const { capture: captureMcpScreenshot, setCapture: setMcpScreenshotCapture } = useMcpViewportCapture();
-  const { connected: mcpConnected, enabled: mcpEnabled, setEnabled: setMcpEnabled, permissions: mcpPermissions, setPermission: setMcpPermission, pendingReviews, approveReview, dismissReview } = useMcpStdio(runtime, engine, mcpPort, captureMcpScreenshot);
+  const { connected: mcpConnected, enabled: mcpEnabled, setEnabled: setMcpEnabled, permissions: mcpPermissions, setPermission: setMcpPermission, pendingReviews, pendingReview, approveReview, restoreReview, dismissReview, agentHandler } = useMcpStdio(runtime, engine, mcpPort, captureMcpScreenshot);
   useEffect(() => { if (document.id) setViewerScreenshotDataUrl(undefined); }, [document.id]);
   const projectState = useReadonlyStore(runtime.project, (state) => state);
   const history = useReadonlyStore(runtime.history, (state) => state); const historyDetails = useReadonlyStore(runtime.historyDetails, (state) => state); const controls = useReadonlyStore(runtime.controls, (state) => state);
   const { sourceForPath: sourceForMcpPath, approve: approveMcpReview } = useMcpReviewApproval(
-    runtime, documents, projectState, approveReview,
+    runtime, documents, projectState, approveReview, restoreReview,
   );
   const editorProjectCompletion = useProjectCompletionContext(projectState, documents);
   const narrow = useNarrowLayout(undefined, forceNarrowLayout);
@@ -371,8 +369,8 @@ export function Workbench({
           storage={projectStorage} onRecoveryPendingChange={setRecoveryPending}
         />
       </WorkbenchBanners>
-      <WorkspaceFrame aiConfigured={profile.ai.provider !== "none"} activityContent={{
-          ai: <AiConversationPanel key={document.id} configured={profile.ai.provider !== "none"} contextInputs={{ source: document.source, diagnostics: aiDiagnostics, parameters: aiParameters, screenshotDataUrl: viewerScreenshotDataUrl }} currentSource={document.source} documentId={document.id} model={profile.ai.model} onApplyEdit={aiBridge.applyEdit} onCopy={clipboard?.writeText} onInsertAtCursor={(code) => { const session = editorSessions.current.get(document.id); const head = session?.state.selection.main.head ?? document.source.length; const offset = Math.max(0, Math.min(document.source.length, head)); void runtime.dispatch({ kind: "edit-document", origin: "ai-panel", documentId: document.id, source: `${document.source.slice(0, offset)}${code}${document.source.slice(offset)}` }).catch(() => undefined); }} persistence={aiPersistence} requestStream={profile.ai.provider === "none" ? undefined : aiBridge.requestStream} />,
+      <WorkspaceFrame aiConfigured={(profile.ai.provider !== "none" && Boolean(profile.ai.model.trim() || profile.ai.models.length)) || profile.ai.configurations.length > 0} activityContent={{
+          ai: <AiWorkbenchPanel key={projectState.snapshot.workspaceIdentity} agentToolHandler={agentHandler} contextInputs={{ source: document.source, diagnostics: aiDiagnostics, parameters: aiParameters, screenshotDataUrl: viewerScreenshotDataUrl }} document={document} onApproveReview={approveMcpReview} onCopy={clipboard?.writeText} onInsertAtCursor={(code) => { const session = editorSessions.current.get(document.id); const head = session?.state.selection.main.head ?? document.source.length; const offset = Math.max(0, Math.min(document.source.length, head)); void runtime.dispatch({ kind: "edit-document", origin: "ai-panel", documentId: document.id, source: `${document.source.slice(0, offset)}${code}${document.source.slice(offset)}` }).catch(() => undefined); }} pendingReview={pendingReview} profile={profile} projectIdentity={projectState.snapshot.workspaceIdentity} runtime={runtime} secretStore={secretStore} />,
           files: <FilesActivity canReveal={canRevealProjectFiles} canTrash={canTrashProjectFiles} directoryPicker={directoryPicker} engine={engineAvailable ? engine : undefined} portability={projectPortability} recoveryPersistence={recoveryPersistence} projectTransitionsBlocked={recoveryPending} requestedExport={fileCommands.requestedExport} requestedNewFile={fileCommands.requestedNewFile} runtime={runtime} storage={projectStorage} workspaceDirectory={workspaceDirectory} />,
           history: <McpReviewPanel history={history} historyDetails={historyDetails} pendingReviews={pendingReviews} sourceForPath={sourceForMcpPath} onApprove={approveMcpReview} onDeny={dismissReview} />,
         }}

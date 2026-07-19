@@ -48,6 +48,10 @@ Use the actual installed path if you chose a different location. The status bar 
 
 If a client cannot connect, confirm the GUI is running, the toggle is on, the command points to that same installed executable, and no older relay process remains.
 
+## Where do AI messages and keys go?
+
+Messages and selected context go only to the provider/model you choose for that project conversation. ScadMill does not proxy them through a ScadMill service. Named provider configurations have separate secrets; desktop stores them in the OS credential store, while the browser uses session storage unless you explicitly opt into the warning-labeled persistent storage setting. Settings export and saved conversations exclude exact configured secret values.
+
 ## Which later capabilities are not in this beta?
 
 AI assistance and the local MCP bridge are present in the current M4 workbench. Installed-library expansion, navigation and refactoring expansion, slicing and manufacturing estimates, and the headless CLI remain later M5/M6 work and are not claimed by this beta.

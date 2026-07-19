@@ -19,10 +19,8 @@ import { messages } from "../../messages/en";
 import { McpPermissionSettings } from "./McpPermissionSettings";
 import { CustomThemeSettings } from "./CustomThemeSettings";
 import { KeybindingSettingsFields } from "./KeybindingSettingsFields";
-import {
-  type SettingsUpdater,
-  useAiSecretController,
-} from "./use-ai-secret";
+import { AiProviderConfigurations } from "./AiProviderConfigurations";
+import { type SettingsUpdater, useAiSecretController } from "./use-ai-secret";
 export interface SettingsDialogProps {
   readonly engineLabel: string;
   readonly secretStore: SecretStore;
@@ -93,7 +91,6 @@ function numericValue(value: string, minimum: number, maximum: number): number |
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed >= minimum && parsed <= maximum ? parsed : null;
 }
-
 export function SettingsDialog({
   engineLabel,
   secretStore,
@@ -120,6 +117,7 @@ export function SettingsDialog({
   const importRequest = useRef(0);
   const [importError, setImportError] = useState(false);
   const [keybindingError, setKeybindingError] = useState<string | null>(null);
+  const [profileSecretMutations, setProfileSecretMutations] = useState(0);
   const aiSecret = useAiSecretController({
     blocked: settingsMutationsBlocked,
     onChange,
@@ -129,7 +127,8 @@ export function SettingsDialog({
     secretStore,
     settings,
   });
-  const importBlocked = settingsMutationsBlocked || aiSecret.mutationInFlight;
+  const secretMutationInFlight = aiSecret.mutationInFlight || profileSecretMutations > 0;
+  const importBlocked = settingsMutationsBlocked || secretMutationInFlight;
   useEffect(() => searchInput.current?.focus(), []);
   const restoreSection = (section: SettingsSection) => {
     if (section === "ai") aiSecret.restore();
@@ -163,7 +162,7 @@ export function SettingsDialog({
     event.stopPropagation();
     if (event.key === "Escape") {
       event.preventDefault();
-      if (!aiSecret.mutationInFlight) onClose();
+      if (!secretMutationInFlight) onClose();
       return;
     }
     if (event.key !== "Tab") return;
@@ -180,7 +179,6 @@ export function SettingsDialog({
       first?.focus();
     }
   };
-
   return (
     <div className="settings-modal-layer">
     <div aria-label={messages.settingsTitle} aria-modal="true" className="settings-dialog" onKeyDown={handleDialogKeyDown} role="dialog">
@@ -188,7 +186,7 @@ export function SettingsDialog({
         <h2>{messages.settingsTitle}</h2>
         <button
           aria-label={messages.closeSettings}
-          disabled={aiSecret.mutationInFlight}
+          disabled={secretMutationInFlight}
           onClick={onClose}
           type="button"
         >×</button>
@@ -243,7 +241,7 @@ export function SettingsDialog({
         {importError && <p role="alert">{messages.settingsImportFailed}</p>}
         {persistenceError && <p role="alert">{persistenceError}</p>}
       </div>
-      <fieldset className="settings-sections" disabled={settingsMutationsBlocked}>
+      <fieldset className="settings-sections" disabled={settingsMutationsBlocked || secretMutationInFlight}>
         {show("editor") && (
           <Section section="editor" onRestore={restoreSection}>
             <Setting label={messages.editorFontFamily}><input aria-label={messages.editorFontFamily} maxLength={512} onChange={(event) => onChange({ ...settings, editor: { ...settings.editor, fontFamily: event.currentTarget.value } })} value={settings.editor.fontFamily} /></Setting>
@@ -361,6 +359,8 @@ export function SettingsDialog({
             <Setting label={messages.aiProvider}><select aria-label={messages.aiProvider} value={settings.ai.provider} onChange={(event) => onChange({ ...settings, ai: { ...settings.ai, provider: event.currentTarget.value as PersistedSettings["ai"]["provider"] } })}><option value="none">{messages.aiProviderNone}</option><option value="openai">{messages.aiProviderOpenAi}</option><option value="anthropic">{messages.aiProviderAnthropic}</option><option value="compatible">{messages.aiProviderCompatible}</option><option value="local">{messages.aiProviderLocal}</option></select></Setting>
             <Setting label={messages.aiEndpoint}><input aria-label={messages.aiEndpoint} type="url" value={settings.ai.endpoint} onChange={(event) => onChange({ ...settings, ai: { ...settings.ai, endpoint: event.currentTarget.value } })} /></Setting>
             <Setting label={messages.aiModel}><input aria-label={messages.aiModel} type="text" value={settings.ai.model} onChange={(event) => onChange({ ...settings, ai: { ...settings.ai, model: event.currentTarget.value } })} /></Setting>
+            <Setting label={messages.aiConfiguredModels}><textarea aria-label={messages.aiConfiguredModels} onChange={(event) => { const models = [...new Set(event.currentTarget.value.split(/\r?\n/gu).map((value) => value.trim()).filter(Boolean))].slice(0, 32); onChange({ ...settings, ai: { ...settings.ai, models } }); }} value={settings.ai.models.join("\n")} /></Setting>
+            <AiProviderConfigurations configurations={settings.ai.configurations} onChange={(configurations) => onChange({ ...settings, ai: { ...settings.ai, configurations } })} onMutationEnd={() => setProfileSecretMutations((count) => Math.max(0, count - 1))} onMutationStart={() => setProfileSecretMutations((count) => count + 1)} persistWebSecret={settings.ai.persistWebSecret} secretStore={secretStore} />
             {mcpAvailable && mcpPermissions && onMcpEnabledChange && onMcpPermissionChange && <McpPermissionSettings enabled={mcpEnabled} permissions={mcpPermissions} onEnabledChange={onMcpEnabledChange} onPermissionChange={onMcpPermissionChange} />}
             <Setting label={messages.aiApiKey}><input aria-label={messages.aiApiKey} autoComplete="off" disabled={aiSecret.locked || aiSecret.busy} onChange={(event) => aiSecret.change(event.currentTarget.value)} type="password" value={aiSecret.secret} /></Setting>
             <div className="settings-secret-actions"><button disabled={aiSecret.locked || aiSecret.busy} onClick={aiSecret.save} type="button">{messages.saveAiKey}</button><button disabled={aiSecret.locked || aiSecret.busy || aiSecret.secret.length === 0} onClick={aiSecret.clear} type="button">{messages.clearAiKey}</button></div>

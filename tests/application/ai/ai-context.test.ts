@@ -18,4 +18,11 @@ describe("AI per-send context", () => {
     expect(message).toContain("[truncated]");
     expect(message.length).toBeLessThan(130_000);
   });
+
+  it("rejects an oversized screenshot instead of truncating it into invalid image data", () => {
+    expect(() => buildAiContextMessage(
+      { ...inputs, screenshotDataUrl: `data:image/png;base64,${"A".repeat(2_000_001)}` },
+      { ...DEFAULT_AI_CONTEXT_TOGGLES, screenshot: true },
+    )).toThrow("Viewer screenshot exceeds the AI context size limit.");
+  });
 });

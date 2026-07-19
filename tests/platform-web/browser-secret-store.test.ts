@@ -21,7 +21,46 @@ describe("browser AI secret storage", () => {
     await expect(secrets.load(false)).resolves.toBe("secret-session");
     expect(local.values.size).toBe(0);
     expect(session.values.size).toBe(1);
+    expect(session.values.get("scadmill:ai-secret:session")).toBe("secret-session");
   });
+
+  it("isolates two safe configuration scopes without changing the legacy default keys", async () => {
+    const session = storage();
+    const local = storage();
+    const secrets = createBrowserSecretStore(session, local);
+
+    await secrets.save("legacy", false);
+    await secrets.save("alpha-secret", false, "provider-alpha");
+    await secrets.save("beta-secret", true, "provider-beta");
+
+    await expect(secrets.load(false)).resolves.toBe("legacy");
+    await expect(secrets.load(false, "default")).resolves.toBe("legacy");
+    await expect(secrets.load(false, "provider-alpha")).resolves.toBe("alpha-secret");
+    await expect(secrets.load(true, "provider-beta")).resolves.toBe("beta-secret");
+    await expect(secrets.load(false, "provider-beta")).resolves.toBe("");
+    expect(session.values.get("scadmill:ai-secret:session")).toBe("legacy");
+    expect(session.values.get("scadmill:ai-secret:session:provider-alpha")).toBe("alpha-secret");
+    expect(local.values.get("scadmill:ai-secret:persisted:provider-beta")).toBe("beta-secret");
+
+    await secrets.clear("provider-alpha");
+    await expect(secrets.load(false, "provider-alpha")).resolves.toBe("");
+    await expect(secrets.load(false)).resolves.toBe("legacy");
+    await expect(secrets.load(true, "provider-beta")).resolves.toBe("beta-secret");
+  });
+
+  it.each(["", "bad/scope", "x".repeat(129)])(
+    "rejects an invalid or oversized configuration scope before browser storage access: %j",
+    async (scope) => {
+      const session = storage();
+      const local = storage();
+      const secrets = createBrowserSecretStore(session, local);
+
+      await expect(secrets.load(false, scope)).rejects.toThrow("scope");
+      await expect(secrets.save("secret", false, scope)).rejects.toThrow("scope");
+      await expect(secrets.clear(scope)).rejects.toThrow("scope");
+      expect(session.values.size + local.values.size).toBe(0);
+    },
+  );
 
   it("moves the key to local storage only after explicit persisted opt-in", async () => {
     const session = storage();

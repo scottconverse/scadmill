@@ -21,7 +21,7 @@ describe("McpReviewPanel", () => {
           ["history-user", { kind: "source-diff", path: "main.scad", before: "cube(1);", after: "cube(2);" }],
           ["history-user-2", { kind: "source-diff", path: "main.scad", before: "cube(2);", after: "cube(3);" }],
         ])}
-        pendingReviews={[{ commandId: "review-1", tool: "set_parameters", arguments: { path: "main.scad", values: { width: 24 } }, createdAt: "2026-07-17T00:00:00Z" }]}
+        pendingReviews={[{ commandId: "review-1", tool: "set_parameters", arguments: { path: "main.scad", values: { width: 24 } }, createdAt: "2026-07-17T00:00:00Z", origin: "external-agent" }]}
         sourceForPath={() => "cube(1);"}
         onApprove={approve}
         onDeny={deny}
@@ -59,6 +59,6 @@ describe("McpReviewPanel", () => {
     expect(deny).toHaveBeenCalledWith("review-1");
     expect(view.getByRole("region", { name: "Workspace history" })).toBeVisible();
     expect(view.getByRole("heading", { name: "Workspace history", level: 2 })).toBeVisible();
-    expect(view.getByRole("region", { name: "MCP pending reviews" })).toBeVisible();
+    expect(view.getByRole("region", { name: "Pending tool reviews" })).toBeVisible();
   });
 });

@@ -11,10 +11,13 @@ verified load. These requests contain no model source, project files, settings, 
 secret values. The public repository does not distribute those engine bytes while Q-0033
 remains unresolved.
 
-Future explicitly user-initiated or user-configured network paths reserved by the specification
-are AI-provider requests, an opt-in desktop update check, and explicit library or engine-version
-downloads. Enabling the current update-check preference does not start a network request because
-the updater itself arrives in a later milestone.
+AI-provider requests are explicitly user-initiated and go directly to the selected
+OpenAI-compatible, Anthropic, or local endpoint. Each request contains the conversation plus only
+the source, diagnostics, parameters, or viewer screenshot context selected in the panel. ScadMill
+does not proxy these requests through a ScadMill service. Other reserved network paths are an
+opt-in desktop update check and explicit library or engine-version downloads. Enabling the current
+update-check preference does not start a network request because the updater itself arrives in a
+later milestone.
 
 Web share links gzip the active single-file source into the URL fragment. Browsers do not send
 fragments in HTTP requests, so the source does not touch the hosting server. The source is still
@@ -24,8 +27,9 @@ clipboard managers, or other applications that receive the link. Project ZIP imp
 export, and model exports are local browser file operations.
 
 The desktop OpenSCAD engine runs as a local subprocess. Desktop projects, settings, recovery
-buffers, exports, and rendered geometry stay on the user's machine. AI keys use the operating
-system keychain and are excluded from settings files.
+buffers, exports, and rendered geometry stay on the user's machine. AI keys use independently
+scoped operating-system credential-store records and are excluded from settings files and saved
+conversations.
 
 The desktop render cache is off by default and can be enabled independently for each opened
 project; scratch work is never eligible. When enabled, ScadMill stores rendered SVG or mesh
@@ -46,7 +50,8 @@ transient measurements are not persisted.
 Those records remain in the browser profile until ScadMill replaces or clears them, or the user
 clears site data. AI keys use session storage by default. ScadMill writes an AI key to persistent
 browser-local storage only after the user explicitly opts in from the warning-labeled setting;
-settings export never includes the key.
+the choice migrates each named provider key together. Settings export and saved conversations
+never include exact configured key values.
 
 To remove all web data, clear ScadMill's site data in the browser. The current product does not
 provide a single in-app command that clears every local store.

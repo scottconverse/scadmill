@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-18-m4-ai-assist-panel",
+  "createdAt": "2026-07-18T21:31:57-06:00",
+  "summary": "Complete the optional C10 AI assist panel with direct provider streaming, scoped credentials, durable conversations, reviewable edits, and bounded MCP-backed agent mode.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "FR-10.1", "FR-10.2", "FR-10.3", "FR-10.4", "FR-10.5", "FR-10.6", "FR-10.7", "AC-10.a", "AC-10.b", "AC-10.c", "AC-10.d", "N-7"],
+  "filesTouched": [
+    { "path": "ARCHITECTURE.md", "status": "modified" },
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "PRIVACY.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "docs/FAQ.md", "status": "modified" },
+    { "path": "docs/USER-GUIDE.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-18-m4-ai-assist-panel.json", "status": "added" },
+    { "path": "src/application/ai/agent-loop.ts", "status": "modified" },
+    { "path": "src/application/ai/agent-tool-executor.ts", "status": "added" },
+    { "path": "src/application/ai/ai-client.ts", "status": "modified" },
+    { "path": "src/application/ai/ai-context.ts", "status": "modified" },
+    { "path": "src/application/ai/ai-provider.ts", "status": "modified" },
+    { "path": "src/application/ai/conversation-persistence.ts", "status": "modified" },
+    { "path": "src/application/ai/conversation.ts", "status": "modified" },
+    { "path": "src/application/mcp/apply-workbench-review.ts", "status": "added" },
+    { "path": "src/application/mcp/mcp-dispatcher.ts", "status": "modified" },
+    { "path": "src/application/mcp/mcp-review-queue.ts", "status": "modified" },
+    { "path": "src/application/mcp/workbench-mcp-handler.ts", "status": "modified" },
+    { "path": "src/application/settings/secret-store.ts", "status": "modified" },
+    { "path": "src/application/settings/settings-codec.ts", "status": "modified" },
+    { "path": "src/application/settings/settings-schema.ts", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/src/keychain.rs", "status": "modified" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/platform-desktop/tauri-secret-store.ts", "status": "modified" },
+    { "path": "src/platform-web/browser-secret-store.ts", "status": "modified" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/ai/AiConversationPanel.tsx", "status": "modified" },
+    { "path": "src/ui/ai/AiMarkdown.tsx", "status": "modified" },
+    { "path": "src/ui/ai/AiWorkbenchPanel.tsx", "status": "added" },
+    { "path": "src/ui/ai/ai-runtime-bridge.ts", "status": "modified" },
+    { "path": "src/ui/ai/index.ts", "status": "modified" },
+    { "path": "src/ui/mcp/McpReviewPanel.tsx", "status": "modified" },
+    { "path": "src/ui/mcp/use-mcp-review-approval.ts", "status": "modified" },
+    { "path": "src/ui/mcp/use-mcp-stdio.ts", "status": "modified" },
+    { "path": "src/ui/settings/AiProviderConfigurations.tsx", "status": "added" },
+    { "path": "src/ui/settings/SettingsDialog.tsx", "status": "modified" },
+    { "path": "src/ui/settings/use-ai-secret.ts", "status": "modified" },
+    { "path": "tests/application/ai/agent-loop.test.ts", "status": "modified" },
+    { "path": "tests/application/ai/agent-tool-executor.test.ts", "status": "added" },
+    { "path": "tests/application/ai/ai-client.test.ts", "status": "modified" },
+    { "path": "tests/application/ai/ai-context.test.ts", "status": "modified" },
+    { "path": "tests/application/ai/ai-secret-scan.test.ts", "status": "added" },
+    { "path": "tests/application/ai/conversation-persistence.test.ts", "status": "modified" },
+    { "path": "tests/application/mcp/mcp-review-queue.test.ts", "status": "modified" },
+    { "path": "tests/application/settings/settings-codec.test.ts", "status": "modified" },
+    { "path": "tests/platform-desktop/tauri-secret-store.test.ts", "status": "modified" },
+    { "path": "tests/platform-web/browser-secret-store.test.ts", "status": "modified" },
+    { "path": "tests/ui/ai/AiAgentAcceptance.test.tsx", "status": "added" },
+    { "path": "tests/ui/ai/AiConversationPanel.test.tsx", "status": "modified" },
+    { "path": "tests/ui/ai/AiMarkdown.test.tsx", "status": "modified" },
+    { "path": "tests/ui/ai/AiWorkbenchPanel.test.tsx", "status": "added" },
+    { "path": "tests/ui/ai/ai-runtime-bridge.test.ts", "status": "modified" },
+    { "path": "tests/ui/mcp/McpReviewPanel.test.tsx", "status": "modified" },
+    { "path": "tests/ui/mcp/use-mcp-review-approval.test.tsx", "status": "modified" },
+    { "path": "tests/ui/mcp/use-mcp-stdio.test.tsx", "status": "modified" },
+    { "path": "tests/ui/settings/AiProviderConfigurations.test.tsx", "status": "added" },
+    { "path": "tests/ui/settings/SettingsDialog.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0391",
+      "topic": "Scope provider credentials to stable user-named configurations",
+      "decision": "Represent each user-configured provider/model pair with a stable, model-derived internal identifier; scope its key independently in the desktop keychain or explicitly enabled browser storage; select a configuration per conversation; reject the reserved default identifier; and serialize secret migrations against profile mutations.",
+      "rationale": "FR-10.1 and FR-10.2 require multiple user-configured provider/model choices without cross-profile key collision. Stable identifiers preserve selections across reordering, while fail-closed serialized mutation prevents a persistence-mode transition from resurrecting or misrouting secrets.",
+      "specBasis": ["FR-10.1", "FR-10.2", "AC-10.a", "AC-10.d"]
+    },
+    {
+      "id": "D-0392",
+      "topic": "Use provider-native streaming and an exact bounded agent-tool surface",
+      "decision": "Use fresh direct HTTP transports for OpenAI-compatible, Anthropic, and Ollama-style providers, including native image payloads and streaming protocols. Bind opt-in agent mode to exactly read source, propose edit, render, read diagnostics, and take screenshot through the application MCP handler, with one abort signal, a configurable default-10 round cap, review by default, and session-only auto-apply.",
+      "rationale": "Provider-native payloads satisfy direct-provider interoperability without SDK dependencies. Reusing the application-owned MCP verbs gives agent actions the same validation and review boundaries as external automation, while cancellation and the cap prevent unbounded work.",
+      "specBasis": ["FR-10.1", "FR-10.3", "FR-10.5", "FR-10.7", "AC-10.c"]
+    },
+    {
+      "id": "D-0393",
+      "topic": "Persist conversations only at secret-safe durable boundaries",
+      "decision": "Persist per-project conversations after completed or cancelled requests, scan the serialized bytes plus application console surfaces for exact configured secrets, redact exact secret values from provider and tool errors, and treat secret-load or persistence failure as a visible fail-closed error. Apply-as-edit remains pending until the originating runtime accepts the edit.",
+      "rationale": "Streaming deltas need not create durable writes and must never capture credentials. Durable-boundary persistence, integrated sentinel scans, and result-bearing edit dispatch satisfy conversation continuity and AC-10.d while preventing false accepted states or silent data loss.",
+      "specBasis": ["FR-10.4", "FR-10.6", "FR-10.7", "AC-10.b", "AC-10.d"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "C10 performs configured direct-provider streaming, contextual chat, safe markdown and reviewable edits, bounded MCP-backed agent work, cancellation, durable per-project conversations, and exact credential non-disclosure.",
+      "test": "Run the focused C10 denominator and native keychain tests, the complete browser unit and production-build gates, then three independent bounded adversarial reviews; repair only reproduced defects and rerun affected tests plus static gates.",
+      "red": {
+        "command": "pnpm.cmd vitest run <affected C10 tests> --reporter=dot; three independent C10 adversarial reviews",
+        "observedAt": "2026-07-18T20:20:00-06:00",
+        "outcome": "RED: the initial affected run exposed three fixture/assertion defects. Bounded reviews then reproduced provider-profile secret-scope collision, unstable and surrogate-colliding IDs, incomplete secret-mutation locking, excess keychain reads, false accepted edits, silent persistence failure, missing Anthropic SSE delta/error handling, stale setup alerts, and absent integrated AC-10.d console-and-file scanning. Each product defect received a focused regression before correction."
+      },
+      "green": {
+        "command": "pnpm.cmd test -- --reporter=dot; pnpm.cmd build; pnpm.cmd exec vitest run tests/application/ai/ai-client.test.ts tests/application/ai/ai-secret-scan.test.ts tests/ui/ai/AiConversationPanel.test.tsx tests/ui/ai/ai-runtime-bridge.test.ts tests/ui/settings/SettingsDialog.test.tsx tests/ui/settings/AiProviderConfigurations.test.tsx --reporter=dot; pnpm.cmd typecheck; pnpm.cmd lint; cargo test --manifest-path src/desktop-shell/src-tauri/Cargo.toml keychain --locked; git diff --check",
+        "observedAt": "2026-07-18T21:30:12-06:00",
+        "outcome": "GREEN: the complete browser unit denominator passed 186 files/1406 tests and the production build passed over 261 modules. The final focused repaired denominator passed 6 files/81 tests; the result-bearing edit contract recheck passed 2 files/22 tests. TypeScript, lint/source policy over 478 files, and diff hygiene exited 0. Native keychain tests passed 4/4. The secret/model, agent-mode, and specification-matrix reviewers each returned literal 0 blocker / 0 critical / 0 major / 0 minor / 0 nit."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://src/application/ai",
+      "sought": "Adversarial C10 provider protocol, credential-boundary, persistence, review, cancellation, and agent-loop inspection",
+      "confirmation": "Independent bounded reviews converted protocol and concurrency edge cases into regressions, including official Anthropic SSE shapes, streamed provider error events, atomic secret transitions, stable profile identity, durable-boundary persistence, closed-origin edit rejection, and exact secret sentinel scanning, before converging to strict zero."
+    }
+  ],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

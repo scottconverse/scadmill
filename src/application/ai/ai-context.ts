@@ -32,6 +32,11 @@ export function buildAiContextMessage(inputs: AiContextInputs, toggles: AiContex
   if (toggles.source) sections.push(`<current-file>\n${bounded(inputs.source, MAX_SOURCE)}\n</current-file>`);
   if (toggles.diagnostics && inputs.diagnostics.length > 0) sections.push(`<diagnostics>\n${inputs.diagnostics.map((item) => bounded(item, MAX_LIST_ITEM)).join("\n")}\n</diagnostics>`);
   if (toggles.parameters && inputs.parameters.length > 0) sections.push(`<parameters>\n${inputs.parameters.map((item) => bounded(item, MAX_LIST_ITEM)).join("\n")}\n</parameters>`);
-  if (toggles.screenshot && inputs.screenshotDataUrl) sections.push(`<viewer-screenshot>\n${bounded(inputs.screenshotDataUrl, MAX_SCREENSHOT)}\n</viewer-screenshot>`);
+  if (toggles.screenshot && inputs.screenshotDataUrl) {
+    if (inputs.screenshotDataUrl.length > MAX_SCREENSHOT) {
+      throw new Error("Viewer screenshot exceeds the AI context size limit.");
+    }
+    sections.push(`<viewer-screenshot>\n${inputs.screenshotDataUrl}\n</viewer-screenshot>`);
+  }
   return sections.join("\n\n");
 }

@@ -8,7 +8,7 @@ export interface McpJsonRpcRequest {
 }
 
 export interface McpToolHandler {
-  call(name: McpToolName, argumentsValue: Record<string, unknown>): Promise<unknown>;
+  call(name: McpToolName, argumentsValue: Record<string, unknown>, signal?: AbortSignal): Promise<unknown>;
 }
 
 export type McpJsonRpcResponse =

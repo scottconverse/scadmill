@@ -12,6 +12,7 @@ import type { ParameterValue } from "../parameters/customizer-schema";
 import { parameterDocument } from "../parameters/parameter-state";
 import { buildRuntimeRenderFileMap } from "../runtime/project-render-files";
 import type { WorkbenchRuntime } from "../runtime/workbench-runtime-contracts";
+import type { CommandOrigin } from "../runtime/workbench-runtime-contracts";
 import type { McpToolHandler } from "./mcp-dispatcher";
 import type { McpPendingReview } from "./mcp-review-queue";
 import type { McpToolName } from "./mcp-tools";
@@ -22,6 +23,7 @@ export interface WorkbenchMcpHandlerOptions {
   readonly captureScreenshot?: (width: number, height: number) => Promise<Uint8Array>;
   readonly reviewId?: () => string;
   readonly onPendingReview?: (review: McpPendingReview) => void;
+  readonly mutationOrigin?: Extract<CommandOrigin, "ai-panel" | "external-agent">;
 }
 
 function defaultReviewId(): string {
@@ -124,7 +126,7 @@ function extension(format: ExportFormat): string {
   return format === "stl-binary" || format === "stl-ascii" ? "stl" : format;
 }
 
-export function createWorkbenchMcpHandler({ runtime, engine, captureScreenshot, reviewId = defaultReviewId, onPendingReview }: WorkbenchMcpHandlerOptions): McpToolHandler {
+export function createWorkbenchMcpHandler({ runtime, engine, captureScreenshot, reviewId = defaultReviewId, onPendingReview, mutationOrigin = "external-agent" }: WorkbenchMcpHandlerOptions): McpToolHandler {
   let lastPreview = new Map<string, PreviewRecord>();
 
   const documents = () => runtime.documents.getState().documents;
@@ -156,7 +158,8 @@ export function createWorkbenchMcpHandler({ runtime, engine, captureScreenshot, 
   };
 
   return {
-    async call(name: McpToolName, args: Record<string, unknown>): Promise<unknown> {
+    async call(name: McpToolName, args: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
+      if (signal?.aborted) throw new Error("Tool call was cancelled.");
       switch (name) {
         case "list_files": {
           const files = [...fileMap()].map(([path, content]) => ({ path, sizeBytes: fileSize(content), kind: fileKind(path, content) }));
@@ -172,7 +175,7 @@ export function createWorkbenchMcpHandler({ runtime, engine, captureScreenshot, 
           const existing = target(path, false);
           if (!existing && !args.createIfMissing) throw new Error(`Project file ${path} does not exist.`);
           const commandId = `mcp-review-${reviewId()}`;
-          onPendingReview?.({ commandId, tool: "write_file", arguments: { ...args, path }, createdAt: new Date().toISOString() });
+          onPendingReview?.({ commandId, tool: "write_file", arguments: { ...args, path }, createdAt: new Date().toISOString(), origin: mutationOrigin });
           return { status: "pending_review", commandId };
         }
         case "render_preview": {
@@ -192,7 +195,11 @@ export function createWorkbenchMcpHandler({ runtime, engine, captureScreenshot, 
             timeoutMs: settings.previewTimeoutMs,
             previewFacetLimit: settings.previewFacetLimit,
           });
-          const result: RenderResult = await job.done;
+          const cancel = () => { engine.cancel(job.jobId); };
+          signal?.addEventListener("abort", cancel, { once: true });
+          let result: RenderResult;
+          try { result = await job.done; } finally { signal?.removeEventListener("abort", cancel); }
+          if (signal?.aborted) throw new Error("Tool call was cancelled.");
           const diagnostics = result.diagnostics;
           lastPreview = new Map(lastPreview).set(found.path.toLowerCase(), { renderId: job.jobId, quality: "preview", diagnostics, supersededUiRenderId });
           return { kind: result.kind, stats: result.kind === "3d" ? result.stats : null, diagnostics };
@@ -235,7 +242,7 @@ export function createWorkbenchMcpHandler({ runtime, engine, captureScreenshot, 
           const known = new Set(state.parameters.filter(({ hidden }) => !hidden).map(({ name }) => name));
           const unknownNames = Object.keys(args.values as Record<string, unknown>).filter((name) => !known.has(name));
           const commandId = `mcp-review-${reviewId()}`;
-          onPendingReview?.({ commandId, tool: "set_parameters", arguments: { ...args }, createdAt: new Date().toISOString() });
+          onPendingReview?.({ commandId, tool: "set_parameters", arguments: { ...args }, createdAt: new Date().toISOString(), origin: mutationOrigin });
           return { status: "pending_review", commandId, unknownNames };
         }
         case "take_screenshot": {
@@ -243,6 +250,7 @@ export function createWorkbenchMcpHandler({ runtime, engine, captureScreenshot, 
           const width = screenshotDimension(args.width, 1024, "Screenshot width");
           const height = screenshotDimension(args.height, 768, "Screenshot height");
           const bytes = await captureScreenshot(width, height);
+          if (signal?.aborted) throw new Error("Tool call was cancelled.");
           return { mimeType: "image/png", data: pngBase64(bytes) };
         }
         case "get_history": {

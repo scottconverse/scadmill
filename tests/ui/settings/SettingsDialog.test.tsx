@@ -155,6 +155,8 @@ describe("SettingsDialog", () => {
         provider: "compatible" as const,
         endpoint: "https://provider.invalid/v1",
         model: "local-model",
+        models: ["local-model", "review-model"],
+        configurations: [],
         persistWebSecret: true,
       },
       keybindings: { ...defaults.keybindings, renderPreview: "Ctrl+F5" },
@@ -347,6 +349,26 @@ describe("SettingsDialog", () => {
     expect(JSON.stringify(settings)).not.toContain("replacement-key");
   });
 
+  it("records a bounded unique model list for the per-conversation picker", () => {
+    const settings = createDefaultPersistedSettings();
+    const onChange = vi.fn();
+    const view = render(<SettingsDialog
+      engineLabel="OpenSCAD 2026.06.12"
+      onChange={onChange}
+      onClose={vi.fn()}
+      onRestore={vi.fn()}
+      secretStore={emptySecrets}
+      settings={settings}
+    />);
+    fireEvent.change(view.getByLabelText("Configured AI models (one per line)"), {
+      target: { value: "model-a\nmodel-b\nmodel-a\n" },
+    });
+    expect(onChange).toHaveBeenLastCalledWith({
+      ...settings,
+      ai: { ...settings.ai, models: ["model-a", "model-b"] },
+    });
+  });
+
   it("shows the local-storage warning before browser persistence is selected", () => {
     const view = render(
       <SettingsDialog
@@ -536,6 +558,117 @@ describe("SettingsDialog", () => {
     });
   });
 
+  it("moves every scoped provider key when browser persistence changes", async () => {
+    const defaults = createDefaultPersistedSettings();
+    const settings = {
+      ...defaults,
+      ai: {
+        ...defaults.ai,
+        configurations: [{
+          id: "reviewer",
+          label: "Review model",
+          provider: "anthropic" as const,
+          endpoint: "https://example.test/messages",
+          model: "claude-review",
+        }],
+      },
+    };
+    const secretStore: SecretStore = {
+      persistence: "web-session",
+      load: vi.fn(async (_persist, scope) => scope === "reviewer" ? "profile-session-key" : "default-session-key"),
+      save: vi.fn().mockResolvedValue(undefined),
+      clear: vi.fn().mockResolvedValue(undefined),
+    };
+    const onChange = vi.fn();
+    const view = render(
+      <SettingsDialog
+        engineLabel="OpenSCAD 2026.06.12"
+        secretStore={secretStore}
+        settings={settings}
+        onChange={onChange}
+        onClose={vi.fn()}
+        onRestore={vi.fn()}
+      />,
+    );
+    await view.findByDisplayValue("profile-session-key");
+
+    fireEvent.click(view.getByLabelText("Persist AI key in this browser"));
+
+    await waitFor(() => expect(secretStore.save).toHaveBeenCalledWith("profile-session-key", true, "reviewer"));
+    expect(secretStore.save).toHaveBeenCalledWith("default-session-key", true);
+    expect(onChange).toHaveBeenCalledWith({
+      ...settings,
+      ai: { ...settings.ai, persistWebSecret: true },
+    });
+  });
+
+  it("locks scoped provider controls while credential migration owns persistence", async () => {
+    const pendingSave = deferred<void>();
+    const defaults = createDefaultPersistedSettings();
+    const settings = {
+      ...defaults,
+      ai: {
+        ...defaults.ai,
+        configurations: [{ id: "reviewer", label: "Review model", provider: "anthropic" as const, endpoint: "https://example.test/messages", model: "claude-review" }],
+      },
+    };
+    const secretStore: SecretStore = {
+      persistence: "web-session",
+      load: vi.fn(async (_persist, scope) => scope === "reviewer" ? "profile-key" : "default-key"),
+      save: vi.fn(() => pendingSave.promise),
+      clear: vi.fn().mockResolvedValue(undefined),
+    };
+    const view = render(
+      <SettingsDialog engineLabel="OpenSCAD 2026.06.12" secretStore={secretStore} settings={settings} onChange={vi.fn()} onClose={vi.fn()} onRestore={vi.fn()} />,
+    );
+    await view.findByDisplayValue("profile-key");
+
+    fireEvent.click(view.getByLabelText("Persist AI key in this browser"));
+    await waitFor(() => expect(secretStore.save).toHaveBeenCalled());
+
+    const profileGroup = view.getByRole("group", { name: "Review model" });
+    for (const control of profileGroup.querySelectorAll("input, select, button")) expect(control).toBeDisabled();
+    expect(view.getByRole("button", { name: "Add provider configuration" })).toBeDisabled();
+
+    pendingSave.resolve(undefined);
+    expect(await view.findByText(/AI key storage changed/iu)).toBeVisible();
+  });
+
+  it("locks global persistence controls while a scoped provider save owns storage", async () => {
+    const profileSave = deferred<void>();
+    const defaults = createDefaultPersistedSettings();
+    const settings = {
+      ...defaults,
+      ai: {
+        ...defaults.ai,
+        configurations: [{ id: "reviewer", label: "Review model", provider: "anthropic" as const, endpoint: "https://example.test/messages", model: "claude-review" }],
+      },
+    };
+    const secretStore: SecretStore = {
+      persistence: "web-session",
+      load: vi.fn(async (_persist, scope) => scope === "reviewer" ? "profile-key" : "default-key"),
+      save: vi.fn((_secret, _persist, scope) => scope === "reviewer" ? profileSave.promise : Promise.resolve()),
+      clear: vi.fn().mockResolvedValue(undefined),
+    };
+    const view = render(
+      <SettingsDialog engineLabel="OpenSCAD 2026.06.12" secretStore={secretStore} settings={settings} onChange={vi.fn()} onClose={vi.fn()} onRestore={vi.fn()} />,
+    );
+    const profileGroup = await view.findByRole("group", { name: "Review model" });
+    await view.findByDisplayValue("profile-key");
+
+    fireEvent.click(profileGroup.getElementsByTagName("button")[0]);
+    await waitFor(() => expect(secretStore.save).toHaveBeenCalledWith("profile-key", false, "reviewer"));
+
+    expect(view.getByLabelText("Persist AI key in this browser")).toBeDisabled();
+    expect(view.getByLabelText("Import settings JSON")).toBeDisabled();
+    expect(view.getByRole("button", { name: "Restore ai defaults" })).toBeDisabled();
+    expect(view.getByRole("button", { name: "Add provider configuration" })).toBeDisabled();
+    expect(view.getByRole("button", { name: "Close settings" })).toBeDisabled();
+
+    profileSave.resolve(undefined);
+    await waitFor(() => expect(view.getByLabelText("Persist AI key in this browser")).toBeEnabled());
+  });
+
   it("still invokes storage migration when opting out with an empty in-memory key", async () => {
     const settings = createDefaultPersistedSettings();
     const persistedSettings = {
@@ -594,6 +727,45 @@ describe("SettingsDialog", () => {
 
     await waitFor(() => expect(secretStore.clear).toHaveBeenCalledOnce());
     expect(onRestore).toHaveBeenCalledWith("ai");
+  });
+
+  it("clears scoped provider keys when restoring the AI section", async () => {
+    const defaults = createDefaultPersistedSettings();
+    const settings = {
+      ...defaults,
+      ai: {
+        ...defaults.ai,
+        configurations: [{
+          id: "reviewer",
+          label: "Review model",
+          provider: "anthropic" as const,
+          endpoint: "https://example.test/messages",
+          model: "claude-review",
+        }],
+      },
+    };
+    const secretStore: SecretStore = {
+      persistence: "web-session",
+      load: vi.fn(async (_persist, scope) => scope === "reviewer" ? "profile-key" : "default-key"),
+      save: vi.fn().mockResolvedValue(undefined),
+      clear: vi.fn().mockResolvedValue(undefined),
+    };
+    const view = render(
+      <SettingsDialog
+        engineLabel="OpenSCAD 2026.06.12"
+        secretStore={secretStore}
+        settings={settings}
+        onChange={vi.fn()}
+        onClose={vi.fn()}
+        onRestore={vi.fn()}
+      />,
+    );
+    await view.findByDisplayValue("profile-key");
+
+    fireEvent.click(view.getByRole("button", { name: "Restore ai defaults" }));
+
+    await waitFor(() => expect(secretStore.clear).toHaveBeenCalledWith("reviewer"));
+    expect(secretStore.clear).toHaveBeenCalledWith();
   });
 
   it("rejects an oversized import without reading or changing settings", async () => {

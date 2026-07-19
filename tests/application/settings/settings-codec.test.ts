@@ -53,13 +53,46 @@ describe("versioned settings JSON", () => {
       },
       formatter: { indentSize: 2, formatOnSave: true },
       theme: { ...settings.theme, preference: "high-contrast" as const },
-      ai: { provider: "compatible" as const, endpoint: "https://ai.invalid/v1", model: "local", persistWebSecret: true },
+      ai: { provider: "compatible" as const, endpoint: "https://ai.invalid/v1", model: "local", models: ["local", "reviewer"], configurations: [{ id: "anthropic-review", label: "Anthropic review", provider: "anthropic" as const, endpoint: "https://api.anthropic.com/v1/messages", model: "claude-review" }], persistWebSecret: true },
       keybindings: { ...settings.keybindings, renderPreview: "Ctrl+F5" },
       privacy: { updateChecks: false },
     };
 
     expect(parsePersistedSettings(serializePersistedSettings(changed))).toEqual(changed);
     expect(serializePersistedSettings(changed)).not.toContain("apiKey");
+  });
+
+  it("migrates the prior single-model version-1 AI shape into the picker list", () => {
+    const legacy = JSON.parse(JSON.stringify(createDefaultPersistedSettings())) as Record<string, unknown>;
+    const ai = legacy.ai as Record<string, unknown>;
+    ai.provider = "openai";
+    ai.model = "legacy-model";
+    delete ai.models;
+    delete ai.configurations;
+    expect(parsePersistedSettings(JSON.stringify(legacy)).ai).toMatchObject({
+      provider: "openai",
+      model: "legacy-model",
+      models: ["legacy-model"],
+    });
+  });
+
+  it("rejects the reserved default id for a scoped provider configuration", () => {
+    const settings = createDefaultPersistedSettings();
+    const invalid = {
+      ...settings,
+      ai: {
+        ...settings.ai,
+        configurations: [{
+          id: "default",
+          label: "Colliding profile",
+          provider: "openai" as const,
+          endpoint: "https://example.test/v1/chat/completions",
+          model: "model",
+        }],
+      },
+    };
+
+    expect(() => parsePersistedSettings(JSON.stringify(invalid))).toThrow("exact version-1 schema");
   });
 
   it("round-trips a selected custom theme as part of the non-secret profile", () => {

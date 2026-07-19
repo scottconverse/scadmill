@@ -23,8 +23,9 @@ export interface StringStorage {
   removeItem(key: string): void;
 }
 
-export function createLocalConversationPersistence(documentId: string, storage?: StringStorage): ConversationPersistence {
-  const key = `scadmill.ai.conversation.v1.${documentId}`;
+export function createLocalConversationPersistence(projectIdentity: string, storage?: StringStorage): ConversationPersistence {
+  if (!projectIdentity.trim()) throw new Error("AI conversation persistence requires a project identity.");
+  const key = `scadmill.ai.conversation.v1.${encodeURIComponent(projectIdentity)}`;
   const target = storage ?? (globalThis.localStorage as StringStorage | undefined);
   return {
     load: () => {
@@ -43,36 +44,40 @@ function safeText(value: unknown, maxLength: number): string | null {
   return typeof value === "string" && value.length <= maxLength ? value : null;
 }
 
-function redact(value: string, secret: string | undefined): string {
-  return secret && secret.length > 0 ? value.split(secret).join("[redacted]") : value;
+function redact(value: string, secrets: string | readonly string[] | undefined): string {
+  const values = typeof secrets === "string" ? [secrets] : secrets ?? [];
+  return values.filter(Boolean).reduce((current, secret) => current.split(secret).join("[redacted]"), value);
 }
 
-export function serializeConversation(state: ConversationState, secret?: string): string {
+export function serializeConversation(state: ConversationState, secrets?: string | readonly string[]): string {
   const messages = state.messages.slice(-MAX_MESSAGES).map((message) => ({
     id: message.id,
     role: message.role,
-    content: redact(message.content, secret),
+    content: redact(message.content, secrets),
     streaming: false,
   }));
   const proposals = state.proposals.slice(-MAX_PROPOSALS).map((proposal) => ({
     id: proposal.id,
     messageId: proposal.messageId,
     documentId: proposal.documentId,
-    code: redact(proposal.code, secret),
+    code: redact(proposal.code, secrets),
     language: proposal.language,
     status: proposal.status,
   }));
-  return JSON.stringify({ schemaVersion: 1, messages, proposals });
+  return JSON.stringify({ schemaVersion: 1, configurationId: state.configurationId, messages, proposals });
 }
 
 export function deserializeConversation(serialized: string | null): ConversationState {
-  if (!serialized) return { messages: [], proposals: [], activeRequestId: null };
+  if (!serialized) return { messages: [], proposals: [], activeRequestId: null, configurationId: null };
   try {
     const parsed: unknown = JSON.parse(serialized);
     if (!parsed || typeof parsed !== "object" || (parsed as { schemaVersion?: unknown }).schemaVersion !== 1) {
-      return { messages: [], proposals: [], activeRequestId: null };
+      return { messages: [], proposals: [], activeRequestId: null, configurationId: null };
     }
-    const value = parsed as { messages?: unknown; proposals?: unknown };
+    const value = parsed as { configurationId?: unknown; messages?: unknown; proposals?: unknown };
+    const configurationId = value.configurationId === undefined || value.configurationId === null
+      ? null
+      : safeText(value.configurationId, 8_192);
     const messages: ConversationMessage[] = Array.isArray(value.messages)
       ? value.messages.flatMap((message) => {
           if (!message || typeof message !== "object") return [];
@@ -96,9 +101,9 @@ export function deserializeConversation(serialized: string | null): Conversation
           return id && messageId && documentId && code !== null && language !== null && status ? [{ id, messageId, documentId, code, language, status: status as ProposalStatus }] : [];
         }).slice(-MAX_PROPOSALS)
       : [];
-    return { messages, proposals, activeRequestId: null };
+    return { messages, proposals, activeRequestId: null, configurationId };
   } catch {
-    return { messages: [], proposals: [], activeRequestId: null };
+    return { messages: [], proposals: [], activeRequestId: null, configurationId: null };
   }
 }
 
@@ -106,6 +111,6 @@ export function loadConversation(persistence: ConversationPersistence): Conversa
   return deserializeConversation(persistence.load());
 }
 
-export function saveConversation(persistence: ConversationPersistence, state: ConversationState, secret?: string): void {
-  persistence.save(serializeConversation(state, secret));
+export function saveConversation(persistence: ConversationPersistence, state: ConversationState, secrets?: string | readonly string[]): void {
+  persistence.save(serializeConversation(state, secrets));
 }

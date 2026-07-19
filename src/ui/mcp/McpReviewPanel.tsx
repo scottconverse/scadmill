@@ -44,7 +44,9 @@ function ReviewCard({ review, sourceForPath, onApprove, onDeny }: Omit<McpReview
   return (
     <article className="mcp-review-card">
       <header>
-        <strong>{review.tool === "write_file" ? messages.mcpWriteReview(path) : messages.mcpParameterReview(path)}</strong>
+        <strong>{review.tool === "write_file"
+          ? review.origin === "ai-panel" ? messages.aiWriteReview(path) : messages.mcpWriteReview(path)
+          : review.origin === "ai-panel" ? messages.aiParameterReview(path) : messages.mcpParameterReview(path)}</strong>
         <span>{messages.mcpReviewPending}</span>
       </header>
       {review.tool === "write_file" ? (
@@ -138,8 +140,8 @@ export function McpReviewPanel({
           )}
         </article>
       )}
-      <section aria-label={messages.mcpReviewPanel} className="mcp-pending-review-section">
-        <h3>{messages.mcpReviewPanel}</h3>
+      <section aria-label={messages.pendingToolReviews} className="mcp-pending-review-section">
+        <h3>{messages.pendingToolReviews}</h3>
         {pendingReviews.length === 0 ? <p>{messages.noMcpReviews}</p> : pendingReviews.map((review) => (
           <ReviewCard key={review.commandId} review={review} sourceForPath={sourceForPath} onApprove={onApprove} onDeny={onDeny} />
         ))}

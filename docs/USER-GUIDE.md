@@ -52,11 +52,19 @@ The History rail also records ordinary workspace commands. Entries are newest fi
 
 Turn the toggle off to close the authenticated local relay and its client process. For a connection failure, verify that the GUI is still open, the MCP toggle is enabled, and the client command uses that exact installed `scadmill.exe`, not a copied or older build.
 
+## Use AI assistance
+
+Open **Settings → AI** and configure the default provider or add named provider/model configurations. Each named configuration owns a separate key. OpenAI-compatible and Anthropic configurations require a key; a local Ollama-style endpoint may run without one. On desktop the keys stay in the operating-system credential store. In a browser they stay in session storage unless you explicitly enable the warning-labeled persistence option, which moves every configured key together.
+
+Open the **AI** activity rail and choose the provider/model for the project conversation. Each send can include the current file, diagnostics, parameters, and—only when selected—the latest viewer screenshot. Replies stream as safe markdown. A fenced code block can be copied, inserted at the cursor, or opened as a per-hunk diff; accepting that diff applies it to the document where the proposal originated.
+
+**Agent mode** is off for every new or cleared conversation. Enabling it allows bounded read, preview-render, diagnostics, screenshot, and proposed-write tool calls; the default limit is 10 tool rounds per message. Proposed writes remain pending for review. Session-only auto-apply is a separate explicit choice and resets when agent mode or the conversation is cleared. **Cancel** aborts both the provider request and the active tool chain. Project conversations can be cleared and are sent only to the selected provider.
+
 ## Settings and privacy
 
 Settings cover editor, rendering, engine, viewer, formatter, theme, AI, keybindings, and privacy behavior. On desktop, open a project and use **Rendering -> Persist render cache for this project** to opt only that project into durable render caching; it is off by default and unavailable for scratch work. The adjacent disclosure lists the stored geometry, logs, diagnostics, and statistics. Turning the option off stops disk-cache use without deleting existing records. Choose **Clear this project's disk render cache** to delete that project's durable records.
 
-Desktop secrets use the OS credential store. Browser secrets remain session-only unless you explicitly enable the warning-labeled persistence option. ScadMill has no telemetry; see [PRIVACY.md](../PRIVACY.md).
+Desktop AI secrets use the OS credential store and remain isolated per named provider configuration. Browser secrets remain session-only unless you explicitly enable the warning-labeled persistence option. ScadMill has no telemetry; see [PRIVACY.md](../PRIVACY.md).
 
 ## Current milestone limits
 

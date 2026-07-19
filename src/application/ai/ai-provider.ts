@@ -1,6 +1,10 @@
 import type { AiPreferences } from "../settings/settings-schema";
 
-export interface AiMessage { readonly role: "system" | "user" | "assistant"; readonly content: string; }
+export interface AiToolCallRecord { readonly id?: string; readonly name: string; readonly arguments: Readonly<Record<string, unknown>>; }
+export type AiMessage =
+  | { readonly role: "system" | "user"; readonly content: string }
+  | { readonly role: "assistant"; readonly content: string; readonly toolCall?: AiToolCallRecord }
+  | { readonly role: "tool"; readonly content: string; readonly toolCallId?: string; readonly toolName: string };
 export interface AiCompletionRequest { readonly messages: readonly AiMessage[]; readonly model: string; readonly temperature?: number; }
 export type AiProvider = Exclude<AiPreferences["provider"], "none">;
 

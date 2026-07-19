@@ -51,4 +51,4 @@ Every non-trivial batch has an append-only record under `provenance/entries`. De
 
 ## Extension seams through M6
 
-Later milestones add MCP/AI, history and batch operations, library management and navigation, slicing estimates, color/3MF work, and headless CLI behavior through the same application ports. Platform-specific work belongs in adapters; reusable product behavior belongs in application services; UI remains a consumer of declared capabilities.
+MCP/AI and ordered command history now use the same application ports and platform adapters. Later milestones extend those seams with batch operations, library management and navigation, slicing estimates, color/3MF work, and headless CLI behavior. Platform-specific work belongs in adapters; reusable product behavior belongs in application services; UI remains a consumer of declared capabilities.

@@ -29,6 +29,47 @@ describe("desktop AI secret store", () => {
     expect(mockedInvoke.mock.calls.flat().join(" ")).not.toContain("settings");
   });
 
+  it("isolates configuration scopes and preserves exact legacy default command arguments", async () => {
+    const values = new Map<string, string>();
+    const mockedInvoke = vi.fn(<T>(command: string, args?: Record<string, unknown>) => {
+      const profileId = String(args?.profileId ?? "default");
+      if (command === "load_ai_secret") return Promise.resolve((values.get(profileId) ?? "") as T);
+      if (command === "save_ai_secret") values.set(profileId, String(args?.secret ?? ""));
+      if (command === "clear_ai_secret") values.delete(profileId);
+      return Promise.resolve(undefined as T);
+    });
+    const secrets = createTauriSecretStore(mockedInvoke as TauriInvoke);
+
+    await secrets.save("legacy", false);
+    await secrets.save("alpha-secret", false, "provider-alpha");
+    await secrets.save("beta-secret", true, "provider-beta");
+    await expect(secrets.load(false)).resolves.toBe("legacy");
+    await expect(secrets.load(false, "default")).resolves.toBe("legacy");
+    await expect(secrets.load(false, "provider-alpha")).resolves.toBe("alpha-secret");
+    await expect(secrets.load(true, "provider-beta")).resolves.toBe("beta-secret");
+    await secrets.clear("provider-alpha");
+    await expect(secrets.load(false, "provider-alpha")).resolves.toBe("");
+    await expect(secrets.load(false)).resolves.toBe("legacy");
+
+    expect(mockedInvoke.mock.calls).toContainEqual(["save_ai_secret", { secret: "legacy" }]);
+    expect(mockedInvoke.mock.calls).toContainEqual(["save_ai_secret", { secret: "alpha-secret", profileId: "provider-alpha" }]);
+    expect(mockedInvoke.mock.calls).toContainEqual(["load_ai_secret", { profileId: "provider-beta" }]);
+    expect(mockedInvoke.mock.calls).toContainEqual(["clear_ai_secret", { profileId: "provider-alpha" }]);
+  });
+
+  it.each(["", "bad/scope", "x".repeat(129)])(
+    "rejects an invalid or oversized configuration scope before desktop IPC: %j",
+    async (scope) => {
+      const invoke = vi.fn() as unknown as TauriInvoke;
+      const secrets = createTauriSecretStore(invoke);
+
+      await expect(secrets.load(false, scope)).rejects.toThrow("scope");
+      await expect(secrets.save("secret", false, scope)).rejects.toThrow("scope");
+      await expect(secrets.clear(scope)).rejects.toThrow("scope");
+      expect(invoke).not.toHaveBeenCalled();
+    },
+  );
+
   it("rejects oversized keys before crossing the desktop IPC boundary", async () => {
     const invoke = vi.fn() as unknown as TauriInvoke;
     const secrets = createTauriSecretStore(invoke);

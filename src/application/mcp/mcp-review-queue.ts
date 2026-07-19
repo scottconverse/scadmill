@@ -1,10 +1,12 @@
 import type { McpToolName } from "./mcp-tools";
+import type { CommandOrigin } from "../runtime/workbench-runtime-contracts";
 
 export interface McpPendingReview {
   readonly commandId: string;
   readonly tool: Extract<McpToolName, "write_file" | "set_parameters">;
   readonly arguments: Readonly<Record<string, unknown>>;
   readonly createdAt: string;
+  readonly origin: Extract<CommandOrigin, "ai-panel" | "external-agent">;
 }
 
 export interface McpReviewQueue {

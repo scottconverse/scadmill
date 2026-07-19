@@ -1,10 +1,16 @@
 import {
   assertSupportedSecretSize,
+  normalizeSecretScope,
   type SecretStore,
 } from "../application/settings/secret-store";
 
 const SESSION_KEY = "scadmill:ai-secret:session";
 const PERSISTED_KEY = "scadmill:ai-secret:persisted";
+
+function storageKey(base: string, scope?: string): string {
+  const normalized = normalizeSecretScope(scope);
+  return normalized ? `${base}:${normalized}` : base;
+}
 
 export interface SecretStorage {
   getItem(key: string): string | null;
@@ -34,37 +40,41 @@ export function createBrowserSecretStore(
   const localStorage = local ?? browserStorage("localStorage");
   return {
     persistence: "web-session",
-    async load(persist) {
+    async load(persist, scope) {
+      const key = storageKey(persist ? PERSISTED_KEY : SESSION_KEY, scope);
       try {
-        return (persist ? localStorage : sessionStorage)
-          .getItem(persist ? PERSISTED_KEY : SESSION_KEY) ?? "";
+        return (persist ? localStorage : sessionStorage).getItem(key) ?? "";
       } catch {
         throw new Error("AI secret storage is unavailable.");
       }
     },
-    async save(secret, persist) {
+    async save(secret, persist, scope) {
       assertSupportedSecretSize(secret);
+      const sessionKey = storageKey(SESSION_KEY, scope);
+      const persistedKey = storageKey(PERSISTED_KEY, scope);
       try {
         if (persist) {
-          localStorage.setItem(PERSISTED_KEY, secret);
-          sessionStorage.removeItem(SESSION_KEY);
+          localStorage.setItem(persistedKey, secret);
+          sessionStorage.removeItem(sessionKey);
         } else {
-          sessionStorage.setItem(SESSION_KEY, secret);
-          localStorage.removeItem(PERSISTED_KEY);
+          sessionStorage.setItem(sessionKey, secret);
+          localStorage.removeItem(persistedKey);
         }
       } catch {
         throw new Error("AI secret storage is unavailable.");
       }
     },
-    async clear() {
+    async clear(scope) {
+      const sessionKey = storageKey(SESSION_KEY, scope);
+      const persistedKey = storageKey(PERSISTED_KEY, scope);
       let unavailable = false;
       try {
-        sessionStorage.removeItem(SESSION_KEY);
+        sessionStorage.removeItem(sessionKey);
       } catch {
         unavailable = true;
       }
       try {
-        localStorage.removeItem(PERSISTED_KEY);
+        localStorage.removeItem(persistedKey);
       } catch {
         unavailable = true;
       }

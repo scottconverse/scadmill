@@ -10,6 +10,7 @@ export interface AgentLoopState {
 }
 
 export interface AgentToolCall {
+  readonly id?: string;
   readonly name: string;
   readonly arguments: Record<string, unknown>;
 }
@@ -51,7 +52,7 @@ export async function runAgentLoop(
   signal: AbortSignal,
   options?: { readonly enabled?: boolean; readonly maxRounds?: number },
 ): Promise<AgentRunResult> {
-  let state = createAgentLoop(options?.enabled ?? true, options?.maxRounds ?? DEFAULT_AGENT_ROUND_CAP);
+  let state = createAgentLoop(options?.enabled ?? false, options?.maxRounds ?? DEFAULT_AGENT_ROUND_CAP);
   const messages: AiMessage[] = [...initialMessages];
   const toolResults: unknown[] = [];
   if (!state.enabled) return { state, messages, toolResults };
@@ -60,10 +61,17 @@ export async function runAgentLoop(
     const turn = await model(messages, signal);
     if (turn.text) messages.push({ role: "assistant", content: turn.text });
     if (!turn.toolCall) return { state: completeAgentLoop(state), messages, toolResults };
+    if (!turn.text) messages.push({ role: "assistant", content: "", toolCall: turn.toolCall });
+    else messages[messages.length - 1] = { role: "assistant", content: turn.text, toolCall: turn.toolCall };
     state = requestAgentRound(state);
     const result = await tools.call(turn.toolCall, signal);
     toolResults.push(result);
-    messages.push({ role: "system", content: `<tool-result name="${turn.toolCall.name}">\n${JSON.stringify(result)}\n</tool-result>` });
+    messages.push({
+      role: "tool",
+      content: JSON.stringify(result) ?? "null",
+      ...(turn.toolCall.id ? { toolCallId: turn.toolCall.id } : {}),
+      toolName: turn.toolCall.name,
+    });
   }
   return { state, messages, toolResults };
 }

@@ -165,4 +165,20 @@ describe("useMcpStdio", () => {
     expect(capture).toHaveBeenCalledWith(640, 480);
     runtime.dispose();
   });
+
+  it("provides the AI agent the same validated handler with AI-origin pending reviews", async () => {
+    const runtime = createWorkbenchRuntime({} as EngineService, { initialScratchSource: "cube(1);" });
+    const view = renderHook(() => useMcpStdio(runtime, undefined, undefined));
+    const result = await view.result.current.agentHandler.call("write_file", {
+      path: "main.scad",
+      content: "cube(8);",
+    }) as { commandId: string };
+    await waitFor(() => expect(view.result.current.pendingReviews).toHaveLength(1));
+    expect(view.result.current.pendingReview(result.commandId)).toMatchObject({
+      commandId: result.commandId,
+      origin: "ai-panel",
+      tool: "write_file",
+    });
+    runtime.dispose();
+  });
 });

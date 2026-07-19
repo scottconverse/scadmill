@@ -48,10 +48,22 @@ export interface ThemePreferences {
   readonly customThemes: readonly ThemeTokens[];
 }
 
-export interface AiPreferences {
-  readonly provider: "none" | "openai" | "anthropic" | "compatible" | "local";
+export type AiProviderKind = "none" | "openai" | "anthropic" | "compatible" | "local";
+
+export interface AiProviderConfiguration {
+  readonly id: string;
+  readonly label: string;
+  readonly provider: Exclude<AiProviderKind, "none">;
   readonly endpoint: string;
   readonly model: string;
+}
+
+export interface AiPreferences {
+  readonly provider: AiProviderKind;
+  readonly endpoint: string;
+  readonly model: string;
+  readonly models: readonly string[];
+  readonly configurations: readonly AiProviderConfiguration[];
   readonly persistWebSecret: boolean;
 }
 
@@ -106,7 +118,7 @@ export function defaultPersistedSettings(): PersistedSettings {
     },
     formatter: { indentSize: 4, formatOnSave: false },
     theme: { preference: "system", customThemes: [] },
-    ai: { provider: "none", endpoint: "", model: "", persistWebSecret: false },
+    ai: { provider: "none", endpoint: "", model: "", models: [], configurations: [], persistWebSecret: false },
     keybindings: createKeybindingSettings(),
     privacy: { updateChecks: false },
   };

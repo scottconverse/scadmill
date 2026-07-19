@@ -50,6 +50,7 @@ export function useMcpStdio(
     reviewQueue.enqueue(review);
     setReviewVersion((version) => version + 1);
   }, [reviewQueue]);
+  const restoreReview = enqueueReview;
   const dismissReview = useCallback((commandId: string) => {
     const review = reviewQueue.deny(commandId);
     if (review) setReviewVersion((version) => version + 1);
@@ -60,12 +61,22 @@ export function useMcpStdio(
     if (review) setReviewVersion((version) => version + 1);
     return review;
   }, [reviewQueue]);
+  const mcpHandler = useMemo(() => createWorkbenchMcpHandler({
+    engine, runtime, captureScreenshot, onPendingReview: enqueueReview,
+  }), [captureScreenshot, engine, enqueueReview, runtime]);
+  const agentHandler = useMemo(() => createWorkbenchMcpHandler({
+    engine, runtime, captureScreenshot, onPendingReview: enqueueReview, mutationOrigin: "ai-panel",
+  }), [captureScreenshot, engine, enqueueReview, runtime]);
+  const pendingReview = useCallback(
+    (commandId: string) => reviewQueue.list().find(({ commandId: id }) => id === commandId),
+    [reviewQueue],
+  );
   const controller = useMemo(() => mcpPort ? createMcpStdioController({
-    handler: createWorkbenchMcpHandler({ engine, runtime, captureScreenshot, onPendingReview: enqueueReview }),
+    handler: mcpHandler,
     getPermissions,
     onMutationPermissionConsumed: consumePermission,
     onResponse: (line) => { void mcpPort.writeResponse(line).catch(() => undefined); },
-  }) : undefined, [captureScreenshot, consumePermission, engine, enqueueReview, getPermissions, mcpPort, runtime]);
+  }) : undefined, [consumePermission, getPermissions, mcpHandler, mcpPort]);
   useEffect(() => {
     if (!mcpPort || !controller) return;
     if (!enabled) {
@@ -120,5 +131,5 @@ export function useMcpStdio(
       void mcpPort.setEnabled(false).catch(() => undefined);
     };
   }, [controller, enabled, mcpPort, runtime]);
-  return { connected, enabled, setEnabled, permissions, setPermission, pendingReviews: reviewQueue.list(), approveReview, dismissReview };
+  return { connected, enabled, setEnabled, permissions, setPermission, pendingReviews: reviewQueue.list(), pendingReview, approveReview, restoreReview, dismissReview, agentHandler };
 }

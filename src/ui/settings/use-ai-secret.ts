@@ -32,6 +32,21 @@ export interface AiSecretControllerInput {
   readonly settings: PersistedSettings;
 }
 
+interface ScopedSecret {
+  readonly scope?: string;
+  readonly value: string;
+}
+
+async function saveScopedSecret(secretStore: SecretStore, secret: ScopedSecret, persist: boolean): Promise<void> {
+  if (secret.scope) await secretStore.save(secret.value, persist, secret.scope);
+  else await secretStore.save(secret.value, persist);
+}
+
+async function clearSecretScope(secretStore: SecretStore, scope?: string): Promise<void> {
+  if (scope) await secretStore.clear(scope);
+  else await secretStore.clear();
+}
+
 function restoreAiWithoutOverwritingConcurrentChanges(
   current: PersistedSettings,
   previous: AiPreferences,
@@ -41,6 +56,8 @@ function restoreAiWithoutOverwritingConcurrentChanges(
     provider: current.ai.provider === restored.provider ? previous.provider : current.ai.provider,
     endpoint: current.ai.endpoint === restored.endpoint ? previous.endpoint : current.ai.endpoint,
     model: current.ai.model === restored.model ? previous.model : current.ai.model,
+    models: current.ai.models === restored.models ? previous.models : current.ai.models,
+    configurations: current.ai.configurations === restored.configurations ? previous.configurations : current.ai.configurations,
     persistWebSecret: current.ai.persistWebSecret === restored.persistWebSecret
       ? previous.persistWebSecret
       : current.ai.persistWebSecret,
@@ -48,6 +65,8 @@ function restoreAiWithoutOverwritingConcurrentChanges(
   return ai.provider === current.ai.provider
     && ai.endpoint === current.ai.endpoint
     && ai.model === current.ai.model
+    && ai.models === current.ai.models
+    && ai.configurations === current.ai.configurations
     && ai.persistWebSecret === current.ai.persistWebSecret
     ? current
     : { ...current, ai };
@@ -133,9 +152,20 @@ export function useAiSecretController({
   const changePersistence = (persistWebSecret: boolean) => {
     const requestId = begin();
     if (requestId === null) return;
-    const secretToMove = durableSecret.current;
+    const scopes = settings.ai.configurations.map(({ id }) => id);
     let previousPersistence = settings.ai.persistWebSecret;
-    void secretStore.save(secretToMove, persistWebSecret).then(async () => {
+    void Promise.all(scopes.map(async (scope): Promise<ScopedSecret> => ({
+      scope,
+      value: await secretStore.load(previousPersistence, scope),
+    }))).then(async (profileSecrets) => {
+      const secrets: readonly ScopedSecret[] = [{ value: durableSecret.current }, ...profileSecrets];
+      try {
+        await Promise.all(secrets.map((secret) => saveScopedSecret(secretStore, secret, persistWebSecret)));
+      } catch {
+        const rollback = await Promise.allSettled(secrets.map((secret) => saveScopedSecret(secretStore, secret, previousPersistence)));
+        finish(requestId, rollback.some(({ status: result }) => result === "rejected") ? "rollback-error" : "error");
+        return;
+      }
       try {
         if (onCommit) {
           await onCommit((current) => {
@@ -148,11 +178,8 @@ export function useAiSecretController({
         finish(requestId, "migrated");
       } catch {
         let rollbackFailed = false;
-        try {
-          await secretStore.save(secretToMove, previousPersistence);
-        } catch {
-          rollbackFailed = true;
-        }
+        const secretRollback = await Promise.allSettled(secrets.map((secret) => saveScopedSecret(secretStore, secret, previousPersistence)));
+        rollbackFailed = secretRollback.some(({ status: result }) => result === "rejected");
         if (onCommit) {
           try {
             await onCommit((current) => current.ai.persistWebSecret === persistWebSecret
@@ -173,25 +200,34 @@ export function useAiSecretController({
   const restore = () => {
     const requestId = begin();
     if (requestId === null) return;
-    const previousSecret = durableSecret.current;
     let previousAi = settings.ai;
     let restoredAi = restoreSettingsSection(settings, "ai").ai;
     let settingsCommitted = false;
-    const commit = onCommit
-      ? onCommit((current) => {
-          previousAi = current.ai;
-          const restored = restoreSettingsSection(current, "ai");
-          restoredAi = restored.ai;
-          return restored;
-        })
-      : Promise.resolve(onRestore("ai"));
-    void commit.then(async () => {
+    const scopes = settings.ai.configurations.map(({ id }) => id);
+    void Promise.all(scopes.map(async (scope): Promise<ScopedSecret> => ({
+      scope,
+      value: await secretStore.load(settings.ai.persistWebSecret, scope),
+    }))).then(async (profileSecrets) => {
+      const previousSecrets: readonly ScopedSecret[] = [{ value: durableSecret.current }, ...profileSecrets];
+      const commit = onCommit
+        ? onCommit((current) => {
+            previousAi = current.ai;
+            const restored = restoreSettingsSection(current, "ai");
+            restoredAi = restored.ai;
+            return restored;
+          })
+        : Promise.resolve(onRestore("ai"));
+      await commit;
       settingsCommitted = true;
-      await secretStore.clear();
-      durableSecret.current = "";
-      if (operation.current === requestId) setSecret("");
-      finish(requestId, "cleared");
-    }).catch(async () => {
+      try {
+        await Promise.all(previousSecrets.map(({ scope }) => clearSecretScope(secretStore, scope)));
+        durableSecret.current = "";
+        if (operation.current === requestId) setSecret("");
+        finish(requestId, "cleared");
+      } catch {
+        throw Object.assign(new Error("AI secret clear failed."), { previousSecrets });
+      }
+    }).catch(async (reason: unknown) => {
       if (!settingsCommitted) {
         let rollbackFailed = false;
         if (onCommit) {
@@ -207,11 +243,11 @@ export function useAiSecretController({
         return;
       }
       let rollbackFailed = !onCommit;
-      try {
-        await secretStore.save(previousSecret, previousAi.persistWebSecret);
-      } catch {
-        rollbackFailed = true;
-      }
+      const previousSecrets = reason instanceof Error && "previousSecrets" in reason
+        ? (reason as Error & { previousSecrets: readonly ScopedSecret[] }).previousSecrets
+        : [{ value: durableSecret.current }];
+      const secretRollback = await Promise.allSettled(previousSecrets.map((secret) => saveScopedSecret(secretStore, secret, previousAi.persistWebSecret)));
+      if (secretRollback.some(({ status: result }) => result === "rejected")) rollbackFailed = true;
       if (onCommit) {
         try {
           await onCommit((current) =>

@@ -10,6 +10,7 @@ import {
 } from "./settings-schema";
 import { parseCustomThemeJson } from "../theme/custom-theme";
 import { customThemePreference } from "../theme/theme-registry";
+import { DEFAULT_AI_SECRET_SCOPE } from "./secret-store";
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -141,17 +142,46 @@ function validate(value: unknown): value is PersistedSettings {
     && typeof value.formatter.formatOnSave === "boolean"
     && validTheme(value.theme)
     && isRecord(value.ai)
-    && exactKeys(value.ai, ["provider", "endpoint", "model", "persistWebSecret"])
+    && exactKeys(value.ai, ["provider", "endpoint", "model", "models", "configurations", "persistWebSecret"])
     && ["none", "openai", "anthropic", "compatible", "local"].includes(value.ai.provider as string)
     && typeof value.ai.endpoint === "string"
     && value.ai.endpoint.length <= 2_048
     && typeof value.ai.model === "string"
     && value.ai.model.length <= 512
+    && Array.isArray(value.ai.models)
+    && value.ai.models.length <= 32
+    && value.ai.models.every((model) => typeof model === "string" && model === model.trim() && model.length > 0 && model.length <= 512)
+    && new Set(value.ai.models).size === value.ai.models.length
+    && Array.isArray(value.ai.configurations)
+    && value.ai.configurations.length <= 16
+    && value.ai.configurations.every((configuration) => isRecord(configuration)
+      && exactKeys(configuration, ["id", "label", "provider", "endpoint", "model"])
+      && typeof configuration.id === "string" && /^[A-Za-z0-9_-]{1,64}$/u.test(configuration.id)
+      && configuration.id !== DEFAULT_AI_SECRET_SCOPE
+      && typeof configuration.label === "string" && configuration.label === configuration.label.trim() && configuration.label.length > 0 && configuration.label.length <= 128
+      && ["openai", "anthropic", "compatible", "local"].includes(configuration.provider as string)
+      && typeof configuration.endpoint === "string" && configuration.endpoint.length <= 2_048
+      && typeof configuration.model === "string" && configuration.model === configuration.model.trim() && configuration.model.length > 0 && configuration.model.length <= 512)
+    && new Set(value.ai.configurations.map((configuration) => (configuration as UnknownRecord).id)).size === value.ai.configurations.length
     && typeof value.ai.persistWebSecret === "boolean"
     && validKeybindings(value.keybindings)
     && isRecord(value.privacy)
     && exactKeys(value.privacy, ["updateChecks"])
     && typeof value.privacy.updateChecks === "boolean";
+}
+
+function migrateLegacyAiModels(value: unknown): unknown {
+  if (!isRecord(value) || value.version !== 1 || !isRecord(value.ai)) return value;
+  if (exactKeys(value.ai, ["provider", "endpoint", "model", "persistWebSecret"])) {
+    const model = typeof value.ai.model === "string" ? value.ai.model.trim() : "";
+    return { ...value, ai: { ...value.ai, model, models: model ? [model] : [], configurations: [] } };
+  }
+  if (!exactKeys(value.ai, ["provider", "endpoint", "model", "models", "persistWebSecret"])) return value;
+  const model = typeof value.ai.model === "string" ? value.ai.model.trim() : "";
+  const models = Array.isArray(value.ai.models)
+    ? [...new Set(value.ai.models.flatMap((candidate) => typeof candidate === "string" && candidate.trim() ? [candidate.trim()] : []))]
+    : model ? [model] : [];
+  return { ...value, ai: { ...value.ai, model, models, configurations: [] } };
 }
 
 export function createDefaultPersistedSettings(): PersistedSettings {
@@ -164,7 +194,7 @@ export function parsePersistedSettings(source: string): PersistedSettings {
   }
   let parsed: unknown;
   try {
-    parsed = JSON.parse(source);
+    parsed = migrateLegacyAiModels(JSON.parse(source));
   } catch {
     throw new Error("Settings file is not valid JSON.");
   }
