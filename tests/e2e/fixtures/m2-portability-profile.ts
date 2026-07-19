@@ -66,7 +66,7 @@ window.scadmillPortabilityProfile = async () => {
   const observer = new PerformanceObserver((list) => {
     for (const entry of list.getEntries()) longTasks.push(entry.duration);
   });
-  observer.observe({ type: "longtask", buffered: true });
+  observer.observe({ type: "longtask", buffered: false });
   const memory = performance as MemoryPerformance;
   const initialHeap = memory.memory?.usedJSHeapSize;
   let peakHeap = initialHeap;
