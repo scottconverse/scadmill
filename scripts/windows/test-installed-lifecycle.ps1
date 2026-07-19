@@ -3,7 +3,10 @@ param(
   [string]$Installer,
 
   [Parameter(Mandatory = $true)]
-  [string]$ExpectedApplication
+  [string]$ExpectedApplication,
+
+  [Parameter(Mandatory = $true)]
+  [string]$ExpectedNotices
 )
 
 $ErrorActionPreference = "Stop"
@@ -334,7 +337,9 @@ function Wait-WebViewReady([int]$Port) {
 
 $Installer = (Resolve-Path -LiteralPath $Installer).Path
 $ExpectedApplication = (Resolve-Path -LiteralPath $ExpectedApplication).Path
+$ExpectedNotices = (Resolve-Path -LiteralPath $ExpectedNotices).Path
 $expectedApplicationHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $ExpectedApplication).Hash
+$expectedNoticesHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $ExpectedNotices).Hash
 $roots = @(
   (Join-Path $env:LOCALAPPDATA "ScadMill"),
   (Join-Path $env:LOCALAPPDATA "Programs\ScadMill")
@@ -384,6 +389,17 @@ if ($installedApplicationHash -cne $expectedApplicationHash) {
   throw "The installed ScadMill executable does not match the exact just-built release executable."
 }
 Write-Host "Installed application SHA256: $installedApplicationHash"
+
+$installedNotices = @(Get-ChildItem -LiteralPath $application.DirectoryName -Filter "THIRD-PARTY-NOTICES.txt" -Recurse -File)
+if ($installedNotices.Count -ne 1) {
+  throw "Expected exactly one installed THIRD-PARTY-NOTICES.txt; found $($installedNotices.Count)."
+}
+$installedNoticesPath = $installedNotices[0].FullName
+$installedNoticesHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $installedNoticesPath).Hash
+if ($installedNoticesHash -cne $expectedNoticesHash) {
+  throw "The installed third-party notices do not match the exact tracked release notices."
+}
+Write-Host "Installed third-party notices SHA256: $installedNoticesHash"
 
 if (-not (Test-Path -LiteralPath $association)) { throw "The .scad association was not registered." }
 $progId = [string](Get-Item -LiteralPath $association).GetValue("")
@@ -476,6 +492,7 @@ Write-Host "Installed uninstaller SHA256: $uninstallerHash"
 $uninstall = Start-Process -FilePath $uninstaller.FullName -ArgumentList "/S" -PassThru -Wait
 if ($uninstall.ExitCode -ne 0) { throw "NSIS uninstall failed with exit code $($uninstall.ExitCode)." }
 if (Test-Path -LiteralPath $application.FullName) { throw "ScadMill remained installed after uninstall." }
+if (Test-Path -LiteralPath $installedNoticesPath) { throw "Third-party notices remained installed after uninstall." }
 if (-not (Test-Path -LiteralPath $association)) { throw "Uninstall deleted the prior .scad association." }
 $restoredAssociation = Get-Item -LiteralPath $association
 if ([string]$restoredAssociation.GetValue("") -cne $sentinelProgId) {
@@ -489,7 +506,7 @@ if (-not (Test-Path -LiteralPath $sentinelProgIdRoot)) {
 }
 if (Test-Path -LiteralPath $progIdRoot) { throw "The ScadMill ProgID remained after uninstall." }
 
-Write-Host "Exact installed NSIS lifecycle, active associated-file single-instance routing, normal/off-monitor window restoration, and uninstall passed."
+Write-Host "Exact installed NSIS lifecycle, third-party notices, active associated-file single-instance routing, normal/off-monitor window restoration, and uninstall passed."
 } finally {
   Get-Process -Name scadmill -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
   $cleanupUninstallers = @($roots | ForEach-Object {

@@ -3,16 +3,23 @@
 ScadMill has no telemetry and does not send model source, project files, settings, engine output,
 diagnostics, or secrets to a ScadMill service.
 
+ScadMill `0.1.0-beta.1` is currently an unpublished Windows desktop candidate. There is no public
+ScadMill download or hosted web application yet. The web sections below document implemented
+source behavior for a future, separately qualified web publication; they are not claims about a
+currently operated ScadMill service.
+
 On the web target, ScadMill requests the pinned, versioned `openscad.js` and `openscad.wasm`
 assets from the same static origin as the application. It validates the exact expected byte
 length and SHA-256 of both files before execution, then commits the verified pair atomically to
 a versioned IndexedDB cache. A failed or partial download is not cached; Retry starts a new
 verified load. These requests contain no model source, project files, settings, diagnostics, or
-secret values. The public repository does not distribute those engine bytes while Q-0033
-remains unresolved.
+secret values. Q-0033 is resolved and its exact compliance package passed the historical M3 gate,
+but the engine bytes remain unpublished and are not part of the Windows-first beta.
 
-AI-provider requests are explicitly user-initiated and go directly to the selected
-OpenAI-compatible, Anthropic, or local endpoint. Each request contains the conversation plus only
+AI-provider requests are explicitly user-initiated and go only to the selected OpenAI-compatible,
+Anthropic, or local endpoint. On desktop, a bounded native HTTP broker authorizes that request
+against the exact provider endpoint already persisted in ScadMill settings, applies request and
+response limits, and refuses redirects. Each request contains the conversation plus only
 the source, diagnostics, parameters, or viewer screenshot context selected in the panel. ScadMill
 does not proxy these requests through a ScadMill service. Other reserved network paths are an
 opt-in desktop update check and explicit library or engine-version downloads. Enabling the current
@@ -30,6 +37,13 @@ The desktop OpenSCAD engine runs as a local subprocess. Desktop projects, settin
 buffers, exports, and rendered geometry stay on the user's machine. AI keys use independently
 scoped operating-system credential-store records and are excluded from settings files and saved
 conversations.
+
+Uninstall removes the installed application and its ScadMill `.scad` association; it is not an
+all-data-erasure promise. User-selected projects remain outside the installation directory.
+Settings, recovery data, cache records, and operating-system credential records may remain in the
+Windows user profile unless they are cleared separately. Before uninstalling, clear each AI key
+from **Settings → AI** and clear any enabled project disk cache from **Settings → Rendering** if
+you do not want those records retained. See the [Windows beta guide](docs/WINDOWS-BETA.md).
 
 The desktop render cache is off by default and can be enabled independently for each opened
 project; scratch work is never eligible. When enabled, ScadMill stores rendered SVG or mesh

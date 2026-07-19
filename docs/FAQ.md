@@ -1,18 +1,24 @@
 # ScadMill FAQ
 
+## Where can I download the Windows beta?
+
+There is no public ScadMill download yet. `0.1.0-beta.1` is an unpublished 64-bit Windows desktop candidate. GitHub Actions artifacts are verification inputs, not supported installers. When the beta is published, the public release must provide the exact signed setup, byte length, SHA-256, and signer identity. See the [Windows beta guide](WINDOWS-BETA.md).
+
 ## Why can I edit in the browser but not render?
 
-The editor and browser project store do not require OpenSCAD. Rendering requires the separately fetched, version-pinned JavaScript/WASM engine pair. Q-0033 permits public distribution only with the exact corresponding source, GPL-2.0-or-later materials, reproducible build recipe, and checksums. Until that complete package is published, a load failure preserves editing and local projects.
+The implemented editor and browser project store do not require OpenSCAD, but there is no public ScadMill web application or WebAssembly engine today. Rendering in that source target requires the separately fetched, version-pinned JavaScript/WASM engine pair. Q-0033 permits a future public distribution only with the exact corresponding source, GPL-2.0-or-later materials, reproducible build recipe, and checksums. The historical M3 package passed verification but remains unpublished and is not part of the Windows-first beta. A load failure preserves editing and local projects.
 
 ## Why does ScadMill reject my installed OpenSCAD?
 
 Reproducible geometry requires the exact version in `ENGINE_VERSION`. Configure that executable explicitly; ScadMill leaves other installations untouched.
 
+The Windows setup does not bundle OpenSCAD. Follow the [exact download, SHA-256, extraction, and configuration steps](WINDOWS-BETA.md#install-the-required-openscad-engine) for OpenSCAD `2026.06.12`.
+
 ## What is the difference between Preview and Full?
 
 Preview uses the fastest available backend, the preview timeout, and preview-only quality limits. Full applies no preview overrides and is the only source used for exports.
 
-### How does `$t` animation render?
+## How does `$t` animation render?
 
 An executable `$t` reference in the active OpenSCAD file shows a 100-frame animation bar below the viewer. Frames map to `$t` values from 0.00 through 0.99 and use the normal preview pipeline. FPS is a target: ScadMill waits for each real geometry render, so slow models reduce playback speed instead of building a render queue. Pause cancels the in-flight animation request and stops future frames; the render overlay's Cancel action remains available for any current engine request.
 
@@ -34,7 +40,7 @@ IndexedDB cannot provide real OS-trash semantics. The browser omits the action i
 
 ## Can I recover after a crash?
 
-ScadMill records recoverable unsaved buffers and presents them on restart. Retained release evidence also exercises normal restart and forced-process recovery for the packaged Windows path.
+ScadMill records recoverable unsaved buffers and presents them on restart. Historical packaged evidence exercises normal restart and forced-process recovery. The unpublished `0.1.0-beta.1` candidate must still pass its own exact-head packaged Windows Sandbox and release gates before publication.
 
 ## How is native/browser SVG parity checked?
 

@@ -1,8 +1,14 @@
 # Changelog
 
-All notable changes to ScadMill are documented here. The format follows Keep a Changelog, and the project will adopt semantic versioning before its first public release.
+All notable changes to ScadMill are documented here. The format follows Keep a Changelog, and ScadMill uses semantic versioning with prerelease identifiers for beta candidates.
 
 ## [Unreleased]
+
+### Release status
+
+- `0.1.0-beta.1` is an unpublished 64-bit Windows desktop candidate. There is no public ScadMill installer or web application yet; CI artifacts are verification inputs, not supported downloads.
+- Publication remains blocked on exact-candidate literal N-2 soak evidence, a clean packaged Windows Sandbox walkthrough, Radeon 780M qualification, a valid signed-installer lifecycle, exact-head hosted and isolated similarity gates, owner resolution of Q-0038's product license/EULA and Q-0039's private security-reporting route, final documentation and visitor checks, a clean public-installer walkthrough, strict-zero closure, and owner go/no-go.
+- The M3 parity/compliance execution passed on historical candidate `1b6343a`. That evidence validates the M3 implementation but does not release the OpenSCAD WebAssembly pair and does not qualify the current Windows beta head.
 
 ### Added
 
@@ -171,7 +177,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 ### Known policy decisions and open questions
 
 - Q-0033 is resolved: public distribution of the separately fetched OpenSCAD WebAssembly bytes is approved only after the exact corresponding source, applicable GPL-2.0-or-later materials, reproducible build recipe, and artifact/source checksums are assembled and verified.
-- Q-0034 is resolved: canonical SVG parity may normalize only `CRLF` to `LF`, while the original Windows/native and WASM artifacts, lengths, and hashes remain retained. AC-4.a stays unproven until every required case completes under that rule.
+- Q-0034 is resolved: canonical SVG parity may normalize only `CRLF` to `LF`, while the original Windows/native and WASM artifacts, lengths, and hashes remain retained. All six required cases passed under that rule on historical M3 candidate `1b6343a`; the raw evidence remains separate from current Windows-beta release qualification.
 - Q-0003 leaves the final preview facet-cap algorithm open; the preview-only configuration seam is implemented without claiming that a global `$fn` override is a true cap.
 - Q-0021 parks only explicit-camera PNG exports because the pinned snapshot CLI cannot preserve Appendix A's `CameraPose.up`; default-camera PNG and all non-PNG exports continue.
 - Q-0023 remains a historical provenance interpretation: M3 conservatively completed the stricter same-commit source build, so no current implementation is parked.
@@ -185,7 +191,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Verification status
 
-- Exact-head candidate `1a5b38a` passed web, native, Ubuntu and Windows browser, production-static, DMG, AppImage, signed Windows install/association/window-state/uninstall, isolated similarity, and retained-WASM gates. Its only failed job is the pre-resolution raw SVG parity lane: the first difference is native `CR` versus WASM `LF` and the length delta is consistent with line endings, but fail-fast comparison leaves later differences and examples unproven. The owner has since approved CRLF-to-LF-only canonical comparison and the conservative WASM compliance package; neither follow-up gate is claimed green until it produces exact-candidate evidence.
+- Historical M3 candidate `1b6343a` passed all six native/WASM parity cases under the owner-approved CRLF-to-LF-only rule and produced the verified corresponding-source compliance package. The current `0.1.0-beta.1` Windows candidate is not release-qualified until the outstanding gates in **Release status** pass on its exact source and signed installer.
 - FR-2.5 per-candidate qualification is intentionally external: accept it only from a retained Radeon 780M evidence envelope bound to the exact candidate source tree and profiler harness.
 - `cargo audit` reports zero vulnerability failures but 17 pre-existing informational warnings in the current Tauri dependency graph, including the GTK3/glib unsoundness advisory and unmaintained GTK3, proc-macro-error, and UNIC families; current compatible upstream releases do not remove them.
 - M4 FR-15.1 render cache: successful 2D/3D results use a typed content-addressed key over resolved project inputs, parameters, quality policy, and verified engine build identity; a bounded 512 MiB memory LRU reuses unchanged renders without invoking the engine again. Desktop disk caching is default-off, persisted independently by opaque project identity, unavailable to scratch work, and excluded from portable global settings. Its app-cache records use strict integrity validation, a 4 MiB IPC-safe record cap, sidecar LRU metadata, cold-start hits, explicit stored-data disclosure, and a per-project clear action; disabling stops disk-tier use without silently claiming deletion. Cache hits are labeled at the status bar, payloads are cloned on read/write, and failures, stale completions, and superseded work are never cached.

@@ -13,6 +13,7 @@
     "check:generated": "pnpm run generate:openscad-parser && git diff --exit-code -- src/ui/editor/generated/openscad-parser.ts src/ui/editor/generated/openscad-parser.terms.ts",
     "build": "tsc --noEmit && vite build",
     "build:desktop": "tsc --noEmit && vite build --mode desktop",
+    "build:desktop:tauri-prebuild": "pnpm check:notices && pnpm build:desktop",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
@@ -23,6 +24,8 @@
     "lint": "biome lint src tests scripts vite.config.ts playwright.config.ts && node scripts/check-source-policy.mjs",
     "check:provenance": "node scripts/check-provenance.mjs",
     "check:licenses": "node scripts/check-licenses.mjs",
+    "generate:notices": "node scripts/generate-third-party-notices.mjs",
+    "check:notices": "node scripts/generate-third-party-notices.mjs --check",
     "check:wasm-workflow": "node scripts/check-wasm-build-workflow.mjs",
     "desktop": "cd src/desktop-shell && pnpm exec tauri"
   },

@@ -1,12 +1,12 @@
 # ScadMill user guide
 
-This guide describes the current Windows desktop beta candidate, including completed M3 behavior and the M4 surfaces already present. Later M5/M6 work is identified explicitly.
+This guide describes the unpublished `0.1.0-beta.1` Windows desktop candidate, including completed M3 behavior and the M4 surfaces already present. There is no public installer yet. Start with the [Windows beta guide](WINDOWS-BETA.md) for release status, signed-setup verification, the required OpenSCAD download, installation, and uninstall guidance. Later M5/M6 work is identified explicitly.
 
 ## Start a model
 
 On first launch, choose a blank file, open a project, reopen a recent project, or load one of the three sample models. ScadMill asks before a sample replaces non-empty work. Reopen the welcome surface from the application when you need it again.
 
-Enter OpenSCAD source such as `cube([10, 20, 30]);`. Use **Render preview** or F5 for the faster preview policy. Use **Render full** or F6 for final-quality geometry and exports. A **Preview quality** label identifies preview-only overrides.
+Enter OpenSCAD source such as `cube([10, 20, 30]);`. Use **Render preview** or F5 for the faster preview policy. Use **Full render** or F6 for final-quality geometry and exports. A **Preview quality** label identifies preview-only overrides.
 
 ## Work with projects and files
 
@@ -40,9 +40,11 @@ Full-quality export supports 3MF, STL, OFF, AMF, SVG, DXF, and PNG where the eng
 
 ScadMill accepts only the OpenSCAD version recorded in `ENGINE_VERSION`. It tries the bundled candidate, saved executable, `SCADMILL_OPENSCAD`, and `PATH`. If the found executable is missing or has another version, select the exact pinned executable in **Configure engine** and retry. ScadMill does not replace older system installations.
 
+The Windows setup does not bundle OpenSCAD. Download and hash-verify the exact official `2026.06.12` Windows snapshot by following the [Windows beta engine instructions](WINDOWS-BETA.md#install-the-required-openscad-engine).
+
 ## Browser rendering
 
-Browser editing and project features work without an engine. Rendering requires the separately distributed, version-pinned OpenSCAD JavaScript/WASM pair. Q-0033 permits publication only with the exact corresponding source, GPL-2.0-or-later materials, reproducible build recipe, and checksums. A missing or failed engine load leaves editing available and offers Retry when retry can help. Native/browser SVG parity converts only CRLF to LF for comparison under Q-0034 while retaining the raw artifacts and hashes.
+Browser editing and project features work without an engine in the implemented source target, but no public ScadMill web application or WebAssembly engine is currently distributed. Q-0033 permits a future engine publication only with the exact corresponding source, GPL-2.0-or-later materials, reproducible build recipe, and checksums. The historical M3 compliance package and all six native/WASM parity cases passed; Q-0034 allows only CRLF-to-LF conversion for SVG comparison while retaining the raw artifacts and hashes. That M3 evidence does not publish a web product and is separate from current Windows-beta qualification. A missing or failed engine load leaves editing available and offers Retry when retry can help.
 
 ## Connect a local MCP client on Windows
 
@@ -74,4 +76,4 @@ Desktop AI secrets use the OS credential store and remain isolated per named pro
 
 ## Current milestone limits
 
-Q-0033 and Q-0034 are resolved, but their exact compliance-package and parity execution evidence must still pass before the web engine is published. The Windows beta includes the current animation, AI, MCP, and complete command-history surfaces. Installed libraries, navigation and refactoring expansion, batch features, printability and slicing estimates, color-preserving 3MF, and the headless CLI remain release-gated M5-M6 work unless their milestone evidence is recorded.
+Q-0033 and Q-0034 are resolved, and their historical M3 compliance-package and parity execution evidence passed. Public web distribution remains a separate future release action and is not part of the Windows-first beta. The Windows candidate includes the current animation, AI, MCP, and complete command-history surfaces, but it is not public or release-qualified until the exact-candidate gates in the [Windows beta guide](WINDOWS-BETA.md#release-qualification-still-in-progress) pass. Installed libraries, navigation and refactoring expansion, batch features, printability and slicing estimates, color-preserving 3MF, and the headless CLI remain release-gated M5-M6 work unless their milestone evidence is recorded.

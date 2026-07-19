@@ -253,6 +253,8 @@ jobs:
             xvfb \
             xdotool
       - run: pnpm install --frozen-lockfile
+      - name: Verify distributable third-party notices
+        run: pnpm check:notices
       - name: Build platform installer
         run: |
           rustc --version | grep '^rustc 1.96.0 '
@@ -598,6 +600,8 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Verify distributable third-party notices
+        run: pnpm check:notices
       - name: Build offline NSIS setup
         shell: pwsh
         run: |
@@ -699,7 +703,8 @@ jobs:
           try {
             & ./scripts/windows/test-installed-lifecycle.ps1 `
               -Installer $env:SCADMILL_INSTALLER `
-              -ExpectedApplication $env:SCADMILL_PACKAGED_APP *>&1 |
+              -ExpectedApplication $env:SCADMILL_PACKAGED_APP `
+              -ExpectedNotices ./THIRD-PARTY-NOTICES.txt *>&1 |
               Tee-Object -FilePath $log
           } catch {
             $_ | Format-List * -Force | Out-String | Add-Content -LiteralPath $log

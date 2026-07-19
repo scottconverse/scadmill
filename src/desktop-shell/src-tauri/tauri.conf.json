@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "pnpm --dir ../.. dev",
     "devUrl": "http://127.0.0.1:1420",
-    "beforeBuildCommand": "pnpm --dir ../.. build:desktop",
+    "beforeBuildCommand": "pnpm --dir ../.. build:desktop:tauri-prebuild",
     "frontendDist": "../../../dist"
   },
   "app": {
@@ -47,6 +47,7 @@
     ],
     "windows": {
       "nsis": {
+        "compression": "zlib",
         "installMode": "currentUser",
         "installerHooks": "windows/installer-hooks.nsh"
       },

@@ -1,0 +1,137 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-19-windows-beta-notices-and-docs",
+  "createdAt": "2026-07-19T02:39:36-06:00",
+  "summary": "Prepare honest Windows-first beta documentation and a deterministic, fail-closed third-party notice artifact that is bundled into the installer and verified through install and uninstall without inventing the owner-controlled product license or security-reporting channel.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.2 permitted dependency-source reading", "Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "Section 6 dependency licensing", "FR-13.4", "N-7", "V-2", "V-5"],
+  "filesTouched": [
+    { "path": ".github/workflows/ci.yml", "status": "modified" },
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "PRIVACY.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "THIRD-PARTY-NOTICES.txt", "status": "added" },
+    { "path": "docs/FAQ.md", "status": "modified" },
+    { "path": "docs/USER-GUIDE.md", "status": "modified" },
+    { "path": "docs/WINDOWS-BETA.md", "status": "added" },
+    { "path": "package.json", "status": "modified" },
+    { "path": "provenance/entries/2026-07-19-windows-beta-notices-and-docs.json", "status": "added" },
+    { "path": "scripts/generate-third-party-notices.mjs", "status": "added" },
+    { "path": "scripts/lib/third-party-notices.d.mts", "status": "added" },
+    { "path": "scripts/lib/third-party-notices.mjs", "status": "added" },
+    { "path": "scripts/windows/test-installed-lifecycle.ps1", "status": "modified" },
+    { "path": "spec/QUESTIONS.md", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/tauri.conf.json", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/tauri.windows.conf.json", "status": "added" },
+    { "path": "tests/scripts/third-party-notices.test.ts", "status": "added" },
+    { "path": "tests/scripts/windows-installer.test.ts", "status": "modified" },
+    { "path": "third-party/distribution-components.json", "status": "added" },
+    { "path": "third-party/license-overrides/nsis-3.11-ZLIB.txt", "status": "added" },
+    { "path": "third-party/license-overrides/rust-unic-LICENSE-MIT.txt", "status": "added" },
+    { "path": "third-party/license-overrides/webview2-rs-LICENSE-MIT.txt", "status": "added" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://v2.tauri.app/develop/resources/",
+      "accessedOn": "2026-07-19",
+      "purpose": "Official Tauri v2 documentation for mapping the tracked notice file into the packaged resource directory."
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution",
+      "accessedOn": "2026-07-19",
+      "purpose": "Official Microsoft redistribution guidance for the Evergreen WebView2 standalone installer carried by the offline setup."
+    },
+    {
+      "url": "https://developer.microsoft.com/microsoft-edge/webview2/",
+      "accessedOn": "2026-07-19",
+      "purpose": "Official WebView2 download and license-terms presentation surface recorded for beta users."
+    },
+    {
+      "url": "https://nsis.sourceforge.io/Docs/AppendixI.html",
+      "accessedOn": "2026-07-19",
+      "purpose": "Official NSIS license reference used to retain the exact 3.11 zlib/libpng notice and avoid the default LZMA compressor's unapproved CPL-1.0 path."
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/cpp/windows/redistributing-visual-cpp-files?view=msvc-170",
+      "accessedOn": "2026-07-19",
+      "purpose": "Official Microsoft guidance for the Visual C++ runtime support that is statically linked into the verified Windows executable."
+    },
+    {
+      "url": "https://raw.githubusercontent.com/open-i18n/rust-unic/5878605364af97a3358368a6eaef02104af2e016/LICENSE-MIT",
+      "accessedOn": "2026-07-19",
+      "purpose": "Exact MIT license text from the official approved rust-unic dependency source at the Cargo package commit; retained with SHA-256."
+    },
+    {
+      "url": "https://raw.githubusercontent.com/wravery/webview2-rs/b74dc5e2b394044bea5191052868ce7a106c202c/LICENSE",
+      "accessedOn": "2026-07-19",
+      "purpose": "Exact MIT license and copyright notice from the official approved webview2-rs dependency source at the Cargo package commit; retained with SHA-256."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0406",
+      "topic": "Generate distributable notices from the actual Windows beta dependency graph",
+      "decision": "Use target-filtered Cargo metadata only for package records, derive activation from cargo tree pinned to x86_64-pc-windows-msvc and normal/build edges, inventory production npm packages, retain exact package license, copyright, and notice texts through containment-checked regular-file reads, bind official-source overrides by package version and SHA-256, deduplicate identical texts by hash, configure NSIS 3.11 explicitly for permitted zlib compression, disclose WebView2 and statically linked Visual C++ runtime support, map the notice only through Tauri's Windows platform configuration, and make the drift check a mandatory Tauri prebuild before packaging.",
+      "rationale": "Cargo metadata resolve edges include inactive optional dependencies, unfiltered records overstate the Windows payload, dependency-controlled licenseFile paths must not escape their package, SPDX expressions alone do not preserve required notices, and the NSIS LZMA module uses unapproved CPL-1.0. An activated target-bound artifact with contained exact inputs and zlib-only setup is accurate, policy-compatible, and independently checkable.",
+      "specBasis": ["Section 6 dependency licensing", "V-2", "V-5"]
+    },
+    {
+      "id": "D-0407",
+      "topic": "Keep public-beta legal and security claims owner-controlled",
+      "decision": "Publish accurate unpublished-candidate and Windows-only documentation now, but park the product license grant and private vulnerability-reporting channel as Q-0038 and Q-0039 instead of inferring either one; continue all unrelated release evidence.",
+      "rationale": "The current no-permission product license cannot authorize a public beta, and an invented reporting address or SLA would mislead users. These owner choices affect only their final publication surfaces.",
+      "specBasis": ["Section 2.7 delivery protocol", "FR-13.4", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The tracked third-party notice is deterministic, path-free, target-scoped, exact-text-backed, and installed and removed with the Windows application.",
+      "test": "Start with missing generator/resource wiring, then generate the exact notice and run focused generator, license-policy, installer-contract, workflow, formatting, syntax, and PowerShell checks.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/third-party-notices.test.ts tests/scripts/windows-installer.test.ts --reporter=dot",
+        "observedAt": "2026-07-19T02:33:49-06:00",
+        "outcome": "RED: the notice module and Tauri resource mapping were absent. Subsequent focused REDs proved the NSIS default was LZMA, the static Visual C++ payload was undisclosed, COPYRIGHT files were omitted, inactive optional Cargo dependencies were counted as activated, dependency or manifest paths could escape their base directory, Windows-only notices could leak into DMG/AppImage artifacts, and a manual Tauri build could package stale notices; each regression failed before repair."
+      },
+      "green": {
+        "command": "pnpm.cmd check:notices; pnpm.cmd exec vitest run tests/scripts/third-party-notices.test.ts tests/scripts/licenses.test.ts tests/scripts/windows-installer.test.ts tests/scripts/ci-workflow.test.ts --reporter=dot; pnpm.cmd exec biome check scripts/generate-third-party-notices.mjs scripts/lib/third-party-notices.mjs tests/scripts/third-party-notices.test.ts tests/scripts/windows-installer.test.ts; PowerShell AST parse",
+        "observedAt": "2026-07-19T03:01:58-06:00",
+        "outcome": "GREEN: the final 656,257-byte notice was current for 26 production npm and 278 activated Windows Cargo packages; 4 focused files and 22 tests passed after the platform-specific resource, mandatory prebuild, regular-file, and realpath-link escape repairs; Biome exited zero. Inactive bs58, chrono, schemars 0.9/1.2, tray-icon, tinyvec, and related packages were absent. The installed-lifecycle PowerShell parser passed separately. An independent read-only re-review completed at 2026-07-19T03:04:15-06:00 with blocker/critical/major/minor/nit = 0/0/0/0/0. The next exact hosted installer run must prove the resource bytes in a real Windows package."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://src/desktop-shell/src-tauri/Cargo.lock",
+      "sought": "Exact Windows-beta third-party dependency inventory",
+      "confirmation": "A raw all-target Cargo package count included macOS, Linux, Android, and WASM-only crates. The generator was constrained to the x86_64-pc-windows-msvc resolved normal/build graph before any distributable claim."
+    },
+    {
+      "url": "local://scripts/generate-third-party-notices.mjs",
+      "sought": "Every exact license and notice file in locked package archives",
+      "confirmation": "The first filename probe missed Tauri files containing underscores and could have invented unnecessary overrides. The accepted matcher covers hyphen, underscore, and dot suffixes, then fails closed for the remaining exact-version override set."
+    },
+    {
+      "url": "local://src/desktop-shell/src-tauri/tauri.conf.json",
+      "sought": "Complete non-lockfile Windows installer component licensing",
+      "confirmation": "Tauri's documented NSIS default is LZMA, whose NSIS module is CPL-1.0 and outside ScadMill's allow-list. The installer now explicitly uses zlib and carries the exact NSIS 3.11 zlib notice; focused tests prevent silent reversion."
+    },
+    {
+      "url": "local://scripts/generate-third-party-notices.mjs",
+      "sought": "Complete copyright attribution from locked package archives",
+      "confirmation": "Independent review found top-level COPYRIGHT files for utf8_iter and unicode-segmentation were outside the retained-text matcher. COPYRIGHT and suffixed variants are now included, a focused filename regression guards the boundary, and the final notice was regenerated."
+    },
+    {
+      "url": "local://scripts/lib/third-party-notices.mjs",
+      "sought": "Exact activated Windows dependency and safe license-input boundaries",
+      "confirmation": "Independent review proved metadata resolve edges still named 16 inactive optional packages and that unchecked licenseFile or manifest paths could escape their declared roots. Activation now comes from the exact target and normal/build cargo tree; absolute, traversing, symlink-escaping, non-file, and ambiguous inputs fail closed under focused regressions."
+    },
+    {
+      "url": "local://src/desktop-shell/src-tauri/tauri.conf.json",
+      "sought": "Prevent Windows-only notice claims from entering non-Windows verification artifacts or drifting during manual packaging",
+      "confirmation": "Independent review found the first resource map was global and the notice drift check existed only in CI. The resource now exists only in tauri.windows.conf.json, and every Tauri package build runs the fail-closed notice check through its prebuild command before compiling desktop assets."
+    }
+  ],
+  "questions": ["Q-0038 requires the owner to select Apache-2.0, MIT, or supply a proprietary beta EULA before public release. Q-0039 requires the owner to select GitHub private vulnerability reporting or provide a verified private email. Neither question blocks candidate engineering or evidence."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

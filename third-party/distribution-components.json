@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "overrides": [
+    {
+      "packages": ["cargo:alloc-stdlib@0.2.4"],
+      "sourcePackage": "cargo:alloc-no-stdlib@2.0.4"
+    },
+    {
+      "packages": ["cargo:selectors@0.36.1"],
+      "sourcePackage": "cargo:cssparser@0.36.0"
+    },
+    {
+      "packages": ["cargo:tauri-plugin@2.6.3"],
+      "sourcePackage": "cargo:tauri-build@2.6.3"
+    },
+    {
+      "packages": [
+        "cargo:unic-char-property@0.9.0",
+        "cargo:unic-char-range@0.9.0",
+        "cargo:unic-common@0.9.0",
+        "cargo:unic-ucd-ident@0.9.0",
+        "cargo:unic-ucd-version@0.9.0"
+      ],
+      "files": [
+        {
+          "path": "third-party/license-overrides/rust-unic-LICENSE-MIT.txt",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+          "sourceUrl": "https://raw.githubusercontent.com/open-i18n/rust-unic/5878605364af97a3358368a6eaef02104af2e016/LICENSE-MIT"
+        }
+      ]
+    },
+    {
+      "packages": [
+        "cargo:webview2-com@0.38.2",
+        "cargo:webview2-com-macros@0.8.1",
+        "cargo:webview2-com-sys@0.38.2"
+      ],
+      "files": [
+        {
+          "path": "third-party/license-overrides/webview2-rs-LICENSE-MIT.txt",
+          "sha256": "0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73",
+          "sourceUrl": "https://raw.githubusercontent.com/wravery/webview2-rs/b74dc5e2b394044bea5191052868ce7a106c202c/LICENSE"
+        }
+      ]
+    }
+  ],
+  "webView2": {
+    "distribution": "Microsoft Edge WebView2 Evergreen Standalone Installer (x64)",
+    "termsUrl": "https://developer.microsoft.com/microsoft-edge/webview2/",
+    "distributionUrl": "https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution"
+  },
+  "nsis": {
+    "distribution": "NSIS 3.11 installer and uninstaller stubs",
+    "compression": "zlib",
+    "licenseFile": {
+      "path": "third-party/license-overrides/nsis-3.11-ZLIB.txt",
+      "sha256": "f0b7127bf8154a55df8c5d53e6e0191aa608f027ba153b35369c73da302b28c4",
+      "sourceUrl": "https://nsis.sourceforge.io/Docs/AppendixI.html"
+    }
+  },
+  "msvc": {
+    "distribution": "Microsoft Visual C++ runtime support (statically linked)",
+    "termsUrl": "https://learn.microsoft.com/en-us/cpp/windows/redistributing-visual-cpp-files?view=msvc-170"
+  }
+}

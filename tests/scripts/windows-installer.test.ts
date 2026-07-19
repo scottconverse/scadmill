@@ -33,26 +33,46 @@ function namedStep(job: WorkflowJob, name: string): WorkflowStep {
 describe("installer lifecycle contract", () => {
   it("produces an offline current-user NSIS installer with static Visual C++ linkage", async () => {
     const root = process.cwd();
-    const [tauriConfigSource, cargoConfig, installerHooks] = await Promise.all([
+    const [
+      tauriConfigSource,
+      windowsConfigSource,
+      packageSource,
+      cargoConfig,
+      installerHooks,
+    ] =
+      await Promise.all([
       readFile(
         join(root, "src", "desktop-shell", "src-tauri", "tauri.conf.json"),
         "utf8",
       ),
+      readFile(
+        join(root, "src", "desktop-shell", "src-tauri", "tauri.windows.conf.json"),
+        "utf8",
+      ),
+      readFile(join(root, "package.json"), "utf8"),
       readFile(join(root, ".cargo", "config.toml"), "utf8").catch(() => ""),
       readFile(
         join(root, "src", "desktop-shell", "src-tauri", "windows", "installer-hooks.nsh"),
         "utf8",
       ),
-    ]);
+      ]);
     const tauriConfig = JSON.parse(tauriConfigSource) as {
+      build?: { beforeBuildCommand?: string };
       bundle?: {
         active?: boolean;
         targets?: string[];
+        resources?: Record<string, string>;
         windows?: {
-          nsis?: { installMode?: string; installerHooks?: string };
+          nsis?: { compression?: string; installMode?: string; installerHooks?: string };
           webviewInstallMode?: { type?: string };
         };
       };
+    };
+    const windowsConfig = JSON.parse(windowsConfigSource) as {
+      bundle?: { resources?: Record<string, string> };
+    };
+    const packageManifest = JSON.parse(packageSource) as {
+      scripts?: Readonly<Record<string, string>>;
     };
 
     expect(tauriConfig.bundle).toMatchObject({
@@ -60,12 +80,23 @@ describe("installer lifecycle contract", () => {
       targets: ["nsis"],
       windows: {
         nsis: {
+          compression: "zlib",
           installMode: "currentUser",
           installerHooks: "windows/installer-hooks.nsh",
         },
         webviewInstallMode: { type: "offlineInstaller" },
       },
     });
+    expect(tauriConfig.bundle?.resources).toBeUndefined();
+    expect(windowsConfig.bundle?.resources).toEqual({
+      "../../../THIRD-PARTY-NOTICES.txt": "THIRD-PARTY-NOTICES.txt",
+    });
+    expect(tauriConfig.build?.beforeBuildCommand).toBe(
+      "pnpm --dir ../.. build:desktop:tauri-prebuild",
+    );
+    expect(packageManifest.scripts?.["build:desktop:tauri-prebuild"]).toBe(
+      "pnpm check:notices && pnpm build:desktop",
+    );
     expect(cargoConfig).toContain(
       '[target.\'cfg(all(windows, target_env = "msvc"))\']',
     );
@@ -97,6 +128,8 @@ describe("installer lifecycle contract", () => {
       job,
       "Verify setup artifact and static Visual C++ runtime linkage",
     );
+    const noticesCheck = namedStep(job, "Verify distributable third-party notices");
+    const build = namedStep(job, "Build offline NSIS setup");
     const hash = namedStep(job, "Hash exact setup bytes before lifecycle");
     const lifecycleStep = namedStep(
       job,
@@ -149,11 +182,14 @@ describe("installer lifecycle contract", () => {
     expect(thirdReady).toBeGreaterThan(thirdLaunch);
     expect(thirdRestore).toBeGreaterThan(thirdReady);
     expect(job.steps.indexOf(hash)).toBeLessThan(job.steps.indexOf(lifecycleStep));
+    expect(job.steps.indexOf(noticesCheck)).toBeLessThan(job.steps.indexOf(build));
+    expect(job.steps.indexOf(build)).toBeLessThan(job.steps.indexOf(buildProof));
     expect(job.steps.indexOf(lifecycleStep)).toBeLessThan(job.steps.indexOf(upload));
     expect(buildProof.run).toContain("7z e -y");
     expect(buildProof.run).toContain("SCADMILL_PACKAGED_APP=$packagedApplication");
     expect(buildProof.run).toContain("/dependents $packagedApplication");
     expect(lifecycleStep.run).toContain("-ExpectedApplication $env:SCADMILL_PACKAGED_APP");
+    expect(lifecycleStep.run).toContain("-ExpectedNotices ./THIRD-PARTY-NOTICES.txt");
     expect(lifecycleStep.run).toContain("Tee-Object -FilePath $log");
     expect(upload.if).toBe("always() && env.SCADMILL_INSTALLER != ''");
     expect(upload.with?.path).toContain("scadmill-windows-lifecycle");
@@ -163,6 +199,8 @@ describe("installer lifecycle contract", () => {
     expect(lifecycle).toContain("Uninstall did not restore the prior .scad association.");
     expect(lifecycle).toContain("The ScadMill association backup marker remained after uninstall.");
     expect(lifecycle).toContain("$installedApplicationHash -cne $expectedApplicationHash");
+    expect(lifecycle).toContain("$installedNoticesHash -cne $expectedNoticesHash");
+    expect(lifecycle).toContain("Third-party notices remained installed after uninstall.");
     expect(lifecycle).toContain("$expectedOpenCommand");
     expect(lifecycle).toContain("GetValue(\"\")");
     expect(lifecycle).toContain("Invoke-DevToolsExpression");
