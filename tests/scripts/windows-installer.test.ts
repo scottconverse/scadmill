@@ -262,6 +262,10 @@ describe("installer lifecycle contract", () => {
     expect(prerequisites.run).toContain("xdotool");
     expect(mac.run).toContain("CGWindowListCopyWindowInfo");
     expect(mac.run).toContain("owner.int32Value == pid");
+    expect(mac.run).toContain(
+      'hdiutil attach "$SCADMILL_DESKTOP_INSTALLER" -acceptlicense -nobrowse -readonly',
+    );
+    expect(mac.run?.match(/hdiutil attach/gu)).toHaveLength(1);
     expect(mac.run).toContain('test "$installed_executable_hash" = "$source_executable_hash"');
     expect(linux.run).toContain("Xvfb");
     expect(linux.run).toContain('APPIMAGE_EXTRACT_AND_RUN=1 "$installed"');

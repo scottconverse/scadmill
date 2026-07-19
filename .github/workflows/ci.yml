@@ -305,7 +305,7 @@ jobs:
           window_probe_source="$RUNNER_TEMP/scadmill-window-probe.swift"
           window_probe="$RUNNER_TEMP/scadmill-window-probe"
           mkdir -p "$mount_point" "$install_root"
-          hdiutil attach "$SCADMILL_DESKTOP_INSTALLER" -nobrowse -readonly -mountpoint "$mount_point"
+          hdiutil attach "$SCADMILL_DESKTOP_INSTALLER" -acceptlicense -nobrowse -readonly -mountpoint "$mount_point"
           app_count="$(find "$mount_point" -maxdepth 1 -type d -name '*.app' | wc -l | tr -d ' ')"
           test "$app_count" -eq 1
           app="$(find "$mount_point" -maxdepth 1 -type d -name '*.app' -print -quit)"

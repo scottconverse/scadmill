@@ -1,13 +1,13 @@
 import { type FormEvent, useEffect, useReducer, useRef, useState } from "react";
-import { type AiContextInputs, type AiContextToggles, buildAiContextMessage, DEFAULT_AI_CONTEXT_TOGGLES } from "../../application/ai/ai-context";
-import { DEFAULT_AGENT_ROUND_CAP, runAgentLoop, type AgentModelTurn } from "../../application/ai/agent-loop";
+import { type AgentModelTurn, DEFAULT_AGENT_ROUND_CAP, runAgentLoop } from "../../application/ai/agent-loop";
 import { createAgentToolExecutor } from "../../application/ai/agent-tool-executor";
-import { DEFAULT_AI_SYSTEM_PROMPT, type AiMessage } from "../../application/ai/ai-provider";
+import { type AiContextInputs, type AiContextToggles, buildAiContextMessage, DEFAULT_AI_CONTEXT_TOGGLES } from "../../application/ai/ai-context";
+import { type AiMessage, DEFAULT_AI_SYSTEM_PROMPT } from "../../application/ai/ai-provider";
 import type { ProposedEdit } from "../../application/ai/conversation";
 import { conversationReducer, extractCodeBlocks } from "../../application/ai/conversation";
-import { EPHEMERAL_CONVERSATION_PERSISTENCE, loadConversation, saveConversation, type ConversationPersistence } from "../../application/ai/conversation-persistence";
-import { messages } from "../../messages/en";
+import { type ConversationPersistence, EPHEMERAL_CONVERSATION_PERSISTENCE, loadConversation, saveConversation } from "../../application/ai/conversation-persistence";
 import type { McpToolHandler } from "../../application/mcp/mcp-dispatcher";
+import { messages } from "../../messages/en";
 import { ExternalChangeDiff } from "../files/ExternalChangeDiff";
 import { AiMarkdown } from "./AiMarkdown";
 import type { AiConversationConfiguration } from "./ai-runtime-bridge";
@@ -199,10 +199,10 @@ export function AiConversationPanel({ configured, contextInputs, currentSource, 
           </>}
         </fieldset>
         {contextInputs && <fieldset className="ai-context-toggles"><legend>{messages.aiContextLegend}</legend>
-          <label><input checked={contextToggles.source} onChange={(event) => setContextToggles((current) => ({ ...current, source: event.currentTarget.checked }))} type="checkbox" />{messages.aiContextSource}</label>
-          <label><input checked={contextToggles.diagnostics} onChange={(event) => setContextToggles((current) => ({ ...current, diagnostics: event.currentTarget.checked }))} type="checkbox" />{messages.aiContextDiagnostics}</label>
-          <label><input checked={contextToggles.parameters} onChange={(event) => setContextToggles((current) => ({ ...current, parameters: event.currentTarget.checked }))} type="checkbox" />{messages.aiContextParameters}</label>
-          <label><input checked={contextToggles.screenshot} onChange={(event) => setContextToggles((current) => ({ ...current, screenshot: event.currentTarget.checked }))} type="checkbox" />{messages.aiContextScreenshot}</label>
+          <label><input checked={contextToggles.source} onChange={(event) => { const checked = event.currentTarget.checked; setContextToggles((current) => ({ ...current, source: checked })); }} type="checkbox" />{messages.aiContextSource}</label>
+          <label><input checked={contextToggles.diagnostics} onChange={(event) => { const checked = event.currentTarget.checked; setContextToggles((current) => ({ ...current, diagnostics: checked })); }} type="checkbox" />{messages.aiContextDiagnostics}</label>
+          <label><input checked={contextToggles.parameters} onChange={(event) => { const checked = event.currentTarget.checked; setContextToggles((current) => ({ ...current, parameters: checked })); }} type="checkbox" />{messages.aiContextParameters}</label>
+          <label><input checked={contextToggles.screenshot} onChange={(event) => { const checked = event.currentTarget.checked; setContextToggles((current) => ({ ...current, screenshot: checked })); }} type="checkbox" />{messages.aiContextScreenshot}</label>
         </fieldset>}
         <label>{messages.aiMessageLabel}<textarea onChange={(event) => setInput(event.currentTarget.value)} value={input} /></label>
         <button disabled={!requestStream || !input.trim() || Boolean(state.activeRequestId) || secretStatus !== "ready" || (agentMode && (!requestAgentTurn || !agentToolHandler))} type="submit">{messages.aiSend}</button>

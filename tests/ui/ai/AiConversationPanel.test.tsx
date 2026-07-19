@@ -1,9 +1,8 @@
 // @vitest-environment happy-dom
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-
-import { AiConversationPanel } from "../../../src/ui/ai/AiConversationPanel";
 import type { ConversationPersistence } from "../../../src/application/ai/conversation-persistence";
+import { AiConversationPanel } from "../../../src/ui/ai/AiConversationPanel";
 
 async function* stream() {
   yield "```scad\n";
@@ -11,6 +10,47 @@ async function* stream() {
 }
 
 describe("AiConversationPanel", () => {
+  it("uses the settled context-toggle values for the next request", async () => {
+    const requests: Array<readonly { role: string; content: string }[]> = [];
+    async function* reply() { yield "ready"; }
+    const panel = (source: string) => <AiConversationPanel
+      configured
+      contextInputs={{
+        source,
+        diagnostics: ["WARNING: context diagnostic"],
+        parameters: ["width = 41"],
+        screenshotDataUrl: "data:image/png;base64,AQID",
+      }}
+      currentSource={source}
+      documentId="d1"
+      requestStream={(messages) => {
+        requests.push(messages);
+        return reply();
+      }}
+    />;
+    const view = render(panel("cube(41);"));
+
+    for (const label of ["Current file", "Diagnostics", "Parameters"]) {
+      const checkbox = screen.getByLabelText(label);
+      expect(checkbox).toBeChecked();
+      fireEvent.click(checkbox);
+      expect(checkbox).not.toBeChecked();
+    }
+    view.rerender(panel("cube(42);"));
+    for (const label of ["Current file", "Diagnostics", "Parameters"]) {
+      expect(screen.getByLabelText(label)).not.toBeChecked();
+    }
+    fireEvent.change(screen.getByLabelText("Message"), { target: { value: "without context" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    expect(await screen.findByText("ready")).toBeVisible();
+    const requestText = requests[0].map(({ content }) => content).join("\n");
+    expect(requestText).not.toContain("<current-file>");
+    expect(requestText).not.toContain("<diagnostics>");
+    expect(requestText).not.toContain("<parameters>");
+    expect(requestText).not.toContain("<viewer-screenshot>");
+  });
+
   it("sends the fixed OpenSCAD system prompt and exposes copy/insert actions", async () => {
     const requests: unknown[] = [];
     const onCopy = vi.fn(async () => undefined);
