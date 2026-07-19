@@ -108,6 +108,13 @@ export interface HistoryEntry {
   undoable: boolean;
 }
 
+export type HistoryDetail = {
+  readonly kind: "source-diff";
+  readonly path: string;
+  readonly before: string;
+  readonly after: string;
+};
+
 export interface ReadonlyStore<T> {
   getState(): T;
   getInitialState(): T;
@@ -126,6 +133,7 @@ export interface WorkbenchRuntime {
   parameters: ReadonlyStore<ParameterState>;
   project: ReadonlyStore<ProjectSessionState>;
   history: ReadonlyStore<readonly HistoryEntry[]>;
+  historyDetails: ReadonlyStore<ReadonlyMap<string, HistoryDetail>>;
   controls: ReadonlyStore<WorkbenchControlState>;
   readonly renderThumbnails: RenderThumbnailPersistence;
   dispatch(command: WorkbenchCommand): Promise<void>;

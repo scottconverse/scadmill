@@ -97,6 +97,7 @@ import {
 } from "./workbench-controls";
 import type {
   HistoryEntry,
+  HistoryDetail,
   ReadonlyStore,
   RenderState,
   RuntimeOptions,
@@ -108,6 +109,7 @@ export type { SettingsState } from "./render-settings";
 export type {
   CommandOrigin,
   HistoryEntry,
+  HistoryDetail,
   ReadonlyStore,
   RenderState,
   RuntimeOptions,
@@ -223,6 +225,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     })))
   );
   const history = createStore<readonly HistoryEntry[]>(() => []);
+  const historyDetails = createStore<ReadonlyMap<string, HistoryDetail>>(() => new Map());
   const controls = createStore<WorkbenchControlState>(() =>
     createWorkbenchControlState(showWelcomeOnLaunch)
   );
@@ -236,6 +239,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     readonly command: WorkbenchCommand;
     frame?: ReversibleHistoryFrame;
     entry?: HistoryEntry;
+    detail?: HistoryDetail;
     completed: boolean;
   }
   const commandOrderSlots: CommandOrderSlot[] = [];
@@ -437,7 +441,16 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     while (commandOrderSlots[0]?.completed) {
       const slot = commandOrderSlots.shift() as CommandOrderSlot;
       if (slot.frame) undoFrames.push(slot.frame);
-      if (slot.entry) appendHistoryNow(slot.entry);
+      const { detail, entry } = slot;
+      if (entry) {
+        if (detail) {
+          historyDetails.setState(
+            (current) => new Map(current).set(entry.commandId, detail),
+            true,
+          );
+        }
+        appendHistoryNow(entry);
+      }
       commandSlots.delete(slot.command);
     }
   }
@@ -448,14 +461,34 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     flushCompletedCommandSlots();
   }
 
-  function stageHistory(command: WorkbenchCommand, entry: HistoryEntry): void {
+  function stageHistory(
+    command: WorkbenchCommand,
+    entry: HistoryEntry,
+    detail?: HistoryDetail,
+  ): void {
     const slot = commandSlots.get(command);
-    if (slot) slot.entry = entry;
-    else appendHistoryNow(entry);
+    if (slot) {
+      slot.entry = entry;
+      slot.detail = detail;
+    } else {
+      if (detail) {
+        historyDetails.setState(
+          (current) => new Map(current).set(entry.commandId, detail),
+          true,
+        );
+      }
+      appendHistoryNow(entry);
+    }
   }
 
-  function record(command: WorkbenchCommand, commandId: string, summary: string, undoable: boolean): void {
-    stageHistory(command, createHistoryEntry(command, commandId, summary, undoable));
+  function record(
+    command: WorkbenchCommand,
+    commandId: string,
+    summary: string,
+    undoable: boolean,
+    detail?: HistoryDetail,
+  ): void {
+    stageHistory(command, createHistoryEntry(command, commandId, summary, undoable), detail);
   }
 
   function pushReversibleFrame(
@@ -1092,7 +1125,16 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
           redo: () => replayWorkspaceState(next, nextParameters),
         });
       }
-      record(command, commandId, summary, undoable);
+      const detail = command.kind === "edit-document"
+        ? {
+            kind: "source-diff" as const,
+            path: before.documents.find(({ id }) => id === command.documentId)?.path
+              ?? command.documentId,
+            before: before.documents.find(({ id }) => id === command.documentId)?.source ?? "",
+            after: command.source,
+          }
+        : undefined;
+      record(command, commandId, summary, undoable, detail);
       for (const documentId of pendingAutoRenders.keys()) {
         if (!next.documents.some(({ id }) => id === documentId)) {
           pendingAutoRenders.delete(documentId);
@@ -1684,6 +1726,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     parameters: readonlyStore(parameters),
     project: readonlyStore(project),
     history: readonlyStore(history),
+    historyDetails: readonlyStore(historyDetails),
     controls: readonlyStore(controls),
     renderThumbnails,
     dispatch,

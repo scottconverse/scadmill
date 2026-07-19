@@ -54,6 +54,31 @@ function memoryStorage(files: Map<string, ProjectFileContent>): ProjectStorage {
 }
 
 describe("AC-11.a reversible command history", () => {
+  it("publishes a source diff detail with editor, AI, and external edit entries", async () => {
+    const runtime = createWorkbenchRuntime(engine(), {
+      makeId: (() => { let id = 0; return () => `detail-${++id}`; })(),
+      rendering: { autoRender: false },
+    });
+    for (const [origin, source] of [
+      ["user", "cube(11);"],
+      ["ai-panel", "sphere(4);"],
+      ["external-agent", "cylinder(8, 2, 2);"],
+    ] as const) {
+      await runtime.dispatch({
+        kind: "edit-document",
+        origin,
+        documentId: "document-main",
+        source,
+      });
+    }
+
+    expect([...runtime.historyDetails.getState().entries()]).toEqual([
+      ["detail-1", { kind: "source-diff", path: "main.scad", before: "cube(10);", after: "cube(11);" }],
+      ["detail-2", { kind: "source-diff", path: "main.scad", before: "cube(11);", after: "sphere(4);" }],
+      ["detail-3", { kind: "source-diff", path: "main.scad", before: "sphere(4);", after: "cylinder(8, 2, 2);" }],
+    ]);
+  });
+
   it("undoes and redoes a scripted edit/parameter/source-write sequence without adding history", async () => {
     const runtime = createWorkbenchRuntime(engine(), {
       initialScratchSource: "width = 10; depth = 5; cube([width, depth, 1]);",

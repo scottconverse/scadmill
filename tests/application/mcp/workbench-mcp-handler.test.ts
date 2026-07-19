@@ -20,6 +20,21 @@ function engine(): EngineService {
 }
 
 describe("workbench MCP handler", () => {
+  it("returns the newest normative history entries first without UI-only detail fields", async () => {
+    const runtime = createWorkbenchRuntime(engine(), { initialScratchSource: "cube(1);" });
+    await runtime.dispatch({ kind: "edit-document", origin: "user", documentId: "document-main", source: "cube(2);" });
+    await runtime.dispatch({ kind: "edit-document", origin: "ai-panel", documentId: "document-main", source: "cube(3);" });
+    await runtime.dispatch({ kind: "set-mcp-enabled", origin: "system", enabled: true });
+    const handler = createWorkbenchMcpHandler({ runtime });
+
+    await expect(handler.call("get_history", { limit: 1 })).resolves.toEqual({
+      entries: [expect.objectContaining({ origin: "ai-panel", summary: "Edit main.scad" })],
+    });
+    const response = await handler.call("get_history", { limit: 2 }) as { entries: Record<string, unknown>[] };
+    expect(response.entries.map(({ origin }) => origin)).toEqual(["ai-panel", "user"]);
+    expect(response.entries.every((entry) => !("detail" in entry))).toBe(true);
+  });
+
   it("reads overlaid buffers and exposes parameter metadata", async () => {
     const runtime = createWorkbenchRuntime(engine(), { initialScratchSource: "length = 5; cube(length);" });
     const handler = createWorkbenchMcpHandler({ runtime, reviewId: () => "fixed" });

@@ -170,6 +170,43 @@ describe("Workbench", () => {
     expect(runtime.history.getState().some(({ kind }) => kind === "editor-command")).toBe(false);
   });
 
+  it("opens a live History detail with the source diff from the runtime command", async () => {
+    const runtime = createWorkbenchRuntime({
+      render: vi.fn(), export: vi.fn(), version: vi.fn(), cancel: vi.fn(),
+    }, {
+      makeId: (() => { let id = 0; return () => `history-detail-${++id}`; })(),
+      rendering: { autoRender: false },
+    });
+    await runtime.dispatch({
+      kind: "edit-document",
+      origin: "ai-panel",
+      documentId: "document-main",
+      source: "sphere(4);",
+    });
+    const view = render(
+      <Workbench
+        runtime={runtime}
+        engineLabel="OpenSCAD 2026.06.12"
+        activeTheme={SHIPPED_THEMES[0]}
+        themePreference="system"
+        onThemePreferenceChange={vi.fn()}
+      />,
+    );
+    const workbench = within(view.container);
+
+    fireEvent.click(workbench.getByRole("button", { name: "History" }));
+    fireEvent.click(await workbench.findByRole("button", {
+      name: /^View command detail: Edit main\.scad — AI panel —/u,
+    }));
+
+    expect(workbench.getByRole("region", { name: "Workspace history" })).toBeVisible();
+    expect(workbench.getByRole("heading", { name: "Workspace history", level: 2 })).toBeVisible();
+    expect(workbench.getByRole("article", { name: "Command detail" })).toHaveTextContent("AI panel");
+    const diff = workbench.getByRole("region", { name: "main.scad" });
+    expect(diff).toHaveTextContent("cube(10);");
+    expect(diff).toHaveTextContent("sphere(4);");
+  });
+
   it("routes every global File shortcut through the Workbench coordinator", async () => {
     const engine: EngineService = {
       render: vi.fn(),
@@ -426,9 +463,18 @@ describe("Workbench", () => {
     expect(restoredEditor.state.doc.toString()).toBe("cube(11);");
     expect(restoredEditor.state.selection.main.head).toBe(4);
 
-    restoredEditor.focus();
-    fireEvent.keyDown(restoredContent, { key: "z", ctrlKey: true });
-    await waitFor(() => expect(restoredEditor.state.doc.toString()).toBe("cube(10);"));
+    await runtime.dispatch({ kind: "history-undo", origin: "user" });
+    await runtime.dispatch({ kind: "history-undo", origin: "user" });
+    const activeContent = await waitFor(() => {
+      const node = view.container.querySelector<HTMLElement>(".cm-content");
+      if (!node) throw new Error("The main editor did not remount after chronological undo.");
+      return node;
+    });
+    const activeEditor = EditorView.findFromDOM(activeContent);
+    if (!activeEditor) throw new Error("The remounted editor could not be recovered.");
+    activeEditor.focus();
+    fireEvent.keyDown(activeContent, { key: "z", ctrlKey: true });
+    await waitFor(() => expect(activeEditor.state.doc.toString()).toBe("cube(10);"));
     expect(runtime.documents.getState().documents[0].source).toBe("cube(10);");
     expect(workbench.getByRole("tab", { name: "main.scad" })).toHaveAttribute(
       "aria-selected",

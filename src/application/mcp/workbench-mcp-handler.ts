@@ -247,7 +247,12 @@ export function createWorkbenchMcpHandler({ runtime, engine, captureScreenshot, 
         }
         case "get_history": {
           const limit = finiteLimit(args.limit, 50, 200);
-          return { entries: runtime.history.getState().slice(0, limit) };
+          return {
+            entries: runtime.history.getState()
+              .filter(({ origin }) => origin !== "system")
+              .slice(-limit)
+              .reverse(),
+          };
         }
       }
     },

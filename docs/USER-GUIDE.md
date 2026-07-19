@@ -48,6 +48,8 @@ The MCP bridge is desktop-only and off by default. Keep the ScadMill GUI open. I
 
 Replace the path if ScadMill is installed elsewhere. A connected client appears in the status bar. Read-only tools operate immediately. Mutation tools are denied by default; **Allow once** grants exactly one request and **Allow for this session** lasts only until the GUI session ends or you change it. Accepted mutation requests still enter the History review surface and do not alter the project until you approve the displayed file diff or parameter values. Denial leaves project state unchanged.
 
+The History rail also records ordinary workspace commands. Entries are newest first and identify whether a command came from you, the AI panel, an external agent, or ScadMill itself. Select an entry to inspect its time, kind, undoability, and exact before/after source when the command edited a document. Use the shared Edit menu or shortcuts to undo and redo applicable commands in chronological order.
+
 Turn the toggle off to close the authenticated local relay and its client process. For a connection failure, verify that the GUI is still open, the MCP toggle is enabled, and the client command uses that exact installed `scadmill.exe`, not a copied or older build.
 
 ## Settings and privacy
@@ -58,4 +60,4 @@ Desktop secrets use the OS credential store. Browser secrets remain session-only
 
 ## Current milestone limits
 
-Q-0033 and Q-0034 are resolved, but their exact compliance-package and parity execution evidence must still pass before the web engine is published. The Windows beta includes the current AI and MCP surfaces. Complete command-history undo/redo, animation, installed libraries, navigation and refactoring expansion, batch features, printability and slicing estimates, color-preserving 3MF, and the headless CLI remain release-gated M4-M6 work unless their milestone evidence is recorded.
+Q-0033 and Q-0034 are resolved, but their exact compliance-package and parity execution evidence must still pass before the web engine is published. The Windows beta includes the current AI, MCP, and complete command-history surfaces. Animation, installed libraries, navigation and refactoring expansion, batch features, printability and slicing estimates, color-preserving 3MF, and the headless CLI remain release-gated M4-M6 work unless their milestone evidence is recorded.

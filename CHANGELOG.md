@@ -6,6 +6,8 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Added
 
+- Added the M4 workspace History inspector: commands are presented newest first with explicit user, AI panel, external agent, or system origin badges and full timestamps; selecting an entry shows its exact metadata and, for source edits, the before/after source without exposing UI-only detail through MCP. Repeated same-summary commands remain visibly and accessibly distinguishable.
+
 - Completed the M4 command-history foundation: editor, document, project-file, parameter, settings, layout, viewer, console, Welcome, and MCP-control mutations now produce one ordered command entry with real undo/redo where applicable. Project-file compensation restores both durable files and annotation metadata, editor-local undo no longer competes with the runtime, and dispatch-order slots preserve chronological undo across slow persistence and project operations without blocking render cancellation.
 
 - Recorded the owner's 2026-07-18 public-beta decisions: Windows desktop `0.1.0-beta.1` ships first while macOS/Linux release proof is deferred without reducing the complete M0–M6 commitment; public OpenSCAD WASM distribution is approved only with exact corresponding source, applicable GPL materials, the reproducible build recipe, and checksums; SVG parity may canonicalize only `CRLF` to `LF` while retaining both raw artifacts and raw hashes.
