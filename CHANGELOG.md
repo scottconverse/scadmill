@@ -7,7 +7,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 ### Release status
 
 - `0.1.0-beta.1` is an unpublished 64-bit Windows desktop candidate. There is no public ScadMill installer or web application yet; CI artifacts are verification inputs, not supported downloads.
-- Publication remains blocked on exact-candidate literal N-2 soak evidence, a clean packaged Windows Sandbox walkthrough, Radeon 780M qualification, a valid signed-installer lifecycle, exact-head hosted and isolated similarity gates, owner resolution of Q-0038's product license/EULA and Q-0039's private security-reporting route, final documentation and visitor checks, a clean public-installer walkthrough, strict-zero closure, and owner go/no-go.
+- Publication remains blocked on exact-candidate one-hour literal N-2 soak evidence, a clean packaged Windows Sandbox walkthrough, Radeon 780M qualification, a valid signed-installer lifecycle, exact-head hosted and isolated similarity gates, owner resolution of Q-0038's product license/EULA and Q-0039's private security-reporting route, final documentation and visitor checks, a clean public-installer walkthrough, strict-zero closure, and owner go/no-go.
 - The M3 parity/compliance execution passed on historical candidate `1b6343a`. That evidence validates the M3 implementation but does not release the OpenSCAD WebAssembly pair and does not qualify the current Windows beta head.
 
 ### Added
@@ -16,7 +16,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 - Added a production-static AC-15.a browser gate that measures unchanged cache dispatch through two browser paint opportunities and fails closed above the normative 100 ms limit.
 
-- Added a literal N-2 packaged Windows soak harness contract: an immutable eight-hour release mode, clearly ineligible accelerated diagnostics, sequential cache-miss edit/render cycles, exact process-memory accounting, one verified engine-kill recovery probe, bounded append-only evidence, and strict summary validation.
+- Added a literal N-2 packaged Windows soak harness contract, amended by owner decision A-10 for the hobbyist-oriented beta to an immutable one-hour release mode: clearly ineligible accelerated diagnostics, sequential cache-miss edit/render cycles, exact process-memory accounting, one midpoint verified engine-kill recovery probe, bounded append-only evidence, and strict summary validation.
 - Added a bounded Tauri HTTP broker for explicitly persisted desktop AI-provider endpoints, with provider-specific request headers, native platform TLS, streaming and cancellation, redirect refusal, and request/response limits. The packaged renderer CSP now permits only self/IPC transport and no arbitrary HTTP, HTTPS, or wildcard connection source.
 
 - Added M4 OpenSCAD `$t` animation: source-aware viewer controls provide a fixed 100-frame scrubber, 1-60 target FPS, sequential play/pause, exact native/WASM `$t` parameter transport, preview-only quality policy, cache-separated frames, failure cleanup, and bounded history behavior.

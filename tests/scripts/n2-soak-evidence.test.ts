@@ -1,5 +1,5 @@
-import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -8,12 +8,13 @@ import { promisify } from "node:util";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
-  N2_LITERAL_CONFIGURATION,
   advanceN2Continuity,
   aggregateN2ProcessMemory,
   appendN2JsonLine,
   isLiteralN2ReleaseEvidence,
+  N2_LITERAL_CONFIGURATION,
   summarizeN2Memory,
+  validateN2CrashTiming,
   validateN2SoakConfiguration,
   validateN2SoakSummary,
 } from "../../scripts/lib/n2-soak-evidence.mjs";
@@ -234,14 +235,59 @@ async function rebindRetainedRecords(fixture: Awaited<ReturnType<typeof retained
 }
 
 describe("N-2 soak evidence", () => {
-  it("recognizes only the immutable literal eight-hour configuration as release evidence", () => {
+  it("recognizes only the immutable literal one-hour configuration as release evidence", () => {
     expect(validateN2SoakConfiguration(N2_LITERAL_CONFIGURATION)).toEqual(N2_LITERAL_CONFIGURATION);
     expect(isLiteralN2ReleaseEvidence(N2_LITERAL_CONFIGURATION)).toBe(true);
+    expect(N2_LITERAL_CONFIGURATION).toMatchObject({
+      evidenceLabel: "N-2-LITERAL-1-HOUR",
+      durationSeconds: 3_600,
+      cadenceMilliseconds: 30_000,
+      warmupSeconds: 300,
+      baselineStartSeconds: 300,
+      baselineEndSeconds: 900,
+      crashAtSeconds: 1_800,
+      minimumSuccessfulCycles: 113,
+      memorySampleIntervalSeconds: 60,
+      rollingWindowSamples: 5,
+      finalWindowSamples: 10,
+      thresholdRatio: 1.5,
+    });
+    expect(isLiteralN2ReleaseEvidence({
+      ...N2_LITERAL_CONFIGURATION,
+      evidenceLabel: "N-2-LITERAL-8-HOUR",
+    })).toBe(false);
     expect(isLiteralN2ReleaseEvidence(acceleratedConfiguration())).toBe(false);
+    const acceleratedOneHour = {
+      ...acceleratedConfiguration(),
+      durationSeconds: 3_600,
+      cadenceMilliseconds: 4_000,
+      warmupSeconds: 450,
+      baselineStartSeconds: 450,
+      baselineEndSeconds: 900,
+      crashAtSeconds: 1_800,
+      minimumSuccessfulCycles: 675,
+    } as const;
+    expect(validateN2SoakConfiguration(acceleratedOneHour)).toEqual(acceleratedOneHour);
+    expect(isLiteralN2ReleaseEvidence(acceleratedOneHour)).toBe(false);
+    expect(validateN2CrashTiming({
+      crashElapsedSeconds: 1_890,
+      recoveryElapsedSeconds: 1_980,
+    }, N2_LITERAL_CONFIGURATION)).toEqual({
+      crashElapsedSeconds: 1_890,
+      recoveryElapsedSeconds: 1_980,
+    });
+    expect(() => validateN2CrashTiming({
+      crashElapsedSeconds: 1_890.001,
+      recoveryElapsedSeconds: 1_980,
+    }, N2_LITERAL_CONFIGURATION)).toThrow("crash/recovery timing");
+    expect(() => validateN2CrashTiming({
+      crashElapsedSeconds: 1_800,
+      recoveryElapsedSeconds: 1_890.001,
+    }, N2_LITERAL_CONFIGURATION)).toThrow("crash/recovery timing");
     expect(() => validateN2SoakConfiguration({
       ...N2_LITERAL_CONFIGURATION,
       durationSeconds: 60,
-    })).toThrow("literal eight-hour");
+    })).toThrow("literal one-hour");
     expect(() => validateN2SoakConfiguration({
       ...acceleratedConfiguration(),
       releaseEvidenceEligible: true,
@@ -609,27 +655,34 @@ describe("N-2 soak evidence", () => {
       schemaVersion: 1,
       status: "passed",
       configuration: N2_LITERAL_CONFIGURATION,
-      durationSeconds: 28_800,
-      cycles: { attempted: 960, successful: 959, expectedCrashFailures: 1, unexpectedFailures: 0 },
+      durationSeconds: 3_600,
+      cycles: { attempted: 120, successful: 119, expectedCrashFailures: 1, unexpectedFailures: 0 },
       continuity: { maximumStartGapMs: 60_000, overlappingRequests: 0 },
       memory: {
         memoryGrowthPassed: true,
-        sampleCount: 461,
-        firstElapsedSeconds: 1_200,
-        lastElapsedSeconds: 28_800,
+        sampleCount: 56,
+        firstElapsedSeconds: 300,
+        lastElapsedSeconds: 3_600,
         maximumGapSeconds: 60,
         baselineSampleCount: 11,
-        baselineFirstElapsedSeconds: 1_200,
-        baselineLastElapsedSeconds: 1_800,
+        baselineFirstElapsedSeconds: 300,
+        baselineLastElapsedSeconds: 900,
         baselineBytes: 100,
         thresholdBytes: 150,
         finalMedianBytes: 120,
       },
       crashProbe: { attempted: true, engineKilled: true, guiIdentityPreserved: true, engineCleared: true, recoveryCyclePassed: true },
       orphans: { passed: true },
-      samples: { recordCount: 1_421, memorySampleCount: 461, sha256: "ab".repeat(32) },
+      samples: { recordCount: 176, memorySampleCount: 56, sha256: "ab".repeat(32) },
     };
     expect(validateN2SoakSummary(literal, { requireReleaseEvidence: true })).toEqual(literal);
+    const minimumCycleBoundary = {
+      ...literal,
+      cycles: { ...literal.cycles, successful: 113, attempted: 114 },
+      samples: { ...literal.samples, recordCount: 170 },
+    };
+    expect(validateN2SoakSummary(minimumCycleBoundary, { requireReleaseEvidence: true }))
+      .toEqual(minimumCycleBoundary);
     expect(() => validateN2SoakSummary({
       ...literal,
       configuration: acceleratedConfiguration(),
@@ -637,16 +690,21 @@ describe("N-2 soak evidence", () => {
     }, { requireReleaseEvidence: true })).toThrow("literal N-2 release evidence");
     expect(() => validateN2SoakSummary({
       ...literal,
-      durationSeconds: 28_799,
-    }, { requireReleaseEvidence: true })).toThrow("eight continuous hours");
+      durationSeconds: 3_599,
+    }, { requireReleaseEvidence: true })).toThrow("one continuous hour");
+    expect(() => validateN2SoakSummary({
+      ...literal,
+      cycles: { ...literal.cycles, successful: 112, attempted: 113 },
+      samples: { ...literal.samples, recordCount: 169 },
+    }, { requireReleaseEvidence: true })).toThrow("acceptance criteria");
     expect(() => validateN2SoakSummary({
       ...literal,
       memory: {
         ...literal.memory,
         sampleCount: 12,
-        lastElapsedSeconds: 1_860,
+        lastElapsedSeconds: 960,
       },
-      samples: { ...literal.samples, recordCount: 972, memorySampleCount: 12 },
+      samples: { ...literal.samples, recordCount: 132, memorySampleCount: 12 },
     }, { requireReleaseEvidence: true })).toThrow("memory coverage");
     expect(() => validateN2SoakSummary({
       ...literal,

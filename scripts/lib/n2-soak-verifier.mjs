@@ -7,6 +7,7 @@ import { isDeepStrictEqual } from "node:util";
 import {
   aggregateN2ProcessMemory,
   summarizeN2Memory,
+  validateN2CrashTiming,
   validateN2SoakConfiguration,
   validateN2SoakSummary,
 } from "./n2-soak-evidence.mjs";
@@ -14,7 +15,7 @@ import {
 const SOAK_EVENTS = new Set([
   "n2-soak-disabled",
   "n2-accelerated-non-release-soak-passed",
-  "n2-literal-eight-hour-soak-passed",
+  "n2-literal-one-hour-soak-passed",
 ]);
 const CRASH_SOURCE = "$fn=400; minkowski() { sphere(10); cube([20,20,20], center=true); } // N2-ENGINE-CRASH";
 
@@ -54,7 +55,7 @@ async function exists(path) {
 function expectedEventName(mode) {
   if (mode === "disabled") return "n2-soak-disabled";
   return mode === "literal"
-    ? "n2-literal-eight-hour-soak-passed"
+    ? "n2-literal-one-hour-soak-passed"
     : "n2-accelerated-non-release-soak-passed";
 }
 
@@ -225,19 +226,22 @@ function auditedCrash(records, configuration, summary, events) {
   const priorCycle = records.slice(0, crashIndex).findLast(({ kind } = {}) => kind === "cycle");
   const nextCycle = records.slice(crashIndex + 1).find(({ kind } = {}) => kind === "cycle");
   const artifactEngine = artifactEvents[0]?.engine;
+  try {
+    validateN2CrashTiming({
+      crashElapsedSeconds: crash?.elapsedSeconds,
+      recoveryElapsedSeconds: nextCycle?.elapsedSeconds,
+    }, configuration);
+  } catch (error) {
+    throw new Error("Retained N-2 crash proof is invalid.", { cause: error });
+  }
   if (
     crashes.length !== 1
     || artifactEvents.length !== 1
     || !exactKeys(crash, [
       "elapsedSeconds", "engine", "engineCleared", "guiIdentityPreserved", "kind", "sourceSha256", "visibleAlerts",
     ])
-    || typeof crash.elapsedSeconds !== "number"
-    || !Number.isFinite(crash.elapsedSeconds)
-    || crash.elapsedSeconds < configuration.crashAtSeconds
-    || crash.elapsedSeconds > configuration.crashAtSeconds + 90
     || priorCycle?.sequence + 1 !== nextCycle?.sequence
     || crash.elapsedSeconds < priorCycle?.elapsedSeconds
-    || nextCycle?.elapsedSeconds - crash.elapsedSeconds > 90
     || crash.sourceSha256 !== sha256(CRASH_SOURCE)
     || !exactKeys(crash.engine, ["executableSha256", "path", "pid", "startedAt"])
     || !Number.isSafeInteger(crash.engine.pid)

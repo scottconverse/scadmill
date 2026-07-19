@@ -173,17 +173,30 @@ describe("N-2 packaged soak runner", () => {
   });
 
   it("wires the disabled-by-default phase through the retained Sandbox harness", async () => {
-    const [host, bootstrap, runner, helper] = await Promise.all([
+    const [host, bootstrap, runner, verifier, helper] = await Promise.all([
       readFile(join(process.cwd(), "scripts", "windows", "run-packaged-desktop-evidence.ps1"), "utf8"),
       readFile(join(process.cwd(), "scripts", "windows", "run-packaged-desktop-sandbox.ps1"), "utf8"),
       readFile(join(process.cwd(), "scripts", "run-packaged-desktop-evidence.mjs"), "utf8"),
+      readFile(join(process.cwd(), "scripts", "lib", "n2-soak-verifier.mjs"), "utf8"),
       readFile(join(process.cwd(), "scripts", "lib", "packaged-desktop-evidence.mjs"), "utf8"),
     ]);
 
     expect(host).toContain('[ValidateSet("disabled", "literal", "accelerated")]');
     expect(host).toContain('[string] $N2SoakMode = "disabled"');
-    expect(host).toContain('evidenceLabel = "N-2-LITERAL-8-HOUR"');
-    expect(host).toContain("durationSeconds = 28800");
+    expect(host).toContain('evidenceLabel = "N-2-LITERAL-1-HOUR"');
+    expect(host).toContain("durationSeconds = 3600");
+    expect(host).toContain("cadenceMilliseconds = 30000");
+    expect(host).toContain("warmupSeconds = 300");
+    expect(host).toContain("baselineStartSeconds = 300");
+    expect(host).toContain("baselineEndSeconds = 900");
+    expect(host).toContain("crashAtSeconds = 1800");
+    expect(host).toContain("minimumSuccessfulCycles = 113");
+    expect(host).toContain("memorySampleIntervalSeconds = 60");
+    expect(host).toContain("rollingWindowSamples = 5");
+    expect(host).toContain("finalWindowSamples = 10");
+    expect(host).toContain("thresholdRatio = 1.5");
+    expect(host).toContain("if ($TimeoutSeconds -lt 4800)");
+    expect(host).toContain("TimeoutSeconds of at least 4800");
     expect(host).toContain('evidenceLabel = "ACCELERATED-NON-RELEASE"');
     expect(host).toContain("releaseEvidenceEligible = $false");
     expect(host).toContain('Copy-Item -LiteralPath (Join-Path $repo "scripts\\lib\\n2-soak-evidence.mjs")');
@@ -196,6 +209,10 @@ describe("N-2 packaged soak runner", () => {
     expect(runner).toContain('startCrashRender: () => clickButton(client, "Full render")');
     expect(runner).toContain('verifyN2SoakArtifacts({');
     expect(runner).toContain('record("n2-final-artifacts-verified"');
+    expect(runner).toContain('"n2-literal-one-hour-soak-passed"');
+    expect(runner).not.toContain('"n2-literal-eight-hour-soak-passed"');
+    expect(verifier).toContain('"n2-literal-one-hour-soak-passed"');
+    expect(verifier).not.toContain('"n2-literal-eight-hour-soak-passed"');
     expect(runner).toContain(".diagnostic-console .console-run");
     expect(runner).toContain("snapshot.count === priorRun.count + 1");
     expect(runner).toContain("one new successful N-2 Console run");

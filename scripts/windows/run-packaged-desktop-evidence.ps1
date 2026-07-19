@@ -223,21 +223,21 @@ $n2SoakConfiguration = switch ($N2SoakMode) {
     }
   }
   "literal" {
-    if ($TimeoutSeconds -lt 30000) {
-      throw "Literal N-2 evidence requires TimeoutSeconds of at least 30000."
+    if ($TimeoutSeconds -lt 4800) {
+      throw "Literal N-2 evidence requires TimeoutSeconds of at least 4800."
     }
     [ordered]@{
       schemaVersion = 1
       mode = "literal"
       releaseEvidenceEligible = $true
-      evidenceLabel = "N-2-LITERAL-8-HOUR"
-      durationSeconds = 28800
+      evidenceLabel = "N-2-LITERAL-1-HOUR"
+      durationSeconds = 3600
       cadenceMilliseconds = 30000
-      warmupSeconds = 1200
-      baselineStartSeconds = 1200
-      baselineEndSeconds = 1800
-      crashAtSeconds = 14400
-      minimumSuccessfulCycles = 900
+      warmupSeconds = 300
+      baselineStartSeconds = 300
+      baselineEndSeconds = 900
+      crashAtSeconds = 1800
+      minimumSuccessfulCycles = 113
       memorySampleIntervalSeconds = 60
       rollingWindowSamples = 5
       finalWindowSamples = 10

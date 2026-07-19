@@ -1292,7 +1292,7 @@ try {
   if (n2SoakSummary) {
     await record(
       n2SoakSummary.configuration.releaseEvidenceEligible
-        ? "n2-literal-eight-hour-soak-passed"
+        ? "n2-literal-one-hour-soak-passed"
         : "n2-accelerated-non-release-soak-passed",
       {
         releaseEvidenceEligible: n2SoakSummary.configuration.releaseEvidenceEligible,

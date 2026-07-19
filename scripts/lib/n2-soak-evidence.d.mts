@@ -45,6 +45,10 @@ export const N2_LITERAL_CONFIGURATION: Readonly<N2SoakConfiguration>;
 export const N2_DISABLED_CONFIGURATION: Readonly<N2DisabledConfiguration>;
 export function validateN2SoakConfiguration(payload: unknown): N2SoakConfiguration | N2DisabledConfiguration;
 export function isLiteralN2ReleaseEvidence(payload: unknown): boolean;
+export function validateN2CrashTiming(
+  timing: { crashElapsedSeconds: number; recoveryElapsedSeconds: number },
+  configuration: N2SoakConfiguration,
+): { crashElapsedSeconds: number; recoveryElapsedSeconds: number };
 export function summarizeN2Memory(
   samples: readonly { elapsedSeconds: number; privateBytes: number; workingSetBytes: number }[],
   configuration: N2SoakConfiguration,

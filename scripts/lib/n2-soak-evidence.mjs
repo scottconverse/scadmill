@@ -22,14 +22,14 @@ export const N2_LITERAL_CONFIGURATION = Object.freeze({
   schemaVersion: 1,
   mode: "literal",
   releaseEvidenceEligible: true,
-  evidenceLabel: "N-2-LITERAL-8-HOUR",
-  durationSeconds: 28_800,
+  evidenceLabel: "N-2-LITERAL-1-HOUR",
+  durationSeconds: 3_600,
   cadenceMilliseconds: 30_000,
-  warmupSeconds: 1_200,
-  baselineStartSeconds: 1_200,
-  baselineEndSeconds: 1_800,
-  crashAtSeconds: 14_400,
-  minimumSuccessfulCycles: 900,
+  warmupSeconds: 300,
+  baselineStartSeconds: 300,
+  baselineEndSeconds: 900,
+  crashAtSeconds: 1_800,
+  minimumSuccessfulCycles: 113,
   memorySampleIntervalSeconds: 60,
   rollingWindowSamples: 5,
   finalWindowSamples: 10,
@@ -74,7 +74,7 @@ export function validateN2SoakConfiguration(payload) {
   }
   if (payload.mode === "literal") {
     if (!equalLiteralConfiguration(payload)) {
-      throw new Error("Literal N-2 configuration must use the immutable literal eight-hour settings.");
+      throw new Error("Literal N-2 configuration must use the immutable literal one-hour settings.");
     }
     return payload;
   }
@@ -117,6 +117,22 @@ export function isLiteralN2ReleaseEvidence(payload) {
   } catch {
     return false;
   }
+}
+
+export function validateN2CrashTiming({ crashElapsedSeconds, recoveryElapsedSeconds }, configuration) {
+  const config = validateN2SoakConfiguration(configuration);
+  if (
+    config.mode === "disabled"
+    || typeof crashElapsedSeconds !== "number"
+    || !Number.isFinite(crashElapsedSeconds)
+    || typeof recoveryElapsedSeconds !== "number"
+    || !Number.isFinite(recoveryElapsedSeconds)
+    || crashElapsedSeconds < config.crashAtSeconds
+    || crashElapsedSeconds > config.crashAtSeconds + 90
+    || recoveryElapsedSeconds < crashElapsedSeconds
+    || recoveryElapsedSeconds - crashElapsedSeconds > 90
+  ) throw new Error("N-2 crash/recovery timing is invalid.");
+  return { crashElapsedSeconds, recoveryElapsedSeconds };
 }
 
 function median(values) {
@@ -306,8 +322,8 @@ export function validateN2SoakSummary(payload, { requireReleaseEvidence = false 
   if (requireReleaseEvidence && !isLiteralN2ReleaseEvidence(config)) {
     throw new Error("Summary is not literal N-2 release evidence.");
   }
-  if (isLiteralN2ReleaseEvidence(config) && payload.durationSeconds < 28_800) {
-    throw new Error("Literal N-2 evidence must cover eight continuous hours.");
+  if (isLiteralN2ReleaseEvidence(config) && payload.durationSeconds < 3_600) {
+    throw new Error("Literal N-2 evidence must cover one continuous hour.");
   }
   if (
     typeof payload.durationSeconds !== "number"

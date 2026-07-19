@@ -20,7 +20,7 @@ If a security, data-loss, installation, or release-evidence defect is confirmed:
 2. Publish a repository security advisory when the defect has security impact. Otherwise open a public blocking issue that states the affected version, symptoms, and safe workaround.
 3. Tell installed users to close ScadMill and uninstall it through **Windows Settings → Apps → Installed apps → ScadMill → Uninstall**. Project `.scad` files and user-selected project folders are outside the application install directory; users should still back them up before recovery work.
 4. Revert the defective change on a new branch or implement the smallest forward fix. Never move or rewrite the published `0.1.0-beta.1` tag.
-5. Produce `0.1.0-beta.2` or the next appropriate version from a new commit. Run the complete release gate, including the literal N-2 soak, exact signed-installer lifecycle, Windows Sandbox walkthrough, isolated similarity gate, visitor audit, and strict-zero final review.
+5. Produce `0.1.0-beta.2` or the next appropriate version from a new commit. Run the complete release gate, including the one-hour literal N-2 soak, exact signed-installer lifecycle, Windows Sandbox walkthrough, isolated similarity gate, visitor audit, and strict-zero final review.
 6. Publish the replacement only after owner go/no-go. Link the withdrawn release to the replacement and state whether any user settings or project data require migration.
 
 ## Recovery verification
