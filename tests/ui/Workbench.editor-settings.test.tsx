@@ -140,7 +140,7 @@ it("lets an editor-scoped override consume a global shortcut without double-disp
   expect(runtime.history.getState().filter(({ kind }) => kind === "update-layout")).toHaveLength(0);
 });
 
-it("runs Edit-menu actions in CodeMirror and records the shared command", async () => {
+it("records a source-changing Edit-menu action exactly once", async () => {
   const engine: EngineService = {
     render: vi.fn(),
     export: vi.fn(),
@@ -173,10 +173,13 @@ it("runs Edit-menu actions in CodeMirror and records the shared command", async 
   fireEvent.click(toggle);
 
   await waitFor(() => expect(editor.state.doc.toString()).toMatch(/^\/\//u));
-  expect(runtime.history.getState()).toContainEqual(expect.objectContaining({
-    kind: "editor-command",
-    summary: "Editor command: toggle-comment",
-  }));
+  expect(runtime.history.getState()).toEqual([
+    expect.objectContaining({
+      kind: "edit-document",
+      summary: "Edit main.scad",
+      undoable: true,
+    }),
+  ]);
   runtime.dispose();
 });
 

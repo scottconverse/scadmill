@@ -4,6 +4,7 @@ import {
   currentCompletions,
   startCompletion,
 } from "@codemirror/autocomplete";
+import { undoDepth } from "@codemirror/commands";
 import { language, syntaxTree } from "@codemirror/language";
 import { diagnosticCount } from "@codemirror/lint";
 import { EditorView } from "@codemirror/view";
@@ -139,6 +140,23 @@ describe("CodeEditor OpenSCAD language support", () => {
 
     expect(editor.state.doc.toString()).toBe("sphere(4);");
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("keeps source mutations out of CodeMirror's competing undo stack", () => {
+    const onChange = vi.fn();
+    const rendered = render(
+      <CodeEditor value="cube(10);" onChange={onChange} label="Editor" />,
+    );
+    const content = rendered.container.querySelector<HTMLElement>(".cm-content");
+    if (!content) throw new Error("CodeMirror content did not mount.");
+    const editor = EditorView.findFromDOM(content);
+    if (!editor) throw new Error("CodeMirror view could not be recovered from its DOM.");
+
+    editor.dispatch({ changes: { from: 5, to: 7, insert: "12" } });
+
+    expect(editor.state.doc.toString()).toBe("cube(12);");
+    expect(onChange).toHaveBeenCalledOnce();
+    expect(undoDepth(editor.state)).toBe(0);
   });
 
   it("renders current error and warning lines as squiggles with gutter markers", async () => {

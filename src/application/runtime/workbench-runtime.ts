@@ -37,6 +37,7 @@ import { writeParameterValues } from "../parameters/parameter-overrides";
 import {
   createParameterState,
   type ParameterAction,
+  type ParameterDocumentState,
   type ParameterState,
   parameterDocument,
   parameterRecordsEqual,
@@ -208,6 +209,12 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     })))
   );
   const history = createStore<readonly HistoryEntry[]>(() => []);
+  interface ReversibleHistoryFrame {
+    readonly undo: () => void;
+    readonly redo: () => void;
+  }
+  const undoFrames: ReversibleHistoryFrame[] = [];
+  const redoFrames: ReversibleHistoryFrame[] = [];
   const makeId = options.makeId ?? (() => globalThis.crypto.randomUUID());
   const now = options.now ?? (() => new Date());
   const nowMs = options.nowMs ?? (() => Date.now());
@@ -380,6 +387,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
   }
 
   function appendHistory(entry: HistoryEntry): void {
+    redoFrames.length = 0;
     history.setState(
       (entries) => [...entries, entry],
       true,
@@ -388,6 +396,55 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
 
   function record(command: WorkbenchCommand, commandId: string, summary: string, undoable: boolean): void {
     appendHistory(createHistoryEntry(command, commandId, summary, undoable));
+  }
+
+  function pushReversibleFrame(frame: ReversibleHistoryFrame): void {
+    undoFrames.push(frame);
+  }
+
+  function clearReversibleHistory(): void {
+    undoFrames.length = 0;
+    redoFrames.length = 0;
+  }
+
+  function replaceParameterDocument(
+    documentId: string,
+    replacement: ParameterDocumentState | undefined,
+  ): void {
+    const current = parameters.getState();
+    const nextDocuments = new Map(current.documents);
+    const workspaceDocument = documents.getState().documents.find(({ id }) => id === documentId);
+    if (replacement) {
+      nextDocuments.set(documentId, workspaceDocument
+        ? { ...replacement, revision: workspaceDocument.revision }
+        : replacement);
+    }
+    else nextDocuments.delete(documentId);
+    parameters.setState({ documents: nextDocuments }, true);
+  }
+
+  function replayDocumentEdit(
+    documentId: string,
+    source: string,
+    parameterDocumentState: ParameterDocumentState | undefined,
+    quality?: Quality,
+  ): void {
+    const before = documents.getState();
+    const next = reduceDocumentWorkspace(before, { kind: "edit", documentId, source });
+    if (next === before) return;
+    documents.setState(next, true);
+    replaceParameterDocument(documentId, parameterDocumentState);
+    cancelActiveRender();
+    scheduleAutoRender(quality, documentId);
+  }
+
+  function replayParameterState(
+    documentId: string,
+    parameterDocumentState: ParameterDocumentState,
+  ): void {
+    replaceParameterDocument(documentId, parameterDocumentState);
+    cancelActiveRender();
+    scheduleAutoRender("preview", documentId);
   }
 
   function updateLayout(action: WorkspaceLayoutAction): boolean {
@@ -601,6 +658,32 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
   }
 
   async function dispatch(command: WorkbenchCommand): Promise<void> {
+    if (command.kind === "history-undo") {
+      const frame = undoFrames.pop();
+      if (!frame) return;
+      try {
+        frame.undo();
+        redoFrames.push(frame);
+      } catch (error) {
+        undoFrames.push(frame);
+        throw error;
+      }
+      return;
+    }
+
+    if (command.kind === "history-redo") {
+      const frame = redoFrames.pop();
+      if (!frame) return;
+      try {
+        frame.redo();
+        undoFrames.push(frame);
+      } catch (error) {
+        redoFrames.push(frame);
+        throw error;
+      }
+      return;
+    }
+
     if (isProjectCommand(command)) {
       const beforeProject = project.getState();
       const beforeWorkspace = documents.getState();
@@ -644,6 +727,10 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
         ? parseWorkspaceLayout(layoutPersistence.load(transition.project.snapshot.workspaceIdentity))
         : undefined;
       const historyEntry = createHistoryEntry(command, makeId(), transition.summary, false);
+      const invalidatesReversibleHistory = Boolean(transition.replacementWorkspace)
+        || transition.documentActions.some(({ kind }) =>
+          kind === "replace-from-disk" || kind === "close" || kind === "confirm-close"
+        );
       applyProjectTransition(effectiveTransition, {
         documents,
         parameters,
@@ -668,6 +755,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
           // A metadata failure must not prevent an explicitly confirmed project open.
         }
       }
+      if (invalidatesReversibleHistory) clearReversibleHistory();
       appendHistory(historyEntry);
       if (transition.project.revision !== beforeProject.revision) {
         cancelActiveRender();
@@ -706,6 +794,9 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     const action = documentAction(command);
     if (action) {
       const before = documents.getState();
+      const beforeParameterDocument = command.kind === "edit-document"
+        ? parameters.getState().documents.get(command.documentId)
+        : undefined;
       const next = reduceDocumentWorkspace(before, action);
       if (next === before) return;
       documents.setState(next, true);
@@ -715,12 +806,35 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
           ? new Set([command.document.id])
           : undefined,
       );
-      record(
-        command,
-        makeId(),
-        summarizeDocumentCommand(command, before),
-        command.kind === "edit-document",
-      );
+      const commandId = makeId();
+      const summary = summarizeDocumentCommand(command, before);
+      const undoable = command.kind === "edit-document";
+      if (command.kind === "edit-document") {
+        const beforeSource = before.documents.find(({ id }) => id === command.documentId)?.source;
+        const afterParameterDocument = parameters.getState().documents.get(command.documentId);
+        if (beforeSource !== undefined) {
+          pushReversibleFrame({
+            undo: () => replayDocumentEdit(
+              command.documentId,
+              beforeSource,
+              beforeParameterDocument,
+            ),
+            redo: () => replayDocumentEdit(
+              command.documentId,
+              command.source,
+              afterParameterDocument,
+            ),
+          });
+        }
+      } else if (
+        command.kind === "open-document"
+        || command.kind === "resolve-external-change"
+        || command.kind === "close-document"
+        || command.kind === "reopen-document"
+      ) {
+        clearReversibleHistory();
+      }
+      record(command, commandId, summary, undoable);
       for (const documentId of pendingAutoRenders.keys()) {
         if (!next.documents.some(({ id }) => id === documentId)) {
           pendingAutoRenders.delete(documentId);
@@ -887,11 +1001,24 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       const next = reduceParameterState(before, command.action);
       if (next === before) return;
       parameters.setState(next, true);
+      const undoable = command.action.kind === "set-value" || command.action.kind === "set-values";
+      if (undoable) {
+        const beforeDocument = before.documents.get(command.action.documentId);
+        const nextDocument = next.documents.get(command.action.documentId);
+        if (beforeDocument && nextDocument) {
+          pushReversibleFrame({
+            undo: () => replayParameterState(command.action.documentId, beforeDocument),
+            redo: () => replayParameterState(command.action.documentId, nextDocument),
+          });
+        }
+      } else {
+        clearReversibleHistory();
+      }
       record(
         command,
         makeId(),
         `Update parameters for ${command.action.documentId}: ${command.action.kind}`,
-        command.action.kind === "set-value" || command.action.kind === "set-values",
+        undoable,
       );
       if (parameterActionAffectsRender(command.action)) {
         cancelActiveRender();
@@ -905,6 +1032,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       const document = workspace.documents.find(({ id }) => id === command.documentId);
       if (!document) return;
       const parameterState = parameterDocument(parameters.getState(), command.documentId);
+      const beforeParameterDocument = parameterState;
       const source = writeParameterValues(
         document.source,
         parameterState.parameters,
@@ -922,6 +1050,23 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
         kind: "clear-overrides",
         documentId: document.id,
       }), true);
+      const afterParameterDocument = parameters.getState().documents.get(command.documentId);
+      if (afterParameterDocument) {
+        pushReversibleFrame({
+          undo: () => replayDocumentEdit(
+            command.documentId,
+            document.source,
+            beforeParameterDocument,
+            "preview",
+          ),
+          redo: () => replayDocumentEdit(
+            command.documentId,
+            source,
+            afterParameterDocument,
+            "preview",
+          ),
+        });
+      }
       record(command, makeId(), `Write parameter values into ${document.path}`, true);
       cancelActiveRender();
       scheduleAutoRender("preview", command.documentId);

@@ -98,7 +98,7 @@ describe("Workbench", () => {
     expect(toggle).not.toBeChecked();
   });
 
-  it("routes editor shortcuts through the shared command bus", async () => {
+  it("records a source-changing editor shortcut exactly once", async () => {
     const engine: EngineService = {
       render: vi.fn(),
       export: vi.fn(),
@@ -123,13 +123,51 @@ describe("Workbench", () => {
 
     fireEvent.keyDown(content, { key: "/", ctrlKey: true });
 
-    await waitFor(() => expect(runtime.history.getState()).toContainEqual(
+    await waitFor(() => expect(runtime.history.getState()).toEqual([
       expect.objectContaining({
         commandId: "editor-shortcut",
-        kind: "editor-command",
-        summary: "Editor command: toggle-comment",
+        kind: "edit-document",
+        summary: "Edit main.scad",
+        undoable: true,
       }),
-    ));
+    ]));
+  });
+
+  it("uses the runtime history as the single editor undo and redo path", async () => {
+    const runtime = createWorkbenchRuntime({
+      render: vi.fn(), export: vi.fn(), version: vi.fn(), cancel: vi.fn(),
+    }, { makeId: () => "source-edit", rendering: { autoRender: false } });
+    await runtime.dispatch({
+      kind: "edit-document",
+      origin: "user",
+      documentId: "document-main",
+      source: "cube(11);",
+    });
+    const view = render(
+      <Workbench
+        runtime={runtime}
+        engineLabel="OpenSCAD 2026.06.12"
+        activeTheme={SHIPPED_THEMES[0]}
+        themePreference="system"
+        onThemePreferenceChange={vi.fn()}
+      />,
+    );
+    const content = await waitFor(() => {
+      const node = view.container.querySelector<HTMLElement>(".cm-content");
+      if (!node) throw new Error("CodeMirror did not mount.");
+      return node;
+    });
+
+    fireEvent.keyDown(content, { key: "z", ctrlKey: true });
+    await waitFor(() => expect(runtime.documents.getState().documents[0]?.source).toBe("cube(10);"));
+    expect(runtime.history.getState()).toHaveLength(1);
+    expect(EditorView.findFromDOM(content)?.state.doc.toString()).toBe("cube(10);");
+
+    fireEvent.keyDown(content, { key: "y", ctrlKey: true });
+    await waitFor(() => expect(runtime.documents.getState().documents[0]?.source).toBe("cube(11);"));
+    expect(runtime.history.getState()).toHaveLength(1);
+    expect(runtime.history.getState()[0]?.kind).toBe("edit-document");
+    expect(runtime.history.getState().some(({ kind }) => kind === "editor-command")).toBe(false);
   });
 
   it("routes every global File shortcut through the Workbench coordinator", async () => {

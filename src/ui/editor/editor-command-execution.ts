@@ -1,20 +1,19 @@
-import { redo, toggleComment, undo } from "@codemirror/commands";
+import { toggleComment } from "@codemirror/commands";
 import { gotoLine, openSearchPanel } from "@codemirror/search";
-import { Prec, type Extension } from "@codemirror/state";
+import { type Extension, Prec } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-
-import type {
-  DirectEditorCommandId,
-  EditorCommandId,
-  EditorCommandOutcome,
-  EditorCommandUnavailableReason,
-} from "../../application/commands/editor-commands";
 import {
   type KeybindingSettings,
   matchesKeybinding,
   matchesPointerBinding,
   primaryModifierForPlatform,
 } from "../../application/commands/default-keybindings";
+import type {
+  DirectEditorCommandId,
+  EditorCommandId,
+  EditorCommandOutcome,
+  EditorCommandUnavailableReason,
+} from "../../application/commands/editor-commands";
 import type { FormatterPreferences } from "../../application/settings/settings-schema";
 import { formatOpenScad } from "./openscad-formatter";
 
@@ -41,7 +40,7 @@ function openReplacePanel(view: EditorView): boolean {
 
 type BasicEditorCommandId = Exclude<
   DirectEditorCommandId,
-  "format-document" | "format-selection"
+  "format-document" | "format-selection" | "undo" | "redo"
 >;
 
 const DIRECT_COMMANDS: Readonly<Record<BasicEditorCommandId, (view: EditorView) => boolean>> = {
@@ -49,8 +48,6 @@ const DIRECT_COMMANDS: Readonly<Record<BasicEditorCommandId, (view: EditorView) 
   replace: openReplacePanel,
   "go-to-line": gotoLine,
   "toggle-comment": toggleComment,
-  undo,
-  redo,
 };
 
 function executeFormatCommand(
@@ -98,6 +95,9 @@ export function executeEditorCommand(
   command: DirectEditorCommandId,
   formatter: Readonly<FormatterPreferences>,
 ): EditorCommandOutcome {
+  if (command === "undo" || command === "redo") {
+    return { command, status: "handled" };
+  }
   if (command === "format-document" || command === "format-selection") {
     return executeFormatCommand(view, command, formatter);
   }

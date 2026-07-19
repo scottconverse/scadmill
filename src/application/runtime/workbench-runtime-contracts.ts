@@ -84,6 +84,8 @@ export type WorkbenchCommand =
   | { kind: "update-viewer"; origin: CommandOrigin; action: ViewerAction }
   | { kind: "update-parameters"; origin: CommandOrigin; action: ParameterAction }
   | { kind: "write-parameter-values"; origin: CommandOrigin; documentId: string }
+  | { kind: "history-undo"; origin: CommandOrigin }
+  | { kind: "history-redo"; origin: CommandOrigin }
   | { kind: "render-active"; origin: CommandOrigin; quality: Quality };
 
 export interface HistoryEntry {

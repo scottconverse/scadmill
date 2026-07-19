@@ -4,11 +4,11 @@ import type {
   DirectEditorCommandId,
   EditorCommandOutcome,
 } from "../../application/commands/editor-commands";
-import type { WorkbenchRuntime } from "../../application/runtime/workbench-runtime";
 import type {
   WorkspaceLayoutAction,
   WorkspaceLayoutState,
 } from "../../application/layout/workspace-layout";
+import type { WorkbenchRuntime } from "../../application/runtime/workbench-runtime";
 import { messages } from "../../messages/en";
 import type { EditorCommandRequest } from "./editor-command-execution";
 
@@ -22,6 +22,13 @@ export function useEditorCommandCoordinator(
   const [request, setRequest] = useState<EditorCommandRequest>();
   const [notice, setNotice] = useState<{ sequence: number; message: string } | null>(null);
   const requestCommand = useCallback((command: DirectEditorCommandId) => {
+    if (command === "undo" || command === "redo") {
+      void runtime.dispatch({
+        kind: command === "undo" ? "history-undo" : "history-redo",
+        origin: "user",
+      });
+      return;
+    }
     const editorVisible = narrow
       ? layout.narrowView === "code"
       : layout.editorOpen && layout.maximized !== "viewer";
@@ -38,7 +45,7 @@ export function useEditorCommandCoordinator(
       }
     }
     setRequest({ requestId: ++nextRequest.current, command });
-  }, [dispatchLayout, layout.editorOpen, layout.maximized, layout.narrowView, narrow]);
+  }, [dispatchLayout, layout.editorOpen, layout.maximized, layout.narrowView, narrow, runtime]);
   const handleOutcome = useCallback((outcome: EditorCommandOutcome) => {
     setNotice((current) => outcome.status === "unavailable"
       ? {
@@ -48,6 +55,17 @@ export function useEditorCommandCoordinator(
             : messages.goToDefinitionUnavailable,
         }
       : null);
+    if (outcome.status === "handled" && (outcome.command === "undo" || outcome.command === "redo")) {
+      void runtime.dispatch({
+        kind: outcome.command === "undo" ? "history-undo" : "history-redo",
+        origin: "user",
+      });
+      return;
+    }
+    if (
+      outcome.status === "handled"
+      && ["toggle-comment", "format-document", "format-selection"].includes(outcome.command)
+    ) return;
     void runtime.dispatch({ kind: "editor-command", origin: "user", outcome });
   }, [runtime]);
   return { handleOutcome, notice, request, requestCommand };

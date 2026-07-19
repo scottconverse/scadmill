@@ -23,11 +23,11 @@ import {
 } from "../../application/commands/default-keybindings";
 import type { EditorCommandOutcome } from "../../application/commands/editor-commands";
 import type { Diagnostic } from "../../application/engine/contracts";
-import { defaultPersistedSettings, type FormatterPreferences } from "../../application/settings/settings-schema";
 import {
   DEFAULT_EDITOR_SETTINGS,
   type EditorSettings,
 } from "../../application/runtime/render-settings";
+import { defaultPersistedSettings, type FormatterPreferences } from "../../application/settings/settings-schema";
 import { codeEditorTheme } from "./code-editor-theme";
 import {
   type EditorCommandRequest,
@@ -238,6 +238,11 @@ export function CodeEditor({
     editorCommandsCompartment.current = commandsCompartment;
     const extensions = [
       basicSetup,
+      EditorState.transactionExtender.of((transaction) =>
+        transaction.docChanged
+          ? { annotations: Transaction.addToHistory.of(false) }
+          : null
+      ),
       languageMode === "openscad" ? openScad(completionSource) : [],
       lintGutter(),
       codeEditorTheme,
