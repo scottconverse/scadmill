@@ -30,6 +30,7 @@ export type WorkspaceLayoutAction =
   | { readonly kind: "resize-panel"; readonly panel: ResizablePanel; readonly size: number }
   | { readonly kind: "toggle-panel"; readonly panel: CollapsiblePanel }
   | { readonly kind: "toggle-maximize"; readonly region: Exclude<MaximizedRegion, null> }
+  | { readonly kind: "reveal-editor" }
   | { readonly kind: "set-narrow-view"; readonly view: NarrowView }
   | { readonly kind: "set-narrow-sheet"; readonly sheet: NarrowSheet }
   | { readonly kind: "close-narrow-dock" }
@@ -142,6 +143,10 @@ export function reduceWorkspaceLayout(
       const openField = `${action.region}Open` as "editorOpen" | "viewerOpen";
       return { ...state, [openField]: true, maximized: action.region };
     }
+    case "reveal-editor":
+      return state.editorOpen && state.maximized !== "viewer"
+        ? state
+        : { ...state, editorOpen: true, maximized: state.maximized === "viewer" ? null : state.maximized };
     case "set-narrow-view":
       return state.narrowView === action.view
         && (action.view !== "code" || state.narrowSheet !== "parameter")

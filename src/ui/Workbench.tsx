@@ -34,7 +34,6 @@ import { WelcomeLauncher } from "./welcome/WelcomeLauncher";
 import type { WorkbenchProps } from "./workbench-props";
 import { diagnosticStatusLabel, geometryDeltaStatus, renderStatusLabel } from "./workbench-status";
 import "./workbench.css";
-
 const CodeEditor = lazy(() => import("./editor/CodeEditor").then((module) => ({ default: module.CodeEditor })));
 export function Workbench({
   runtime, engine, secretStore = EPHEMERAL_SECRET_STORE,
@@ -48,8 +47,8 @@ export function Workbench({
   projectStorage, directoryPicker, workspaceDirectory,
   recoveryPersistence,
   projectPortability,
-  scratchAutosavePersistence, showWelcomeOnLaunch = false,
-  onThemePreferenceChange, onWelcomePreferenceChange = () => undefined,
+  scratchAutosavePersistence,
+  onThemePreferenceChange,
   configuredEnginePath = "", onConfigureEnginePath, onRetryWasmEngine, renderDiskCacheAvailable = false,
   mcpPort,
 }: WorkbenchProps) {
@@ -69,6 +68,7 @@ export function Workbench({
   useEffect(() => { if (document.id) setViewerScreenshotDataUrl(undefined); }, [document.id]);
   const projectState = useReadonlyStore(runtime.project, (state) => state);
   const history = useReadonlyStore(runtime.history, (state) => state);
+  const controls = useReadonlyStore(runtime.controls, (state) => state);
   const { sourceForPath: sourceForMcpPath, approve: approveMcpReview } = useMcpReviewApproval(
     runtime, documents, projectState, approveReview,
   );
@@ -330,7 +330,7 @@ export function Workbench({
           <span className="brand-mark" aria-hidden="true">S</span>
           <h1>{messages.appName}</h1>
         </div>
-        <WelcomeLauncher documents={documents} project={projectState} runtime={runtime} showOnLaunch={showWelcomeOnLaunch} onNewFile={fileCommands.newFile} onOpenProject={fileCommands.openProject} onOpenRecentProject={(projectId, displayName) => enqueueProject({ projectId, displayName })} onShowOnLaunchChange={onWelcomePreferenceChange} />
+        <WelcomeLauncher documents={documents} project={projectState} runtime={runtime} showOnLaunch={controls.showWelcomeOnLaunch} onNewFile={fileCommands.newFile} onOpenProject={fileCommands.openProject} onOpenRecentProject={(projectId, displayName) => enqueueProject({ projectId, displayName })} onShowOnLaunchChange={(enabled) => runtime.dispatch({ kind: "set-welcome-on-launch", origin: "user", enabled })} />
         <SettingsLauncher engineLabel={engineLabel} runtime={runtime} secretStore={secretStore} renderDiskCacheAvailable={renderDiskCacheAvailable} mcpPort={mcpPort} mcpEnabled={mcpEnabled} onMcpEnabledChange={setMcpEnabled} mcpPermissions={mcpPermissions} onMcpPermissionChange={setMcpPermission} />
         <RenderControls
           autoRender={autoRender}

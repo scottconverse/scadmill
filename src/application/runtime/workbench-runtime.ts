@@ -5,6 +5,7 @@ import {
   type ConsoleState,
   createConsoleState,
   reduceConsoleState,
+  restoreClearedConsoleState,
 } from "../diagnostics/console-state";
 import {
   activeDocument,
@@ -78,6 +79,7 @@ import { summarizeLayoutAction } from "./layout-action-summary";
 import {
   EPHEMERAL_WORKSPACE_LAYOUT_PERSISTENCE,
 } from "./layout-persistence";
+import { projectFileHistoryStep } from "./project-file-history";
 import { buildRuntimeRenderFileMap } from "./project-render-files";
 import { applyProjectTransition } from "./project-transition";
 import {
@@ -87,6 +89,12 @@ import {
   settingsStateFromProfile,
 } from "./render-settings";
 import { sameLayout } from "./same-layout";
+import {
+  createWorkbenchControlState,
+  reduceWorkbenchControlState,
+  type WorkbenchControlAction,
+  type WorkbenchControlState,
+} from "./workbench-controls";
 import type {
   HistoryEntry,
   ReadonlyStore,
@@ -123,6 +131,12 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     ?? EPHEMERAL_RENDER_DISK_CACHE_PREFERENCES;
   const renderThumbnails: RenderThumbnailPersistence = options.renderThumbnailPersistence
     ?? EPHEMERAL_RENDER_THUMBNAIL_PERSISTENCE;
+  let showWelcomeOnLaunch = false;
+  try {
+    showWelcomeOnLaunch = options.welcomePreferencePersistence?.load() ?? false;
+  } catch {
+    showWelcomeOnLaunch = false;
+  }
   const recentProjectsPersistence = options.recentProjectsPersistence
     ?? EPHEMERAL_RECENT_PROJECTS_PERSISTENCE;
   const annotationRepository = new WorkspaceAnnotationRepository(
@@ -209,12 +223,33 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     })))
   );
   const history = createStore<readonly HistoryEntry[]>(() => []);
+  const controls = createStore<WorkbenchControlState>(() =>
+    createWorkbenchControlState(showWelcomeOnLaunch)
+  );
   interface ReversibleHistoryFrame {
-    readonly undo: () => void;
-    readonly redo: () => void;
+    readonly undo: () => void | Promise<void>;
+    readonly redo: () => void | Promise<void>;
   }
   const undoFrames: ReversibleHistoryFrame[] = [];
   const redoFrames: ReversibleHistoryFrame[] = [];
+  interface CommandOrderSlot {
+    readonly command: WorkbenchCommand;
+    frame?: ReversibleHistoryFrame;
+    entry?: HistoryEntry;
+    completed: boolean;
+  }
+  const commandOrderSlots: CommandOrderSlot[] = [];
+  const commandSlots = new WeakMap<object, CommandOrderSlot>();
+  let historyGeneration = 0;
+  interface ProjectRuntimeHistoryState {
+    readonly project: ProjectSessionState;
+    readonly workspace: DocumentWorkspaceState;
+    readonly parameters: ParameterState;
+    readonly viewer: ViewerState;
+    readonly layout: WorkspaceLayoutState;
+    readonly workspaceIdentity: string;
+    readonly annotationMetadata: string;
+  }
   const makeId = options.makeId ?? (() => globalThis.crypto.randomUUID());
   const now = options.now ?? (() => new Date());
   const nowMs = options.nowMs ?? (() => Date.now());
@@ -237,6 +272,9 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
   const knownCacheKeys = new RenderCacheKeyIndex();
   let renderAttemptGeneration = 0;
   let disposed = false;
+  const pendingCommands = new Set<Promise<void>>();
+  const pendingProjectCommands = new Set<Promise<void>>();
+  let exclusiveCommandTail: Promise<void> | undefined;
   const pendingAutoRenders = new Map<string, Quality>();
   const autoRenderTimer = createDeferredAction(() => {
     if (disposed) return;
@@ -386,7 +424,8 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     };
   }
 
-  function appendHistory(entry: HistoryEntry): void {
+  function appendHistoryNow(entry: HistoryEntry): void {
+    historyGeneration += 1;
     redoFrames.length = 0;
     history.setState(
       (entries) => [...entries, entry],
@@ -394,12 +433,38 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     );
   }
 
-  function record(command: WorkbenchCommand, commandId: string, summary: string, undoable: boolean): void {
-    appendHistory(createHistoryEntry(command, commandId, summary, undoable));
+  function flushCompletedCommandSlots(): void {
+    while (commandOrderSlots[0]?.completed) {
+      const slot = commandOrderSlots.shift() as CommandOrderSlot;
+      if (slot.frame) undoFrames.push(slot.frame);
+      if (slot.entry) appendHistoryNow(slot.entry);
+      commandSlots.delete(slot.command);
+    }
   }
 
-  function pushReversibleFrame(frame: ReversibleHistoryFrame): void {
-    undoFrames.push(frame);
+  function completeCommandSlot(slot: CommandOrderSlot | undefined): void {
+    if (!slot) return;
+    slot.completed = true;
+    flushCompletedCommandSlots();
+  }
+
+  function stageHistory(command: WorkbenchCommand, entry: HistoryEntry): void {
+    const slot = commandSlots.get(command);
+    if (slot) slot.entry = entry;
+    else appendHistoryNow(entry);
+  }
+
+  function record(command: WorkbenchCommand, commandId: string, summary: string, undoable: boolean): void {
+    stageHistory(command, createHistoryEntry(command, commandId, summary, undoable));
+  }
+
+  function pushReversibleFrame(
+    command: WorkbenchCommand,
+    frame: ReversibleHistoryFrame,
+  ): void {
+    const slot = commandSlots.get(command);
+    if (slot) slot.frame = frame;
+    else undoFrames.push(frame);
   }
 
   function clearReversibleHistory(): void {
@@ -438,13 +503,127 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     scheduleAutoRender(quality, documentId);
   }
 
+  function replayWorkspaceState(
+    workspace: DocumentWorkspaceState,
+    parameterState: ParameterState,
+  ): void {
+    documents.setState(workspace, true);
+    parameters.setState(parameterState, true);
+    for (const documentId of pendingAutoRenders.keys()) {
+      if (!workspace.documents.some(({ id }) => id === documentId)) {
+        pendingAutoRenders.delete(documentId);
+      }
+    }
+    autoRenderTimer.clear();
+    cancelActiveRender();
+    schedulePendingRenderForActiveDocument();
+  }
+
   function replayParameterState(
     documentId: string,
     parameterDocumentState: ParameterDocumentState,
+    affectsRender = true,
   ): void {
     replaceParameterDocument(documentId, parameterDocumentState);
+    if (affectsRender) {
+      cancelActiveRender();
+      scheduleAutoRender("preview", documentId);
+    }
+  }
+
+  async function replaySettingsProfile(profile: SettingsState["profile"]): Promise<void> {
+    await replaceSettingsProfile(profile);
+    scheduleAutoRender();
+  }
+
+  function replayLayoutState(state: WorkspaceLayoutState): void {
+    layoutPersistence.save(activeWorkspaceIdentity, serializeWorkspaceLayout(state));
+    layout.setState(state, true);
+  }
+
+  function replayViewerState(state: ViewerState): void {
+    viewer.setState(state, true);
+    const projectId = project.getState().snapshot.projectId;
+    for (const document of documents.getState().documents) {
+      try {
+        annotationRepository.replace(
+          projectId,
+          document.path,
+          viewerDocument(state, document.id).annotations,
+        );
+      } catch {
+        // Preserve the reversible in-memory state when optional metadata persistence fails.
+      }
+    }
+    annotationPersistence.setState(annotationRepository.state(), true);
+  }
+
+  function replayWorkbenchControls(
+    state: WorkbenchControlState,
+    persistWelcomePreference: boolean,
+  ): void {
+    if (persistWelcomePreference) {
+      options.welcomePreferencePersistence?.save(state.showWelcomeOnLaunch);
+    }
+    controls.setState(state, true);
+  }
+
+  function updateWorkbenchControls(
+    command: WorkbenchCommand,
+    action: WorkbenchControlAction,
+    reversible: boolean,
+  ): boolean {
+    const before = controls.getState();
+    const next = reduceWorkbenchControlState(before, action);
+    if (next === before) return false;
+    if (action.kind === "set-welcome-on-launch") {
+      options.welcomePreferencePersistence?.save(action.enabled);
+    }
+    controls.setState(next, true);
+    const persistsWelcomePreference = action.kind === "set-welcome-on-launch";
+    if (reversible) {
+      pushReversibleFrame(command, {
+        undo: () => replayWorkbenchControls(before, persistsWelcomePreference),
+        redo: () => replayWorkbenchControls(next, persistsWelcomePreference),
+      });
+    }
+    return true;
+  }
+
+  function captureProjectRuntimeHistoryState(): ProjectRuntimeHistoryState {
+    return {
+      project: project.getState(),
+      workspace: documents.getState(),
+      parameters: parameters.getState(),
+      viewer: viewer.getState(),
+      layout: layout.getState(),
+      workspaceIdentity: activeWorkspaceIdentity,
+      annotationMetadata: annotationRepository.serializeCurrent(),
+    };
+  }
+
+  function replayProjectRuntimeHistoryState(state: ProjectRuntimeHistoryState): void {
     cancelActiveRender();
-    scheduleAutoRender("preview", documentId);
+    pendingAutoRenders.clear();
+    autoRenderTimer.clear();
+    activeWorkspaceIdentity = state.workspaceIdentity;
+    project.setState(state.project, true);
+    documents.setState(state.workspace, true);
+    parameters.setState(state.parameters, true);
+    viewer.setState(state.viewer, true);
+    layout.setState(state.layout, true);
+    render.setState({ status: "idle" }, true);
+    try {
+      annotationRepository.restore(state.annotationMetadata);
+    } catch {
+      // Preserve the reversible in-memory repository when optional metadata persistence fails.
+    }
+    annotationPersistence.setState(annotationRepository.state(), true);
+    try {
+      recentProjectsPersistence.save(state.project.recentProjects);
+    } catch {
+      // Optional recent-project metadata must not break a reversible project command.
+    }
   }
 
   function updateLayout(action: WorkspaceLayoutAction): boolean {
@@ -453,8 +632,8 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     if (sameLayout(current, next)) {
       return false;
     }
-    layout.setState(next, true);
     layoutPersistence.save(activeWorkspaceIdentity, serializeWorkspaceLayout(next));
+    layout.setState(next, true);
     return true;
   }
 
@@ -657,15 +836,63 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     }
   }
 
-  async function dispatch(command: WorkbenchCommand): Promise<void> {
+  function dispatch(command: WorkbenchCommand): Promise<void> {
+    if (command.kind === "render-active" || command.kind === "cancel-render") {
+      return executeCommand(command);
+    }
+    const ordered = command.kind !== "history-undo" && command.kind !== "history-redo";
+    const slot = ordered
+      ? { command, completed: false } satisfies CommandOrderSlot
+      : undefined;
+    if (slot) {
+      commandOrderSlots.push(slot);
+      commandSlots.set(command, slot);
+    }
+    const exclusive = command.kind === "history-undo"
+      || command.kind === "history-redo";
+    if (exclusiveCommandTail || exclusive) {
+      const pending = exclusiveCommandTail
+        ? exclusiveCommandTail.then(() => executeCommand(command))
+        : pendingCommands.size === 0
+          ? executeCommand(command)
+          : Promise.all([...pendingCommands].map((current) => current.catch(() => undefined)))
+            .then(() => executeCommand(command));
+      const tracked = pending.finally(() => completeCommandSlot(slot));
+      const tail = tracked.catch(() => undefined);
+      exclusiveCommandTail = tail;
+      return tracked.finally(() => {
+        if (exclusiveCommandTail === tail) exclusiveCommandTail = undefined;
+      });
+    }
+    const projectCommand = isProjectCommand(command);
+    const waitsForProjectTransition = !projectCommand && pendingProjectCommands.size > 0;
+    const execution = waitsForProjectTransition
+      ? Promise.all([...pendingProjectCommands].map((current) => current.catch(() => undefined)))
+        .then(() => executeCommand(command))
+      : executeCommand(command);
+    const blocksLaterMutations = projectCommand
+      && command.kind !== "restore-recovery-confirmed";
+    let tracked: Promise<void>;
+    tracked = execution.finally(() => {
+      pendingCommands.delete(tracked);
+      pendingProjectCommands.delete(tracked);
+      completeCommandSlot(slot);
+    });
+    pendingCommands.add(tracked);
+    if (blocksLaterMutations) pendingProjectCommands.add(tracked);
+    return tracked;
+  }
+
+  async function executeCommand(command: WorkbenchCommand): Promise<void> {
     if (command.kind === "history-undo") {
       const frame = undoFrames.pop();
       if (!frame) return;
+      const generation = historyGeneration;
       try {
-        frame.undo();
-        redoFrames.push(frame);
+        await frame.undo();
+        if (historyGeneration === generation) redoFrames.push(frame);
       } catch (error) {
-        undoFrames.push(frame);
+        if (historyGeneration === generation) undoFrames.push(frame);
         throw error;
       }
       return;
@@ -674,11 +901,12 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     if (command.kind === "history-redo") {
       const frame = redoFrames.pop();
       if (!frame) return;
+      const generation = historyGeneration;
       try {
-        frame.redo();
-        undoFrames.push(frame);
+        await frame.redo();
+        if (historyGeneration === generation) undoFrames.push(frame);
       } catch (error) {
-        redoFrames.push(frame);
+        if (historyGeneration === generation) redoFrames.push(frame);
         throw error;
       }
       return;
@@ -687,6 +915,13 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     if (isProjectCommand(command)) {
       const beforeProject = project.getState();
       const beforeWorkspace = documents.getState();
+      const beforeRuntime = captureProjectRuntimeHistoryState();
+      const fileHistory = projectFileHistoryStep(
+        command,
+        beforeProject,
+        beforeWorkspace,
+        options.projectStorage,
+      );
       const transition = await executeProjectCommand(
         beforeProject,
         beforeWorkspace,
@@ -726,11 +961,8 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       const replacementLayout = effectiveTransition.replacementWorkspace
         ? parseWorkspaceLayout(layoutPersistence.load(transition.project.snapshot.workspaceIdentity))
         : undefined;
-      const historyEntry = createHistoryEntry(command, makeId(), transition.summary, false);
-      const invalidatesReversibleHistory = Boolean(transition.replacementWorkspace)
-        || transition.documentActions.some(({ kind }) =>
-          kind === "replace-from-disk" || kind === "close" || kind === "confirm-close"
-        );
+      const undoable = command.kind !== "reveal-project-file" && command.kind !== "refresh-project";
+      const historyEntry = createHistoryEntry(command, makeId(), transition.summary, undoable);
       applyProjectTransition(effectiveTransition, {
         documents,
         parameters,
@@ -755,8 +987,22 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
           // A metadata failure must not prevent an explicitly confirmed project open.
         }
       }
-      if (invalidatesReversibleHistory) clearReversibleHistory();
-      appendHistory(historyEntry);
+      if (undoable) {
+        const nextRuntime = captureProjectRuntimeHistoryState();
+        pushReversibleFrame(command, {
+          undo: async () => {
+            await fileHistory?.undo();
+            replayProjectRuntimeHistoryState(beforeRuntime);
+          },
+          redo: async () => {
+            await fileHistory?.redo();
+            replayProjectRuntimeHistoryState(nextRuntime);
+          },
+        });
+      } else if (command.kind === "refresh-project") {
+        clearReversibleHistory();
+      }
+      stageHistory(command, historyEntry);
       if (transition.project.revision !== beforeProject.revision) {
         cancelActiveRender();
         scheduleAutoRender();
@@ -774,10 +1020,22 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       }
       if (!renderDiskCache) throw new Error("Desktop render caching is unavailable.");
       renderDiskCachePreferences.save(current.snapshot.workspaceIdentity, command.enabled);
-      project.setState({ ...current, diskRenderCacheEnabled: command.enabled }, true);
+      const next = { ...current, diskRenderCacheEnabled: command.enabled };
+      project.setState(next, true);
+      const replayPreference = (state: ProjectSessionState) => {
+        renderDiskCachePreferences.save(
+          state.snapshot.workspaceIdentity,
+          state.diskRenderCacheEnabled,
+        );
+        project.setState(state, true);
+      };
+      pushReversibleFrame(command, {
+        undo: () => replayPreference(current),
+        redo: () => replayPreference(next),
+      });
       record(command, makeId(), command.enabled
         ? "Enable disk render cache for this project"
-        : "Disable disk render cache for this project", false);
+        : "Disable disk render cache for this project", true);
       return;
     }
 
@@ -794,6 +1052,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     const action = documentAction(command);
     if (action) {
       const before = documents.getState();
+      const beforeParameters = parameters.getState();
       const beforeParameterDocument = command.kind === "edit-document"
         ? parameters.getState().documents.get(command.documentId)
         : undefined;
@@ -808,12 +1067,12 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       );
       const commandId = makeId();
       const summary = summarizeDocumentCommand(command, before);
-      const undoable = command.kind === "edit-document";
+      const undoable = command.kind !== "mark-document-autosaved";
       if (command.kind === "edit-document") {
         const beforeSource = before.documents.find(({ id }) => id === command.documentId)?.source;
         const afterParameterDocument = parameters.getState().documents.get(command.documentId);
         if (beforeSource !== undefined) {
-          pushReversibleFrame({
+          pushReversibleFrame(command, {
             undo: () => replayDocumentEdit(
               command.documentId,
               beforeSource,
@@ -826,13 +1085,12 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
             ),
           });
         }
-      } else if (
-        command.kind === "open-document"
-        || command.kind === "resolve-external-change"
-        || command.kind === "close-document"
-        || command.kind === "reopen-document"
-      ) {
-        clearReversibleHistory();
+      } else if (command.kind !== "mark-document-autosaved") {
+        const nextParameters = parameters.getState();
+        pushReversibleFrame(command, {
+          undo: () => replayWorkspaceState(before, beforeParameters),
+          redo: () => replayWorkspaceState(next, nextParameters),
+        });
       }
       record(command, commandId, summary, undoable);
       for (const documentId of pendingAutoRenders.keys()) {
@@ -855,6 +1113,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       if (settings.getState().theme === command.theme) {
         return;
       }
+      const beforeProfile = settings.getState().profile;
       const commandId = makeId();
       await replaceSettingsProfile({
         ...settings.getState().profile,
@@ -863,7 +1122,12 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       const label = command.theme === "high-contrast"
         ? "High contrast"
         : `${command.theme[0].toUpperCase()}${command.theme.slice(1)}`;
-      record(command, commandId, `Switch theme to ${label}`, false);
+      const nextProfile = settings.getState().profile;
+      pushReversibleFrame(command, {
+        undo: () => replaySettingsProfile(beforeProfile),
+        redo: () => replaySettingsProfile(nextProfile),
+      });
+      record(command, commandId, `Switch theme to ${label}`, true);
       return;
     }
 
@@ -882,6 +1146,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
 
     if (command.kind === "set-auto-render") {
       if (settings.getState().autoRender === command.enabled) return;
+      const beforeProfile = settings.getState().profile;
       await replaceSettingsProfile({
         ...settings.getState().profile,
         rendering: { ...settings.getState().profile.rendering, autoRender: command.enabled },
@@ -890,27 +1155,91 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
         pendingAutoRenders.clear();
         autoRenderTimer.clear();
       }
+      const nextProfile = settings.getState().profile;
+      pushReversibleFrame(command, {
+        undo: () => replaySettingsProfile(beforeProfile),
+        redo: () => replaySettingsProfile(nextProfile),
+      });
       record(
         command,
         makeId(),
         command.enabled ? "Enable auto-render" : "Disable auto-render",
-        false,
+        true,
+      );
+      return;
+    }
+
+    if (command.kind === "set-welcome-on-launch") {
+      const reversible = command.origin !== "system";
+      if (!updateWorkbenchControls(command, {
+        kind: "set-welcome-on-launch",
+        enabled: command.enabled,
+      }, reversible)) return;
+      record(
+        command,
+        makeId(),
+        command.enabled ? "Show Welcome on launch" : "Hide Welcome on launch",
+        reversible,
+      );
+      return;
+    }
+
+    if (command.kind === "set-mcp-enabled") {
+      const reversible = command.origin !== "system";
+      if (!updateWorkbenchControls(
+        command,
+        { kind: "set-mcp-enabled", enabled: command.enabled },
+        reversible,
+      )) return;
+      record(
+        command,
+        makeId(),
+        command.enabled ? "Enable MCP server" : "Disable MCP server",
+        reversible,
+      );
+      return;
+    }
+
+    if (command.kind === "set-mcp-permission") {
+      const reversible = command.origin !== "system";
+      if (!updateWorkbenchControls(command, {
+        kind: "set-mcp-permission",
+        tool: command.tool,
+        permission: command.permission,
+      }, reversible)) return;
+      record(
+        command,
+        makeId(),
+        `Set MCP ${command.tool} permission to ${command.permission}`,
+        reversible,
       );
       return;
     }
 
     if (command.kind === "replace-settings") {
+      const beforeProfile = settings.getState().profile;
       await replaceSettingsProfile(command.settings);
-      record(command, makeId(), "Replace user settings", false);
+      const nextProfile = settings.getState().profile;
+      pushReversibleFrame(command, {
+        undo: () => replaySettingsProfile(beforeProfile),
+        redo: () => replaySettingsProfile(nextProfile),
+      });
+      record(command, makeId(), "Replace user settings", true);
       scheduleAutoRender();
       return;
     }
 
     if (command.kind === "restore-settings-section") {
+      const beforeProfile = settings.getState().profile;
       await replaceSettingsProfile(
         restoreSettingsSection(settings.getState().profile, command.section),
       );
-      record(command, makeId(), `Restore ${command.section} settings`, false);
+      const nextProfile = settings.getState().profile;
+      pushReversibleFrame(command, {
+        undo: () => replaySettingsProfile(beforeProfile),
+        redo: () => replaySettingsProfile(nextProfile),
+      });
+      record(command, makeId(), `Restore ${command.section} settings`, true);
       scheduleAutoRender();
       return;
     }
@@ -932,8 +1261,21 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     }
 
     if (command.kind === "clear-console") {
-      runConsole.setState(reduceConsoleState(runConsole.getState(), { kind: "clear" }), true);
-      record(command, makeId(), "Clear console", false);
+      const before = runConsole.getState();
+      const next = reduceConsoleState(before, { kind: "clear" });
+      if (next === before) return;
+      runConsole.setState(next, true);
+      pushReversibleFrame(command, {
+        undo: () => runConsole.setState(
+          restoreClearedConsoleState(runConsole.getState(), before),
+          true,
+        ),
+        redo: () => runConsole.setState(
+          reduceConsoleState(runConsole.getState(), { kind: "clear" }),
+          true,
+        ),
+      });
+      record(command, makeId(), "Clear console", true);
       return;
     }
 
@@ -960,10 +1302,16 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     }
 
     if (command.kind === "update-layout") {
+      const before = layout.getState();
       if (!updateLayout(command.action)) {
         return;
       }
-      record(command, makeId(), summarizeLayoutAction(command.action), false);
+      const next = layout.getState();
+      pushReversibleFrame(command, {
+        undo: () => replayLayoutState(before),
+        redo: () => replayLayoutState(next),
+      });
+      record(command, makeId(), summarizeLayoutAction(command.action), true);
       return;
     }
 
@@ -992,7 +1340,11 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
           annotationPersistence.setState(annotationRepository.state(), true);
         }
       }
-      record(command, makeId(), `Update viewer for ${command.action.documentId}`, false);
+      pushReversibleFrame(command, {
+        undo: () => replayViewerState(before),
+        redo: () => replayViewerState(next),
+      });
+      record(command, makeId(), `Update viewer for ${command.action.documentId}`, true);
       return;
     }
 
@@ -1001,14 +1353,23 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       const next = reduceParameterState(before, command.action);
       if (next === before) return;
       parameters.setState(next, true);
-      const undoable = command.action.kind === "set-value" || command.action.kind === "set-values";
+      const undoable = command.action.kind !== "sync-source";
       if (undoable) {
         const beforeDocument = before.documents.get(command.action.documentId);
         const nextDocument = next.documents.get(command.action.documentId);
         if (beforeDocument && nextDocument) {
-          pushReversibleFrame({
-            undo: () => replayParameterState(command.action.documentId, beforeDocument),
-            redo: () => replayParameterState(command.action.documentId, nextDocument),
+          const affectsRender = parameterActionAffectsRender(command.action);
+          pushReversibleFrame(command, {
+            undo: () => replayParameterState(
+              command.action.documentId,
+              beforeDocument,
+              affectsRender,
+            ),
+            redo: () => replayParameterState(
+              command.action.documentId,
+              nextDocument,
+              affectsRender,
+            ),
           });
         }
       } else {
@@ -1052,7 +1413,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       }), true);
       const afterParameterDocument = parameters.getState().documents.get(command.documentId);
       if (afterParameterDocument) {
-        pushReversibleFrame({
+        pushReversibleFrame(command, {
           undo: () => replayDocumentEdit(
             command.documentId,
             document.source,
@@ -1323,6 +1684,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     parameters: readonlyStore(parameters),
     project: readonlyStore(project),
     history: readonlyStore(history),
+    controls: readonlyStore(controls),
     renderThumbnails,
     dispatch,
     dispose() {

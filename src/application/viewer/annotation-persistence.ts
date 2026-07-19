@@ -179,6 +179,12 @@ export class WorkspaceAnnotationRepository {
     return serializeWorkspaceAnnotationMetadata({ version: 1, files: this.files });
   }
 
+  restore(serialized: string): void {
+    this.files = parseWorkspaceAnnotationMetadata(serialized).files.map(cloneFile);
+    this.dirty = true;
+    this.persist();
+  }
+
   retry(): void {
     if (this.persistenceState.status !== "load-error" || this.dirty) {
       this.persist();

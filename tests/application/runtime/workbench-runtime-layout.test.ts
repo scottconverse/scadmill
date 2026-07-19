@@ -5,11 +5,11 @@ import type {
   RenderFailure,
   RenderSuccess3D,
 } from "../../../src/application/engine/contracts";
+import { createProjectSnapshot } from "../../../src/application/files/project-snapshot";
 import {
   DEFAULT_WORKSPACE_LAYOUT,
   serializeWorkspaceLayout,
 } from "../../../src/application/layout/workspace-layout";
-import { createProjectSnapshot } from "../../../src/application/files/project-snapshot";
 import type { WorkspaceLayoutPersistence } from "../../../src/application/runtime/layout-persistence";
 import { createWorkbenchRuntime } from "../../../src/application/runtime/workbench-runtime";
 
@@ -129,7 +129,7 @@ describe("workbench runtime layout", () => {
         origin: "user",
         kind: "update-layout",
         summary: "Resize dock",
-        undoable: false,
+        undoable: true,
       },
       {
         commandId: "layout-command-2",
@@ -137,9 +137,35 @@ describe("workbench runtime layout", () => {
         origin: "user",
         kind: "update-layout",
         summary: "Reset workspace layout",
-        undoable: false,
+        undoable: true,
       },
     ]);
+  });
+
+  it("keeps layout state atomic when persistence rejects an undo", async () => {
+    let reject = false;
+    const persistence = {
+      load: () => serializeWorkspaceLayout(DEFAULT_WORKSPACE_LAYOUT),
+      save: vi.fn(() => {
+        if (reject) throw new Error("layout storage blocked");
+      }),
+    };
+    const runtime = createWorkbenchRuntime(idleEngine(), { layoutPersistence: persistence });
+    await runtime.dispatch({
+      kind: "update-layout",
+      origin: "user",
+      action: { kind: "toggle-panel", panel: "console" },
+    });
+    const changed = runtime.layout.getState();
+    reject = true;
+
+    await expect(runtime.dispatch({ kind: "history-undo", origin: "user" }))
+      .rejects.toThrow("layout storage blocked");
+    expect(runtime.layout.getState()).toBe(changed);
+
+    reject = false;
+    await runtime.dispatch({ kind: "history-undo", origin: "user" });
+    expect(runtime.layout.getState()).toEqual(DEFAULT_WORKSPACE_LAYOUT);
   });
 
   it("persists one keyed console auto-open for a failed job without adding history", async () => {

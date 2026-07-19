@@ -106,17 +106,14 @@ export function ViewerPaneConnector({
       return;
     }
     if (action.kind === "set-camera" && action.camera.projection !== preferences.projection) {
-      void runtime
-        .dispatch({
-          kind: "replace-settings",
-          origin: "user",
-          settings: {
-            ...profile,
-            viewer: { ...profile.viewer, projection: action.camera.projection },
-          },
-        })
-        .then(() => runtime.dispatch({ kind: "update-viewer", origin: "user", action }))
-        .catch(() => undefined);
+      void runtime.dispatch({
+        kind: "replace-settings",
+        origin: "user",
+        settings: {
+          ...profile,
+          viewer: { ...profile.viewer, projection: action.camera.projection },
+        },
+      }).catch(() => undefined);
       return;
     }
     void runtime.dispatch({ kind: "update-viewer", origin: "user", action });

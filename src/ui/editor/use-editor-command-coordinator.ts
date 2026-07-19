@@ -36,12 +36,7 @@ export function useEditorCommandCoordinator(
       if (narrow) {
         dispatchLayout({ kind: "set-narrow-view", view: "code" });
       } else {
-        if (layout.maximized === "viewer") {
-          dispatchLayout({ kind: "toggle-maximize", region: "viewer" });
-        }
-        if (!layout.editorOpen) {
-          dispatchLayout({ kind: "toggle-panel", panel: "editor" });
-        }
+        dispatchLayout({ kind: "reveal-editor" });
       }
     }
     setRequest({ requestId: ++nextRequest.current, command });

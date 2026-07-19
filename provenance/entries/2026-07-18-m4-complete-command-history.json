@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-18-m4-complete-command-history",
+  "createdAt": "2026-07-18T19:46:30-06:00",
+  "summary": "Close the literal AC-11.a mutation denominator with ordered, durable, application-owned undo and redo.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "FR-11.1", "FR-11.2", "AC-11.a", "N-2", "N-7"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-18-m4-complete-command-history.json", "status": "added" },
+    { "path": "src/app/App.tsx", "status": "modified" },
+    { "path": "src/application/diagnostics/console-state.ts", "status": "modified" },
+    { "path": "src/application/layout/workspace-layout.ts", "status": "modified" },
+    { "path": "src/application/runtime/layout-action-summary.ts", "status": "modified" },
+    { "path": "src/application/runtime/project-file-history.ts", "status": "added" },
+    { "path": "src/application/runtime/workbench-controls.ts", "status": "added" },
+    { "path": "src/application/runtime/workbench-runtime-contracts.ts", "status": "modified" },
+    { "path": "src/application/runtime/workbench-runtime.ts", "status": "modified" },
+    { "path": "src/application/viewer/annotation-persistence.ts", "status": "modified" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/editor/CodeEditor.tsx", "status": "modified" },
+    { "path": "src/ui/editor/runtime-history-extension.ts", "status": "added" },
+    { "path": "src/ui/editor/use-editor-command-coordinator.ts", "status": "modified" },
+    { "path": "src/ui/mcp/use-mcp-stdio.ts", "status": "modified" },
+    { "path": "src/ui/viewer/ViewerPaneConnector.tsx", "status": "modified" },
+    { "path": "src/ui/welcome/WelcomeLauncher.tsx", "status": "modified" },
+    { "path": "src/ui/workbench-props.ts", "status": "modified" },
+    { "path": "tests/application/diagnostics/console-state.test.ts", "status": "modified" },
+    { "path": "tests/application/runtime/workbench-runtime-history.test.ts", "status": "modified" },
+    { "path": "tests/application/runtime/workbench-runtime-layout.test.ts", "status": "modified" },
+    { "path": "tests/application/runtime/workbench-runtime-projects.test.ts", "status": "modified" },
+    { "path": "tests/application/runtime/workbench-runtime.test.ts", "status": "modified" },
+    { "path": "tests/ui/Workbench.editor-settings.test.tsx", "status": "modified" },
+    { "path": "tests/ui/viewer/ViewerPaneConnector.test.tsx", "status": "modified" },
+    { "path": "tests/ui/welcome/WelcomeLauncher.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0389",
+      "topic": "Complete application-owned command ordering and compensation",
+      "decision": "Reserve command-history slots at dispatch time, publish frames and entries only in dispatch order, make undo and redo exclusive against later mutations, and hold later non-project mutations behind pending project transitions while retaining concurrent project winner/discard and recovery-staleness behavior. Store semantic or durable inverses for documents, project files, annotations, parameters, settings, layout, viewer, console, Welcome, and MCP controls; keep render and cancel concurrent.",
+      "rationale": "Completion-order frame publication can undo an earlier slow command before a later edit, and broad project snapshots can otherwise absorb or erase later work. Ordered slots plus clean project-transition barriers preserve per-action chronology without delaying ordinary optimistic UI updates or preventing render cancellation.",
+      "specBasis": ["FR-11.1", "FR-11.2", "AC-11.a", "N-2"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Every applicable mutating UI action produces exactly one chronological history entry whose undo and redo restore only that action, including slow settings saves, project-file operations, persisted annotations, external-change choices, console clearing, Welcome preference, and MCP controls.",
+      "test": "Run the focused AC-11.a runtime/UI bundle once, repair only observed defects, then rerun the affected runtime/project files and strict static gates.",
+      "red": {
+        "command": "pnpm.cmd vitest run tests/application/runtime/workbench-runtime-history.test.ts --reporter=dot; independent AC-11.a denominator reviews",
+        "observedAt": "2026-07-18T19:13:23-06:00",
+        "outcome": "RED: the restart-level annotation-path test failed 1 of 15; later independent reviews found nonundoable external-change, console, Welcome and MCP mutations, then found completion-order races and redo contamination between a deferred project mutation and a later edit. One intermediate focused bundle also deterministically exposed 15 render/cancel regressions from an overbroad queue; two existing project atomicity tests rejected an overexclusive correction."
+      },
+      "green": {
+        "command": "pnpm.cmd vitest run tests/application/diagnostics/console-state.test.ts tests/application/runtime/workbench-runtime-history.test.ts tests/application/runtime/workbench-runtime-layout.test.ts tests/application/runtime/workbench-runtime-projects.test.ts tests/application/runtime/workbench-runtime.test.ts tests/application/viewer/annotation-persistence.test.ts tests/app/App.test.tsx tests/ui/Workbench.editor-settings.test.tsx tests/ui/mcp/use-mcp-stdio.test.tsx tests/ui/viewer/ViewerPaneConnector.test.tsx tests/ui/welcome/WelcomeLauncher.test.tsx --reporter=dot; pnpm.cmd vitest run tests/application/runtime/workbench-runtime-history.test.ts tests/application/runtime/workbench-runtime-projects.test.ts --reporter=dot; pnpm.cmd lint; pnpm.cmd typecheck; git diff --check",
+        "observedAt": "2026-07-18T19:44:23-06:00",
+        "outcome": "GREEN: the complete focused bundle passed 11 files/123 tests; after the final clean-project-redo barrier, the affected history and project set passed 2 files/36 tests. Biome/source policy checked 468 files with both capped UI files at 400 lines, TypeScript exited 0, diff hygiene passed, and the final independent denominator review returned literal 0 blocker / 0 critical / 0 major / 0 minor / 0 nit."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://src/application/runtime/workbench-runtime.ts",
+      "sought": "Adversarial chronology, persistence, and concurrency review across the literal AC-11.a mutation denominator",
+      "confirmation": "Successive reviews caught stale source replay, parameter revision drift, incorrect replay quality, inverse-publication ordering, missing project filesystem compensation, async frame races, annotation path loss, bypassed UI settings, console concurrency, completion-order undo, and project redo contamination. Each actionable finding received a bounded regression before the final 0/0/0/0/0 verdict."
+    }
+  ],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

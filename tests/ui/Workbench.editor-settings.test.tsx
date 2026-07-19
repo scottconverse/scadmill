@@ -191,6 +191,18 @@ it("reveals a hidden editor before running an Edit-menu action", async () => {
     cancel: vi.fn(),
   };
   const runtime = createWorkbenchRuntime(engine);
+  await runtime.dispatch({
+    kind: "update-layout",
+    origin: "user",
+    action: { kind: "toggle-panel", panel: "editor" },
+  });
+  await runtime.dispatch({
+    kind: "update-layout",
+    origin: "user",
+    action: { kind: "toggle-maximize", region: "viewer" },
+  });
+  const layoutHistoryBeforeReveal = runtime.history.getState()
+    .filter(({ kind }) => kind === "update-layout").length;
   const rendered = render(
     <Workbench
       activeTheme={SHIPPED_THEMES[0]}
@@ -205,8 +217,7 @@ it("reveals a hidden editor before running an Edit-menu action", async () => {
   const editorSurface = rendered.container.querySelector<HTMLElement>(".workspace-editor");
   if (!editorSurface) throw new Error("Editor surface did not mount.");
 
-  fireEvent.click(app.getByRole("button", { name: "Collapse editor" }));
-  await waitFor(() => expect(editorSurface).toHaveAttribute("hidden"));
+  expect(editorSurface).toHaveAttribute("hidden");
   fireEvent.click(app.getByRole("button", { name: "Edit" }));
   fireEvent.click(app.getByRole("button", { name: "Find" }));
 
@@ -214,5 +225,7 @@ it("reveals a hidden editor before running an Edit-menu action", async () => {
   await waitFor(() => expect(
     rendered.container.querySelector('.cm-search input[name="search"]'),
   ).toHaveFocus());
+  expect(runtime.history.getState().filter(({ kind }) => kind === "update-layout"))
+    .toHaveLength(layoutHistoryBeforeReveal + 1);
   runtime.dispose();
 });

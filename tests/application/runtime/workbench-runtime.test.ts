@@ -6,9 +6,9 @@ import type {
   RenderSuccess2D,
   RenderSuccess3D,
 } from "../../../src/application/engine/contracts";
+import { createProjectSnapshot } from "../../../src/application/files/project-snapshot";
 import type { RenderCache } from "../../../src/application/render-cache/render-cache";
 import type { RenderDiskCacheStorage } from "../../../src/application/render-cache/render-disk-cache";
-import { createProjectSnapshot } from "../../../src/application/files/project-snapshot";
 import { createWorkbenchRuntime } from "../../../src/application/runtime/workbench-runtime";
 
 function successfulEngine(): EngineService {
@@ -495,11 +495,11 @@ describe("createWorkbenchRuntime", () => {
       summary,
       undoable,
     }))).toEqual([
-      { commandId: "tab-command-1", summary: "Open parts/wheel.scad", undoable: false },
-      { commandId: "tab-command-2", summary: "Activate main.scad", undoable: false },
-      { commandId: "tab-command-3", summary: "Move parts/wheel.scad to tab 1", undoable: false },
-      { commandId: "tab-command-4", summary: "Close main.scad", undoable: false },
-      { commandId: "tab-command-5", summary: "Reopen main.scad", undoable: false },
+      { commandId: "tab-command-1", summary: "Open parts/wheel.scad", undoable: true },
+      { commandId: "tab-command-2", summary: "Activate main.scad", undoable: true },
+      { commandId: "tab-command-3", summary: "Move parts/wheel.scad to tab 1", undoable: true },
+      { commandId: "tab-command-4", summary: "Close main.scad", undoable: true },
+      { commandId: "tab-command-5", summary: "Reopen main.scad", undoable: true },
       { commandId: "tab-command-6", summary: "Edit parts/wheel.scad", undoable: true },
     ]);
   });
@@ -540,7 +540,7 @@ describe("createWorkbenchRuntime", () => {
       origin: "external-agent",
       kind: "open-document",
       summary: "Open parts/wheel.scad",
-      undoable: false,
+      undoable: true,
     }]);
   });
 
@@ -1006,6 +1006,15 @@ describe("createWorkbenchRuntime", () => {
 
     expect(runtime.console.getState().runs).toEqual([]);
     expect(runtime.render.getState().result).toBeDefined();
+    expect(runtime.history.getState().at(-1)?.undoable).toBe(true);
+
+    await runtime.dispatch({ kind: "history-undo", origin: "user" });
+    expect(runtime.console.getState().runs).toHaveLength(1);
+    expect(runtime.render.getState().result).toBeDefined();
+
+    await runtime.dispatch({ kind: "history-redo", origin: "user" });
+    expect(runtime.console.getState().runs).toEqual([]);
+    expect(runtime.render.getState().result).toBeDefined();
   });
 
   it("does not auto-open an empty console for a current background-tab failure", async () => {
@@ -1125,7 +1134,7 @@ describe("createWorkbenchRuntime", () => {
         origin: "user",
         kind: "set-theme",
         summary: "Switch theme to High contrast",
-        undoable: false,
+        undoable: true,
       },
     ]);
     expect(engine.render).not.toHaveBeenCalled();

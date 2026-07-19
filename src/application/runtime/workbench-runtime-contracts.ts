@@ -8,6 +8,7 @@ import type { ProjectStorage } from "../files/project-file-service";
 import type { ProjectCommand, ProjectSessionState } from "../files/project-session";
 import type { ProjectFileContent, ProjectSnapshot } from "../files/project-snapshot";
 import type { RecentProjectsPersistence } from "../files/recent-projects";
+import type { McpPermission, McpToolName } from "../mcp/mcp-tools";
 import type {
   WorkspaceLayoutAction,
   WorkspaceLayoutState,
@@ -27,6 +28,8 @@ import type {
 import type { ViewerAction, ViewerState } from "../viewer/viewer-state";
 import type { WorkspaceLayoutPersistence } from "./layout-persistence";
 import type { RenderingSettings, SettingsState } from "./render-settings";
+import type { WorkbenchControlState } from "./workbench-controls";
+import type { WelcomePreferencePersistence } from "../welcome/welcome-preference";
 
 export type CommandOrigin = "user" | "ai-panel" | "external-agent" | "system";
 
@@ -70,6 +73,14 @@ export type WorkbenchCommand =
   | { kind: "reopen-document"; origin: CommandOrigin }
   | { kind: "set-theme"; origin: CommandOrigin; theme: ThemePreference }
   | { kind: "set-auto-render"; origin: CommandOrigin; enabled: boolean }
+  | { kind: "set-welcome-on-launch"; origin: CommandOrigin; enabled: boolean }
+  | { kind: "set-mcp-enabled"; origin: CommandOrigin; enabled: boolean }
+  | {
+      kind: "set-mcp-permission";
+      origin: CommandOrigin;
+      tool: McpToolName;
+      permission: McpPermission;
+    }
   | { kind: "set-project-disk-render-cache"; origin: CommandOrigin; enabled: boolean }
   | { kind: "clear-project-disk-render-cache"; origin: CommandOrigin }
   | { kind: "replace-settings"; origin: CommandOrigin; settings: PersistedSettings }
@@ -115,6 +126,7 @@ export interface WorkbenchRuntime {
   parameters: ReadonlyStore<ParameterState>;
   project: ReadonlyStore<ProjectSessionState>;
   history: ReadonlyStore<readonly HistoryEntry[]>;
+  controls: ReadonlyStore<WorkbenchControlState>;
   readonly renderThumbnails: RenderThumbnailPersistence;
   dispatch(command: WorkbenchCommand): Promise<void>;
   dispose(): void;
@@ -139,4 +151,5 @@ export interface RuntimeOptions {
   renderDiskCacheStorage?: RenderDiskCacheStorage;
   renderDiskCachePreferencePersistence?: RenderDiskCachePreferencePersistence;
   renderThumbnailPersistence?: RenderThumbnailPersistence;
+  welcomePreferencePersistence?: WelcomePreferencePersistence;
 }

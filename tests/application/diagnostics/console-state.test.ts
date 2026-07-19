@@ -5,6 +5,7 @@ import {
   createConsoleState,
   formatConsoleHistory,
   reduceConsoleState,
+  restoreClearedConsoleState,
 } from "../../../src/application/diagnostics/console-state";
 import type { RenderFailure } from "../../../src/application/engine/contracts";
 
@@ -202,6 +203,40 @@ describe("console state", () => {
     expect(state.runs).toHaveLength(1);
     expect(state.runs[0]).toMatchObject({ status: "running", droppedLineCount: 0 });
     expect(state.runs[0].lines[0].raw).toBe("after clear\n");
+  });
+
+  it("restores pre-clear output without losing output and completion received after clear", () => {
+    let before = reduceConsoleState(createConsoleState(), {
+      kind: "start-run",
+      jobId: "running",
+      entryFile: "main.scad",
+      quality: "preview",
+      startedAt: "2026-07-10T13:00:00.000Z",
+    });
+    before = reduceConsoleState(before, {
+      kind: "append-output",
+      jobId: "running",
+      event: { sequence: 0, elapsedMs: 1, stream: "stdout", raw: "before clear\n" },
+    });
+    let current = reduceConsoleState(before, { kind: "clear" });
+    current = reduceConsoleState(current, {
+      kind: "append-output",
+      jobId: "running",
+      event: { sequence: 1, elapsedMs: 2, stream: "stdout", raw: "after clear\n" },
+    });
+    current = reduceConsoleState(current, {
+      kind: "finish-run",
+      jobId: "running",
+      durationMs: 3,
+      result: { kind: "failure", reason: "engine-error", diagnostics: [], rawLog: "" },
+    });
+
+    const restored = restoreClearedConsoleState(current, before);
+    expect(restored.runs[0]).toMatchObject({ status: "engine-error", durationMs: 3 });
+    expect(restored.runs[0]?.lines.map(({ raw }) => raw)).toEqual([
+      "before clear\n",
+      "after clear\n",
+    ]);
   });
 
   it("does not resurrect cleared output when a run finishes without a later event", () => {

@@ -13,6 +13,27 @@ const engine: EngineService = {
 };
 
 describe("WelcomeLauncher", () => {
+  it("reflects an undo or redo of the startup preference while the dialog is open", () => {
+    const runtime = createWorkbenchRuntime(engine);
+    const renderLauncher = (showOnLaunch: boolean) => (
+      <WelcomeLauncher
+        documents={runtime.documents.getState()}
+        project={runtime.project.getState()}
+        runtime={runtime}
+        showOnLaunch={showOnLaunch}
+        onNewFile={vi.fn()}
+        onOpenProject={vi.fn()}
+        onOpenRecentProject={vi.fn()}
+        onShowOnLaunchChange={vi.fn()}
+      />
+    );
+    const view = render(renderLauncher(true));
+    expect(view.getByRole("checkbox", { name: "Show welcome screen on startup" })).toBeChecked();
+
+    view.rerender(renderLauncher(false));
+    expect(view.getByRole("checkbox", { name: "Show welcome screen on startup" })).not.toBeChecked();
+  });
+
   it("opens an Appendix F sample in the primary scratch slot and exposes recent work", async () => {
     const runtime = createWorkbenchRuntime(engine, {
       initialScratchSource: "",

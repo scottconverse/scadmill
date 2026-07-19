@@ -120,6 +120,7 @@ it("uses C9 viewer preferences as the live projection, furniture, mouse, and col
   });
   await waitFor(() => expect(runtime.settings.getState().profile.viewer.showGrid).toBe(true));
   expect(runtime.viewer.getState().documents.get("doc")).toBeUndefined();
+  const historyBeforeProjection = runtime.history.getState().length;
 
   await act(async () => {
     (paneProps.onViewerAction as (action: unknown) => void)({
@@ -135,6 +136,9 @@ it("uses C9 viewer preferences as the live projection, furniture, mouse, and col
     });
   });
   await waitFor(() => expect(runtime.settings.getState().profile.viewer.projection).toBe("perspective"));
+  expect(runtime.history.getState()).toHaveLength(historyBeforeProjection + 1);
+  expect(runtime.history.getState().at(-1)?.kind).toBe("replace-settings");
+  expect(runtime.viewer.getState().documents.get("doc")).toBeUndefined();
 });
 
 it("does not mutate viewer memory or history when a persisted projection change is blocked", async () => {

@@ -39,6 +39,7 @@ import {
   type OpenScadProjectCompletionContext,
 } from "./openscad-completion";
 import { openScad } from "./openscad-language";
+import { runtimeHistoryExtension } from "./runtime-history-extension";
 
 const controlledDocumentUpdate = Annotation.define<boolean>();
 const EMPTY_DIAGNOSTICS: readonly Diagnostic[] = [];
@@ -238,11 +239,7 @@ export function CodeEditor({
     editorCommandsCompartment.current = commandsCompartment;
     const extensions = [
       basicSetup,
-      EditorState.transactionExtender.of((transaction) =>
-        transaction.docChanged
-          ? { annotations: Transaction.addToHistory.of(false) }
-          : null
-      ),
+      runtimeHistoryExtension,
       languageMode === "openscad" ? openScad(completionSource) : [],
       lintGutter(),
       codeEditorTheme,

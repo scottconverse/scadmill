@@ -611,6 +611,23 @@ describe("workbench project integration", () => {
       source: "cube(40);",
       savedSource: "cube(40);",
     });
+
+    await runtime.dispatch({ kind: "history-undo", origin: "user" });
+    expect(runtime.documents.getState().documents[0]).toMatchObject({
+      source: "cube(20);",
+      savedSource: "cube(30);",
+    });
+    await runtime.dispatch({ kind: "history-undo", origin: "user" });
+    expect(runtime.documents.getState().documents[0]).toMatchObject({
+      source: "cube(20);",
+      savedSource: "cube(10);",
+    });
+    await runtime.dispatch({ kind: "history-redo", origin: "user" });
+    await runtime.dispatch({ kind: "history-redo", origin: "user" });
+    expect(runtime.documents.getState().documents[0]).toMatchObject({
+      source: "cube(40);",
+      savedSource: "cube(40);",
+    });
   });
 
   it("rejects a recovery transition if the workspace changes before atomic apply", async () => {

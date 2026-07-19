@@ -10,6 +10,8 @@ export function summarizeLayoutAction(action: WorkspaceLayoutAction): string {
       return `Toggle ${action.panel}`;
     case "toggle-maximize":
       return `Toggle ${action.region} maximize`;
+    case "reveal-editor":
+      return "Reveal editor";
     case "set-narrow-view":
       return `Show ${action.view} view`;
     case "set-narrow-sheet":

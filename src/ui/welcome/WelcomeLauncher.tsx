@@ -28,7 +28,7 @@ export interface WelcomeLauncherProps {
   onNewFile(): void;
   onOpenProject(): void;
   onOpenRecentProject(projectId: string, displayName: string): void;
-  onShowOnLaunchChange(show: boolean): void;
+  onShowOnLaunchChange(show: boolean): void | Promise<void>;
 }
 
 const focusableSelector = [
@@ -92,6 +92,9 @@ export function WelcomeLauncher({
   useEffect(() => {
     if (open) setThumbnailRevision((revision) => revision + 1);
   }, [open]);
+  useEffect(() => {
+    setShowAtStartup(showOnLaunch);
+  }, [showOnLaunch]);
 
   useEffect(() => {
     if (pendingSample) keepCurrentWork.current?.focus();
@@ -132,10 +135,10 @@ export function WelcomeLauncher({
     if (pristineScratch) void openSample(sample);
     else setPendingSample(sample);
   };
-  const updateStartupPreference = (next: boolean) => {
+  const updateStartupPreference = async (next: boolean) => {
     setError(null);
     try {
-      onShowOnLaunchChange(next);
+      await onShowOnLaunchChange(next);
       setShowAtStartup(next);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : messages.welcomePreferenceCouldNotBeSaved);
@@ -261,7 +264,7 @@ export function WelcomeLauncher({
                 <input
                   aria-label={messages.showWelcomeOnStartup}
                   checked={showAtStartup}
-                  onChange={(event) => updateStartupPreference(event.currentTarget.checked)}
+                  onChange={(event) => { void updateStartupPreference(event.currentTarget.checked); }}
                   type="checkbox"
                 />
                 {messages.showWelcomeOnStartup}

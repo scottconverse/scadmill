@@ -61,9 +61,6 @@ export function App({
   const renderDiskCacheStorage = platform.persistence.renderCache.available
     ? platform.persistence.renderCache.service
     : undefined;
-  const [showWelcomeOnLaunch, setShowWelcomeOnLaunch] = useState(() => {
-    try { return welcomePreferencePersistence?.load() ?? false; } catch { return false; }
-  });
   const runtime = useMemo(
     () => {
       const restoredScratch = scratchAutosavePersistence?.load();
@@ -79,6 +76,7 @@ export function App({
         renderDiskCacheStorage,
         renderDiskCachePreferencePersistence,
         renderThumbnailPersistence,
+        welcomePreferencePersistence,
       });
     },
     [
@@ -93,6 +91,7 @@ export function App({
       renderDiskCacheStorage,
       renderDiskCachePreferencePersistence,
       renderThumbnailPersistence,
+      welcomePreferencePersistence,
     ],
   );
   const pendingRuntimeDisposals = useRef(
@@ -317,7 +316,6 @@ export function App({
       workspaceDirectory={workspaceDirectory}
       recoveryPersistence={recoveryPersistence}
       scratchAutosavePersistence={scratchAutosavePersistence}
-      showWelcomeOnLaunch={showWelcomeOnLaunch}
       projectPortability={projectPortability}
       configuredEnginePath={engineHealth.kind === "checking" || engineHealth.kind === "invalid-config"
         ? engineHealth.configuredPath
@@ -341,12 +339,6 @@ export function App({
           .dispatch({ kind: "set-theme", origin: "user", theme })
           .catch(() => undefined)
       }
-      onWelcomePreferenceChange={welcomePreferencePersistence
-        ? (show) => {
-            welcomePreferencePersistence.save(show);
-            setShowWelcomeOnLaunch(show);
-          }
-        : undefined}
     />
   );
 }

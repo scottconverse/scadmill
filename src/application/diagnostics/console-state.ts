@@ -141,6 +141,27 @@ export function reduceConsoleState(state: ConsoleState, action: ConsoleAction): 
   return capLines(runs);
 }
 
+export function restoreClearedConsoleState(
+  current: ConsoleState,
+  cleared: ConsoleState,
+): ConsoleState {
+  const currentByJob = new Map(current.runs.map((run) => [run.jobId, run]));
+  const restoredIds = new Set(cleared.runs.map(({ jobId }) => jobId));
+  const restored = cleared.runs.map((prior) => {
+    const live = currentByJob.get(prior.jobId);
+    if (!live) return prior;
+    return {
+      ...live,
+      lines: [...prior.lines, ...live.lines],
+      droppedLineCount: prior.droppedLineCount + live.droppedLineCount,
+    };
+  });
+  return capLines([
+    ...restored,
+    ...current.runs.filter(({ jobId }) => !restoredIds.has(jobId)),
+  ]);
+}
+
 function runOutcome(run: ConsoleRun): string {
   if (run.status === "running") return messages.consoleRunning;
   if (run.status === "success") return messages.consoleExit(0);
