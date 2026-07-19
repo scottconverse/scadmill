@@ -5,6 +5,7 @@ import type {
   RenderRequest,
   RenderSuccess3D,
 } from "../../../src/application/engine/contracts";
+import type { RenderCache } from "../../../src/application/render-cache/render-cache";
 import {
   createRenderCacheKey,
   estimateRenderCacheEntryBytes,
@@ -12,7 +13,6 @@ import {
   RenderMemoryCache,
   TieredRenderCache,
 } from "../../../src/application/render-cache/render-cache";
-import type { RenderCache } from "../../../src/application/render-cache/render-cache";
 
 const engine: EngineInfo = {
   version: "2026.06.12",
@@ -107,6 +107,58 @@ describe("render cache", () => {
     ]) });
     await expect(createRenderCacheKey(baseline, engine, "native")).resolves.not.toBe(
       await createRenderCacheKey(changed, engine, "native"),
+    );
+  });
+
+  it("changes a cold-cache key when only a literal surface asset changes", async () => {
+    const baseline = request({ files: new Map<string, string | Uint8Array>([
+      ["main.scad", "surface(file = \"assets/heightmap.png\");"],
+      ["assets/heightmap.png", new Uint8Array([1, 2, 3])],
+      ["unrelated.scad", "cube();"],
+    ]) });
+    const changedAsset = request({ files: new Map<string, string | Uint8Array>([
+      ["main.scad", "surface(file = \"assets/heightmap.png\");"],
+      ["assets/heightmap.png", new Uint8Array([9, 9, 9])],
+      ["unrelated.scad", "cube();"],
+    ]) });
+    const changedUnrelatedFile = request({ files: new Map<string, string | Uint8Array>([
+      ["main.scad", "surface(file = \"assets/heightmap.png\");"],
+      ["assets/heightmap.png", new Uint8Array([1, 2, 3])],
+      ["unrelated.scad", "sphere();"],
+    ]) });
+    const baselineKey = await createRenderCacheKey(baseline, engine, "native");
+
+    await expect(createRenderCacheKey(changedAsset, engine, "native")).resolves.not.toBe(
+      baselineKey,
+    );
+    await expect(createRenderCacheKey(changedUnrelatedFile, engine, "native")).resolves.toBe(
+      baselineKey,
+    );
+  });
+
+  it("falls back to all request files for unresolved surface paths and font-backed text", async () => {
+    const dynamicSurface = request({ files: new Map<string, string | Uint8Array>([
+      ["main.scad", "asset = \"assets/heightmap.png\"; surface(file = asset);"],
+      ["assets/heightmap.png", new Uint8Array([1, 2, 3])],
+    ]) });
+    const changedSurfaceAsset = request({ files: new Map<string, string | Uint8Array>([
+      ["main.scad", "asset = \"assets/heightmap.png\"; surface(file = asset);"],
+      ["assets/heightmap.png", new Uint8Array([9, 9, 9])],
+    ]) });
+    const textWithProjectFont = request({ files: new Map<string, string | Uint8Array>([
+      ["main.scad", "text(\"ScadMill\", font = \"Project Sans\");"],
+      ["assets/project-sans.ttf", new Uint8Array([1, 2, 3])],
+    ]) });
+    const changedFont = request({ files: new Map<string, string | Uint8Array>([
+      ["main.scad", "text(\"ScadMill\", font = \"Project Sans\");"],
+      ["assets/project-sans.ttf", new Uint8Array([9, 9, 9])],
+    ]) });
+
+    await expect(createRenderCacheKey(dynamicSurface, engine, "native")).resolves.not.toBe(
+      await createRenderCacheKey(changedSurfaceAsset, engine, "native"),
+    );
+    await expect(createRenderCacheKey(textWithProjectFont, engine, "native")).resolves.not.toBe(
+      await createRenderCacheKey(changedFont, engine, "native"),
     );
   });
 

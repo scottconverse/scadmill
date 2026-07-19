@@ -1,4 +1,4 @@
-import { type AiSecretStore, streamAiAgentTurn, streamAiCompletion } from "../../application/ai/ai-client";
+import { type AiFetchFactory, type AiSecretStore, streamAiAgentTurn, streamAiCompletion } from "../../application/ai/ai-client";
 import type { AgentModelTurn } from "../../application/ai/agent-loop";
 import type { AiMessage } from "../../application/ai/ai-provider";
 import type { ProposedEdit } from "../../application/ai/conversation";
@@ -37,6 +37,7 @@ export function createAiConversationBridge(
   runtime: WorkbenchRuntime,
   settings: PersistedSettings,
   secretStore: SecretStore,
+  aiFetch: AiFetchFactory = () => globalThis.fetch.bind(globalThis),
 ): AiConversationBridge {
   const configurations: readonly ResolvedAiConfiguration[] = [
     ...(settings.ai.provider === "none" ? [] : [...new Set([settings.ai.model, ...settings.ai.models].filter(Boolean))].map((model) => ({
@@ -64,14 +65,14 @@ export function createAiConversationBridge(
     if (!configuration) return;
     const secret = await scopedLoad(configuration.secretScope);
     const aiSecretStore: AiSecretStore = { load: () => secret };
-    yield* streamAiCompletion(configuration.preferences, aiSecretStore, { model: configuration.preferences.model, messages }, signal);
+    yield* streamAiCompletion(configuration.preferences, aiSecretStore, { model: configuration.preferences.model, messages }, signal, aiFetch(configuration.secretScope));
   };
   const requestAgentTurn = async (messages: readonly AiMessage[], signal: AbortSignal, configurationId?: string, onTextDelta: (delta: string) => void = () => undefined) => {
     const configuration = resolve(configurationId);
     if (!configuration) return {};
     const secret = await scopedLoad(configuration.secretScope);
     const aiSecretStore: AiSecretStore = { load: () => secret };
-    return streamAiAgentTurn(configuration.preferences, aiSecretStore, { model: configuration.preferences.model, messages }, signal, onTextDelta);
+    return streamAiAgentTurn(configuration.preferences, aiSecretStore, { model: configuration.preferences.model, messages }, signal, onTextDelta, aiFetch(configuration.secretScope));
   };
   const applyEdit = async (proposal: ProposedEdit) => {
     if (!runtime.documents.getState().documents.some(({ id }) => id === proposal.documentId)) {

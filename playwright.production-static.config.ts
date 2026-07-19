@@ -8,7 +8,7 @@ const origin = "http://127.0.0.1:4175";
 
 export default defineConfig({
   testDir: "./tests/e2e",
-  testMatch: "m3-production-static.e2e.ts",
+  testMatch: ["m3-production-static.e2e.ts", "m4-cache-paint.e2e.ts"],
   outputDir: "test-results/production-static",
   forbidOnly: true,
   fullyParallel: false,

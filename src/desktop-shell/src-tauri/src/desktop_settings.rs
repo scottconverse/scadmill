@@ -94,7 +94,7 @@ pub(crate) fn save_settings_file(path: &Path, serialized: &str) -> Result<(), St
     fs::rename(&temporary, path).map_err(|error| format!("Could not install settings: {error}"))
 }
 
-fn settings_path(app: &AppHandle) -> Result<PathBuf, String> {
+pub(crate) fn settings_path(app: &AppHandle) -> Result<PathBuf, String> {
     app.path()
         .app_config_dir()
         .map(|directory| directory.join(SETTINGS_FILE_NAME))

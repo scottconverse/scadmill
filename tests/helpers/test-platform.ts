@@ -69,6 +69,7 @@ export function createTestPlatform(
     : unavailable<never>();
   return {
     kind: overrides.kind ?? "web",
+    aiFetch: () => globalThis.fetch.bind(globalThis),
     engine,
     files: {
       projectStorage: overrides.projectStorage,

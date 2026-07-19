@@ -853,6 +853,43 @@ describe("packaged desktop evidence helpers", () => {
     expect(helper).not.toContain("client.clickElement(projectOpenButton)");
   });
 
+  it("wires the M4 helper after N2 with real cleanup and hashed Sandbox staging", async () => {
+    const [runner, wrapper] = await Promise.all([
+      readFile(join(process.cwd(), "scripts", "run-packaged-desktop-evidence.mjs"), "utf8"),
+      readFile(join(process.cwd(), "scripts", "windows", "run-packaged-desktop-evidence.ps1"), "utf8"),
+    ]);
+    expect(runner).toContain('from "./lib/m4-packaged-walkthrough.mjs"');
+    expect(runner).toContain("execute/async");
+    const n2 = runner.indexOf("const n2SoakSummary = await runN2Soak");
+    const m4 = runner.indexOf("await runM4PackagedWalkthrough");
+    const m4Cleanup = runner.indexOf('await record("m4-helper-secret-cleared-and-scanned"');
+    const m4Final = runner.indexOf('await record("m4-final-artifacts-verified", finalM4Verification)');
+    const credential = runner.indexOf("const syntheticSecret = `SCADMILL-OS-CREDENTIAL-");
+    expect(n2).toBeGreaterThanOrEqual(0);
+    expect(m4).toBeGreaterThan(n2);
+    expect(m4Cleanup).toBeGreaterThan(m4);
+    expect(m4Final).toBeGreaterThan(m4Cleanup);
+    expect(credential).toBeGreaterThan(m4);
+    expect(runner).toContain('join(process.env.USERPROFILE, "Documents", "ScadMillM4Walkthrough")');
+    expect(runner).toContain('setControl(client, "MCP write-file permission", "deny")');
+    expect(runner).toContain("writeFile(m4EvidencePath,");
+    expect(runner).toContain("JSON.stringify(m4Evidence, null, 2)");
+    expect(runner).toContain('clickButton(client, "Clear AI key")');
+    expect(runner).toContain('setControl(client, "AI provider", "none")');
+    expect(runner).toContain("m4SecretScan");
+    expect(runner).toContain("restartApplication: async (expectedSource) => {");
+    expect(runner).toContain('assert.equal(savedSource, expectedSource, "M4 restart source differs from the helper\'s cold-cache source.");');
+    expect(runner).toContain('(await readFile(m4ProjectFile, "utf8")) === expectedSource');
+    expect(runner).toContain("await openDesktopProject(client, m4ProjectDirectory, expectedSource);");
+    expect(runner).toContain('await clickButton(client, "Save active file");\n  await waitFor(async () => (await readFile(m4ProjectFile, "utf8")) === m4InitialSource');
+    expect(wrapper).toContain('Copy-Item -LiteralPath (Join-Path $repo "scripts\\lib\\m4-packaged-walkthrough.mjs")');
+    expect(wrapper).toContain('Copy-Item -LiteralPath (Join-Path $repo "scripts\\lib\\m4-packaged-verifier.mjs")');
+    expect(wrapper).toContain('m4PackagedWalkthrough = [ordered]@{ path = "scripts/lib/m4-packaged-walkthrough.mjs"');
+    expect(wrapper).toContain('m4PackagedVerifier = [ordered]@{ path = "scripts/lib/m4-packaged-verifier.mjs"');
+    expect(wrapper).toContain("$hostM4Output = @(& $nodePath $retainedM4Verifier @hostM4Arguments 2>&1)");
+    expect(runner).toContain('await record("m4-final-artifacts-verified", finalM4Verification)');
+  });
+
   it("requires an exact isolated-Sandbox harness manifest", () => {
     const sha256 = "ab".repeat(32);
     const manifest = {
@@ -861,6 +898,12 @@ describe("packaged desktop evidence helpers", () => {
         config: { path: "scadmill-packaged-evidence.wsb", sha256 },
         credentialProbe: { path: "scripts/credential-probe.ps1", sha256 },
         helper: { path: "scripts/lib/packaged-desktop-evidence.mjs", sha256 },
+        m4PackagedWalkthrough: { path: "scripts/lib/m4-packaged-walkthrough.mjs", sha256 },
+        m4PackagedVerifier: { path: "scripts/lib/m4-packaged-verifier.mjs", sha256 },
+        n2SoakConfiguration: { path: "scripts/n2-soak-config.json", sha256 },
+        n2SoakEvidence: { path: "scripts/lib/n2-soak-evidence.mjs", sha256 },
+        n2SoakRunner: { path: "scripts/lib/n2-soak-runner.mjs", sha256 },
+        n2SoakVerifier: { path: "scripts/lib/n2-soak-verifier.mjs", sha256 },
         runner: { path: "scripts/run-packaged-desktop-evidence.mjs", sha256 },
         sandboxBootstrap: { path: "scripts/run-packaged-desktop-sandbox.ps1", sha256 },
         sourceMetadata: { path: "scripts/source-metadata.json", sha256 },

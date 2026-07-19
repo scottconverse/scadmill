@@ -6,6 +6,13 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Added
 
+- Prepared synchronized `0.1.0-beta.1` web, Tauri, desktop-crate, native-engine, and lockfile metadata for the owner-approved Windows-first beta, with a named-owner withdrawal and forward-replacement rollback plan.
+
+- Added a production-static AC-15.a browser gate that measures unchanged cache dispatch through two browser paint opportunities and fails closed above the normative 100 ms limit.
+
+- Added a literal N-2 packaged Windows soak harness contract: an immutable eight-hour release mode, clearly ineligible accelerated diagnostics, sequential cache-miss edit/render cycles, exact process-memory accounting, one verified engine-kill recovery probe, bounded append-only evidence, and strict summary validation.
+- Added a bounded Tauri HTTP broker for explicitly persisted desktop AI-provider endpoints, with provider-specific request headers, native platform TLS, streaming and cancellation, redirect refusal, and request/response limits. The packaged renderer CSP now permits only self/IPC transport and no arbitrary HTTP, HTTPS, or wildcard connection source.
+
 - Added M4 OpenSCAD `$t` animation: source-aware viewer controls provide a fixed 100-frame scrubber, 1-60 target FPS, sequential play/pause, exact native/WASM `$t` parameter transport, preview-only quality policy, cache-separated frames, failure cleanup, and bounded history behavior.
 
 - Completed the M4 C10 AI-assist product path: multiple named provider/model configurations with isolated desktop/browser secrets, provider-native streamed chat and agent continuations, safe markdown and viewer-image payloads, per-project conversation/model persistence, origin-safe per-hunk proposals, and a session-opt-in capped MCP-backed agent loop with cancellation and review-first mutation policy.
@@ -15,6 +22,8 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Completed the M4 command-history foundation: editor, document, project-file, parameter, settings, layout, viewer, console, Welcome, and MCP-control mutations now produce one ordered command entry with real undo/redo where applicable. Project-file compensation restores both durable files and annotation metadata, editor-local undo no longer competes with the runtime, and dispatch-order slots preserve chronological undo across slow persistence and project operations without blocking render cancellation.
 
 - Recorded the owner's 2026-07-18 public-beta decisions: Windows desktop `0.1.0-beta.1` ships first while macOS/Linux release proof is deferred without reducing the complete M0–M6 commitment; public OpenSCAD WASM distribution is approved only with exact corresponding source, applicable GPL materials, the reproducible build recipe, and checksums; SVG parity may canonicalize only `CRLF` to `LF` while retaining both raw artifacts and raw hashes.
+
+- Completed the amended M3 hosted gate on committed candidate `1b6343a`: exact binary-STL and CRLF-to-LF-only canonical SVG parity passed across all three Appendix F cases and three required official CC0 examples with raw evidence retained, and a separate successful job packaged the exact engine pair, official corresponding source, GPL materials, reproducible workflow, provenance, and checksums. The compliance payload is verified but not yet publicly distributed.
 
 - M4 thumbnail groundwork: strict versioned 240x160 PNG records with a bounded clone-safe LRU store, opaque per-project profile persistence, recent-project workspace identities, and an explicit accepted-render identity seam that preserves geometry continuity.
 
@@ -94,6 +103,8 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Discoverable browser **Create workspace** and existing/recent **Open** actions backed by opaque, exclusive IndexedDB identities, plus a native **Choose folder…** action routed through the typed platform boundary and the exact-pinned official Tauri dialog plugin 2.7.1. Manual desktop path entry remains an advanced fallback.
 
 ### Changed
+
+- Corrected M4 render-cache dependency completeness for `surface()` assets, dynamic asset paths, and project-provided fonts, and queued the newest 3D thumbnail when an older capture is still in flight so stale work cannot suppress the last successful render preview.
 
 - Scratch autosave now stores a strict versioned path-and-source snapshot, migrates legacy source-only profiles to a renderable filename, persists clean welcome-sample identity immediately, and restores cached production renders under the exact entry path.
 - Installer evidence now quotes the Windows association executable, binds Linux visibility to the exact AppImage child runtime, fails closed on candidate removal, and waits for causally identified stable Windows window restoration with exact diagnostics.

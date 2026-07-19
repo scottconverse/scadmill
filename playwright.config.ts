@@ -3,7 +3,7 @@ import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./tests/e2e",
   testMatch: "**/*.e2e.ts",
-  testIgnore: "m3-production-static.e2e.ts",
+  testIgnore: ["m3-production-static.e2e.ts", "m4-cache-paint.e2e.ts"],
   outputDir: "test-results",
   forbidOnly: Boolean(process.env.CI),
   fullyParallel: false,

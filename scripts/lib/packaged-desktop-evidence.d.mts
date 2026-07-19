@@ -119,7 +119,7 @@ export function validateSourceMetadata(payload: unknown, expectedApplicationSha2
 export function parseSourceMetadata(serialized: string, expectedApplicationSha256: string): SourceMetadata;
 export interface HarnessManifest {
   schemaVersion: 1;
-  files: Record<"config" | "credentialProbe" | "helper" | "runner" | "sandboxBootstrap" | "sourceMetadata", {
+  files: Record<"config" | "credentialProbe" | "helper" | "m4PackagedWalkthrough" | "n2SoakConfiguration" | "n2SoakEvidence" | "n2SoakRunner" | "n2SoakVerifier" | "runner" | "sandboxBootstrap" | "sourceMetadata", {
     path: string;
     sha256: string;
   }>;

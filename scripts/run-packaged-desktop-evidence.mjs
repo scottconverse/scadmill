@@ -10,11 +10,17 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises";
+import { createConnection } from "node:net";
 import { basename, dirname, join, normalize, resolve } from "node:path";
 import { createInterface } from "node:readline";
-import { createConnection } from "node:net";
 import { fileURLToPath } from "node:url";
-
+import { verifyM4PackagedArtifacts } from "./lib/m4-packaged-verifier.mjs";
+import {
+  runM4PackagedWalkthrough,
+  startScriptedM4LocalProviderMock,
+} from "./lib/m4-packaged-walkthrough.mjs";
+import { runN2Soak } from "./lib/n2-soak-runner.mjs";
+import { verifyN2SoakArtifacts } from "./lib/n2-soak-verifier.mjs";
 import {
   mcpEndpointManifestPath,
   mirrorWebViewDevToolsPort,
@@ -60,7 +66,7 @@ function parseArguments(values) {
     if (!name?.startsWith("--") || !value) throw new Error(`Invalid argument near ${name ?? "end"}.`);
     parsed[name.slice(2)] = resolve(value);
   }
-  for (const required of ["app", "engine", "tauri-driver", "native-driver", "webview", "credential-probe", "source-metadata", "harness-manifest", "output"]) {
+  for (const required of ["app", "engine", "tauri-driver", "native-driver", "webview", "credential-probe", "source-metadata", "harness-manifest", "soak-config", "output"]) {
     if (!parsed[required]) throw new Error(`Missing --${required}.`);
   }
   return parsed;
@@ -164,13 +170,18 @@ class McpStdioClient {
   }
 
   async request(method, params, timeoutMs = 60_000) {
+    const response = await this.requestRaw(method, params, timeoutMs);
+    assert.equal(response?.error, undefined, `${method} returned ${JSON.stringify(response?.error)}.`);
+    return response.result;
+  }
+
+  async requestRaw(method, params, timeoutMs = 60_000) {
     const id = this.nextId++;
     this.send({ jsonrpc: "2.0", id, method, ...(params === undefined ? {} : { params }) });
     const response = await this.nextMessage(timeoutMs);
     assert.equal(response?.jsonrpc, "2.0", `${method} returned the wrong JSON-RPC version.`);
     assert.equal(response?.id, id, `${method} returned the wrong request id.`);
-    assert.equal(response?.error, undefined, `${method} returned ${JSON.stringify(response?.error)}.`);
-    return response.result;
+    return response;
   }
 
   nextMessage(timeoutMs) {
@@ -237,7 +248,7 @@ class WebDriverClient {
         method,
         headers: body === undefined ? undefined : { "content-type": "application/json" },
         body: body === undefined ? undefined : JSON.stringify(body),
-        signal: AbortSignal.timeout(method === "POST" && path === "/session" ? 90_000 : 30_000),
+        signal: AbortSignal.timeout(method === "POST" && (path === "/session" || path.endsWith("/execute/async")) ? 90_000 : 30_000),
       });
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
@@ -301,6 +312,10 @@ class WebDriverClient {
     return this.request("POST", this.sessionPath("/execute/sync"), { script, args });
   }
 
+  executeAsync(script, args = []) {
+    return this.request("POST", this.sessionPath("/execute/async"), { script, args });
+  }
+
   async find(css) {
     const value = await this.request("POST", this.sessionPath("/element"), {
       using: "css selector",
@@ -323,9 +338,13 @@ class WebDriverClient {
   }
 
   async screenshot(path) {
+    await writeFile(path, await this.screenshotBytes());
+  }
+
+  async screenshotBytes() {
     const encoded = await this.request("GET", this.sessionPath("/screenshot"));
     if (typeof encoded !== "string") throw new Error("WebDriver screenshot was not base64 text.");
-    await writeFile(path, Buffer.from(encoded, "base64"));
+    return Buffer.from(encoded, "base64");
   }
 
   async deleteSession() {
@@ -490,6 +509,64 @@ async function setControl(client, label, value) {
   }
 }
 
+async function setChecked(client, label, checked) {
+  assert.equal(typeof checked, "boolean", "Checkbox automation requires a boolean state.");
+  const selected = await client.execute(`
+    const wanted = arguments[0];
+    const direct = document.querySelector('[aria-label="' + CSS.escape(wanted) + '"]');
+    const labelled = [...document.querySelectorAll('label')]
+      .find((candidate) => candidate.textContent.trim() === wanted)
+      ?.querySelector('input[type="checkbox"]');
+    const control = direct instanceof HTMLInputElement ? direct : labelled;
+    if (!(control instanceof HTMLInputElement) || control.type !== 'checkbox'
+      || control.disabled) return null;
+    if (control.checked !== arguments[1]) control.click();
+    return control.checked;
+  `, [label, checked]);
+  if (selected !== checked) throw new Error(`Could not set ${JSON.stringify(label)} to ${checked}.`);
+  await waitFor(async () => (await client.execute(`
+    const wanted = arguments[0];
+    const direct = document.querySelector('[aria-label="' + CSS.escape(wanted) + '"]');
+    const labelled = [...document.querySelectorAll('label')]
+      .find((candidate) => candidate.textContent.trim() === wanted)
+      ?.querySelector('input[type="checkbox"]');
+    const control = direct instanceof HTMLInputElement ? direct : labelled;
+    return control instanceof HTMLInputElement ? control.checked : null;
+  `, [label])) === checked, `checkbox ${JSON.stringify(label)} state`, 10_000, 50);
+}
+
+async function clearDiagnosticConsole(client) {
+  const visible = async () => (await client.execute(`
+    const console = document.querySelector('.diagnostic-console');
+    return Boolean(console && console.getClientRects().length > 0);
+  `)) === true;
+  if (!(await visible())) {
+    const opened = await client.execute(`
+      const button = document.querySelector('.status-diagnostics');
+      if (!(button instanceof HTMLButtonElement) || button.disabled) return false;
+      button.click();
+      return true;
+    `);
+    assert.equal(opened, true, "M4 could not open the diagnostic console.");
+    await waitFor(visible, "visible M4 diagnostic console", 10_000, 50);
+  }
+  const cleared = await client.execute(`
+    const console = document.querySelector('.diagnostic-console');
+    const button = [...(console?.querySelectorAll('button') ?? [])]
+      .find((candidate) => candidate.textContent.trim() === 'Clear' && !candidate.disabled);
+    if (!(button instanceof HTMLButtonElement)) return false;
+    button.click();
+    return true;
+  `);
+  assert.equal(cleared, true, "M4 could not clear the diagnostic console.");
+  await waitFor(
+    async () => (await client.execute("return document.querySelectorAll('.console-run').length;")) === 0,
+    "empty M4 diagnostic console phase baseline",
+    10_000,
+    50,
+  );
+}
+
 async function inputValue(client, label) {
   const value = await client.execute(`
     const control = document.querySelector('[aria-label="' + CSS.escape(arguments[0]) + '"]');
@@ -578,7 +655,7 @@ async function exactExecutableProcesses(executablePath) {
   const command = [
     `$candidates = @(Get-Process -ErrorAction Stop | Where-Object { $_.ProcessName -eq '${processName}' });`,
     "if (@($candidates | Where-Object { [string]::IsNullOrWhiteSpace([string]$_.Path) -or $null -eq $_.StartTime }).Count -ne 0) { throw 'Cannot prove process identity because Path or StartTime is missing.' };",
-    `@($candidates | Where-Object { $_.Path -eq '${escaped}' } | Select-Object @{n='pid';e={[int]$_.Id}},@{n='path';e={$_.Path}},@{n='startedAt';e={$_.StartTime.ToUniversalTime().ToString('o')}}) | ConvertTo-Json -Compress`,
+    `@($candidates | Where-Object { $_.Path -eq '${escaped}' } | Select-Object @{n='pid';e={[int]$_.Id}},@{n='path';e={$_.Path}},@{n='startedAt';e={$_.StartTime.ToUniversalTime().ToString('o')}},@{n='privateBytes';e={[long]$_.PrivateMemorySize64}},@{n='workingSetBytes';e={[long]$_.WorkingSet64}}) | ConvertTo-Json -Compress`,
   ].join(" ");
   const result = await run("powershell.exe", ["-NoProfile", "-Command", command]);
   if (!result.stdout) return [];
@@ -833,6 +910,8 @@ const evidence = {
 let driver = null;
 let client = null;
 let mcpClient = null;
+let m4McpClient = null;
+let m4ProviderMock = null;
 let lastVerifiedAppProcess = null;
 
 async function persist() {
@@ -870,9 +949,15 @@ try {
   const executedHarnessFiles = {
     runner: executingRunner,
     helper: join(dirname(executingRunner), "lib", "packaged-desktop-evidence.mjs"),
+    m4PackagedWalkthrough: join(dirname(executingRunner), "lib", "m4-packaged-walkthrough.mjs"),
+    m4PackagedVerifier: join(dirname(executingRunner), "lib", "m4-packaged-verifier.mjs"),
     credentialProbe: args["credential-probe"],
     sandboxBootstrap: join(dirname(executingRunner), "run-packaged-desktop-sandbox.ps1"),
     sourceMetadata: args["source-metadata"],
+    n2SoakConfiguration: args["soak-config"],
+    n2SoakEvidence: join(dirname(executingRunner), "lib", "n2-soak-evidence.mjs"),
+    n2SoakRunner: join(dirname(executingRunner), "lib", "n2-soak-runner.mjs"),
+    n2SoakVerifier: join(dirname(executingRunner), "lib", "n2-soak-verifier.mjs"),
   };
   for (const [role, path] of Object.entries(executedHarnessFiles)) {
     assert.equal(await fileSha256(path), harnessManifest.files[role].sha256.toUpperCase(), `Executed harness ${role} hash mismatch.`);
@@ -1117,6 +1202,337 @@ try {
     endpointReachable: false,
     relayExited: true,
   });
+
+  const n2SoakConfiguration = JSON.parse(await readFile(args["soak-config"], "utf8"));
+  const n2SoakSummary = await runN2Soak({
+    configuration: n2SoakConfiguration,
+    output: args.output,
+    paths: {
+      application: args.app,
+      engine: args.engine,
+      webView: webViewExecutable,
+    },
+    hashes: {
+      application: appSha256,
+      engine: engineSha256,
+      webView: webViewSha256,
+    },
+    guiIdentity: lastVerifiedAppProcess,
+    restoreSource: cubeSource,
+    restoreBoundsText: "10 × 10 × 10 mm",
+    automation: {
+      now: () => Date.now(),
+      delay,
+      replaceEditorSource: (source) => replaceEditorSource(client, source),
+      readEditorSource: () => editorSource(client),
+      ensureConsoleVisible: async () => {
+        const opened = await client.execute(`
+          const button = document.querySelector('.status-diagnostics');
+          const consolePanel = document.querySelector('.diagnostic-console');
+          if (!(button instanceof HTMLButtonElement)) return false;
+          if (button.getAttribute('aria-pressed') !== 'true'
+            || !(consolePanel instanceof HTMLElement && consolePanel.getClientRects().length > 0)) {
+            button.click();
+          }
+          return true;
+        `);
+        assert.equal(opened, true, "N-2 could not find the Console status control.");
+        await waitFor(async () => await client.execute(`
+          const panel = document.querySelector('.diagnostic-console');
+          return panel instanceof HTMLElement && panel.getClientRects().length > 0;
+        `), "visible N-2 Console", 15_000, 50);
+      },
+      consoleRunSnapshot: () => client.execute(`
+        const runs = [...document.querySelectorAll('.diagnostic-console .console-run')];
+        return { count: runs.length };
+      `),
+      startPreview: () => clickButton(client, "Render preview"),
+      waitForRenderSuccess: async (boundsText, priorRun) => {
+        const completedRun = await waitFor(async () => {
+          const snapshot = await client.execute(`
+            const runs = [...document.querySelectorAll('.diagnostic-console .console-run')];
+            return { count: runs.length, label: runs.at(-1)?.getAttribute('aria-label') ?? '' };
+          `);
+          if (snapshot.count > priorRun.count + 1) {
+            throw new Error("N-2 observed more than one new Console run for one preview request.");
+          }
+          return snapshot.count === priorRun.count + 1
+            && snapshot.label.includes('exit 0')
+            ? snapshot
+            : false;
+        }, "one new successful N-2 Console run", 60_000, 50);
+        await waitForBody(client, boundsText, 60_000);
+        await waitForBody(client, "Rendered Untitled (3d)", 60_000);
+        return completedRun;
+      },
+      waitForRenderFailure: (priorRun) => waitFor(async () => {
+        const snapshot = await client.execute(`
+          const runs = [...document.querySelectorAll('.diagnostic-console .console-run')];
+          return { count: runs.length, label: runs.at(-1)?.getAttribute('aria-label') ?? '' };
+        `);
+        if (snapshot.count > priorRun.count + 1) {
+          throw new Error("N-2 observed more than one new Console run for the crash request.");
+        }
+        const alerts = await visibleAlerts(client);
+        return snapshot.count === priorRun.count + 1
+          && !snapshot.label.includes('running')
+          && !snapshot.label.includes('exit 0')
+          && alerts.length > 0
+          ? alerts
+          : false;
+      }, "visible N-2 engine failure", 60_000, 50),
+      visibleAlerts: () => visibleAlerts(client),
+      exactExecutableProcesses,
+      fileSha256,
+      killProcess: (pid) => process.kill(pid),
+      waitFor,
+    },
+  });
+  if (n2SoakSummary) {
+    await record(
+      n2SoakSummary.configuration.releaseEvidenceEligible
+        ? "n2-literal-eight-hour-soak-passed"
+        : "n2-accelerated-non-release-soak-passed",
+      {
+        releaseEvidenceEligible: n2SoakSummary.configuration.releaseEvidenceEligible,
+        evidenceLabel: n2SoakSummary.configuration.evidenceLabel,
+        durationSeconds: n2SoakSummary.durationSeconds,
+        successfulCycles: n2SoakSummary.cycles.successful,
+        finalMemoryRatio: n2SoakSummary.memory.finalRatio,
+        summarySha256: await fileSha256(join(args.output, "n2-soak-summary.json")),
+        samplesSha256: n2SoakSummary.samples.sha256,
+      },
+    );
+  } else {
+    await record("n2-soak-disabled", { releaseEvidenceEligible: false });
+  }
+
+  const m4InitialSource = "cube([10, 10, 10]);";
+  const m4ProposalSource = "cube([12, 10, 10]);\n";
+  const m4AgentSource = "cube([14, 10, 10]);\n";
+  const m4McpSource = "cube([16, 10, 10]);\n";
+  const m4ProjectDirectory = join(process.env.USERPROFILE, "Documents", "ScadMillM4Walkthrough");
+  const m4ProjectFile = join(m4ProjectDirectory, "main.scad");
+  const m4Secret = `SCADMILL-M4-LOCAL-${randomBytes(24).toString("hex")}`;
+  const m4SecretBytes = Buffer.from(m4Secret);
+  const m4SecretSha256 = fingerprint(m4SecretBytes);
+  await mkdir(m4ProjectDirectory, { recursive: true });
+  await writeFile(m4ProjectFile, m4InitialSource, "utf8");
+  await openDesktopProject(client, m4ProjectDirectory, m4InitialSource);
+  assert.equal(await readFile(m4ProjectFile, "utf8"), m4InitialSource);
+  await clearDiagnosticConsole(client);
+  lastVerifiedAppProcess = await requireSingleAppProcess(args.app, appSha256);
+  let m4EndpointRecord = null;
+
+  const m4Evidence = await runM4PackagedWalkthrough({
+    initialSource: m4InitialSource,
+    proposalSource: m4ProposalSource,
+    agentSource: m4AgentSource,
+    projectPath: "main.scad",
+    cachePaintLimitMs: 100,
+    automation: {
+      readSource: () => editorSource(client),
+      replaceSource: (source) => replaceEditorSource(client, source),
+      waitForSource: (source) => waitFor(
+        async () => (await editorSource(client)) === source,
+        `exact M4 source ${fingerprint(source)}`,
+        30_000,
+        50,
+      ),
+      clickAria: (label) => clickAria(client, label),
+      clickButton: (label) => clickButton(client, label),
+      setControl: (label, value) => setControl(client, label, value),
+      setChecked: (label, checked) => setChecked(client, label, checked),
+      waitForText: (text) => waitForBody(client, text, 60_000),
+      execute: (script, values = []) => client.execute(script, values),
+      executeAsync: (script, values = []) => client.executeAsync(script, values),
+      captureScreenshot: async (name) => {
+        const bytes = await client.screenshotBytes();
+        await writeFile(join(args.output, name), bytes);
+        return bytes;
+      },
+      startAiMock: async (plan) => {
+        assert.equal(m4ProviderMock, null, "M4 local-provider mock was already running.");
+        m4ProviderMock = await startScriptedM4LocalProviderMock({ ...plan, secret: m4Secret });
+        return {
+          endpoint: m4ProviderMock.endpoint,
+          model: m4ProviderMock.model,
+          secret: m4ProviderMock.secret,
+        };
+      },
+      stopAiMock: async () => {
+        assert.ok(m4ProviderMock, "M4 local-provider mock was not running.");
+        const transcript = await m4ProviderMock.close();
+        m4ProviderMock = null;
+        return transcript;
+      },
+      probeMcpDefaultDeny: async () => {
+        await clickAria(client, "Open settings");
+        await setControl(client, "Search settings", "AI");
+        await setControl(client, "MCP write-file permission", "deny");
+        await setChecked(client, "Enable local MCP server (stdio)", true);
+        m4EndpointRecord = await waitFor(async () => {
+          const found = await mcpEndpointsForProcess(args.app, lastVerifiedAppProcess.pid);
+          return found.length === 1 ? found[0] : false;
+        }, "M4 default-deny MCP endpoint", 15_000, 100);
+        await clickAria(client, "Close settings");
+        m4McpClient = new McpStdioClient(args.app);
+        await waitFor(async () => (await exactExecutableProcesses(args.app)).length === 2, "M4 MCP relay process", 15_000, 100);
+        const initialize = await m4McpClient.request("initialize", {
+          protocolVersion: "2025-11-25",
+          capabilities: {},
+          clientInfo: { name: "scadmill-m4-packaged-walkthrough", version: "1" },
+        });
+        assert.equal(initialize?.protocolVersion, "2025-11-25");
+        m4McpClient.notify("notifications/initialized");
+        const sourceBefore = await editorSource(client);
+        const denied = await m4McpClient.requestRaw("tools/call", {
+          name: "write_file",
+          arguments: { path: "main.scad", content: m4McpSource },
+        });
+        return {
+          error: denied.error,
+          writeOccurred: (await editorSource(client)) !== sourceBefore,
+        };
+      },
+      runMcpAllowSessionJourney: async () => {
+        assert.ok(m4McpClient && m4EndpointRecord, "M4 MCP default-deny lifecycle did not initialize.");
+        await clickAria(client, "Open settings");
+        await setControl(client, "Search settings", "AI");
+        await setControl(client, "MCP write-file permission", "allow-session");
+        await clickAria(client, "Close settings");
+        const toolsResult = await m4McpClient.request("tools/list");
+        const listed = structuredMcpToolResult(
+          await m4McpClient.request("tools/call", { name: "list_files", arguments: {} }),
+          "M4 list_files",
+        );
+        assert.deepEqual(listed.files.map(({ path }) => path), ["main.scad"]);
+        const preview = structuredMcpToolResult(
+          await m4McpClient.request("tools/call", { name: "render_preview", arguments: { path: "main.scad" } }),
+          "M4 render_preview",
+        );
+        const diagnostics = structuredMcpToolResult(
+          await m4McpClient.request("tools/call", { name: "get_diagnostics", arguments: { path: "main.scad" } }),
+          "M4 get_diagnostics",
+        );
+        const pending = structuredMcpToolResult(
+          await m4McpClient.request("tools/call", {
+            name: "write_file",
+            arguments: { path: "main.scad", content: m4McpSource },
+          }),
+          "M4 write_file",
+        );
+        assert.equal(pending.status, "pending_review");
+        await clickAria(client, "History");
+        await waitForBody(client, "Pending review");
+        assert.deepEqual(await mcpDiffSources(client), { local: m4AgentSource, proposed: m4McpSource });
+        await clickButton(client, "Approve change");
+        await waitFor(async () => (await editorSource(client)) === m4McpSource, "approved M4 MCP source", 15_000, 50);
+        await clickAria(client, "Open settings");
+        await setControl(client, "Search settings", "AI");
+        await setChecked(client, "Enable local MCP server (stdio)", false);
+        await clickAria(client, "Close settings");
+        assert.equal(await m4McpClient.waitForExit(), 0, `M4 MCP relay exited with stderr: ${m4McpClient.stderrText()}`);
+        m4McpClient = null;
+        await waitFor(async () => (await mcpEndpointsForProcess(args.app, lastVerifiedAppProcess.pid)).length === 0, "M4 MCP manifest removal", 15_000, 100);
+        await waitFor(async () => !(await tcpEndpointReachable(m4EndpointRecord.endpoint)), "M4 MCP endpoint refusal", 15_000, 100);
+        m4EndpointRecord = null;
+        return {
+          protocolVersion: "2025-11-25",
+          toolNames: toolsResult.tools.map(({ name }) => name),
+          preview: { kind: preview.kind, triangles: preview.stats.triangles },
+          diagnostics: { quality: diagnostics.quality, count: diagnostics.diagnostics.length },
+          pendingReview: { status: pending.status },
+          mutationApproved: true,
+        };
+      },
+      restartApplication: async (expectedSource) => {
+        await clickAria(client, "Files");
+        const savedSource = await editorSource(client);
+        assert.equal(savedSource, expectedSource, "M4 restart source differs from the helper's cold-cache source.");
+        assert.notEqual(await readFile(m4ProjectFile, "utf8"), expectedSource, "M4 cold-cache source reached disk before the explicit save.");
+        await clickButton(client, "Save active file");
+        await waitFor(async () => (await readFile(m4ProjectFile, "utf8")) === expectedSource, "saved M4 source before restart", 15_000, 50);
+        const before = lastVerifiedAppProcess;
+        const priorWebViews = await requireExactExecutableProcesses(webViewExecutable, webViewSha256, "M4 WebView processes before restart");
+        await client.deleteSession();
+        client = null;
+        await waitForNoAppProcess(args.app);
+        await waitForNoExactExecutableProcess(webViewExecutable, "M4 WebView process exit before restart");
+        client = new WebDriverClient(DRIVER_URL);
+        await client.createSession(args.app, args.webview);
+        await waitForBody(client, `OpenSCAD ${EXPECTED_ENGINE_VERSION}`, 60_000);
+        await assertWelcomeStaysDisabled(client);
+        const after = await requireSingleAppProcess(args.app, appSha256);
+        const nextWebViews = await requireExactExecutableProcesses(webViewExecutable, webViewSha256, "M4 WebView processes after restart");
+        await openDesktopProject(client, m4ProjectDirectory, expectedSource);
+        assert.ok(nextWebViews.every(({ pid }) => !priorWebViews.some((prior) => prior.pid === pid)), "M4 restart retained a WebView process.");
+        lastVerifiedAppProcess = after;
+        return { beforePid: before.pid, afterPid: after.pid, freshWebViewProcesses: true };
+      },
+    },
+  });
+  const m4EvidencePath = join(args.output, "m4-packaged-walkthrough.json");
+  await writeFile(m4EvidencePath, `${JSON.stringify(m4Evidence, null, 2)}\n`);
+  await record("m4-packaged-newcomer-walkthrough-passed", {
+    evidencePath: m4EvidencePath,
+    evidenceSha256: await fileSha256(m4EvidencePath),
+    requestCount: m4Evidence.ai.requestCount,
+    cachePaintMs: m4Evidence.cache.elapsedMs,
+    coldCachePaintMs: m4Evidence.cache.coldElapsedMs,
+    screenshotCount: m4Evidence.screenshots.length,
+    secretSha256: m4SecretSha256,
+  });
+  await clickAria(client, "Files");
+  assert.equal(await editorSource(client), m4InitialSource, "M4 helper did not restore the initial source before cleanup.");
+  await clickButton(client, "Save active file");
+  await waitFor(async () => (await readFile(m4ProjectFile, "utf8")) === m4InitialSource, "restored M4 source saved before cleanup", 15_000, 50);
+
+  await clickAria(client, "Open settings");
+  await setControl(client, "Search settings", "AI");
+  await waitFor(async () => (await inputValue(client, "AI API key")) === m4Secret, "M4 AI key before clear", 15_000, 100);
+  await clickButton(client, "Clear AI key");
+  await waitForBody(client, "AI key cleared.");
+  await setControl(client, "AI provider", "none");
+  await clickAria(client, "Close settings");
+  const m4CredentialAbsent = await probeCredential(args["credential-probe"], false);
+  assert.equal(m4CredentialAbsent.lastError, ERROR_NOT_FOUND);
+  await client.deleteSession();
+  client = null;
+  await waitForNoAppProcess(args.app);
+  await waitForNoExactExecutableProcess(webViewExecutable, "M4 WebView process exit before secret scan");
+  const m4AppDataRoot = process.env.APPDATA;
+  const m4LocalAppDataRoot = process.env.LOCALAPPDATA;
+  assert.ok(m4AppDataRoot && m4LocalAppDataRoot);
+  const m4SecretScan = await scanUserFiles(
+    [m4AppDataRoot, m4LocalAppDataRoot, m4ProjectDirectory, args.output],
+    m4SecretBytes,
+    startedAt,
+  );
+  assert.deepEqual(m4SecretScan.matches, [], `M4 helper secret leaked into: ${m4SecretScan.matches.join(", ")}`);
+  const m4Unreadable = m4SecretScan.unreadable.filter(({ path }) => path.toLowerCase().includes("scadmill"));
+  assert.deepEqual(m4Unreadable, [], `Could not scan M4 app-managed files: ${JSON.stringify(m4Unreadable)}`);
+  await record("m4-helper-secret-cleared-and-scanned", {
+    credential: m4CredentialAbsent,
+    roots: m4SecretScan.roots,
+    filesScanned: m4SecretScan.filesScanned,
+    bytesScanned: m4SecretScan.bytesScanned,
+    matches: m4SecretScan.matches,
+    unreadableAppFiles: m4Unreadable,
+    secretSha256: m4SecretSha256,
+  });
+  const finalM4Verification = await verifyM4PackagedArtifacts({
+    walkthroughPath: m4EvidencePath,
+    screenshotDirectory: args.output,
+    events,
+  });
+  await record("m4-final-artifacts-verified", finalM4Verification);
+  client = new WebDriverClient(DRIVER_URL);
+  await client.createSession(args.app, args.webview);
+  await waitForBody(client, `OpenSCAD ${EXPECTED_ENGINE_VERSION}`, 60_000);
+  await assertWelcomeStaysDisabled(client);
+  await waitFor(async () => (await editorSource(client)) === cubeSource, "scratch source after M4 cleanup", 30_000, 100);
+  lastVerifiedAppProcess = await requireSingleAppProcess(args.app, appSha256);
 
   await clickAria(client, "Open settings");
   await waitForBody(client, "Search settings");
@@ -1469,6 +1885,14 @@ try {
     edgeDriver: { executablePath: args["native-driver"], remainingProcesses: noOrphans.edgeDriver },
     webView: { executablePath: webViewExecutable, remainingProcesses: noOrphans.webView },
   });
+  const finalN2Verification = await verifyN2SoakArtifacts({
+    configurationPath: join(args.output, "n2-soak-config.json"),
+    summaryPath: join(args.output, "n2-soak-summary.json"),
+    samplePath: join(args.output, "n2-soak-samples.jsonl"),
+    expectedConfigurationSha256: harnessManifest.files.n2SoakConfiguration.sha256,
+    events,
+  });
+  await record("n2-final-artifacts-verified", finalN2Verification);
   evidence.status = "passed";
   evidence.completedAt = new Date().toISOString();
   evidence.summary = {
@@ -1488,6 +1912,8 @@ try {
   process.exitCode = 1;
 } finally {
   if (mcpClient) mcpClient.stop();
+  if (m4McpClient) m4McpClient.stop();
+  if (m4ProviderMock) await m4ProviderMock.close().catch(() => undefined);
   if (client?.sessionId) await client.deleteSession().catch(() => undefined);
   if (driver) await driver.stop().catch(() => undefined);
   if (lastVerifiedAppProcess) {

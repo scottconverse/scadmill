@@ -28,6 +28,7 @@ export interface SettingsLauncherProps {
 export function SettingsLauncher({ engineLabel, runtime, secretStore, renderDiskCacheAvailable = false, mcpPort, mcpEnabled = false, onMcpEnabledChange, mcpPermissions, onMcpPermissionChange }: SettingsLauncherProps) {
   const [open, setOpen] = useState(false);
   const [persistenceError, setPersistenceError] = useState<string | undefined>();
+  const [persistenceInFlight, setPersistenceInFlight] = useState(0);
   const launcher = useRef<HTMLButtonElement>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
   const persistenceRequest = useRef(0);
@@ -61,6 +62,7 @@ export function SettingsLauncher({ engineLabel, runtime, secretStore, renderDisk
   const persist = async (command: Parameters<WorkbenchRuntime["dispatch"]>[0]) => {
     const requestId = ++persistenceRequest.current;
     setPersistenceError(undefined);
+    setPersistenceInFlight((count) => count + 1);
     try {
       await runtime.dispatch(command);
     } catch (error) {
@@ -68,6 +70,8 @@ export function SettingsLauncher({ engineLabel, runtime, secretStore, renderDisk
         setPersistenceError(messages.settingsSaveFailed);
       }
       throw error;
+    } finally {
+      setPersistenceInFlight((count) => Math.max(0, count - 1));
     }
   };
 
@@ -87,6 +91,7 @@ export function SettingsLauncher({ engineLabel, runtime, secretStore, renderDisk
             ? messages.settingsLoadFailed
             : persistenceError}
           settingsMutationsBlocked={persistenceStatus.status === "load-error"}
+          settingsMutationInFlight={persistenceInFlight > 0}
           renderDiskCacheAvailable={renderDiskCacheAvailable}
           projectDiskRenderCacheEligible={project.mode === "project"}
           projectDiskRenderCacheEnabled={project.diskRenderCacheEnabled}

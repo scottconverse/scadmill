@@ -66,6 +66,28 @@ describe("AI runtime bridge", () => {
     }));
   });
 
+  it("binds desktop transport to the raw persisted profile id", async () => {
+    const profileSettings = {
+      ...settings,
+      ai: {
+        ...settings.ai,
+        provider: "none" as const,
+        model: "",
+        models: [],
+        configurations: [{ id: "reviewer", label: "Review", provider: "compatible" as const, endpoint: "https://profile.example.test/v1/chat/completions", model: "profile-model" }],
+      },
+    };
+    const fetchImpl = vi.fn().mockResolvedValue(new Response("data: [DONE]\n\n", { status: 200 }));
+    const aiFetch = vi.fn(() => fetchImpl);
+    const runtime = { dispatch: vi.fn(), documents: { getState: () => ({ documents: [], activeDocumentId: null, recentlyClosed: [] }) } } as unknown as WorkbenchRuntime;
+    const bridge = createAiConversationBridge(runtime, profileSettings, { load: async () => "secret", persistence: "web-session", save: async () => undefined, clear: async () => undefined }, aiFetch);
+
+    for await (const _chunk of bridge.requestStream([{ role: "user", content: "review" }], new AbortController().signal, "profile-reviewer")) { /* consume */ }
+
+    expect(aiFetch).toHaveBeenCalledWith("reviewer");
+    expect(fetchImpl).toHaveBeenCalledOnce();
+  });
+
   it("keeps a persisted legacy-model selection stable when the display order changes", () => {
     const secretStore = { load: async () => "secret", persistence: "web-session" as const, save: async () => undefined, clear: async () => undefined };
     const runtime = { dispatch: vi.fn(), documents: { getState: () => ({ documents: [], activeDocumentId: null, recentlyClosed: [] }) } } as unknown as WorkbenchRuntime;

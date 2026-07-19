@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from "react";
 
 import type { AiContextInputs } from "../../application/ai/ai-context";
+import type { AiFetchFactory } from "../../application/ai/ai-client";
 import { createLocalConversationPersistence } from "../../application/ai/conversation-persistence";
 import type { DocumentBuffer } from "../../application/documents/document-workspace";
 import type { McpToolHandler } from "../../application/mcp/mcp-dispatcher";
@@ -13,6 +14,7 @@ import { createAiConversationBridge } from "./ai-runtime-bridge";
 
 export interface AiWorkbenchPanelProps {
   readonly runtime: WorkbenchRuntime;
+  readonly aiFetch?: AiFetchFactory;
   readonly profile: PersistedSettings;
   readonly secretStore: SecretStore;
   readonly document: DocumentBuffer;
@@ -26,12 +28,12 @@ export interface AiWorkbenchPanelProps {
 }
 
 export function AiWorkbenchPanel({
-  runtime, profile, secretStore, document, projectIdentity, contextInputs, agentToolHandler,
+  runtime, aiFetch = () => globalThis.fetch.bind(globalThis), profile, secretStore, document, projectIdentity, contextInputs, agentToolHandler,
   pendingReview, onApproveReview, onCopy, onInsertAtCursor,
 }: AiWorkbenchPanelProps) {
   const bridge = useMemo(
-    () => createAiConversationBridge(runtime, profile, secretStore),
-    [profile, runtime, secretStore],
+    () => createAiConversationBridge(runtime, profile, secretStore, aiFetch),
+    [aiFetch, profile, runtime, secretStore],
   );
   const persistence = useMemo(() => createLocalConversationPersistence(projectIdentity), [projectIdentity]);
   const approveAgentReview = useCallback(async (commandId: string) => {

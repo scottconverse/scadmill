@@ -23,6 +23,7 @@ export function createWebPlatform(): ScadMillPlatform {
   const noDirectoryPicker = unavailable<never>();
   return {
     kind: "web",
+    aiFetch: () => globalThis.fetch.bind(globalThis),
     engine: wasm.engine ?? new UnavailableEngineService(),
     files: {
       projectStorage,

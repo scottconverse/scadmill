@@ -282,6 +282,7 @@ export function App({
 
   return (
     <Workbench
+      aiFetch={platform.aiFetch}
       engine={engine}
       runtime={runtime}
       secretStore={secretStore}

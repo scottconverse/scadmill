@@ -46,6 +46,7 @@ $arguments = @(
   "--credential-probe", "$local\scripts\credential-probe.ps1",
   "--source-metadata", "$local\scripts\source-metadata.json",
   "--harness-manifest", "C:\ScadMillEvidence\harness-manifest.json",
+  "--soak-config", "$local\scripts\n2-soak-config.json",
   "--output", $output
 )
 

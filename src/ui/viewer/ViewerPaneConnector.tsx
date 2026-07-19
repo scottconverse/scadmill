@@ -81,6 +81,11 @@ export function ViewerPaneConnector({
   );
   const project = useReadonlyStore(runtime.project, (state) => state);
   const documents = useReadonlyStore(runtime.documents, (state) => state);
+  const thumbnailDocumentPath = documents.documents.find(({ id }) => id === documentId)?.path ?? "Untitled";
+  const thumbnailPersistenceDestination = JSON.stringify([
+    project.snapshot.workspaceIdentity,
+    thumbnailDocumentPath,
+  ]);
   const effectiveViewer = useMemo<ViewerDocumentState>(() => ({
     ...viewer,
     camera: { ...viewer.camera, projection: preferences.projection },
@@ -159,6 +164,7 @@ export function ViewerPaneConnector({
       renderStatus={renderStatus}
       result={result}
       settingsDisabled={settingsDisabled}
+      thumbnailPersistenceDestination={thumbnailPersistenceDestination}
       viewer={effectiveViewer}
       annotationPersistence={annotationPersistence}
       onRetryAnnotationPersistence={retryAnnotationPersistence}
@@ -186,7 +192,7 @@ export function ViewerPaneConnector({
                 : undefined;
             if (!isSha256GeometryIdentity(renderIdentity)) return;
             runtime.renderThumbnails.save(project.snapshot.workspaceIdentity, {
-              documentPath: documents.documents.find(({ id }) => id === documentId)?.path ?? "Untitled",
+              documentPath: thumbnailDocumentPath,
               renderIdentity,
               capturedAt: new Date().toISOString(),
               pngBytes: bytes,

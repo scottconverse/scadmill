@@ -7,7 +7,11 @@ param(
   [Parameter(Mandatory = $true)] [string] $FixedWebViewDirectory,
   [Parameter(Mandatory = $true)] [string] $OutputDirectory,
   [string] $Node = "node.exe",
-  [int] $TimeoutSeconds = 600
+  [int] $TimeoutSeconds = 600,
+  [ValidateSet("disabled", "literal", "accelerated")]
+  [string] $N2SoakMode = "disabled",
+  [int] $N2AcceleratedDurationSeconds = 120,
+  [int] $N2AcceleratedCadenceMilliseconds = 1000
 )
 
 $ErrorActionPreference = "Stop"
@@ -209,6 +213,75 @@ function Get-CapturedSandboxSession([object] $Identity) {
 }
 
 if ($TimeoutSeconds -lt 60) { throw "TimeoutSeconds must be at least 60." }
+$n2SoakConfiguration = switch ($N2SoakMode) {
+  "disabled" {
+    [ordered]@{
+      schemaVersion = 1
+      mode = "disabled"
+      releaseEvidenceEligible = $false
+      evidenceLabel = "DISABLED"
+    }
+  }
+  "literal" {
+    if ($TimeoutSeconds -lt 30000) {
+      throw "Literal N-2 evidence requires TimeoutSeconds of at least 30000."
+    }
+    [ordered]@{
+      schemaVersion = 1
+      mode = "literal"
+      releaseEvidenceEligible = $true
+      evidenceLabel = "N-2-LITERAL-8-HOUR"
+      durationSeconds = 28800
+      cadenceMilliseconds = 30000
+      warmupSeconds = 1200
+      baselineStartSeconds = 1200
+      baselineEndSeconds = 1800
+      crashAtSeconds = 14400
+      minimumSuccessfulCycles = 900
+      memorySampleIntervalSeconds = 60
+      rollingWindowSamples = 5
+      finalWindowSamples = 10
+      thresholdRatio = 1.5
+    }
+  }
+  "accelerated" {
+    if (
+      $N2AcceleratedDurationSeconds -lt 8 -or
+      $N2AcceleratedDurationSeconds -gt 3600 -or
+      $N2AcceleratedCadenceMilliseconds -lt 10 -or
+      $N2AcceleratedCadenceMilliseconds -gt [Math]::Floor($N2AcceleratedDurationSeconds * 1000 / 8) -or
+      $N2AcceleratedCadenceMilliseconds -lt [Math]::Ceiling($N2AcceleratedDurationSeconds * 1000 / 900)
+    ) {
+      throw "Accelerated N-2 controls require 8-3600 seconds and a cadence that permits at least eight cycles."
+    }
+    if ($TimeoutSeconds -lt $N2AcceleratedDurationSeconds + 600) {
+      throw "Accelerated N-2 evidence requires TimeoutSeconds at least 600 seconds beyond its short duration."
+    }
+    $warmup = [Math]::Max(1, [Math]::Floor($N2AcceleratedDurationSeconds / 8))
+    $baselineEnd = [Math]::Max($warmup + 1, [Math]::Floor($N2AcceleratedDurationSeconds / 4))
+    $crashAt = [Math]::Max($baselineEnd + 1, [Math]::Floor($N2AcceleratedDurationSeconds / 2))
+    [ordered]@{
+      schemaVersion = 1
+      mode = "accelerated"
+      releaseEvidenceEligible = $false
+      evidenceLabel = "ACCELERATED-NON-RELEASE"
+      durationSeconds = $N2AcceleratedDurationSeconds
+      cadenceMilliseconds = $N2AcceleratedCadenceMilliseconds
+      warmupSeconds = $warmup
+      baselineStartSeconds = $warmup
+      baselineEndSeconds = $baselineEnd
+      crashAtSeconds = $crashAt
+      minimumSuccessfulCycles = [Math]::Max(
+        1,
+        [Math]::Floor($N2AcceleratedDurationSeconds * 1000 / $N2AcceleratedCadenceMilliseconds * 0.75)
+      )
+      memorySampleIntervalSeconds = 1
+      rollingWindowSamples = 2
+      finalWindowSamples = 2
+      thresholdRatio = 1.5
+    }
+  }
+}
 $canonicalApplication = "src/desktop-shell/src-tauri/target/release/scadmill.exe"
 $desktopManifest = "src/desktop-shell/src-tauri/Cargo.toml"
 $desktopTarget = "src/desktop-shell/src-tauri/target"
@@ -301,6 +374,11 @@ try {
   Copy-Item -LiteralPath $visualCppRuntimeCompanionPath -Destination (Join-Path $stage "tools\vcruntime140_1.dll")
   Copy-Item -LiteralPath (Join-Path $repo "scripts\run-packaged-desktop-evidence.mjs") -Destination (Join-Path $stage "scripts")
   Copy-Item -LiteralPath (Join-Path $repo "scripts\lib\packaged-desktop-evidence.mjs") -Destination (Join-Path $stage "scripts\lib")
+  Copy-Item -LiteralPath (Join-Path $repo "scripts\lib\m4-packaged-walkthrough.mjs") -Destination (Join-Path $stage "scripts\lib")
+  Copy-Item -LiteralPath (Join-Path $repo "scripts\lib\m4-packaged-verifier.mjs") -Destination (Join-Path $stage "scripts\lib")
+  Copy-Item -LiteralPath (Join-Path $repo "scripts\lib\n2-soak-evidence.mjs") -Destination (Join-Path $stage "scripts\lib")
+  Copy-Item -LiteralPath (Join-Path $repo "scripts\lib\n2-soak-runner.mjs") -Destination (Join-Path $stage "scripts\lib")
+  Copy-Item -LiteralPath (Join-Path $repo "scripts\lib\n2-soak-verifier.mjs") -Destination (Join-Path $stage "scripts\lib")
   Copy-Item -LiteralPath (Join-Path $repo "scripts\windows\credential-probe.ps1") -Destination (Join-Path $stage "scripts")
   Copy-Item -LiteralPath (Join-Path $repo "scripts\windows\run-packaged-desktop-sandbox.ps1") -Destination (Join-Path $stage "scripts")
   $sourceMetadata = [ordered]@{
@@ -352,6 +430,13 @@ try {
   )
   $sourceMetadataSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $sourceMetadataPath).Hash
   Copy-Item -LiteralPath $sourceMetadataPath -Destination (Join-Path $outputPath "source-metadata.json")
+  $n2SoakConfigurationPath = Join-Path $stage "scripts\n2-soak-config.json"
+  [IO.File]::WriteAllText(
+    $n2SoakConfigurationPath,
+    ($n2SoakConfiguration | ConvertTo-Json -Depth 4),
+    [Text.UTF8Encoding]::new($false)
+  )
+  Copy-Item -LiteralPath $n2SoakConfigurationPath -Destination (Join-Path $outputPath "n2-soak-config.json")
 
   $configuration = @"
 <Configuration>
@@ -378,6 +463,12 @@ try {
       config = [ordered]@{ path = "scadmill-packaged-evidence.wsb"; sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $configPath).Hash }
       credentialProbe = [ordered]@{ path = "scripts/credential-probe.ps1"; sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $stage "scripts\credential-probe.ps1")).Hash }
       helper = [ordered]@{ path = "scripts/lib/packaged-desktop-evidence.mjs"; sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $stage "scripts\lib\packaged-desktop-evidence.mjs")).Hash }
+      m4PackagedWalkthrough = [ordered]@{ path = "scripts/lib/m4-packaged-walkthrough.mjs"; sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $stage "scripts\lib\m4-packaged-walkthrough.mjs")).Hash }
+      m4PackagedVerifier = [ordered]@{ path = "scripts/lib/m4-packaged-verifier.mjs"; sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $stage "scripts\lib\m4-packaged-verifier.mjs")).Hash }
+      n2SoakConfiguration = [ordered]@{ path = "scripts/n2-soak-config.json"; sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $n2SoakConfigurationPath).Hash }
+      n2SoakEvidence = [ordered]@{ path = "scripts/lib/n2-soak-evidence.mjs"; sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $stage "scripts\lib\n2-soak-evidence.mjs")).Hash }
+      n2SoakRunner = [ordered]@{ path = "scripts/lib/n2-soak-runner.mjs"; sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $stage "scripts\lib\n2-soak-runner.mjs")).Hash }
+      n2SoakVerifier = [ordered]@{ path = "scripts/lib/n2-soak-verifier.mjs"; sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $stage "scripts\lib\n2-soak-verifier.mjs")).Hash }
       runner = [ordered]@{ path = "scripts/run-packaged-desktop-evidence.mjs"; sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $stage "scripts\run-packaged-desktop-evidence.mjs")).Hash }
       sandboxBootstrap = [ordered]@{ path = "scripts/run-packaged-desktop-sandbox.ps1"; sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $stage "scripts\run-packaged-desktop-sandbox.ps1")).Hash }
       sourceMetadata = [ordered]@{ path = "scripts/source-metadata.json"; sha256 = $sourceMetadataSha256 }
@@ -400,6 +491,12 @@ try {
   )
   $harnessManifestSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $harnessManifestPath).Hash
   Copy-Item -LiteralPath $harnessManifestPath -Destination (Join-Path $outputPath "harness-manifest.json")
+  $retainedN2VerifierDirectory = Join-Path $outputPath "retained-harness\scripts\lib"
+  New-Item -ItemType Directory -Force -Path $retainedN2VerifierDirectory | Out-Null
+  Copy-Item -LiteralPath (Join-Path $stage "scripts\lib\n2-soak-evidence.mjs") -Destination $retainedN2VerifierDirectory
+  Copy-Item -LiteralPath (Join-Path $stage "scripts\lib\n2-soak-verifier.mjs") -Destination $retainedN2VerifierDirectory
+  Copy-Item -LiteralPath (Join-Path $stage "scripts\lib\m4-packaged-walkthrough.mjs") -Destination $retainedN2VerifierDirectory
+  Copy-Item -LiteralPath (Join-Path $stage "scripts\lib\m4-packaged-verifier.mjs") -Destination $retainedN2VerifierDirectory
   Copy-Item -LiteralPath $configPath -Destination (Join-Path $outputPath "sandbox-config.wsb")
   Assert-CleanWorktree "before Sandbox launch"
   $launchCommit = Get-GitValue @("rev-parse", "HEAD") "launch source commit"
@@ -495,6 +592,50 @@ try {
   if (-not $stageRemoved) { throw "Staging directory survived cleanup: $resolvedStage." }
 }
 if ($guestValidated) {
+  $retainedM4Walkthrough = Join-Path $outputPath "retained-harness\scripts\lib\m4-packaged-walkthrough.mjs"
+  $retainedM4Verifier = Join-Path $outputPath "retained-harness\scripts\lib\m4-packaged-verifier.mjs"
+  $retainedN2Evidence = Join-Path $outputPath "retained-harness\scripts\lib\n2-soak-evidence.mjs"
+  $retainedN2Verifier = Join-Path $outputPath "retained-harness\scripts\lib\n2-soak-verifier.mjs"
+  if (
+    (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $outputPath "harness-manifest.json")).Hash -ne $harnessManifestSha256 -or
+    (Get-FileHash -Algorithm SHA256 -LiteralPath $retainedM4Walkthrough).Hash -ne $harnessManifest.files.m4PackagedWalkthrough.sha256 -or
+    (Get-FileHash -Algorithm SHA256 -LiteralPath $retainedM4Verifier).Hash -ne $harnessManifest.files.m4PackagedVerifier.sha256 -or
+    (Get-FileHash -Algorithm SHA256 -LiteralPath $retainedN2Evidence).Hash -ne $harnessManifest.files.n2SoakEvidence.sha256 -or
+    (Get-FileHash -Algorithm SHA256 -LiteralPath $retainedN2Verifier).Hash -ne $harnessManifest.files.n2SoakVerifier.sha256
+  ) {
+    throw "Retained M4/N-2 host verifier differs from the manifest-bound harness."
+  }
+  [string[]] $hostM4Arguments = @(
+    "--walkthrough", (Join-Path $outputPath "m4-packaged-walkthrough.json"),
+    "--screenshots", $outputPath,
+    "--evidence", $evidencePath,
+    "--manifest", (Join-Path $outputPath "harness-manifest.json")
+  )
+  [string[]] $hostM4Output = @(& $nodePath $retainedM4Verifier @hostM4Arguments 2>&1)
+  if ($LASTEXITCODE -ne 0) { throw "Host M4 verification failed: $($hostM4Output -join "`n")" }
+  $hostM4Verification = ($hostM4Output -join "`n") | ConvertFrom-Json
+  if ($hostM4Verification.status -ne "passed") { throw "Host M4 verification did not pass." }
+  [IO.File]::WriteAllText(
+    (Join-Path $outputPath "host-m4-verification.json"),
+    ($hostM4Verification | ConvertTo-Json -Depth 4),
+    [Text.UTF8Encoding]::new($false)
+  )
+  [string[]] $hostN2Arguments = @(
+    "--configuration", (Join-Path $outputPath "n2-soak-config.json"),
+    "--summary", (Join-Path $outputPath "n2-soak-summary.json"),
+    "--samples", (Join-Path $outputPath "n2-soak-samples.jsonl"),
+    "--evidence", $evidencePath,
+    "--manifest", (Join-Path $outputPath "harness-manifest.json")
+  )
+  [string[]] $hostN2Output = @(& $nodePath $retainedN2Verifier @hostN2Arguments 2>&1)
+  if ($LASTEXITCODE -ne 0) { throw "Host N-2 verification failed: $($hostN2Output -join "`n")" }
+  $hostN2Verification = ($hostN2Output -join "`n") | ConvertFrom-Json
+  if ($hostN2Verification.status -ne "passed") { throw "Host N-2 verification did not pass." }
+  [IO.File]::WriteAllText(
+    (Join-Path $outputPath "host-n2-verification.json"),
+    ($hostN2Verification | ConvertTo-Json -Depth 4),
+    [Text.UTF8Encoding]::new($false)
+  )
   [IO.File]::WriteAllText(
     (Join-Path $outputPath "PASS"),
     "packaged desktop evidence and host cleanup passed`n",

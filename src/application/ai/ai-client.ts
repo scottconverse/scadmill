@@ -6,6 +6,7 @@ import { type AiCompletionRequest, normalizeAiEndpoint } from "./ai-provider";
 
 export interface AiSecretStore { load(scope: boolean): string | null; }
 export type AiFetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+export type AiFetchFactory = (configurationId?: string) => AiFetch;
 
 function redact(message: string, secret: string): Error {
   return new Error((secret ? message.split(secret).join("[redacted]") : message)

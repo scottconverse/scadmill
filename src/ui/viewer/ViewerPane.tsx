@@ -79,6 +79,7 @@ export interface ViewerPaneProps {
   readonly onModeChange?: (mode: ViewerMode) => void;
   readonly onScreenshot?: (bytes: Uint8Array) => void | Promise<void>;
   readonly onMcpScreenshotCaptureAvailable?: (capture: ((width: number, height: number) => Promise<Uint8Array>) | undefined) => void;
+  readonly thumbnailPersistenceDestination?: string;
   readonly onThumbnail?: (bytes: Uint8Array) => void | Promise<void>;
   readonly onShowConsole?: () => void;
   readonly onViewerAction?: (action: ViewerAction) => void;
@@ -111,7 +112,7 @@ export function ViewerPane({
   onLayoutAction,
   onModeChange,
   onScreenshot,
-  onMcpScreenshotCaptureAvailable,
+  onMcpScreenshotCaptureAvailable, thumbnailPersistenceDestination = documentId,
   onThumbnail,
   onShowConsole,
   onViewerAction,
@@ -147,8 +148,7 @@ export function ViewerPane({
     setAnnotationDraft("");
     setNotice(null);
   }, [documentId, modelIdentity]);
-  const captureThumbnail = useViewerThumbnail(modelViewer, viewer.presentation?.renderIdentity ?? "", onThumbnail);
-
+  const captureThumbnail = useViewerThumbnail(modelViewer, viewer.presentation?.renderIdentity ?? "", thumbnailPersistenceDestination, onThumbnail);
   const dispatchViewer = useCallback(
     (action: ViewerAction) => onViewerAction?.(action),
     [onViewerAction],

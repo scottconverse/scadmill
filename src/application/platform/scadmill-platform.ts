@@ -1,4 +1,5 @@
 import type { EngineService } from "../engine/contracts";
+import type { AiFetchFactory } from "../ai/ai-client";
 import type { EngineLoadProgressStore } from "../engine/engine-load-progress";
 import type { EnginePathConfiguration } from "../engine/engine-path-configuration";
 import type { ArtifactDestination } from "../files/artifact-destination";
@@ -126,6 +127,7 @@ export interface PlatformDialogs {
 
 export interface ScadMillPlatform {
   readonly kind: "web" | "desktop";
+  readonly aiFetch: AiFetchFactory;
   readonly engine: EngineService;
   readonly files: {
     readonly projectStorage?: ProjectStorage;

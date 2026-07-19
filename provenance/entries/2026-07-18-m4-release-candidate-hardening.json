@@ -1,0 +1,261 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-18-m4-release-candidate-hardening",
+  "createdAt": "2026-07-18T23:32:12-06:00",
+  "summary": "Harden the Windows-first M4 beta candidate with complete render-cache inputs, destination-safe last-success thumbnail capture, honest beta metadata and rollback documentation, independently revalidated N-2 and M4 packaged evidence, and a bounded native desktop AI transport that keeps arbitrary provider networking outside the renderer.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "FR-10.1", "FR-10.3", "AC-10.a", "AC-10.b", "AC-10.c", "AC-10.d", "AC-11.b", "AC-11.c", "AC-11.d", "AC-15.a", "FR-15.13", "N-2", "V-5"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "docs/RELEASE-ROLLBACK.md", "status": "added" },
+    { "path": "package.json", "status": "modified" },
+    { "path": "playwright.config.ts", "status": "modified" },
+    { "path": "playwright.production-static.config.ts", "status": "modified" },
+    { "path": "provenance/entries/2026-07-18-m4-release-candidate-hardening.json", "status": "added" },
+    { "path": "scripts/lib/m4-packaged-verifier.d.mts", "status": "added" },
+    { "path": "scripts/lib/m4-packaged-verifier.mjs", "status": "added" },
+    { "path": "scripts/lib/m4-packaged-walkthrough.d.mts", "status": "added" },
+    { "path": "scripts/lib/m4-packaged-walkthrough.mjs", "status": "added" },
+    { "path": "scripts/lib/n2-soak-evidence.d.mts", "status": "added" },
+    { "path": "scripts/lib/n2-soak-evidence.mjs", "status": "added" },
+    { "path": "scripts/lib/n2-soak-runner.d.mts", "status": "added" },
+    { "path": "scripts/lib/n2-soak-runner.mjs", "status": "added" },
+    { "path": "scripts/lib/n2-soak-verifier.d.mts", "status": "added" },
+    { "path": "scripts/lib/n2-soak-verifier.mjs", "status": "added" },
+    { "path": "scripts/lib/packaged-desktop-evidence.d.mts", "status": "modified" },
+    { "path": "scripts/lib/packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "scripts/run-packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "scripts/windows/run-packaged-desktop-evidence.ps1", "status": "modified" },
+    { "path": "scripts/windows/run-packaged-desktop-sandbox.ps1", "status": "modified" },
+    { "path": "src/app/App.tsx", "status": "modified" },
+    { "path": "src/application/ai/ai-client.ts", "status": "modified" },
+    { "path": "src/application/platform/scadmill-platform.ts", "status": "modified" },
+    { "path": "src/application/render-cache/render-cache.ts", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/Cargo.lock", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/Cargo.toml", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/src/ai_http_broker.rs", "status": "added" },
+    { "path": "src/desktop-shell/src-tauri/src/desktop_settings.rs", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/src/lib.rs", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/tauri.conf.json", "status": "modified" },
+    { "path": "src/native-engine/Cargo.lock", "status": "modified" },
+    { "path": "src/native-engine/Cargo.toml", "status": "modified" },
+    { "path": "src/platform-desktop/desktop-platform.ts", "status": "modified" },
+    { "path": "src/platform-desktop/tauri-ai-http-fetch.ts", "status": "added" },
+    { "path": "src/platform-web/web-platform.ts", "status": "modified" },
+    { "path": "src/ui/ai/ai-runtime-bridge.ts", "status": "modified" },
+    { "path": "src/ui/ai/AiWorkbenchPanel.tsx", "status": "modified" },
+    { "path": "src/ui/settings/SettingsDialog.tsx", "status": "modified" },
+    { "path": "src/ui/settings/SettingsLauncher.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/ViewerPane.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/ViewerPaneConnector.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/use-viewer-thumbnail.ts", "status": "modified" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/workbench-props.ts", "status": "modified" },
+    { "path": "tests/application/render-cache/render-cache.test.ts", "status": "modified" },
+    { "path": "tests/e2e/m4-cache-paint.e2e.ts", "status": "added" },
+    { "path": "tests/helpers/test-platform.ts", "status": "modified" },
+    { "path": "tests/platform-desktop/tauri-ai-http-fetch.test.ts", "status": "added" },
+    { "path": "tests/scripts/desktop-ai-csp.test.ts", "status": "added" },
+    { "path": "tests/scripts/m4-packaged-verifier.test.ts", "status": "added" },
+    { "path": "tests/scripts/m4-packaged-walkthrough.test.ts", "status": "added" },
+    { "path": "tests/scripts/n2-soak-evidence.test.ts", "status": "added" },
+    { "path": "tests/scripts/n2-soak-runner.test.ts", "status": "added" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" },
+    { "path": "tests/scripts/production-static-browser.test.ts", "status": "modified" },
+    { "path": "tests/scripts/release-metadata.test.ts", "status": "added" },
+    { "path": "tests/ui/ai/ai-runtime-bridge.test.ts", "status": "modified" },
+    { "path": "tests/ui/settings/SettingsLauncher.test.tsx", "status": "modified" },
+    { "path": "tests/ui/viewer/ViewerPaneThumbnail.test.tsx", "status": "added" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://docs.rs/reqwest/latest/reqwest/",
+      "accessedOn": "2026-07-19",
+      "purpose": "Official reqwest public API documentation consulted for Client construction and streamed response behavior."
+    },
+    {
+      "url": "https://docs.rs/crate/reqwest/0.13.4",
+      "accessedOn": "2026-07-19",
+      "purpose": "Official crate documentation for the pinned reqwest release, dependency surface, system-native TLS behavior, release date, and MIT/Apache-2.0 license declaration."
+    },
+    {
+      "url": "https://docs.rs/crate/reqwest/0.13.4/features",
+      "accessedOn": "2026-07-19",
+      "purpose": "Official feature index consulted for the pinned reqwest transport feature selection."
+    },
+    {
+      "url": "https://github.com/seanmonstar/reqwest/blob/v0.13.4/LICENSE-MIT",
+      "accessedOn": "2026-07-19",
+      "purpose": "Official reqwest v0.13.4 MIT license text."
+    },
+    {
+      "url": "https://github.com/seanmonstar/reqwest/blob/v0.13.4/LICENSE-APACHE",
+      "accessedOn": "2026-07-19",
+      "purpose": "Official reqwest v0.13.4 Apache-2.0 license text."
+    },
+    {
+      "url": "https://docs.rs/crate/tokio/1.52.3",
+      "accessedOn": "2026-07-19",
+      "purpose": "Official crate documentation and metadata for the pinned Tokio runtime release."
+    },
+    {
+      "url": "https://github.com/tokio-rs/tokio/blob/tokio-1.52.3/LICENSE",
+      "accessedOn": "2026-07-19",
+      "purpose": "Official Tokio 1.52.3 MIT license text."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0397",
+      "topic": "Fail safe when render-cache input completeness is uncertain",
+      "decision": "Include statically referenced surface assets in the cache key and fall back to the complete supplied file map for dynamic asset paths and project-provided fonts instead of risking a stale hit.",
+      "rationale": "A conservative over-invalidation costs a render; an incomplete key can present geometry generated from stale binary or font inputs.",
+      "specBasis": ["FR-15.1", "AC-15.a"]
+    },
+    {
+      "id": "D-0398",
+      "topic": "Preserve the newest accepted thumbnail per persistence destination",
+      "decision": "When thumbnail capture is already in flight, retain and process the newest accepted 3D result for the same workspace-and-document destination after the older capture settles; treat an identical render identity in another destination as separate work.",
+      "rationale": "A single-flight encoder remains bounded, while destination-scoped newest-wins state prevents stale work from suppressing the last successful preview or an identical model in another file or project.",
+      "specBasis": ["FR-15.13"]
+    },
+    {
+      "id": "D-0399",
+      "topic": "Make N-2 release evidence independently revalidatable",
+      "decision": "Keep the packaged soak disabled by default; make literal mode an immutable 28,800-second contract; label accelerated mode non-release; retain bounded JSONL plus a summary; and require both guest-final and host-final manifest-bound verification of exact cycles, raw process memory, chronology, the one engine-kill recovery, artifact hashes, application/WebView identities, orphan state, and the raw 1.5-times-baseline ceiling before PASS.",
+      "rationale": "The release gate must reject forged, truncated, reordered, substituted, identity-detached, or median-masked soak evidence instead of trusting a self-declared passing summary.",
+      "specBasis": ["N-2", "V-5"]
+    },
+    {
+      "id": "D-0400",
+      "topic": "Bind the M4 newcomer journey to the exact packaged candidate",
+      "decision": "Stage and hash the M4 helper and verifier in the Sandbox harness; exercise unconfigured AI, exact context toggles, proposal review, bounded agent tools, MCP deny then allow-session review, real cache and geometry delta behavior, serialized animation, persisted thumbnails, fresh app/WebView restart, cold-cache paint, credential clearing, and a stopped-process recursive secret scan; then require independent host revalidation of the exact retained artifacts and final security-cleanup record.",
+      "rationale": "Focused component tests do not prove that the installed desktop composition exposes the complete M4 workflow, that retained screenshots and transcripts are structurally valid, or that its secret and restart boundaries hold together.",
+      "specBasis": ["FR-10.3", "AC-10.a", "AC-10.b", "AC-10.c", "AC-10.d", "AC-11.b", "AC-11.c", "AC-11.d", "AC-15.a", "FR-15.13"]
+    },
+    {
+      "id": "D-0401",
+      "topic": "Keep desktop AI provider transport outside the renderer network boundary",
+      "decision": "Keep the packaged renderer CSP limited to self and Tauri IPC (plus the development-only localhost WebSocket). Route desktop provider POST JSON through a typed Tauri Channel broker that authorizes the exact normalized endpoint against strict persisted version-1 default/profile settings, permits only provider-specific headers, refuses redirects, bounds request, response, header, chunk, and cancellation state, and supports streamed cancellation. The web platform retains its native fetch implementation.",
+      "rationale": "Desktop AI needs remote and loopback provider transport, but permitting scheme-wide HTTP/HTTPS from the renderer would expose every renderer compromise to arbitrary network destinations. Authorization and transport therefore belong at the native platform boundary.",
+      "specBasis": ["FR-10.1", "AC-10.a", "AC-10.c"]
+    },
+    {
+      "id": "D-0402",
+      "topic": "Prepare an honest first-beta identity and rollback boundary",
+      "decision": "Synchronize version metadata as 0.1.0-beta.1 and document that the owner controls publication and withdrawal, no earlier supported ScadMill release exists, and any replacement must use a new immutable version and repeat the complete release gate.",
+      "rationale": "The first public beta needs one consistent artifact identity and a truthful forward-replacement procedure rather than a fictitious rollback target.",
+      "specBasis": ["FR-13.4", "V-5", "Q-0033", "Q-0034"]
+    },
+    {
+      "id": "D-0403",
+      "topic": "Use the platform TLS trust store without widening license policy",
+      "decision": "Pin reqwest 0.13.4 and tokio 1.52.3 for the native desktop broker, using reqwest native-tls and the operating-system trust store rather than the rustls feature graph.",
+      "rationale": "The rustls target-all dependency graph introduced webpki-root-certs under unapproved CDLA-Permissive-2.0. Switching to native TLS removed that dependency and restored the existing allow-list without a policy exception; the final license gates checked 507 Rust and 120 npm packages.",
+      "specBasis": ["Section 6 approved dependencies", "FR-10.1", "AC-10.c"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The M4 retained packaged journey rejects substituted, malformed, incomplete, threshold-violating, or security-cleanup-detached evidence before host PASS.",
+      "test": "Run the M4 helper, verifier, and packaged-evidence Vitest files together, plus targeted strict TypeScript, Biome, Node syntax, both PowerShell AST parsers, and diff hygiene after each independently found evidence defect is repaired.",
+      "red": {
+        "command": "Focused M4 verifier falsification cases",
+        "observedAt": "2026-07-19T00:20:00-06:00",
+        "outcome": "RED: a contradictory final status/schema event passed; the final host verifier did not bind the later credential-clear/secret-scan event; and a small compressed PNG could force a much larger decode before rejection. Each defect was reproduced before correction."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/m4-packaged-walkthrough.test.ts tests/scripts/m4-packaged-verifier.test.ts tests/scripts/packaged-desktop-evidence.test.ts --reporter=dot",
+        "observedAt": "2026-07-19T00:36:00-06:00",
+        "outcome": "GREEN: 3 files and 41 tests passed after cleanup-event binding and pre-inflate PNG bounds. Targeted strict TypeScript, Biome over 10 files, Node syntax, both PowerShell AST parsers, and diff hygiene also exited zero. No Sandbox or packaged runtime claim is made here."
+      }
+    },
+    {
+      "criterion": "Thumbnail capture remains newest-wins within one destination and captures identical geometry separately for every workspace-and-document persistence destination.",
+      "test": "Reproduce the cross-destination suppression, then run the thumbnail, connector, and viewer focused tests plus full typecheck and touched-file lint.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/viewer/ViewerPaneThumbnail.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-19T00:31:00-06:00",
+        "outcome": "RED: the same render identity in a second destination was suppressed; the regression expected two persistence calls but observed one."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/viewer/ViewerPaneThumbnail.test.tsx tests/ui/viewer/ViewerPaneConnector.test.tsx tests/ui/viewer/ViewerPane.test.tsx --reporter=dot; pnpm.cmd typecheck",
+        "observedAt": "2026-07-19T00:34:00-06:00",
+        "outcome": "GREEN: 3 files and 24 tests passed; full TypeScript, Biome over the four touched viewer files, and targeted diff hygiene exited zero."
+      }
+    },
+    {
+      "criterion": "Desktop AI transport is endpoint-bound, bounded, cancellable, renderer-network-restricted, and license-policy compliant.",
+      "test": "Run the focused Rust broker, renderer adapter, CSP, AI bridge, settings-persistence, strict type, Clippy, format, Biome, and complete license gates.",
+      "red": {
+        "command": "cargo clippy --locked --all-targets -- -D warnings; pnpm.cmd check:licenses rust",
+        "observedAt": "2026-07-19T00:15:00-06:00",
+        "outcome": "RED: Clippy rejected a nine-argument IPC command, and the initial reqwest rustls graph introduced webpki-root-certs@1.0.8 under unapproved CDLA-Permissive-2.0. No allow-list bypass was added."
+      },
+      "green": {
+        "command": "cargo test ai_http_broker -- --nocapture; cargo fmt --all -- --check; cargo clippy --locked --all-targets -- -D warnings; pnpm.cmd exec vitest run tests/platform-desktop/tauri-ai-http-fetch.test.ts tests/scripts/desktop-ai-csp.test.ts tests/ui/ai/ai-runtime-bridge.test.ts tests/ui/settings/SettingsLauncher.test.tsx --reporter=dot; pnpm.cmd typecheck; pnpm.cmd check:licenses all",
+        "observedAt": "2026-07-19T00:17:00-06:00",
+        "outcome": "GREEN: Rust broker 9/9; focused TypeScript/UI 29/29; full typecheck; Rust format and Clippy; touched-file Biome; npm policy 120 packages and Rust policy 507 packages all exited zero after using a typed request and native TLS."
+      }
+    },
+    {
+      "criterion": "N-2 retained evidence independently proves full-window cadence, raw memory, exact application/WebView identity, crash recovery, orphan cleanup, and release-mode eligibility.",
+      "test": "Run the N-2 evidence/runner tests, targeted strict TypeScript, manifest binding, source policy, PowerShell parsing, and diff hygiene after adversarial re-audits.",
+      "red": {
+        "command": "Independent N-2 tamper audits",
+        "observedAt": "2026-07-18T23:45:00-06:00",
+        "outcome": "RED: initial host PASS trusted the guest summary, median-only memory could hide a raw spike, accelerated coverage could omit window edges, process samples were not fully bound to staged artifacts, contradictory orphan state could pass, and disabled evidence could claim release eligibility."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/n2-soak-evidence.test.ts tests/scripts/n2-soak-runner.test.ts --reporter=dot",
+        "observedAt": "2026-07-19T00:00:00-06:00",
+        "outcome": "GREEN: 2 files and 13 tests passed; targeted strict TypeScript, manifest binding, lint/source policy, PowerShell parsing, and diff hygiene also exited zero. This is harness proof only; accelerated Sandbox and literal eight-hour execution remain explicit later gates."
+      }
+    },
+    {
+      "criterion": "The complete dirty Windows-beta candidate passes every local generated, static, unit, browser, build, dependency, provenance, and native gate before commit freeze.",
+      "test": "Run each local candidate lane once in sequence, stop at the first real failure, repair only that failed lane, and resume from the first unrun gate without repeating passed broad lanes.",
+      "red": {
+        "command": "pnpm.cmd lint; pnpm.cmd test:e2e; cargo test --manifest-path src/native-engine/Cargo.toml --locked",
+        "observedAt": "2026-07-19T00:49:00-06:00",
+        "outcome": "RED: source policy found SettingsDialog at 403 lines and ViewerPane at 407; the production-only cache benchmark was accidentally included against the Vite development server and measured 288.2 ms; native acceptance selected the machine's obsolete PATH OpenSCAD 2021.01 when the pinned executable environment was absent. The UI files were compacted without behavior change, the benchmark was isolated to the production-static lane with a regression, and native acceptance was rerun against the verified 2026.06.12 path."
+      },
+      "green": {
+        "command": "pnpm.cmd check:generated; pnpm.cmd check:wasm-workflow; pnpm.cmd lint; pnpm.cmd typecheck; pnpm.cmd test -- --reporter=dot; pnpm.cmd build; pnpm.cmd build:desktop; pnpm.cmd check:licenses all; pnpm.cmd check:provenance; pnpm.cmd test:e2e; pnpm.cmd test:e2e:production-static; cargo fmt and clippy --locked --all-targets for both manifests; cargo test --locked for both manifests with SCADMILL_OPENSCAD bound to 2026.06.12; git diff --check",
+        "observedAt": "2026-07-19T00:52:00-06:00",
+        "outcome": "GREEN: generated parser and WASM contract passed; lint/source policy checked 503 files; TypeScript passed; 196 unit/integration files and 1,454 tests passed; web and desktop frontend builds each transformed 265 modules; npm policy checked 120 packages and Rust policy 507; provenance passed; default browser acceptance passed 24/24; production-static passed 2/2 with AC-15.a cached paint at 37.7 ms under the 100 ms limit; Rust format and Clippy passed for both manifests; native Rust passed 40 tests and desktop-shell Rust passed 60; diff hygiene exited zero."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://scripts/lib/m4-packaged-verifier.mjs",
+      "sought": "Adversarial revalidation of packaged newcomer and privacy evidence",
+      "confirmation": "Review found that a contradictory final event and a detached post-M4 credential-clear/scan record could survive shallow validation, and that compressed PNG expansion needed a pre-inflate bound. Each path was routed through a focused regression repair."
+    },
+    {
+      "url": "local://src/ui/viewer/use-viewer-thumbnail.ts",
+      "sought": "Cross-destination thumbnail correctness",
+      "confirmation": "Review found that identical geometry in a different project or document could be skipped because capture deduplication used render identity without the persistence destination. Destination identity was added to the capture contract."
+    },
+    {
+      "url": "local://src/desktop-shell/src-tauri/Cargo.lock",
+      "sought": "Complete target-all dependency license policy",
+      "confirmation": "The initial rustls graph was rejected because webpki-root-certs used unapproved CDLA-Permissive-2.0. Native TLS removed the package and both complete license lanes passed without a policy exception."
+    },
+    {
+      "url": "local://scripts/lib/n2-soak-verifier.mjs",
+      "sought": "Independent falsification of retained soak evidence",
+      "confirmation": "Repeated bounded audits found and corrected summary trust, raw-spike, boundary-coverage, process-identity, orphan-state, and release-eligibility loopholes before any real soak claim."
+    },
+    {
+      "url": "local://playwright.config.ts",
+      "sought": "One complete local candidate gate without environment-contaminated performance or engine evidence",
+      "confirmation": "The gate caught a production-only 100 ms cache benchmark running under the Vite development server and native acceptance falling through to obsolete PATH OpenSCAD 2021.01. The benchmark now runs only against built static assets, where it measured 37.7 ms, and native acceptance is explicitly bound to the verified 2026.06.12 executable."
+    }
+  ],
+  "questions": ["Q-0033 and Q-0034 are resolved and their six-case parity and complete compliance-package hosted evidence passed on committed candidate 1b6343a. The frozen beta candidate must rerun exact-head hosted gates. This entry does not resolve Q-0035, Q-0036, or Q-0037 and does not claim the outstanding Sandbox, Radeon, literal N-2, signed-installer, or public-release gates."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

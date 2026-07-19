@@ -48,7 +48,7 @@ function relevantRenderFiles(request: RenderRequest): readonly [string, string |
   const visited = new Set<string>();
   const queue = [request.entryFile];
   const result: Array<[string, string | Uint8Array]> = [];
-  const dependencyPattern = /\b(?:include|use)\s*<([^>]+)>|\bimport\s*\(\s*["']([^"']+)["']\s*\)/gu;
+  const dependencyPattern = /\b(?:include|use)\s*<([^>]+)>|\bimport\s*\(\s*(?:file\s*=\s*)?["']([^"']+)["']|\bsurface\s*\(\s*(?:file\s*=\s*)?["']([^"']+)["']/gu;
   const resolve = (from: string, reference: string): string => {
     const normalized = reference.replaceAll("\\", "/");
     const base = from.includes("/") ? from.slice(0, from.lastIndexOf("/")) : "";
@@ -73,12 +73,14 @@ function relevantRenderFiles(request: RenderRequest): readonly [string, string |
     // contain comment markers. The conservative directive scan safely over-
     // invalidates in ambiguous cases instead of dropping a real asset.
     const source = content;
-    // Dynamic import paths cannot be resolved safely here; fall back to the
-    // complete request below rather than risking a stale asset hit.
-    if (/\bimport\s*\(\s*(?!["'])/u.test(source)) return [...files];
+    // Dynamic/reordered file arguments and project-provided fonts cannot be
+    // resolved completely with a lexical scan. Fall back to the complete
+    // request rather than risking a stale disk-tier hit.
+    if (/\b(?:import|surface)\s*\(\s*(?!(?:file\s*=\s*)?["'])/u.test(source)
+      || /\btext\s*\(/u.test(source)) return [...files];
     dependencyPattern.lastIndex = 0;
     for (const match of source.matchAll(dependencyPattern)) {
-      const reference = match[1] ?? match[2];
+      const reference = match[1] ?? match[2] ?? match[3];
       if (!reference) continue;
       const dependency = resolve(path, reference);
       const exact = files.has(dependency)

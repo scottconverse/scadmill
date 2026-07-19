@@ -29,6 +29,31 @@ function deferred<T>() {
 }
 
 describe("SettingsLauncher", () => {
+  it("keeps the dialog open until the latest AI endpoint is durably persisted", async () => {
+    const pendingSave = deferred<void>();
+    const save = vi.fn((_serializedSettings: string) => pendingSave.promise);
+    const runtime = createWorkbenchRuntime(engine, {
+      settingsPersistence: { load: () => ({ kind: "missing" }), save },
+    });
+    const view = render(
+      <SettingsLauncher engineLabel="OpenSCAD 2026.06.12" runtime={runtime} secretStore={EPHEMERAL_SECRET_STORE} />,
+    );
+    fireEvent.click(view.getByRole("button", { name: messages.openSettings }));
+    fireEvent.change(view.getByLabelText(messages.aiEndpoint), { target: { value: "https://configured.example/v1/chat/completions" } });
+
+    const close = view.getByRole("button", { name: messages.closeSettings });
+    await waitFor(() => expect(save).toHaveBeenCalledOnce());
+    expect(close).toBeDisabled();
+    fireEvent.keyDown(view.getByRole("dialog"), { key: "Escape" });
+    expect(view.getByRole("dialog")).toBeVisible();
+
+    pendingSave.resolve(undefined);
+    await waitFor(() => expect(close).toBeEnabled());
+    expect(parsePersistedSettings(save.mock.calls[0]?.[0] ?? "").ai.endpoint).toBe("https://configured.example/v1/chat/completions");
+    fireEvent.click(close);
+    expect(view.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
   it("portals the modal outside the inert workbench and restores focus on close", async () => {
     const runtime = createWorkbenchRuntime(engine);
     const view = render(

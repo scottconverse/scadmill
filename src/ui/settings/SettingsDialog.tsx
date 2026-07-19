@@ -31,6 +31,7 @@ export interface SettingsDialogProps {
   readonly onRestore: (section: SettingsSection) => void | Promise<void>;
   readonly persistenceError?: string;
   readonly settingsMutationsBlocked?: boolean;
+  readonly settingsMutationInFlight?: boolean;
   readonly renderDiskCacheAvailable?: boolean;
   readonly projectDiskRenderCacheEligible?: boolean;
   readonly projectDiskRenderCacheEnabled?: boolean;
@@ -101,6 +102,7 @@ export function SettingsDialog({
   onRestore,
   persistenceError,
   settingsMutationsBlocked = false,
+  settingsMutationInFlight = false,
   renderDiskCacheAvailable = false,
   projectDiskRenderCacheEligible = false,
   projectDiskRenderCacheEnabled = false,
@@ -128,6 +130,7 @@ export function SettingsDialog({
     settings,
   });
   const secretMutationInFlight = aiSecret.mutationInFlight || profileSecretMutations > 0;
+  const closeBlocked = secretMutationInFlight || settingsMutationInFlight;
   const importBlocked = settingsMutationsBlocked || secretMutationInFlight;
   useEffect(() => searchInput.current?.focus(), []);
   const restoreSection = (section: SettingsSection) => {
@@ -162,7 +165,7 @@ export function SettingsDialog({
     event.stopPropagation();
     if (event.key === "Escape") {
       event.preventDefault();
-      if (!secretMutationInFlight) onClose();
+      if (!closeBlocked) onClose();
       return;
     }
     if (event.key !== "Tab") return;
@@ -184,12 +187,7 @@ export function SettingsDialog({
     <div aria-label={messages.settingsTitle} aria-modal="true" className="settings-dialog" onKeyDown={handleDialogKeyDown} role="dialog">
       <header className="settings-dialog-header">
         <h2>{messages.settingsTitle}</h2>
-        <button
-          aria-label={messages.closeSettings}
-          disabled={secretMutationInFlight}
-          onClick={onClose}
-          type="button"
-        >×</button>
+        <button aria-label={messages.closeSettings} disabled={closeBlocked} onClick={onClose} type="button">×</button>
       </header>
       <div className="settings-portability">
         <label>

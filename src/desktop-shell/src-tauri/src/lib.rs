@@ -14,6 +14,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tauri::{AppHandle, Manager, State, ipc::Channel};
 
+mod ai_http_broker;
 mod artifact_storage;
 mod associated_files;
 mod desktop_settings;
@@ -440,6 +441,7 @@ pub fn run() {
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .manage(associated_files::AssociatedFileQueue::default())
         .manage(NativeJobs::default())
+        .manage(ai_http_broker::create_broker().expect("AI HTTP transport failed"))
         .manage(mcp_stdio::McpStdioBridge::default())
         .setup(|app| {
             let current_directory = std::env::current_dir().unwrap_or_default();
@@ -452,6 +454,8 @@ pub fn run() {
             export_native,
             cancel_native,
             native_engine_version,
+            ai_http_broker::ai_http_request,
+            ai_http_broker::cancel_ai_http_request,
             desktop_settings::load_settings,
             desktop_settings::save_settings,
             keychain::load_ai_secret,

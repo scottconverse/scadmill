@@ -36,7 +36,7 @@ import { diagnosticStatusLabel, geometryDeltaStatus, renderStatusLabel } from ".
 import "./workbench.css";
 const CodeEditor = lazy(() => import("./editor/CodeEditor").then((module) => ({ default: module.CodeEditor })));
 export function Workbench({
-  runtime, engine, secretStore = EPHEMERAL_SECRET_STORE,
+  runtime, aiFetch = () => globalThis.fetch.bind(globalThis), engine, secretStore = EPHEMERAL_SECRET_STORE,
   engineLabel, engineAvailable = true, engineChecking = false, engineRecovery,
   wasmEngineProgress, wasmEngineFailureMessage,
   activeTheme,
@@ -373,7 +373,7 @@ export function Workbench({
         />
       </WorkbenchBanners>
       <WorkspaceFrame aiConfigured={(profile.ai.provider !== "none" && Boolean(profile.ai.model.trim() || profile.ai.models.length)) || profile.ai.configurations.length > 0} activityContent={{
-          ai: <AiWorkbenchPanel key={projectState.snapshot.workspaceIdentity} agentToolHandler={agentHandler} contextInputs={{ source: document.source, diagnostics: aiDiagnostics, parameters: aiParameters, screenshotDataUrl: viewerScreenshotDataUrl }} document={document} onApproveReview={approveMcpReview} onCopy={clipboard?.writeText} onInsertAtCursor={(code) => { const session = editorSessions.current.get(document.id); const head = session?.state.selection.main.head ?? document.source.length; const offset = Math.max(0, Math.min(document.source.length, head)); void runtime.dispatch({ kind: "edit-document", origin: "ai-panel", documentId: document.id, source: `${document.source.slice(0, offset)}${code}${document.source.slice(offset)}` }).catch(() => undefined); }} pendingReview={pendingReview} profile={profile} projectIdentity={projectState.snapshot.workspaceIdentity} runtime={runtime} secretStore={secretStore} />,
+          ai: <AiWorkbenchPanel key={projectState.snapshot.workspaceIdentity} agentToolHandler={agentHandler} aiFetch={aiFetch} contextInputs={{ source: document.source, diagnostics: aiDiagnostics, parameters: aiParameters, screenshotDataUrl: viewerScreenshotDataUrl }} document={document} onApproveReview={approveMcpReview} onCopy={clipboard?.writeText} onInsertAtCursor={(code) => { const session = editorSessions.current.get(document.id); const head = session?.state.selection.main.head ?? document.source.length; const offset = Math.max(0, Math.min(document.source.length, head)); void runtime.dispatch({ kind: "edit-document", origin: "ai-panel", documentId: document.id, source: `${document.source.slice(0, offset)}${code}${document.source.slice(offset)}` }).catch(() => undefined); }} pendingReview={pendingReview} profile={profile} projectIdentity={projectState.snapshot.workspaceIdentity} runtime={runtime} secretStore={secretStore} />,
           files: <FilesActivity canReveal={canRevealProjectFiles} canTrash={canTrashProjectFiles} directoryPicker={directoryPicker} engine={engineAvailable ? engine : undefined} portability={projectPortability} recoveryPersistence={recoveryPersistence} projectTransitionsBlocked={recoveryPending} requestedExport={fileCommands.requestedExport} requestedNewFile={fileCommands.requestedNewFile} runtime={runtime} storage={projectStorage} workspaceDirectory={workspaceDirectory} />,
           history: <McpReviewPanel history={history} historyDetails={historyDetails} pendingReviews={pendingReviews} sourceForPath={sourceForMcpPath} onApprove={approveMcpReview} onDeny={dismissReview} />,
         }}

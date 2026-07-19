@@ -13,6 +13,7 @@ import { createDesktopWelcomePreferencePersistence } from "./desktop-welcome-pre
 import { createEnginePathConfiguration } from "./engine-path-configuration";
 import { createTauriArtifactDestination } from "./tauri-artifact-destination";
 import { createTauriAssociatedFileSource } from "./tauri-associated-file-source";
+import { createTauriAiFetchFactory } from "./tauri-ai-http-fetch";
 import { createTauriBridge } from "./tauri-bridge";
 import { createTauriMessageDialog, createTauriSaveFileDialog } from "./tauri-dialogs";
 import {
@@ -37,6 +38,7 @@ export async function createDesktopPlatform(): Promise<ScadMillPlatform> {
   if (menuCommands.status === "rejected") await disableTauriNativeMenu();
   return {
     kind: "desktop",
+    aiFetch: createTauriAiFetchFactory(),
     engine: new NativeEngineService(
       createTauriBridge(undefined, undefined, () => enginePathConfiguration.load()),
       () => globalThis.crypto.randomUUID(),

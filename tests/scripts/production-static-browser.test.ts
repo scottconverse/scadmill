@@ -37,6 +37,7 @@ describe("production static browser evidence contract", () => {
     const runnerSource = readIfPresent("scripts/run-production-static-evidence.mjs");
     const viteSource = readIfPresent("vite.config.ts");
     const serverSource = readIfPresent("scripts/serve-static-dist.mjs");
+    const defaultConfigSource = readIfPresent("playwright.config.ts");
     const configSource = readIfPresent("playwright.production-static.config.ts");
     const workflowSource = readIfPresent(".github/workflows/ci.yml");
 
@@ -47,7 +48,12 @@ describe("production static browser evidence contract", () => {
     expect(viteSource).toContain("SCADMILL_WEB_BASE_PATH");
     expect(serverSource).toContain('resolve(process.env.SCADMILL_STATIC_ROOT || "dist")');
     expect(serverSource).toContain("SCADMILL_STATIC_BASE_PATH");
-    expect(configSource).toContain('testMatch: "m3-production-static.e2e.ts"');
+    expect(configSource).toContain(
+      'testMatch: ["m3-production-static.e2e.ts", "m4-cache-paint.e2e.ts"]',
+    );
+    expect(defaultConfigSource).toContain(
+      'testIgnore: ["m3-production-static.e2e.ts", "m4-cache-paint.e2e.ts"]',
+    );
     expect(configSource).toContain("SCADMILL_STATIC_BASE_PATH");
     expect(workflowSource).toContain("SCADMILL_STATIC_BASE_PATH: /scadmill-evidence/");
     expect(workflowSource).toContain("run: pnpm test:e2e:production-static");
