@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
-import { join, normalize, resolve } from "node:path";
-import { isDeepStrictEqual } from "node:util";
+import { resolve, win32 } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isDeepStrictEqual } from "node:util";
 
 import {
   aggregateN2ProcessMemory,
@@ -83,7 +83,7 @@ function parseJsonLines(bytes) {
 }
 
 function normalizedPath(value) {
-  return typeof value === "string" ? normalize(value).toLowerCase() : null;
+  return typeof value === "string" ? win32.normalize(value).toLowerCase() : null;
 }
 
 function auditedMemory(records, events) {
@@ -99,7 +99,7 @@ function auditedMemory(records, events) {
     || typeof artifact?.webView?.path !== "string"
     || !validSha(artifact.webView.executableSha256)
   ) throw new Error("Retained N-2 artifacts-verified application/WebView binding is invalid.");
-  const expectedWebViewPath = join(artifact.webView.path, "msedgewebview2.exe");
+  const expectedWebViewPath = win32.join(artifact.webView.path, "msedgewebview2.exe");
   const firstGui = rows[0]?.application?.[0];
   const expectedGuiIdentity = {
     pid: firstGui?.pid,

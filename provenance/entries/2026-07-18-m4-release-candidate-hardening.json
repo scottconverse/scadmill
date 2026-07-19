@@ -162,6 +162,13 @@
       "decision": "Use the uncapped full-render command only for the one intentional N-2 engine-kill probe; keep every repeated edit/render cycle and the final stable-source restoration on the configured preview path.",
       "rationale": "The first real accelerated Sandbox run proved that the preview facet cap reduced the deliberately slow $fn=400 model to the configured $fn=48 and let OpenSCAD exit before the exact external process-identity scan could capture it. Full render preserves the slow-model premise for a hash-bound kill target while leaving the reliability workload and preview-quality behavior unchanged.",
       "specBasis": ["N-2", "N-7", "V-5"]
+    },
+    {
+      "id": "D-0405",
+      "topic": "Revalidate retained Windows process paths identically on every verifier host",
+      "decision": "Normalize and join application/WebView evidence paths with Node's explicit win32 path implementation instead of the verifier host's native path implementation.",
+      "rationale": "Exact-head Linux CI proved that host-native path.join produced a mixed-separator Windows path and rejected an otherwise valid synthetic retained record before its intended tamper assertion. The evidence originates from Windows Sandbox, so verification must preserve Windows separator and case semantics whether revalidation runs on Windows, Linux, or macOS.",
+      "specBasis": ["N-2", "N-7", "V-5"]
     }
   ],
   "testEvidence": [
@@ -236,6 +243,20 @@
       }
     },
     {
+      "criterion": "Retained Windows process identities revalidate with the same separator and case semantics on every CI host.",
+      "test": "Use exact-head Linux CI as RED, replace host-native path normalization/joining with explicit win32 semantics, then run only the N-2 verifier/runner tests plus strict type, touched-file lint, provenance, and diff checks.",
+      "red": {
+        "command": "GitHub Actions CI run 29679313769, Web checks job 88172450692, Unit and integration tests",
+        "observedAt": "2026-07-19T02:10:02-06:00",
+        "outcome": "RED: Linux CI failed 2 of 1,454 tests because host-native path.join created a mixed-separator expected WebView path, causing the valid retained fixture and a later GUI-tamper assertion to fail first at WebView path binding."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/n2-soak-evidence.test.ts tests/scripts/n2-soak-runner.test.ts --reporter=verbose --maxWorkers=1; pnpm.cmd exec tsc --noEmit --pretty false; touched-file Biome; pnpm.cmd check:provenance; git diff --check",
+        "observedAt": "2026-07-19T02:12:00-06:00",
+        "outcome": "GREEN: 2 files and all 13 N-2 tests passed after explicit win32 normalization. Static verification remains recorded separately; a replacement exact-head Linux CI result is still required."
+      }
+    },
+    {
       "criterion": "The complete dirty Windows-beta candidate passes every local generated, static, unit, browser, build, dependency, provenance, and native gate before commit freeze.",
       "test": "Run each local candidate lane once in sequence, stop at the first real failure, repair only that failed lane, and resume from the first unrun gate without repeating passed broad lanes.",
       "red": {
@@ -275,6 +296,11 @@
       "url": "local://work/scadmill-beta-a64a7b0-accelerated-sandbox-r2/evidence.json",
       "sought": "First real packaged execution of the accelerated N-2 diagnostic",
       "confirmation": "The run rejected itself because the preview facet cap made the intentional crash model finish before exact process capture. The probe was routed through a RED/GREEN repair that uses uncapped full render only for the verified kill while retaining preview for all ordinary soak cycles."
+    },
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29679313769/job/88172450692",
+      "sought": "Cross-host revalidation of retained Windows N-2 evidence",
+      "confirmation": "Linux CI exposed host-native path semantics in the verifier: the same Windows WebView path was joined with mixed separators and rejected. Explicit win32 normalization now makes retained Windows evidence host-independent without weakening exact-path comparison."
     },
     {
       "url": "local://playwright.config.ts",
