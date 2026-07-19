@@ -12,6 +12,10 @@ Reproducible geometry requires the exact version in `ENGINE_VERSION`. Configure 
 
 Preview uses the fastest available backend, the preview timeout, and preview-only quality limits. Full applies no preview overrides and is the only source used for exports.
 
+### How does `$t` animation render?
+
+An executable `$t` reference in the active OpenSCAD file shows a 100-frame animation bar below the viewer. Frames map to `$t` values from 0.00 through 0.99 and use the normal preview pipeline. FPS is a target: ScadMill waits for each real geometry render, so slow models reduce playback speed instead of building a render queue. Pause cancels the in-flight animation request and stops future frames; the render overlay's Cancel action remains available for any current engine request.
+
 ## Where are my projects stored?
 
 Desktop projects remain in the folder you selected. Browser workspaces live in IndexedDB under the browser profile. Browser ZIP export is the portable backup and transfer path.

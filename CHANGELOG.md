@@ -6,6 +6,8 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Added
 
+- Added M4 OpenSCAD `$t` animation: source-aware viewer controls provide a fixed 100-frame scrubber, 1-60 target FPS, sequential play/pause, exact native/WASM `$t` parameter transport, preview-only quality policy, cache-separated frames, failure cleanup, and bounded history behavior.
+
 - Completed the M4 C10 AI-assist product path: multiple named provider/model configurations with isolated desktop/browser secrets, provider-native streamed chat and agent continuations, safe markdown and viewer-image payloads, per-project conversation/model persistence, origin-safe per-hunk proposals, and a session-opt-in capped MCP-backed agent loop with cancellation and review-first mutation policy.
 
 - Added the M4 workspace History inspector: commands are presented newest first with explicit user, AI panel, external agent, or system origin badges and full timestamps; selecting an entry shows its exact metadata and, for source edits, the before/after source without exposing UI-only detail through MCP. Repeated same-summary commands remain visibly and accessibly distinguishable.

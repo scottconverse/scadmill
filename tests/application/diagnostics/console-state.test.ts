@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  CONSOLE_RUN_LIMIT,
   type ConsoleState,
   createConsoleState,
   formatConsoleHistory,
@@ -10,6 +11,48 @@ import {
 import type { RenderFailure } from "../../../src/application/engine/contracts";
 
 describe("console state", () => {
+  it("bounds completed run metadata independently of output line count", () => {
+    let state: ConsoleState = {
+      retainedLineCount: 0,
+      runs: Array.from({ length: CONSOLE_RUN_LIMIT }, (_, index) => ({
+        jobId: `animation-${index}`,
+        entryFile: "animated.scad",
+        quality: "preview" as const,
+        startedAt: "2026-07-18T21:00:00.000Z",
+        status: "success" as const,
+        durationMs: 1,
+        diagnostics: [],
+        lines: [],
+        droppedLineCount: 0,
+      })),
+    };
+    state = reduceConsoleState(state, {
+      kind: "start-run",
+      jobId: `animation-${CONSOLE_RUN_LIMIT}`,
+      entryFile: "animated.scad",
+      quality: "preview",
+      startedAt: "2026-07-18T21:00:01.000Z",
+    });
+    state = reduceConsoleState(state, {
+      kind: "finish-run",
+      jobId: `animation-${CONSOLE_RUN_LIMIT}`,
+      durationMs: 1,
+      result: {
+        kind: "3d",
+        mesh: { format: "stl-binary", bytes: new Uint8Array(84) },
+        stats: { engineTimeMs: 1 },
+        diagnostics: [],
+        rawLog: "",
+      },
+    });
+
+    expect(state.runs).toHaveLength(CONSOLE_RUN_LIMIT);
+    expect(state.runs[0]?.jobId).toBe("animation-1");
+    expect(state.droppedRunCount).toBe(1);
+    expect(state.retainedLineCount).toBe(0);
+    expect(formatConsoleHistory(state)).toMatch(/^\[1 older run dropped\]\n/u);
+  });
+
   it("formats exact localized running history with pending time and singular dropped output", () => {
     const state: ConsoleState = {
       retainedLineCount: 1,

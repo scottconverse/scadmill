@@ -275,6 +275,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
   let resolvedEngineInfo: EngineInfo | null | undefined;
   const knownCacheKeys = new RenderCacheKeyIndex();
   let renderAttemptGeneration = 0;
+  let activeAnimationCommand: WorkbenchCommand | undefined;
   let disposed = false;
   const pendingCommands = new Set<Promise<void>>();
   const pendingProjectCommands = new Set<Promise<void>>();
@@ -870,7 +871,15 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
   }
 
   function dispatch(command: WorkbenchCommand): Promise<void> {
-    if (command.kind === "render-active" || command.kind === "cancel-render") {
+    if (command.kind === "render-active") {
+      const pending = executeCommand(command);
+      return command.animationTime === undefined
+        ? pending
+        : pending.finally(() => {
+            if (activeAnimationCommand === command) activeAnimationCommand = undefined;
+          });
+    }
+    if (command.kind === "cancel-render" || command.kind === "cancel-animation") {
       return executeCommand(command);
     }
     const ordered = command.kind !== "history-undo" && command.kind !== "history-redo";
@@ -1286,9 +1295,17 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       return;
     }
 
+    if (command.kind === "cancel-animation") {
+      if (activeAnimationCommand === undefined) return;
+      activeAnimationCommand = undefined;
+      cancelActiveRender();
+      return;
+    }
+
     if (command.kind === "cancel-render") {
       const active = render.getState();
       if (active.status !== "rendering" || !active.jobId) return;
+      activeAnimationCommand = undefined;
       cancelActiveRender();
       record(command, makeId(), `Cancel render ${active.entryFile ?? active.jobId}`, false);
       return;
@@ -1480,8 +1497,20 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       throw new Error(`Unhandled workbench command: ${command.kind}`);
     }
 
+    if (command.animationTime !== undefined) {
+      if (!Number.isFinite(command.animationTime)
+        || command.animationTime < 0
+        || command.animationTime > 1) {
+        throw new Error("Animation time must be between 0 and 1.");
+      }
+      if (command.quality !== "preview") {
+        throw new Error("Animation frames must use preview quality.");
+      }
+    }
+
     autoRenderTimer.clear();
     cancelActiveRender();
+    activeAnimationCommand = command.animationTime === undefined ? undefined : command;
     const renderAttempt = renderAttemptGeneration;
     const commandId = makeId();
     const workspace = documents.getState();
@@ -1491,11 +1520,14 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     const projectRevision = projectState.revision;
     const sourceFiles = buildRuntimeRenderFileMap(projectState, workspace);
     const parameterValues = engineParameterSnapshot(document.id);
+    const requestParameterValues = command.animationTime === undefined
+      ? parameterValues
+      : { ...parameterValues, $t: command.animationTime };
     const rendering = settings.getState();
     const request: RenderRequest = {
       entryFile: document.path,
       files: sourceFiles,
-      parameters: parameterValues,
+      parameters: requestParameterValues,
       quality: command.quality,
       timeoutMs: command.quality === "preview"
         ? rendering.previewTimeoutMs
@@ -1577,12 +1609,14 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
         parameterValues,
         result: cachedResult.result,
       }, true);
-      record(
-        command,
-        commandId,
-        `Render ${document.path} at ${command.quality} quality`,
-        false,
-      );
+      if (command.animationTime === undefined) {
+        record(
+          command,
+          commandId,
+          `Render ${document.path} at ${command.quality} quality`,
+          false,
+        );
+      }
       viewer.setState(reduceViewerState(viewer.getState(), {
         kind: "present-result",
         documentId: document.id,
@@ -1628,12 +1662,14 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       projectRevision,
       parameterValues,
     }, true);
-    record(
-      command,
-      commandId,
-      `Render ${document.path} at ${command.quality} quality`,
-      false,
-    );
+    if (command.animationTime === undefined) {
+      record(
+        command,
+        commandId,
+        `Render ${document.path} at ${command.quality} quality`,
+        false,
+      );
+    }
 
     const rawResult = await job.done;
     unsubscribeOutput();

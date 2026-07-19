@@ -255,6 +255,27 @@ describe("OpenScadWasmRuntime", () => {
     expect(harness.state.current?.fs.directories).toEqual(new Set(["/"]));
   });
 
+  it("passes the normalized animation time as an exact OpenSCAD definition", async () => {
+    const harness = moduleHarness((arguments_, current) => {
+      const output = arguments_[arguments_.indexOf("-o") + 1];
+      current.fs.writeFile(output, binaryStl(1));
+      return 0;
+    });
+    const runtime = await createOpenScadWasmRuntime(harness.namespace, {
+      locateFile: (path) => path,
+    });
+
+    await runtime.render({ ...renderRequest(), parameters: { $t: 0.25 } });
+
+    expect(harness.state.current?.calls[0]).toEqual([
+      "--export-format", "binstl",
+      "-D", "$t=0.25",
+      "-D", "$fn=24",
+      "-o", expect.stringMatching(/\/output\/model\.stl$/u),
+      "main.scad",
+    ]);
+  });
+
   it("omits the facet override for full renders and falls back to SVG with exact summary arguments", async () => {
     let invocation = 0;
     const harness = moduleHarness((arguments_, current) => {

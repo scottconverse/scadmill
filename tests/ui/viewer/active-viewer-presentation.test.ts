@@ -35,6 +35,57 @@ const drawing: RenderSuccess2D = {
 };
 
 describe("active viewer presentation", () => {
+  it("keeps a transient $t render current without weakening real parameter staleness", () => {
+    const source = "width = 10; rotate($t * 360) cube(width);";
+    const documents = reduceDocumentWorkspace(createDocumentWorkspace(), {
+      kind: "edit",
+      documentId: "document-main",
+      source,
+    });
+    let parameters = createParameterState([{
+      documentId: "document-main",
+      revision: 1,
+      source,
+    }]);
+    parameters = reduceParameterState(parameters, {
+      kind: "set-value",
+      documentId: "document-main",
+      name: "width",
+      value: 25,
+    });
+    const render: RenderState = {
+      status: "success",
+      quality: "preview",
+      documentId: "document-main",
+      sourceRevision: 1,
+      sourceFiles: new Map([["main.scad", source]]),
+      parameterValues: { width: 25 },
+      result: success,
+    };
+
+    expect(resolveActiveViewerPresentation({
+      activeDocumentId: "document-main",
+      documents,
+      parameters,
+      render,
+      viewer: viewerDocument(createViewerState(), "document-main"),
+    })).toMatchObject({ currentResult: success, stale: false, dimmed: false });
+
+    parameters = reduceParameterState(parameters, {
+      kind: "set-value",
+      documentId: "document-main",
+      name: "width",
+      value: 30,
+    });
+    expect(resolveActiveViewerPresentation({
+      activeDocumentId: "document-main",
+      documents,
+      parameters,
+      render,
+      viewer: viewerDocument(createViewerState(), "document-main"),
+    })).toMatchObject({ currentResult: undefined, stale: true });
+  });
+
   it("dims last-good geometry when only the active parameter override changed", () => {
     const source = "width = 10; cube(width);";
     const documents = reduceDocumentWorkspace(createDocumentWorkspace(), {

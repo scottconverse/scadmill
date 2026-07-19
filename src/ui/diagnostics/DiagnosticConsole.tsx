@@ -156,6 +156,11 @@ export function DiagnosticConsole({
         {copyStatus && <span role="status">{copyStatus}</span>}
       </div>
 
+      {Boolean(state.droppedRunCount) && (
+        <p className="console-dropped-runs" role="status">
+          {messages.consoleRunsDropped(state.droppedRunCount ?? 0)}
+        </p>
+      )}
       {state.runs.length === 0 && <p>{emptyMessage}</p>}
       {waitingForOutput && <p>{messages.consoleWaiting}</p>}
       {state.runs.length > 0 && !hasMatches && !waitingForOutput && (

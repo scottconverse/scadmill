@@ -7,7 +7,7 @@ import type {
   RenderSuccess3D,
 } from "../../../src/application/engine/contracts";
 import { createProjectSnapshot } from "../../../src/application/files/project-snapshot";
-import type { RenderCache } from "../../../src/application/render-cache/render-cache";
+import { RenderMemoryCache, type RenderCache } from "../../../src/application/render-cache/render-cache";
 import type { RenderDiskCacheStorage } from "../../../src/application/render-cache/render-disk-cache";
 import { createWorkbenchRuntime } from "../../../src/application/runtime/workbench-runtime";
 
@@ -43,6 +43,65 @@ function cacheableEngine(): EngineService {
 }
 
 describe("createWorkbenchRuntime", () => {
+  it("renders animation frames as preview requests with a validated $t override", async () => {
+    const renderEngine = successfulEngine();
+    const runtime = createWorkbenchRuntime(renderEngine, {
+      initialScratchSource: "width = 10; cube(width + $t);",
+      renderCache: null,
+    });
+    await runtime.dispatch({
+      kind: "update-parameters",
+      origin: "user",
+      action: { kind: "set-value", documentId: "document-main", name: "width", value: 25 },
+    });
+    const historyBeforeFrame = runtime.history.getState();
+
+    await runtime.dispatch({
+      kind: "render-active",
+      origin: "system",
+      quality: "preview",
+      animationTime: 0.25,
+    });
+
+    expect(renderEngine.render).toHaveBeenCalledWith(expect.objectContaining({
+      quality: "preview",
+      parameters: { width: 25, $t: 0.25 },
+    }));
+    expect(runtime.render.getState()).toMatchObject({
+      status: "success",
+      quality: "preview",
+      parameterValues: { width: 25 },
+    });
+    expect(runtime.history.getState()).toEqual(historyBeforeFrame);
+    await expect(runtime.dispatch({
+      kind: "render-active",
+      origin: "system",
+      quality: "full",
+      animationTime: 0.5,
+    })).rejects.toThrow("Animation frames must use preview quality");
+    await expect(runtime.dispatch({
+      kind: "render-active",
+      origin: "system",
+      quality: "preview",
+      animationTime: Number.NaN,
+    })).rejects.toThrow("Animation time must be between 0 and 1");
+  });
+
+  it("caches equal animation times and keeps different frames distinct", async () => {
+    const renderEngine = cacheableEngine();
+    const runtime = createWorkbenchRuntime(renderEngine, {
+      renderCache: new RenderMemoryCache(),
+    });
+
+    await runtime.dispatch({ kind: "render-active", origin: "system", quality: "preview", animationTime: 0.1 });
+    await runtime.dispatch({ kind: "render-active", origin: "system", quality: "preview", animationTime: 0.1 });
+    expect(runtime.render.getState()).toMatchObject({ status: "success", cached: true });
+    await runtime.dispatch({ kind: "render-active", origin: "system", quality: "preview", animationTime: 0.2 });
+
+    expect(renderEngine.render).toHaveBeenCalledTimes(2);
+    expect(runtime.history.getState()).toEqual([]);
+  });
+
   it("persists disk-cache consent per project and never enables scratch implicitly", async () => {
     const enabled = new Map<string, boolean>();
     const preferencePersistence = {

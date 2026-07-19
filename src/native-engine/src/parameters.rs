@@ -99,6 +99,7 @@ mod tests {
     #[test]
     fn formats_typed_parameter_definitions_in_stable_order() {
         let parameters = BTreeMap::from([
+            ("$t".to_string(), ParamValue::Number(0.25)),
             ("size".to_string(), ParamValue::Number(20.0)),
             ("centered".to_string(), ParamValue::Boolean(true)),
             (
@@ -114,6 +115,7 @@ mod tests {
         assert_eq!(
             parameter_definitions(&parameters).expect("parameters should format"),
             vec![
+                "$t=0.25",
                 "centered=true",
                 "label=\"quoted \\\"text\\\" \\\\ path\"",
                 "points=[1, -2.5, 3]",

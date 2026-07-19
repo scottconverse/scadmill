@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { act, render, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 
 import type { EngineService } from "../../../src/application/engine/contracts";
@@ -60,6 +60,37 @@ it("forwards engine availability to the dependency-aware empty viewer", () => {
   render(<ViewerPaneConnector {...props} />);
 
   expect(paneProps.engineAvailable).toBe(false);
+});
+
+it("places source-driven animation controls with the viewer surface", () => {
+  const runtime = createWorkbenchRuntime({
+    render: vi.fn(), export: vi.fn(), version: vi.fn(), cancel: vi.fn(),
+  });
+
+  render(
+    <ViewerPaneConnector
+      colors={colors}
+      dimmed={false}
+      documentId="doc"
+      engineAvailable={false}
+      entryFile="main.scad"
+      maximized={false}
+      narrow={false}
+      renderStatus="idle"
+      runtime={runtime}
+      source="include <lib/animation.scad>"
+      sourceFiles={new Map([
+        ["main.scad", "include <lib/animation.scad>"],
+        ["lib/animation.scad", "rotate($t * 360) cube(10);"],
+      ])}
+      viewer={viewerDocument(createViewerState(), "doc")}
+      onLayoutAction={vi.fn()}
+      onShowConsole={vi.fn()}
+    />,
+  );
+
+  expect(screen.getByRole("region", { name: "Animation" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Play animation" })).toBeDisabled();
 });
 
 it("uses C9 viewer preferences as the live projection, furniture, mouse, and color authority", async () => {

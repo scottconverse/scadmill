@@ -22,6 +22,12 @@ ScadMill records recoverable unsaved buffers. If recovery data exists, review it
 
 3D results support orbit, pan, zoom, axis views, fit, projection choice, scene furniture, measurement, and pinned annotations. Engine-produced 2D SVG uses a separate sanitized pane with pan, zoom, fit, dimensions, and scale. An incompatible pinned viewer mode shows an explicit empty state.
 
+## Animate a model
+
+When the active OpenSCAD file uses the executable `$t` animation variable, an **Animation** bar appears below the viewer. The scrubber covers a fixed 100-frame loop: frame 1 passes `$t=0.00`, frame 100 passes `$t=0.99`, and playback wraps to the first frame. Set a target rate from 1 to 60 FPS, choose **Play**, or move directly to a frame. Every frame is real preview-quality geometry and uses the normal preview timeout and facet policy; animation never changes the source or becomes an export source.
+
+ScadMill waits for each preview render before requesting the next frame, so a complex model runs below the selected target rate instead of building a render queue. **Pause** cancels the in-flight animation request and prevents later frames. The viewer's render **Cancel** action remains available for any current engine request. Removing `$t`, changing documents, an engine failure, or closing the surface stops playback. Viewer camera and scene controls stay in place between frames.
+
 ## Use Customizer parameters
 
 Top-level stock OpenSCAD Customizer declarations become typed controls. Overrides affect render and export requests without rewriting source. Choose the write action when you intentionally want explicit values written into the assignments. Named sets import and export using the stock JSON form.
@@ -68,4 +74,4 @@ Desktop AI secrets use the OS credential store and remain isolated per named pro
 
 ## Current milestone limits
 
-Q-0033 and Q-0034 are resolved, but their exact compliance-package and parity execution evidence must still pass before the web engine is published. The Windows beta includes the current AI, MCP, and complete command-history surfaces. Animation, installed libraries, navigation and refactoring expansion, batch features, printability and slicing estimates, color-preserving 3MF, and the headless CLI remain release-gated M4-M6 work unless their milestone evidence is recorded.
+Q-0033 and Q-0034 are resolved, but their exact compliance-package and parity execution evidence must still pass before the web engine is published. The Windows beta includes the current animation, AI, MCP, and complete command-history surfaces. Installed libraries, navigation and refactoring expansion, batch features, printability and slicing estimates, color-preserving 3MF, and the headless CLI remain release-gated M5-M6 work unless their milestone evidence is recorded.

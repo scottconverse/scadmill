@@ -100,6 +100,14 @@ export const openScadCurrentFileSymbolDetails = {
 
 export const messages = {
   appName: "ScadMill",
+  animation: "Animation",
+  animationFps: "Animation FPS",
+  animationError: (error: unknown) => `Animation stopped: ${error instanceof Error ? error.message : "the frame request failed."}`,
+  animationFrame: (frame: number, total: number) => `Frame ${frame} of ${total}`,
+  animationFrameControl: "Animation frame",
+  animationTime: (time: number) => `$t ${time.toFixed(2)}`,
+  pauseAnimation: "Pause animation",
+  playAnimation: "Play animation",
   applicationMenu: "Application menu",
   fileMenu: "File",
   saveDocument: "Save",
@@ -729,6 +737,7 @@ export const messages = {
   consoleQuality: (quality: "preview" | "full") => quality,
   consoleStream: (stream: "stdout" | "stderr" | "unknown") => stream,
   consoleLinesDropped: (count: number) => `${count} older ${count === 1 ? "line" : "lines"} dropped`,
+  consoleRunsDropped: (count: number) => `${count} older ${count === 1 ? "run" : "runs"} dropped`,
   consoleSeverity: (severity: string) => severity === "all"
     ? "All"
     : `${severity[0].toUpperCase()}${severity.slice(1)}`,

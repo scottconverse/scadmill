@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-18-m4-animation",
+  "createdAt": "2026-07-18T22:10:42-06:00",
+  "summary": "Implement FR-4.10 OpenSCAD animation with source-aware controls, sequential preview rendering, native and WASM parameter parity, owned cancellation, and bounded diagnostic history.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "FR-4.8", "FR-4.10", "N-2"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "docs/FAQ.md", "status": "modified" },
+    { "path": "docs/USER-GUIDE.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-18-m4-animation.json", "status": "added" },
+    { "path": "src/application/animation/animation-source.ts", "status": "added" },
+    { "path": "src/application/diagnostics/console-state.ts", "status": "modified" },
+    { "path": "src/application/runtime/workbench-runtime-contracts.ts", "status": "modified" },
+    { "path": "src/application/runtime/workbench-runtime.ts", "status": "modified" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/native-engine/src/parameters.rs", "status": "modified" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/animation/AnimationBar.tsx", "status": "added" },
+    { "path": "src/ui/animation/animation-bar.css", "status": "added" },
+    { "path": "src/ui/diagnostics/DiagnosticConsole.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/ViewerPaneConnector.tsx", "status": "modified" },
+    { "path": "tests/application/animation/animation-source.test.ts", "status": "added" },
+    { "path": "tests/application/diagnostics/console-state.test.ts", "status": "modified" },
+    { "path": "tests/application/runtime/workbench-runtime.test.ts", "status": "modified" },
+    { "path": "tests/platform-web/openscad-wasm-runtime.test.ts", "status": "modified" },
+    { "path": "tests/ui/animation/AnimationBar.test.tsx", "status": "added" },
+    { "path": "tests/ui/diagnostics/DiagnosticConsole.test.tsx", "status": "modified" },
+    { "path": "tests/ui/viewer/ViewerPaneConnector.test.tsx", "status": "modified" },
+    { "path": "tests/ui/viewer/active-viewer-presentation.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0394",
+      "topic": "Use a fixed source-aware animation frame domain",
+      "decision": "Show animation controls only when executable $t use occurs in the active source or a reachable include/use dependency, and map a fixed 100-frame loop to $t values 0.00 through 0.99.",
+      "rationale": "Lexical detection avoids false controls for comments and strings, dependency traversal respects project structure, and a fixed domain gives scrubbing and playback one deterministic frame identity across native and WASM paths.",
+      "specBasis": ["FR-4.10"]
+    },
+    {
+      "id": "D-0395",
+      "topic": "Backpressure animation through the ordinary preview render path",
+      "decision": "Dispatch one preview frame at a time, wait for completion before scheduling the next target-FPS frame, pass $t as a transient request parameter, keep animation frames out of command history, and let Pause cancel only the animation-owned in-flight request.",
+      "rationale": "Sequential dispatch prevents render-queue growth and supersession churn, transient parameters preserve the user's durable parameter state, and ownership-aware cancellation cannot terminate a newer manual render.",
+      "specBasis": ["FR-4.10", "N-2"]
+    },
+    {
+      "id": "D-0396",
+      "topic": "Bound completed diagnostic run metadata",
+      "decision": "Retain at most 1000 completed console runs while preserving every running job, track the cumulative number removed, and disclose that count visibly and in copied console history.",
+      "rationale": "Animation can create many legitimate renders even when geometry caching is unavailable. Bounding completed metadata prevents unbounded long-session growth without silently presenting truncated history as complete.",
+      "specBasis": ["FR-4.8", "FR-4.10", "N-2"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "FR-4.10 exposes accessible source-aware controls and renders exact, sequential, cancellable preview frames with native/WASM parity and bounded long-session state.",
+      "test": "Start with missing animation modules and absent runtime $t transport, implement source/runtime/UI/native/WASM behavior under focused regressions, run a narrow real-engine browser walkthrough, execute the full browser unit and production-build gates, and complete three independent bounded reviews.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/animation/animation-source.test.ts tests/ui/animation/AnimationBar.test.tsx tests/application/runtime/workbench-runtime.test.ts --reporter=dot; three independent FR-4.10 adversarial reviews",
+        "observedAt": "2026-07-18T21:40:00-06:00",
+        "outcome": "RED: animation modules were initially absent and the runtime did not transport $t. Independent reviews then reproduced missing include/use dependency detection, unsafe pause ownership, silent frame-dispatch rejection, zero-based screen-reader frame identity, unbounded console-run metadata, and absent visible disclosure when old runs were removed. Each product defect received a focused assertion before correction."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run <8 affected files> --reporter=dot; pnpm.cmd test -- --reporter=dot; pnpm.cmd typecheck; pnpm.cmd lint; pnpm.cmd build; cargo test --manifest-path src/native-engine/Cargo.toml parameters --locked; pnpm.cmd check:licenses all; pnpm.cmd check:provenance; git diff --check",
+        "observedAt": "2026-07-18T22:10:00-06:00",
+        "outcome": "GREEN: the affected denominator passed 8 files/84 tests and the complete browser unit denominator passed 188 files/1422 tests. The 800-by-800 in-app browser walkthrough showed the animation bar with real OpenSCAD 2026.06.12 preview geometry and no horizontal overflow. TypeScript, lint/source policy over 483 files, native parameter tests, production build, licenses, provenance, and diff hygiene exited 0. Runtime, UI/UX, and specification reviewers each returned literal 0 blocker / 0 critical / 0 major / 0 minor / 0 nit."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://src/application/animation",
+      "sought": "Adversarial source detection, scheduling, cancellation, accessibility, runtime transport, and long-session inspection",
+      "confirmation": "Three independent bounded reviews converted reachable-dependency, cancellation-ownership, visible-error, screen-reader identity, and console-retention edge cases into focused regressions before converging to strict zero."
+    }
+  ],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

@@ -5,6 +5,7 @@ import type {
   RenderFailure,
   RenderResult,
 } from "../../application/engine/contracts";
+import type { ProjectFileContent } from "../../application/files/project-snapshot";
 import { isSha256GeometryIdentity } from "../../application/geometry/geometry-identity";
 import type { WorkspaceLayoutAction } from "../../application/layout/workspace-layout";
 import type { WorkbenchRuntime } from "../../application/runtime/workbench-runtime";
@@ -14,12 +15,14 @@ import type {
   ViewerDocumentState,
 } from "../../application/viewer/viewer-state";
 import { useReadonlyStore } from "../use-readonly-store";
+import { AnimationBar } from "../animation/AnimationBar";
 import { ViewerPane } from "./ViewerPane";
 
 export interface ViewerPaneConnectorProps {
   readonly colors: ThemeTokens["viewer"];
   readonly dimmed: boolean;
   readonly documentId: string;
+  readonly entryFile?: string;
   readonly engineAvailable?: boolean;
   readonly engineChecking?: boolean;
   readonly failure?: RenderFailure;
@@ -32,6 +35,8 @@ export interface ViewerPaneConnectorProps {
   readonly renderStatus: "idle" | "rendering" | "success" | "failure";
   readonly result?: RenderResult;
   readonly runtime: WorkbenchRuntime;
+  readonly source?: string;
+  readonly sourceFiles?: ReadonlyMap<string, ProjectFileContent>;
   readonly viewer: ViewerDocumentState;
   readonly onLayoutAction: (action: WorkspaceLayoutAction) => void;
   readonly onShowConsole: () => void;
@@ -43,6 +48,7 @@ export function ViewerPaneConnector({
   colors,
   dimmed,
   documentId,
+  entryFile,
   engineAvailable = true,
   engineChecking = false,
   failure,
@@ -55,6 +61,8 @@ export function ViewerPaneConnector({
   renderStatus,
   result,
   runtime,
+  source = "",
+  sourceFiles,
   viewer,
   onLayoutAction,
   onShowConsole,
@@ -131,6 +139,7 @@ export function ViewerPaneConnector({
   );
 
   return (
+    <div className="viewer-animation-surface">
     <ViewerPane
       colors={colors}
       dimmed={dimmed}
@@ -189,5 +198,7 @@ export function ViewerPaneConnector({
       onShowConsole={onShowConsole}
       onViewerAction={dispatchViewer}
     />
+    <AnimationBar documentId={documentId} engineAvailable={engineAvailable} entryFile={entryFile} runtime={runtime} source={source} sourceFiles={sourceFiles} />
+    </div>
   );
 }

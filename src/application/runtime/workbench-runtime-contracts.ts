@@ -88,6 +88,7 @@ export type WorkbenchCommand =
   | { kind: "engine-availability-changed"; origin: CommandOrigin; available: boolean }
   | { kind: "editor-command"; origin: CommandOrigin; outcome: EditorCommandOutcome }
   | { kind: "cancel-render"; origin: CommandOrigin }
+  | { kind: "cancel-animation"; origin: CommandOrigin }
   | { kind: "clear-console"; origin: CommandOrigin }
   | { kind: "retry-annotation-persistence"; origin: CommandOrigin }
   | { kind: "export-annotation-metadata"; origin: CommandOrigin }
@@ -97,7 +98,12 @@ export type WorkbenchCommand =
   | { kind: "write-parameter-values"; origin: CommandOrigin; documentId: string }
   | { kind: "history-undo"; origin: CommandOrigin }
   | { kind: "history-redo"; origin: CommandOrigin }
-  | { kind: "render-active"; origin: CommandOrigin; quality: Quality };
+  | {
+      kind: "render-active";
+      origin: CommandOrigin;
+      quality: Quality;
+      animationTime?: number;
+    };
 
 export interface HistoryEntry {
   commandId: string;

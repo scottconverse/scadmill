@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
 import { activeDocument, canCloseDocument, canReopenDocument } from "../application/documents/document-workspace";
 import type { WorkspaceLayoutAction } from "../application/layout/workspace-layout";
 import { parameterDocument } from "../application/parameters/parameter-state";
+import { buildRuntimeRenderFileMap } from "../application/runtime/project-render-files";
 import { EPHEMERAL_SECRET_STORE } from "../application/settings/secret-store";
 import { viewerDocument } from "../application/viewer/viewer-state";
 import { messages } from "../messages/en";
@@ -65,6 +66,7 @@ export function Workbench({
   const { connected: mcpConnected, enabled: mcpEnabled, setEnabled: setMcpEnabled, permissions: mcpPermissions, setPermission: setMcpPermission, pendingReviews, pendingReview, approveReview, restoreReview, dismissReview, agentHandler } = useMcpStdio(runtime, engine, mcpPort, captureMcpScreenshot);
   useEffect(() => { if (document.id) setViewerScreenshotDataUrl(undefined); }, [document.id]);
   const projectState = useReadonlyStore(runtime.project, (state) => state);
+  const animationFiles = buildRuntimeRenderFileMap(projectState, documents);
   const history = useReadonlyStore(runtime.history, (state) => state); const historyDetails = useReadonlyStore(runtime.historyDetails, (state) => state); const controls = useReadonlyStore(runtime.controls, (state) => state);
   const { sourceForPath: sourceForMcpPath, approve: approveMcpReview } = useMcpReviewApproval(
     runtime, documents, projectState, approveReview, restoreReview,
@@ -290,6 +292,7 @@ export function Workbench({
   const viewer = (
     <ViewerPaneConnector
       colors={activeTheme.viewer} dimmed={presentation.dimmed} documentId={document.id}
+      entryFile={document.path} source={document.source} sourceFiles={animationFiles}
       engineAvailable={engineAvailable} engineChecking={engineChecking}
       failure={presentation.failure} maximized={layout.maximized === "viewer"}
       narrow={narrow} quality={presentation.quality}

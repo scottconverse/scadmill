@@ -57,6 +57,18 @@ describe("DiagnosticConsole", () => {
     expect(consoleView.getByText("\"hi\", 42")).toHaveAttribute("data-severity", "echo");
   });
 
+  it("discloses when older completed runs were removed from retained history", () => {
+    const view = render(
+      <DiagnosticConsole
+        state={{ ...state, droppedRunCount: 3 }}
+        emptyMessage="No runs"
+        onClear={vi.fn()}
+      />,
+    );
+
+    expect(within(view.container).getByText(messages.consoleRunsDropped(3))).toBeVisible();
+  });
+
   it("filters structured diagnostics by severity and searches all visible records", () => {
     const view = render(
       <DiagnosticConsole state={state} emptyMessage="No runs" onClear={vi.fn()} />,

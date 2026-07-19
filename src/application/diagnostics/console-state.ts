@@ -9,6 +9,7 @@ import type {
 import { messages } from "../../messages/en";
 
 export const CONSOLE_LINE_LIMIT = 10_000;
+export const CONSOLE_RUN_LIMIT = 1_000;
 
 export interface ConsoleLine {
   sequence: number;
@@ -36,6 +37,7 @@ export interface ConsoleRun {
 export interface ConsoleState {
   runs: readonly ConsoleRun[];
   retainedLineCount: number;
+  droppedRunCount?: number;
 }
 
 export type ConsoleAction =
@@ -51,7 +53,7 @@ export type ConsoleAction =
   | { kind: "clear" };
 
 export function createConsoleState(): ConsoleState {
-  return { runs: [], retainedLineCount: 0 };
+  return { runs: [], retainedLineCount: 0, droppedRunCount: 0 };
 }
 
 function splitRaw(raw: string): string[] {
@@ -62,11 +64,19 @@ function eventLines(event: EngineOutputEvent): ConsoleLine[] {
   return splitRaw(event.raw).map((raw, part) => ({ ...event, part, raw }));
 }
 
-function capLines(runs: readonly ConsoleRun[]): ConsoleState {
-  const retainedLineCount = runs.reduce((count, run) => count + run.lines.length, 0);
+function capLines(runs: readonly ConsoleRun[], priorDroppedRunCount = 0): ConsoleState {
+  const completed = runs.filter(({ status }) => status !== "running");
+  const completedLimit = Math.max(0, CONSOLE_RUN_LIMIT - (runs.length - completed.length));
+  const droppedRuns = completed.slice(0, Math.max(0, completed.length - completedLimit));
+  const droppedIds = new Set(droppedRuns.map(({ jobId }) => jobId));
+  const boundedRuns = droppedIds.size === 0
+    ? runs
+    : runs.filter(({ jobId }) => !droppedIds.has(jobId));
+  const retainedLineCount = boundedRuns.reduce((count, run) => count + run.lines.length, 0);
   let overflow = Math.max(0, retainedLineCount - CONSOLE_LINE_LIMIT);
-  if (overflow === 0) return { runs, retainedLineCount };
-  const capped = runs.map((run) => {
+  const droppedRunCount = priorDroppedRunCount + droppedRuns.length;
+  if (overflow === 0) return { runs: boundedRuns, retainedLineCount, droppedRunCount };
+  const capped = boundedRuns.map((run) => {
     const dropped = Math.min(overflow, run.lines.length);
     overflow -= dropped;
     return dropped === 0
@@ -77,7 +87,7 @@ function capLines(runs: readonly ConsoleRun[]): ConsoleState {
           droppedLineCount: run.droppedLineCount + dropped,
         };
   });
-  return { runs: capped, retainedLineCount: CONSOLE_LINE_LIMIT };
+  return { runs: capped, retainedLineCount: CONSOLE_LINE_LIMIT, droppedRunCount };
 }
 
 function finishRun(run: ConsoleRun, durationMs: number, result: RenderResult): ConsoleRun {
@@ -114,7 +124,7 @@ export function reduceConsoleState(state: ConsoleState, action: ConsoleAction): 
         droppedLineCount: 0,
         rawLogFallbackSuppressed: true,
       }));
-    return { runs: running, retainedLineCount: 0 };
+    return { runs: running, retainedLineCount: 0, droppedRunCount: 0 };
   }
   if (action.kind === "start-run") {
     return capLines([
@@ -129,7 +139,7 @@ export function reduceConsoleState(state: ConsoleState, action: ConsoleAction): 
         lines: [],
         droppedLineCount: 0,
       },
-    ]);
+    ], state.droppedRunCount);
   }
   const runIndex = state.runs.findIndex(({ jobId }) => jobId === action.jobId);
   if (runIndex < 0) return state;
@@ -138,7 +148,7 @@ export function reduceConsoleState(state: ConsoleState, action: ConsoleAction): 
   runs[runIndex] = action.kind === "append-output"
     ? { ...run, lines: [...run.lines, ...eventLines(action.event)] }
     : finishRun(run, action.durationMs, action.result);
-  return capLines(runs);
+  return capLines(runs, state.droppedRunCount);
 }
 
 export function restoreClearedConsoleState(
@@ -159,7 +169,7 @@ export function restoreClearedConsoleState(
   return capLines([
     ...restored,
     ...current.runs.filter(({ jobId }) => !restoredIds.has(jobId)),
-  ]);
+  ], (cleared.droppedRunCount ?? 0) + (current.droppedRunCount ?? 0));
 }
 
 function runOutcome(run: ConsoleRun): string {
@@ -172,7 +182,10 @@ function runOutcome(run: ConsoleRun): string {
 }
 
 export function formatConsoleHistory(state: ConsoleState): string {
-  return state.runs.map((run) => {
+  const droppedRuns = state.droppedRunCount
+    ? `[${messages.consoleRunsDropped(state.droppedRunCount)}]\n`
+    : "";
+  return droppedRuns + state.runs.map((run) => {
     const duration = run.durationMs === undefined
       ? messages.consolePendingDuration
       : messages.consoleDuration(run.durationMs);
