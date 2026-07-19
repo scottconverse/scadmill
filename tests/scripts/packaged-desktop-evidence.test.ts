@@ -9,6 +9,7 @@ import {
   mirrorWebViewDevToolsPort,
   parseBinaryStl,
   parseSourceMetadata,
+  parseWindowsNetstatTcpListeners,
   processHasExited,
   sanitizeMcpEndpointManifest,
   sanitizeMcpTranscript,
@@ -125,27 +126,30 @@ describe("packaged desktop evidence helpers", () => {
     ], true, endpoint)).toThrow("MCP listener observation");
   });
 
-  it("retains token-free listener mismatch details instead of swallowing the packaged failure", async () => {
-    const runner = await readFile(join(process.cwd(), "scripts", "run-packaged-desktop-evidence.mjs"), "utf8");
-    const listenerWait = runner.slice(
-      runner.indexOf("const listenerObservation = await waitFor"),
-      runner.indexOf('await record("mcp-endpoint-enabled"'),
-    );
-
-    expect(listenerWait).toContain("sanitizeMcpEndpointManifest(endpointRecord.endpoint)");
-    expect(listenerWait).toContain("throw new Error(`MCP listener mismatch:");
-    expect(listenerWait).not.toContain("catch {\n      return false;");
+  it("parses Windows netstat TCP listeners for literal process inspection", () => {
+    expect(parseWindowsNetstatTcpListeners([
+      "Active Connections",
+      "",
+      "  Proto  Local Address          Foreign Address        State           PID",
+      "  TCP    127.0.0.1:49152        0.0.0.0:0              LISTENING       4242",
+      "  TCP    [::1]:49153            [::]:0                 LISTENING       4243",
+      "  TCP    127.0.0.1:49154        127.0.0.1:61200        ESTABLISHED     4244",
+    ].join("\r\n"))).toEqual([
+      { address: "127.0.0.1", port: 49_152, pid: 4_242 },
+      { address: "[::1]", port: 49_153, pid: 4_243 },
+    ]);
+    expect(() => parseWindowsNetstatTcpListeners(null)).toThrow("netstat output");
   });
 
-  it("inspects the exact authenticated MCP port before comparing listener ownership", async () => {
+  it("uses literal netstat PID inspection without treating the enabled table as the functional proof", async () => {
     const runner = await readFile(join(process.cwd(), "scripts", "run-packaged-desktop-evidence.mjs"), "utf8");
-    const portQueries = [
-      ...runner.matchAll(/tcpListenersForPort\(endpointRecord\.endpoint\.port\)/gu),
-    ];
 
-    expect(runner).toContain("async function tcpListenersForPort(port)");
-    expect(runner).toContain("Where-Object { $_.LocalPort -eq $" + "{port} }");
-    expect(portQueries).toHaveLength(2);
+    expect(runner).toContain('run("netstat.exe", ["-ano", "-p", "tcp"]');
+    expect(runner).toContain("parseWindowsNetstatTcpListeners(result.stdout)");
+    expect(runner).not.toContain("Get-NetTCPConnection");
+    expect(runner).not.toContain("tcpListenersForPort");
+    expect(runner).toContain("tcpEndpointReachable(endpointRecord.endpoint)");
+    expect(runner).toContain("endpointReachable: false");
   });
 
   it("omits the MCP token from retained endpoint and transcript evidence", () => {

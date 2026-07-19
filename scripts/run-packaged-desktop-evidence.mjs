@@ -12,6 +12,7 @@ import {
 } from "node:fs/promises";
 import { basename, dirname, join, normalize, resolve } from "node:path";
 import { createInterface } from "node:readline";
+import { createConnection } from "node:net";
 import { fileURLToPath } from "node:url";
 
 import {
@@ -19,6 +20,7 @@ import {
   mirrorWebViewDevToolsPort,
   parseBinaryStl,
   parseSourceMetadata,
+  parseWindowsNetstatTcpListeners,
   processHasExited,
   sanitizeMcpEndpointManifest,
   sanitizeMcpTranscript,
@@ -586,24 +588,24 @@ async function exactExecutableProcesses(executablePath) {
 
 async function tcpListenersForProcess(pid) {
   assert.ok(Number.isSafeInteger(pid) && pid > 0, "Listener inspection requires a positive process id.");
-  const command = [
-    `$rows = @(Get-NetTCPConnection -State Listen -ErrorAction Stop | Where-Object { $_.OwningProcess -eq ${pid} } | Select-Object @{n='address';e={$_.LocalAddress}},@{n='port';e={[int]$_.LocalPort}},@{n='pid';e={[int]$_.OwningProcess}});`,
-    "ConvertTo-Json -InputObject @($rows) -Compress",
-  ].join(" ");
-  const result = await run("powershell.exe", ["-NoProfile", "-Command", command]);
-  const parsed = JSON.parse(result.stdout);
-  return Array.isArray(parsed) ? parsed : [parsed];
+  const result = await run("netstat.exe", ["-ano", "-p", "tcp"]);
+  return parseWindowsNetstatTcpListeners(result.stdout).filter((listener) => listener.pid === pid);
 }
 
-async function tcpListenersForPort(port) {
-  assert.ok(Number.isSafeInteger(port) && port >= 1 && port <= 65_535, "Listener inspection requires a valid port.");
-  const command = [
-    `$rows = @(Get-NetTCPConnection -State Listen -ErrorAction Stop | Where-Object { $_.LocalPort -eq ${port} } | Select-Object @{n='address';e={$_.LocalAddress}},@{n='port';e={[int]$_.LocalPort}},@{n='pid';e={[int]$_.OwningProcess}});`,
-    "ConvertTo-Json -InputObject @($rows) -Compress",
-  ].join(" ");
-  const result = await run("powershell.exe", ["-NoProfile", "-Command", command]);
-  const parsed = JSON.parse(result.stdout);
-  return Array.isArray(parsed) ? parsed : [parsed];
+function tcpEndpointReachable(endpoint, timeoutMs = 1_000) {
+  return new Promise((resolveReachable) => {
+    const socket = createConnection({ host: endpoint.address, port: endpoint.port });
+    let settled = false;
+    const finish = (reachable) => {
+      if (settled) return;
+      settled = true;
+      socket.destroy();
+      resolveReachable(reachable);
+    };
+    socket.setTimeout(timeoutMs, () => finish(false));
+    socket.once("connect", () => finish(true));
+    socket.once("error", () => finish(false));
+  });
 }
 
 async function mcpEndpointsForProcess(application, pid) {
@@ -1008,21 +1010,10 @@ try {
     const found = await mcpEndpointsForProcess(args.app, lastVerifiedAppProcess.pid);
     return found.length === 1 ? found[0] : false;
   }, "one authenticated MCP endpoint manifest", 15_000, 100);
-  const listenerObservation = await waitFor(async () => {
-    const listeners = await tcpListenersForPort(endpointRecord.endpoint.port);
-    try {
-      return validateMcpListenerObservation(listeners, true, endpointRecord.endpoint);
-    } catch (error) {
-      const expected = sanitizeMcpEndpointManifest(endpointRecord.endpoint);
-      const reason = error instanceof Error ? error.message : String(error);
-      throw new Error(`MCP listener mismatch: observed=${JSON.stringify(listeners)} expected=${JSON.stringify(expected)} reason=${reason}`);
-    }
-  }, "one exact GUI-owned MCP listener", 15_000, 100);
-  await record("mcp-endpoint-enabled", {
+  await record("mcp-endpoint-manifest-validated", {
     manifestPathSha256: fingerprint(endpointRecord.path),
     manifestSha256: await fileSha256(endpointRecord.path),
     endpoint: sanitizeMcpEndpointManifest(endpointRecord.endpoint),
-    listener: listenerObservation,
   });
   await clickAria(client, "Close settings");
 
@@ -1115,19 +1106,15 @@ try {
   assert.equal(await mcpClient.waitForExit(), 0, `MCP relay exited with stderr: ${mcpClient.stderrText()}`);
   mcpClient = null;
   await waitFor(async () => (await mcpEndpointsForProcess(args.app, lastVerifiedAppProcess.pid)).length === 0, "MCP manifest removal", 15_000, 100);
-  const listenersAfterDisable = await waitFor(async () => {
-    const listeners = await tcpListenersForPort(endpointRecord.endpoint.port);
-    try {
-      return validateMcpListenerObservation(listeners, false);
-    } catch {
-      return false;
-    }
-  }, "MCP listener shutdown", 15_000, 100);
   await waitFor(async () => (await exactExecutableProcesses(args.app)).length === 1, "MCP relay process shutdown", 15_000, 100);
+  await waitFor(async () => !(await tcpEndpointReachable(endpointRecord.endpoint)), "MCP endpoint refusal", 15_000, 100);
+  const listenersAfterDisable = await tcpListenersForProcess(lastVerifiedAppProcess.pid);
+  validateMcpListenerObservation(listenersAfterDisable, false);
   await record("mcp-toggle-off-process-inspection-passed", {
     applicationPid: lastVerifiedAppProcess.pid,
     endpointManifestPresent: false,
     ownedListeners: listenersAfterDisable,
+    endpointReachable: false,
     relayExited: true,
   });
 

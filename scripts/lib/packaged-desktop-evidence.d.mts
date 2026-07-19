@@ -50,6 +50,7 @@ export function validateMcpListenerObservation(
   expectedEnabled: boolean,
   expectedEndpoint?: unknown,
 ): McpListenerObservation[];
+export function parseWindowsNetstatTcpListeners(output: unknown): McpListenerObservation[];
 export function sanitizeMcpEndpointManifest(
   manifest: unknown,
 ): SanitizedMcpEndpointManifest;

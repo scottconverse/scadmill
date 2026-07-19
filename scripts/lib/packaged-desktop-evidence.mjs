@@ -85,6 +85,24 @@ export function validateMcpListenerObservation(payload, expectedEnabled, expecte
   return payload;
 }
 
+export function parseWindowsNetstatTcpListeners(output) {
+  if (typeof output !== "string" || !/\bProto\s+Local Address\s+Foreign Address\s+State\s+PID\b/u.test(output)) {
+    throw new Error("Windows netstat output is missing its TCP process table header.");
+  }
+  const listeners = [];
+  for (const line of output.split(/\r?\n/u)) {
+    const match = /^\s*TCP\s+(\S+):(\d+)\s+\S+\s+LISTENING\s+(\d+)\s*$/u.exec(line);
+    if (!match) continue;
+    const port = Number(match[2]);
+    const pid = Number(match[3]);
+    if (!Number.isInteger(port) || port < 1 || port > 65_535 || !Number.isSafeInteger(pid) || pid <= 0) {
+      throw new Error("Windows netstat output contains an invalid TCP listener identity.");
+    }
+    listeners.push({ address: match[1], port, pid });
+  }
+  return listeners;
+}
+
 export function sanitizeMcpEndpointManifest(manifest) {
   const checked = validateMcpEndpointManifest(manifest, manifest?.pid);
   return {

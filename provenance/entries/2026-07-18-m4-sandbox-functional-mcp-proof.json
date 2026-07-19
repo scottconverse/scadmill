@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-18-m4-sandbox-functional-mcp-proof",
+  "createdAt": "2026-07-18T18:02:31-06:00",
+  "summary": "Use literal netstat PID inspection for the normative MCP off state and the authenticated MCP journey as the enabled-state proof.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "AC-11.b", "AC-11.c", "N-7"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-18-m4-sandbox-functional-mcp-proof.json", "status": "added" },
+    { "path": "scripts/lib/packaged-desktop-evidence.d.mts", "status": "modified" },
+    { "path": "scripts/lib/packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "scripts/run-packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0385",
+      "topic": "Packaged MCP enabled and off-state proof boundaries",
+      "decision": "Correct D-0384: do not require Get-NetTCPConnection to observe the enabled relay inside Windows Sandbox. Use netstat.exe -ano -p tcp for the AC-11.c process inspection while MCP is off; prove enabled behavior through the exact authenticated stdio child and Appendix B tool journey; after disable require manifest removal, relay-child exit, one remaining exact GUI process, no GUI-owned TCP listener, and refusal from the former loopback endpoint.",
+      "rationale": "AC-11.c normatively requires process inspection only for the off state, while AC-11.b requires a real MCP client journey. Three isolated guests returned no Get-NetTCPConnection row for a relay whose bound manifest existed, including an exact-port query. Treating that Sandbox cmdlet limitation as an enabled product failure was stronger than the spec and weaker than the authenticated functional journey. Netstat process inspection was independently falsified on a live host loopback listener and retains the literal off-state check.",
+      "specBasis": ["AC-11.b", "AC-11.c", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The harness must preserve literal off-state process inspection without making a Sandbox connection-table quirk the enabled-state oracle.",
+      "test": "Run focused helper regressions, strict types and lint, then observe a live loopback listener through the same netstat parser.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts; pnpm.cmd run typecheck",
+        "observedAt": "2026-07-18T17:59:19-06:00",
+        "outcome": "RED: 2/34 focused tests failed because the netstat parser and new lifecycle contract did not exist; the first typecheck then failed because the new helper declaration was absent. Prior exact Sandbox evidence for 0476ccf retained observed=[] for expected port 50628/PID 7124."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts; pnpm.cmd run typecheck; pnpm.cmd run lint; inline Node live-loopback netstat parser proof",
+        "observedAt": "2026-07-18T18:01:30-06:00",
+        "outcome": "GREEN: 34/34 focused tests passed; TypeScript passed; Biome checked 463 files and source policy passed; the live-loopback falsification observed exactly 127.0.0.1:49987 owned by PID 24608 through the production parser. An independent bounded review reran the focused tests and static checks, adversarially rejected a surviving listener, and returned strict 0/0/0/0/0."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://scripts/run-packaged-desktop-evidence.mjs",
+      "sought": "Why the authenticated relay could not satisfy the enabled listener-table assertion in Windows Sandbox",
+      "confirmation": "Get-NetTCPConnection returned an empty observation for the validated manifest PID and then for its exact validated port; the spec requires process inspection for off, not an enabled table row."
+    }
+  ],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
