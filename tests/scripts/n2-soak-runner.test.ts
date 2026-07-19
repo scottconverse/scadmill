@@ -24,6 +24,8 @@ describe("N-2 packaged soak runner", () => {
     let maximumConcurrentRenders = 0;
     let consoleRunCount = 2;
     let restoredSourceRendered = false;
+    let previewStarts = 0;
+    let fullStarts = 0;
     const gui = {
       pid: 10,
       path: "C:\\ScadMillRun\\app\\scadmill.exe",
@@ -79,13 +81,19 @@ describe("N-2 packaged soak runner", () => {
         ensureConsoleVisible: async () => undefined,
         consoleRunSnapshot: async () => ({ count: consoleRunCount }),
         startPreview: async () => {
+          previewStarts += 1;
           concurrentRenders += 1;
           maximumConcurrentRenders = Math.max(maximumConcurrentRenders, concurrentRenders);
           consoleRunCount += 1;
-          if (source.includes("N2-ENGINE-CRASH")) {
-            expect(source).toContain("$fn=400; minkowski() { sphere(10); cube([20,20,20], center=true); }");
-            engineActive = true;
-          }
+        },
+        startCrashRender: async () => {
+          fullStarts += 1;
+          concurrentRenders += 1;
+          maximumConcurrentRenders = Math.max(maximumConcurrentRenders, concurrentRenders);
+          consoleRunCount += 1;
+          expect(source).toContain("$fn=400; minkowski() { sphere(10); cube([20,20,20], center=true); }");
+          expect(source).toContain("N2-ENGINE-CRASH");
+          engineActive = true;
         },
         waitForRenderSuccess: async (bounds: string, prior: { count: number }) => {
           expect(consoleRunCount).toBe(prior.count + 1);
@@ -141,6 +149,8 @@ describe("N-2 packaged soak runner", () => {
     });
     expect(summary.cycles.successful).toBeGreaterThanOrEqual(5);
     expect(consoleRunCount).toBe(2 + summary.cycles.attempted + 1);
+    expect(fullStarts).toBe(1);
+    expect(previewStarts).toBe(summary.cycles.successful + 1);
     expect(maximumConcurrentRenders).toBe(1);
     expect(source).toBe("cube([10, 10, 10]);");
     expect(restoredSourceRendered).toBe(true);
@@ -183,6 +193,7 @@ describe("N-2 packaged soak runner", () => {
     expect(host).toContain('"--manifest", (Join-Path $outputPath "harness-manifest.json")');
     expect(bootstrap).toContain('"--soak-config", "$local\\scripts\\n2-soak-config.json"');
     expect(runner).toContain('runN2Soak({');
+    expect(runner).toContain('startCrashRender: () => clickButton(client, "Full render")');
     expect(runner).toContain('verifyN2SoakArtifacts({');
     expect(runner).toContain('record("n2-final-artifacts-verified"');
     expect(runner).toContain(".diagnostic-console .console-run");

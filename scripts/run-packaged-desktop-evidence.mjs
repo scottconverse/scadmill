@@ -1247,6 +1247,7 @@ try {
         return { count: runs.length };
       `),
       startPreview: () => clickButton(client, "Render preview"),
+      startCrashRender: () => clickButton(client, "Full render"),
       waitForRenderSuccess: async (boundsText, priorRun) => {
         const completedRun = await waitFor(async () => {
           const snapshot = await client.execute(`

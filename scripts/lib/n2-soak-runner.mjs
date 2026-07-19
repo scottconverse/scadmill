@@ -56,7 +56,7 @@ async function runExpectedEngineCrash(input, samplePath, elapsedSeconds) {
   await automation.replaceEditorSource(source);
   assert.equal(await automation.readEditorSource(), source, "N-2 crash source did not reach the editor exactly.");
   const priorRun = await automation.consoleRunSnapshot();
-  await automation.startPreview();
+  await automation.startCrashRender();
   const engine = await automation.waitFor(async () => {
     const processes = await automation.exactExecutableProcesses(paths.engine);
     return processes.length === 1 ? processes[0] : false;

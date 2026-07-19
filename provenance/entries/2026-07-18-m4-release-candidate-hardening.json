@@ -155,6 +155,13 @@
       "decision": "Pin reqwest 0.13.4 and tokio 1.52.3 for the native desktop broker, using reqwest native-tls and the operating-system trust store rather than the rustls feature graph.",
       "rationale": "The rustls target-all dependency graph introduced webpki-root-certs under unapproved CDLA-Permissive-2.0. Switching to native TLS removed that dependency and restored the existing allow-list without a policy exception; the final license gates checked 507 Rust and 120 npm packages.",
       "specBasis": ["Section 6 approved dependencies", "FR-10.1", "AC-10.c"]
+    },
+    {
+      "id": "D-0404",
+      "topic": "Make the verified N-2 engine-kill target observable without weakening preview quality",
+      "decision": "Use the uncapped full-render command only for the one intentional N-2 engine-kill probe; keep every repeated edit/render cycle and the final stable-source restoration on the configured preview path.",
+      "rationale": "The first real accelerated Sandbox run proved that the preview facet cap reduced the deliberately slow $fn=400 model to the configured $fn=48 and let OpenSCAD exit before the exact external process-identity scan could capture it. Full render preserves the slow-model premise for a hash-bound kill target while leaving the reliability workload and preview-quality behavior unchanged.",
+      "specBasis": ["N-2", "N-7", "V-5"]
     }
   ],
   "testEvidence": [
@@ -215,6 +222,20 @@
       }
     },
     {
+      "criterion": "The real packaged N-2 crash probe captures and kills one exact pinned OpenSCAD process before proving visible recovery.",
+      "test": "Reproduce the accelerated Sandbox miss, require the crash probe to use full render exactly once while normal cycles and restoration use preview, then run the focused N-2 runner/evidence tests and strict static checks.",
+      "red": {
+        "command": "network-disabled Windows Sandbox accelerated N-2 run bound to candidate a64a7b07a58880612b30ef9a5b55fd7258622398; pnpm.cmd exec vitest run tests/scripts/n2-soak-runner.test.ts --reporter=verbose --maxWorkers=1",
+        "observedAt": "2026-07-19T01:53:53-06:00",
+        "outcome": "RED: the Sandbox completed the packaged cube/export/MCP journey but timed out waiting for one exact N-2 engine crash target after the capped preview finished too quickly. The regression test then failed before observing an engine because the runner still invoked preview instead of the new full-render seam."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/n2-soak-evidence.test.ts tests/scripts/n2-soak-runner.test.ts --reporter=dot --maxWorkers=1; pnpm.cmd exec tsc --noEmit --pretty false; pnpm.cmd exec biome check scripts/lib/n2-soak-runner.mjs scripts/lib/n2-soak-runner.d.mts scripts/run-packaged-desktop-evidence.mjs tests/scripts/n2-soak-runner.test.ts",
+        "observedAt": "2026-07-19T01:54:55-06:00",
+        "outcome": "GREEN: 2 files and 13 tests passed; strict TypeScript and Biome over all four affected implementation/test files exited zero. A replacement exact-commit Sandbox execution remains required before runtime PASS."
+      }
+    },
+    {
       "criterion": "The complete dirty Windows-beta candidate passes every local generated, static, unit, browser, build, dependency, provenance, and native gate before commit freeze.",
       "test": "Run each local candidate lane once in sequence, stop at the first real failure, repair only that failed lane, and resume from the first unrun gate without repeating passed broad lanes.",
       "red": {
@@ -249,6 +270,11 @@
       "url": "local://scripts/lib/n2-soak-verifier.mjs",
       "sought": "Independent falsification of retained soak evidence",
       "confirmation": "Repeated bounded audits found and corrected summary trust, raw-spike, boundary-coverage, process-identity, orphan-state, and release-eligibility loopholes before any real soak claim."
+    },
+    {
+      "url": "local://work/scadmill-beta-a64a7b0-accelerated-sandbox-r2/evidence.json",
+      "sought": "First real packaged execution of the accelerated N-2 diagnostic",
+      "confirmation": "The run rejected itself because the preview facet cap made the intentional crash model finish before exact process capture. The probe was routed through a RED/GREEN repair that uses uncapped full render only for the verified kill while retaining preview for all ordinary soak cycles."
     },
     {
       "url": "local://playwright.config.ts",

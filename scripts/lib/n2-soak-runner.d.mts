@@ -12,6 +12,7 @@ interface N2Automation {
   ensureConsoleVisible(): Promise<unknown>;
   consoleRunSnapshot(): Promise<{ count: number }>;
   startPreview(): Promise<unknown>;
+  startCrashRender(): Promise<unknown>;
   waitForRenderSuccess(boundsText: string, priorRun: { count: number }): Promise<unknown>;
   waitForRenderFailure(priorRun: { count: number }): Promise<unknown[]>;
   visibleAlerts(): Promise<unknown[]>;
