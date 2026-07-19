@@ -1,3 +1,4 @@
+import { request as requestHttp } from "node:http";
 import { deflateSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import type {
@@ -103,7 +104,9 @@ describe("M4 packaged newcomer walkthrough", () => {
       });
       expect(overflow.status).toBe(409);
     } finally {
-      const transcript = await mock.close();
+      const [transcript, concurrentTranscript] = await Promise.all([mock.close(), mock.close()]);
+      expect(concurrentTranscript).toEqual(transcript);
+      await expect(mock.close()).resolves.toEqual(transcript);
       expect(transcript).toHaveLength(7);
       expect(transcript.map(({ ordinal, responseToolName }) => [ordinal, responseToolName])).toEqual([
         [1, null], [2, "render_preview"], [3, "get_diagnostics"], [4, "write_file"],
@@ -118,6 +121,62 @@ describe("M4 packaged newcomer walkthrough", () => {
       });
       expect(transcript[1].toolNames).toEqual(["render_preview", "get_diagnostics", "write_file"]);
     }
+  });
+
+  it("closes concurrent callers idempotently and forces a held request within its bound", async () => {
+    const mock = await startScriptedM4LocalProviderMock({
+      proposalSource: "cube(12);",
+      agentSource: "cube(14);",
+      cappedRounds: 2,
+      closeGraceMs: 100,
+      secret: "bounded-close-secret",
+    });
+    const endpoint = new URL(mock.endpoint);
+    const held = requestHttp({
+      hostname: endpoint.hostname,
+      method: "POST",
+      path: endpoint.pathname,
+      port: endpoint.port,
+      headers: { "content-type": "application/json" },
+    });
+    held.on("error", () => undefined);
+    let heldSocket: import("node:net").Socket | undefined;
+    let socketClosed: Promise<void> | undefined;
+    const connected = new Promise<void>((resolveConnected, rejectConnected) =>
+      held.once("socket", (socket) => {
+        heldSocket = socket;
+        socketClosed = new Promise((resolveClosed) => socket.once("close", resolveClosed));
+        if (!socket.connecting) resolveConnected();
+        else {
+          socket.once("connect", resolveConnected);
+          socket.once("error", rejectConnected);
+        }
+      }));
+    held.write("{");
+    await connected;
+    await mock.waitForRequestStart();
+    expect(heldSocket?.destroyed).toBe(false);
+
+    const startedAt = Date.now();
+    let settled = false;
+    const closing = Promise.all([mock.close(), mock.close()])
+      .finally(() => { settled = true; });
+    await new Promise((resolveWait) => setTimeout(resolveWait, 25));
+    expect(settled).toBe(false);
+    expect(heldSocket?.destroyed).toBe(false);
+    const [first, second] = await closing;
+    if (!socketClosed) throw new Error("Held M4 mock socket close monitor is unavailable.");
+    await Promise.race([
+      socketClosed,
+      new Promise((_, rejectClosed) => setTimeout(() =>
+        rejectClosed(new Error("Held M4 mock socket did not close.")), 250)),
+    ]);
+    expect(Date.now() - startedAt).toBeLessThan(1_000);
+    expect(heldSocket?.destroyed).toBe(true);
+    expect(first).toEqual([]);
+    expect(second).toEqual(first);
+    await expect(mock.close()).resolves.toEqual(first);
+    held.destroy();
   });
 
   it("rejects corrupt CRC and deflate bytes and requires IDAT plus terminal IEND", () => {

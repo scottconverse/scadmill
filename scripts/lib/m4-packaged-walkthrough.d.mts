@@ -3,6 +3,7 @@ export interface M4AiMockPlan {
   readonly agentSource: string;
   readonly cappedRounds: 2;
   readonly secret?: string;
+  readonly closeGraceMs?: number;
 }
 
 export interface M4AiMockIdentity {
@@ -208,6 +209,7 @@ export function startScriptedM4LocalProviderMock(
   plan: M4AiMockPlan & { readonly secret: string },
 ): Promise<M4AiMockIdentity & {
   close(): Promise<readonly M4RawAiTranscriptRecord[]>;
+  waitForRequestStart(): Promise<void>;
 }>;
 
 export function sanitizeAiTranscript(

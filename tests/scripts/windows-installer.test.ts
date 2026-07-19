@@ -1,8 +1,12 @@
+import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { promisify } from "node:util";
 
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
+
+const execFileAsync = promisify(execFile);
 
 interface WorkflowStep {
   readonly name?: string;
@@ -118,9 +122,10 @@ describe("installer lifecycle contract", () => {
 
   it("binds the Windows installed lifecycle to exact bytes and active WebView state", async () => {
     const root = process.cwd();
-    const [workflowSource, lifecycle] = await Promise.all([
+    const [workflowSource, lifecycle, closeHelper] = await Promise.all([
       readFile(join(root, ".github", "workflows", "ci.yml"), "utf8"),
       readFile(join(root, "scripts", "windows", "test-installed-lifecycle.ps1"), "utf8"),
+      readFile(join(root, "scripts", "windows", "lib", "installed-lifecycle-window.ps1"), "utf8"),
     ]);
     const workflow = parse(workflowSource) as Workflow;
     const job = workflow.jobs["windows-installer"];
@@ -142,6 +147,13 @@ describe("installer lifecycle contract", () => {
     expect(lifecycle).toContain("function Wait-WindowRect");
     expect(lifecycle).toContain("function Wait-VisibleWindowRect");
     expect(lifecycle).toContain("function Wait-WebViewReady");
+    expect(lifecycle).toContain('. (Join-Path $PSScriptRoot "lib\\installed-lifecycle-window.ps1")');
+    expect(lifecycle).toContain("GetWindowThreadProcessId");
+    expect(closeHelper).toContain("$Target.Refresh()");
+    expect(closeHelper).toContain("$currentHandle = [IntPtr](& $ResolveCurrentHandle $Process)");
+    expect(closeHelper).toContain("$ownerProcessId -ne [int]$Process.Id");
+    expect(closeHelper).toContain("& $PostClose $currentHandle");
+    expect(closeHelper).not.toContain("SendMessage");
     expect(lifecycle).toContain("$requiredStableProbes = 3");
     expect(lifecycle).toContain("$minimumObservation = [DateTime]::UtcNow.AddMilliseconds(600)");
     expect(lifecycle).toContain("Last probe error:");
@@ -211,6 +223,24 @@ describe("installer lifecycle contract", () => {
     expect(lifecycle).toContain("Wait-EditorSource $debugPort $modelSource");
     expect(lifecycle).toContain("Associated fixture active in existing WebView");
     expect(lifecycle).toContain("The ScadMill ProgID remained after uninstall.");
+  });
+
+  it("behaviorally rejects stale close targets and preserves the bounded failure path", async () => {
+    const { stdout, stderr } = await execFileAsync(
+      process.platform === "win32" ? "powershell.exe" : "pwsh",
+      [
+        "-NoLogo",
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        join(process.cwd(), "tests", "scripts", "windows-lifecycle-close.behavior.ps1"),
+      ],
+      { windowsHide: true },
+    );
+    expect(stderr).toBe("");
+    expect(stdout).toContain("Windows lifecycle close behavior: PASS");
   });
 
   it("requires a visible exact macOS/Linux runtime and retains failure evidence", async () => {

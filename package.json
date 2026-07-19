@@ -17,6 +17,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "test:e2e:m4-hosted": "node scripts/run-m4-hosted-evidence.mjs",
     "test:e2e:production-static": "node scripts/run-production-static-evidence.mjs",
     "test:parity": "playwright test --config playwright.ac4.config.ts",
     "profile:viewer": "node scripts/run-viewer-performance-profile.mjs",

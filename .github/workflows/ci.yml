@@ -98,6 +98,20 @@ jobs:
         env:
           SCADMILL_STATIC_BASE_PATH: /scadmill-evidence/
         run: pnpm test:e2e:production-static
+      - name: M4 hosted browser evidence
+        if: always() && runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p test-results/m4-hosted-artifacts
+          pnpm test:e2e:m4-hosted 2>&1 | tee test-results/m4-hosted-artifacts/ci-command.log
+      - name: Retain M4 hosted browser evidence
+        if: always() && runner.os == 'Linux'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: m4-hosted-browser-evidence
+          path: test-results/m4-hosted-artifacts
+          if-no-files-found: error
 
   parity:
     name: Native and WASM byte parity

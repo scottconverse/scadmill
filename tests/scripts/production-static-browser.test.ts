@@ -6,6 +6,7 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import defaultPlaywrightConfig from "../../playwright.config";
 import { webBasePath } from "../../vite.config";
 
 function readIfPresent(path: string): string {
@@ -51,9 +52,16 @@ describe("production static browser evidence contract", () => {
     expect(configSource).toContain(
       'testMatch: ["m3-production-static.e2e.ts", "m4-cache-paint.e2e.ts"]',
     );
-    expect(defaultConfigSource).toContain(
-      'testIgnore: ["m3-production-static.e2e.ts", "m4-cache-paint.e2e.ts"]',
-    );
+    expect(defaultPlaywrightConfig.testIgnore).toEqual([
+      "m3-production-static.e2e.ts",
+      "m4-cache-paint.e2e.ts",
+      "m4-hosted-journey.e2e.ts",
+    ]);
+    expect(defaultConfigSource).toContain("testIgnore:");
+    expect(packageSource).toContain('"test:e2e:m4-hosted"');
+    expect(packageSource).toContain("run-m4-hosted-evidence.mjs");
+    expect(workflowSource).toContain("name: M4 hosted browser evidence");
+    expect(workflowSource).toContain("test-results/m4-hosted-artifacts/ci-command.log");
     expect(configSource).toContain("SCADMILL_STATIC_BASE_PATH");
     expect(workflowSource).toContain("SCADMILL_STATIC_BASE_PATH: /scadmill-evidence/");
     expect(workflowSource).toContain("run: pnpm test:e2e:production-static");

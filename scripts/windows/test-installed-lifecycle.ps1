@@ -20,9 +20,12 @@ public static class ScadMillWindowProbe {
   [DllImport("user32.dll", SetLastError=true)] public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
   [DllImport("user32.dll", SetLastError=true)] public static extern bool MoveWindow(IntPtr hWnd, int x, int y, int width, int height, bool repaint);
   [DllImport("user32.dll")] public static extern int GetSystemMetrics(int index);
-  [DllImport("user32.dll", CharSet=CharSet.Auto)] public static extern IntPtr SendMessage(IntPtr hWnd, uint message, IntPtr wParam, IntPtr lParam);
+  [DllImport("user32.dll", SetLastError=true)] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+  [DllImport("user32.dll", SetLastError=true)] public static extern bool PostMessage(IntPtr hWnd, uint message, IntPtr wParam, IntPtr lParam);
 }
 "@
+
+. (Join-Path $PSScriptRoot "lib\installed-lifecycle-window.ps1")
 
 function Wait-MainWindow([Diagnostics.Process]$Process) {
   for ($attempt = 0; $attempt -lt 80; $attempt++) {
@@ -205,14 +208,6 @@ function Wait-VisibleWindowRect(
   }
   $processStatus = if ($Process.HasExited) { "exited" } else { "running" }
   throw "ScadMill did not restore the saved off-monitor window size on a visible display within $TimeoutSeconds seconds after $attempts probe(s). Expected size: $(Format-WindowSize $ExpectedSize). Last actual: $(Format-WindowRect $lastActual). Size deltas: $(Format-WindowSizeDelta $lastDelta). Virtual bounds: left=$VirtualLeft, top=$VirtualTop, right=$VirtualRight, bottom=$VirtualBottom. Last probe error: $lastProbeError. Process: $processStatus."
-}
-
-function Close-Normally([Diagnostics.Process]$Process, [IntPtr]$Handle) {
-  [void][ScadMillWindowProbe]::SendMessage($Handle, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero)
-  if (-not $Process.WaitForExit(15000)) {
-    $Process.Kill($true)
-    throw "ScadMill did not close normally."
-  }
 }
 
 function New-LoopbackPort {
@@ -430,7 +425,7 @@ if (-not [ScadMillWindowProbe]::MoveWindow($firstHandle, 137, 149, 1111, 713, $t
 }
 Start-Sleep -Seconds 1
 $expected = Read-WindowRect $firstHandle
-Close-Normally $first $firstHandle
+Close-Normally $first
 
 $second = Start-Process -FilePath $application.FullName -ArgumentList $debugArgument -PassThru
 $secondHandle = Wait-MainWindow $second
@@ -476,13 +471,13 @@ if (
   throw "The observed off-monitor probe rectangle remained visible. Actual: $(Format-WindowRect $offscreenExpected). Virtual bounds: left=$virtualLeft, top=$virtualTop, right=$virtualRight, bottom=$virtualBottom."
 }
 Write-Host "Saved unique off-monitor size for recovery proof: $(Format-WindowRect $offscreenExpected)."
-Close-Normally $second $secondHandle
+Close-Normally $second
 
 $third = Start-Process -FilePath $application.FullName -ArgumentList $debugArgument -PassThru
 $thirdHandle = Wait-MainWindow $third
 Wait-WebViewReady $debugPort
 [void](Wait-VisibleWindowRect $third $thirdHandle $offscreenExpected $tolerance $virtualLeft $virtualTop $virtualRight $virtualBottom)
-Close-Normally $third $thirdHandle
+Close-Normally $third
 
 $uninstallers = @(Get-ChildItem -LiteralPath $application.DirectoryName -Filter "uninstall*.exe" -File)
 if ($uninstallers.Count -ne 1) { throw "Expected exactly one ScadMill uninstaller; found $($uninstallers.Count)." }

@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-19-m4-hosted-browser-evidence",
+  "createdAt": "2026-07-19T11:12:09-06:00",
+  "summary": "Add a dedicated, failure-retaining M4 browser-hosted Playwright journey that exercises real WASM rendering, memory cache reuse, geometry bounds deltas, reload-persisted thumbnails, serialized animation, and the exact sanitized seven-response proposal/agent/cap sequence while explicitly keeping MCP stdio evidence packaged-desktop-only.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "FR-10.1", "FR-10.3", "AC-10.a", "AC-10.b", "AC-10.c", "AC-10.d", "AC-15.a", "FR-15.13", "N-7"],
+  "filesTouched": [
+    { "path": ".github/workflows/ci.yml", "status": "modified" },
+    { "path": "package.json", "status": "modified" },
+    { "path": "playwright.config.ts", "status": "modified" },
+    { "path": "provenance/entries/2026-07-19-m4-hosted-browser-evidence.json", "status": "added" },
+    { "path": "scripts/lib/m4-packaged-walkthrough.d.mts", "status": "modified" },
+    { "path": "scripts/lib/m4-packaged-walkthrough.mjs", "status": "modified" },
+    { "path": "scripts/run-m4-hosted-evidence.mjs", "status": "added" },
+    { "path": "tests/e2e/m4-hosted-journey.e2e.ts", "status": "added" },
+    { "path": "tests/e2e/m4-hosted.playwright.config.ts", "status": "added" },
+    { "path": "tests/scripts/m4-hosted-evidence-runner.test.mjs", "status": "added" },
+    { "path": "tests/scripts/m4-packaged-walkthrough.test.ts", "status": "modified" },
+    { "path": "tests/scripts/production-static-browser.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [],
+  "testEvidence": [
+    {
+      "criterion": "The repository exposes a dedicated, serial, artifact-retaining M4 hosted Playwright command and CI lane without absorbing packaged-desktop MCP claims.",
+      "test": "Run the command before wiring, add the dedicated test/config/package/CI paths, then validate the scoped source, TypeScript graph, and CI YAML structure.",
+      "red": {
+        "command": "pnpm.cmd test:e2e:m4-hosted",
+        "observedAt": "2026-07-19T10:58:00-06:00",
+        "outcome": "RED: pnpm exited 1 because test:e2e:m4-hosted did not exist."
+      },
+      "green": {
+        "command": "pnpm.cmd exec biome check tests/e2e/m4-hosted-journey.e2e.ts tests/e2e/m4-hosted.playwright.config.ts package.json; pnpm.cmd exec tsc --noEmit --pretty false; parse .github/workflows/ci.yml with the pinned yaml dependency",
+        "observedAt": "2026-07-19T11:10:00-06:00",
+        "outcome": "GREEN for static wiring only: Biome checked 3 scoped files with no fixes, strict TypeScript exited zero, and ci.yml parsed with 12 e2e steps. Browser runtime is explicitly not called green by this observation."
+      }
+    },
+    {
+      "criterion": "Hosted evidence retains startup and failure diagnostics, the local provider shuts down within a forced bound, and the dedicated journey stays isolated from the default and production-static lanes.",
+      "test": "Run only the M4 hosted runner, M4 packaged-walkthrough helper, and production-static browser source-contract unit files after the independent review findings are implemented.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/production-static-browser.test.ts --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-19T11:17:07-06:00",
+        "outcome": "RED: 1 of 3 source-contract tests failed because the default Playwright ignore assertion still expected the old two-file one-line list and did not account for the dedicated M4 hosted journey. Independent review also found no retained wrapper log before Playwright startup, unbounded mock shutdown, and incomplete agent, thumbnail-reload, and animation assertions."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/m4-hosted-evidence-runner.test.mjs tests/scripts/m4-packaged-walkthrough.test.ts tests/scripts/production-static-browser.test.ts --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-19T11:34:46-06:00",
+        "outcome": "GREEN: 3 focused files and 14 tests passed. The wrapper retained success, exact-status failure, thrown-spawn, null-status, and direct-to-file output larger than Node's default synchronous child buffer; the mock forced a connected, server-observed held request closed within its configured bound and stayed concurrent/idempotent; and the structural source contract recognized the exact three-test default ignore list and dedicated artifact runner. The first forced-close assertion correctly failed when it inspected the client socket before the close event arrived; the final test awaits that bounded event and proves the socket was destroyed. This is unit/source proof only, not a hosted browser runtime pass."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://tests/e2e/m4-cache-paint.e2e.ts",
+      "sought": "Whether the production-only AC-15.a paint benchmark belonged in the new development-server journey",
+      "confirmation": "The focused run measured 334.400 ms under Vite development while the existing production-static evidence previously measured 37.7 ms. The benchmark remains owned by the optimized production-static lane and the hosted journey checks only a cache hit with zero additional engine runs."
+    },
+    {
+      "url": "local://src/ui/layout/WorkbenchStatusBar.tsx",
+      "sought": "Which geometry delta is truthfully available from browser WASM",
+      "confirmation": "The real hosted run reported volume unavailable and the exact bounds-size delta +2/0/0 mm. The hosted assertion follows that observable contract; the existing packaged-native walkthrough remains the signed-volume authority."
+    },
+    {
+      "url": "local://scripts/run-m4-hosted-evidence.mjs",
+      "sought": "Whether CI would retain actionable evidence when Playwright fails before reporter initialization",
+      "confirmation": "The first CI wiring depended only on Playwright's artifact directory. The replacement runner pre-creates the directory, replaces stale logs, captures stdout/stderr plus exact command status, and CI additionally tees its launcher output before the always-upload step."
+    },
+    {
+      "url": "local://tests/e2e/m4-hosted-journey.e2e.ts",
+      "sought": "Whether same-session labels could overstate agent, thumbnail, or animation coverage",
+      "confirmation": "Independent review found that one proposal request, same-session images, and immediate Play/Pause labels were insufficient. The journey now requires the exact seven-response tool sequence with review approval and cap, reload/reopen byte-identical 240 by 160 thumbnails, exactly one completed scrub render, one new serialized Play render that advances from frame 51 to frame 52 after the current-frame cache hit, no overlap, and stable paused state."
+    },
+    {
+      "url": "local://scripts/lib/m4-packaged-walkthrough.mjs",
+      "sought": "Whether a held local-provider request could hang teardown or make a failed close look complete",
+      "confirmation": "The prior helper marked itself closed before server.close succeeded and had no deadline. Cleanup now shares one in-flight promise, marks closed only after success, closes idle connections, forcibly closes active connections after a bounded grace, and retains retry semantics on failure. The focused regression waits for TCP connect and server receipt of a partial request, proves shutdown remains pending before the grace, then awaits the actual client close event and confirms socket destruction."
+    },
+    {
+      "url": "local://test-results/m4-hosted-artifacts/runner-result.json",
+      "sought": "The first bounded post-remediation hosted-browser runtime result",
+      "confirmation": "The runner retained exit status 1 and a trace after the journey passed real geometry, cache, reload-thumbnail, and animation checks, then Playwright correctly rejected the non-exact AI model label because it also matched Configured AI models. Both uses now require the exact AI model label."
+    },
+    {
+      "url": "local://test-results/m4-hosted-artifacts/playwright-report.json",
+      "sought": "The second and final local hosted-browser recheck result",
+      "confirmation": "The recheck passed the exact settings selector and reached accepted AI proposal application. It then retained exit status 1 because the test expected the visible CodeMirror source without the canonical trailing newline produced by fenced-code proposal extraction. The editor expectation now includes that one newline; no third local browser run was started."
+    }
+  ],
+  "questions": ["The hosted browser journey remains unverified, not green. After the original three-iteration development cap, two explicitly bounded post-review executions each stopped on a distinct test-only expectation and retained complete evidence. The exact-label and canonical-newline corrections await the ordinary exact-head hosted CI execution; no third local browser run is authorized."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

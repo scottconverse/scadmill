@@ -529,12 +529,17 @@ export async function startScriptedM4LocalProviderMock({
   agentSource,
   cappedRounds,
   secret,
+  closeGraceMs = 250,
 }) {
   assert.ok(safeString(proposalSource, 1_000_000), "M4 mock proposal source is invalid.");
   assert.ok(safeString(agentSource, 1_000_000), "M4 mock agent source is invalid.");
   assert.equal(cappedRounds, 2, "M4 mock must use exactly two capped tool rounds.");
   assert.ok(safeString(secret, 512), "M4 mock secret is invalid.");
+  assert.ok(Number.isSafeInteger(closeGraceMs) && closeGraceMs >= 10 && closeGraceMs <= 10_000,
+    "M4 mock close grace must be an integer from 10 through 10000 ms.");
   const records = [];
+  let resolveRequestStarted;
+  const requestStarted = new Promise((resolveStarted) => { resolveRequestStarted = resolveStarted; });
   const server = createServer(async (request, response) => {
     response.setHeader("access-control-allow-origin", "*");
     response.setHeader("access-control-allow-headers", "authorization, content-type");
@@ -553,6 +558,7 @@ export async function startScriptedM4LocalProviderMock({
       response.writeHead(409, { "content-type": "application/json" }).end('{"error":"script exhausted"}');
       return;
     }
+    resolveRequestStarted();
     const chunks = [];
     let byteLength = 0;
     try {
@@ -600,16 +606,46 @@ export async function startScriptedM4LocalProviderMock({
   assert.ok(address && typeof address === "object" && address.address === "127.0.0.1"
     && Number.isSafeInteger(address.port) && address.port > 0, "M4 mock did not bind an ephemeral loopback port.");
   let closed = false;
+  let closing;
+  const transcript = () => records.map((record) => ({
+    ...record,
+    headers: { ...record.headers },
+    roles: [...record.roles],
+    toolNames: [...record.toolNames],
+    context: { ...record.context },
+  }));
+  const closeServer = () => new Promise((resolveClose, rejectClose) => {
+    let settled = false;
+    const finish = (error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(forceTimer);
+      clearTimeout(deadlineTimer);
+      if (error) rejectClose(error);
+      else resolveClose();
+    };
+    const forceTimer = setTimeout(() => server.closeAllConnections(), closeGraceMs);
+    const deadlineTimer = setTimeout(() => {
+      server.closeAllConnections();
+      finish(new Error(`M4 mock did not close within ${closeGraceMs * 4} ms.`));
+    }, closeGraceMs * 4);
+    server.close((error) => finish(error));
+    server.closeIdleConnections();
+  });
   return {
     endpoint: `http://127.0.0.1:${address.port}/api/chat`,
     model: "m4-local",
     secret,
+    waitForRequestStart: () => requestStarted,
     async close() {
       if (!closed) {
-        closed = true;
-        await new Promise((resolveClose, rejectClose) => server.close((error) => error ? rejectClose(error) : resolveClose()));
+        closing ??= closeServer().then(() => { closed = true; }, (error) => {
+          closing = undefined;
+          throw error;
+        });
+        await closing;
       }
-      return records.map((record) => ({ ...record, headers: { ...record.headers }, roles: [...record.roles], toolNames: [...record.toolNames], context: { ...record.context } }));
+      return transcript();
     },
   };
 }
