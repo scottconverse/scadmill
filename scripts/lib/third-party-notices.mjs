@@ -12,7 +12,9 @@ export function resolveContainedPath(base, candidate) {
   if (typeof candidate !== "string" || candidate.length === 0) {
     throw new Error("Notice file path must stay inside its declared directory.");
   }
-  const pathApi = path.win32.isAbsolute(base) ? path.win32 : path;
+  const pathApi = path.win32.isAbsolute(base) && !path.posix.isAbsolute(base)
+    ? path.win32
+    : path.posix;
   if (path.isAbsolute(candidate) || path.win32.isAbsolute(candidate)) {
     throw new Error(`Notice file path ${candidate} must stay inside its declared directory.`);
   }

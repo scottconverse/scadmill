@@ -72,7 +72,7 @@
     {
       "id": "D-0406",
       "topic": "Generate distributable notices from the actual Windows beta dependency graph",
-      "decision": "Use target-filtered Cargo metadata only for package records, derive activation from cargo tree pinned to x86_64-pc-windows-msvc and normal/build edges, inventory production npm packages, retain exact package license, copyright, and notice texts through containment-checked regular-file reads, bind official-source overrides by package version and SHA-256, deduplicate identical texts by hash, configure NSIS 3.11 explicitly for permitted zlib compression, disclose WebView2 and statically linked Visual C++ runtime support, map the notice only through Tauri's Windows platform configuration, and make the drift check a mandatory Tauri prebuild before packaging.",
+      "decision": "Use target-filtered Cargo metadata only for package records, derive activation from cargo tree pinned to x86_64-pc-windows-msvc and normal/build edges, inventory production npm packages, retain exact package license, copyright, and notice texts through containment-checked regular-file reads, bind official-source overrides by package version and SHA-256, deduplicate identical texts by hash, configure NSIS 3.11 explicitly for permitted zlib compression, disclose WebView2 and statically linked Visual C++ runtime support, map the notice only through Tauri's Windows platform configuration, and make the drift check a mandatory Windows Tauri prebuild before packaging.",
       "rationale": "Cargo metadata resolve edges include inactive optional dependencies, unfiltered records overstate the Windows payload, dependency-controlled licenseFile paths must not escape their package, SPDX expressions alone do not preserve required notices, and the NSIS LZMA module uses unapproved CPL-1.0. An activated target-bound artifact with contained exact inputs and zlib-only setup is accurate, policy-compatible, and independently checkable.",
       "specBasis": ["Section 6 dependency licensing", "V-2", "V-5"]
     },
@@ -94,9 +94,9 @@
         "outcome": "RED: the notice module and Tauri resource mapping were absent. Subsequent focused REDs proved the NSIS default was LZMA, the static Visual C++ payload was undisclosed, COPYRIGHT files were omitted, inactive optional Cargo dependencies were counted as activated, dependency or manifest paths could escape their base directory, Windows-only notices could leak into DMG/AppImage artifacts, and a manual Tauri build could package stale notices; each regression failed before repair."
       },
       "green": {
-        "command": "pnpm.cmd check:notices; pnpm.cmd exec vitest run tests/scripts/third-party-notices.test.ts tests/scripts/licenses.test.ts tests/scripts/windows-installer.test.ts tests/scripts/ci-workflow.test.ts --reporter=dot; pnpm.cmd exec biome check scripts/generate-third-party-notices.mjs scripts/lib/third-party-notices.mjs tests/scripts/third-party-notices.test.ts tests/scripts/windows-installer.test.ts; PowerShell AST parse",
-        "observedAt": "2026-07-19T03:01:58-06:00",
-        "outcome": "GREEN: the final 656,257-byte notice was current for 26 production npm and 278 activated Windows Cargo packages; 4 focused files and 22 tests passed after the platform-specific resource, mandatory prebuild, regular-file, and realpath-link escape repairs; Biome exited zero. Inactive bs58, chrono, schemars 0.9/1.2, tray-icon, tinyvec, and related packages were absent. The installed-lifecycle PowerShell parser passed separately. An independent read-only re-review completed at 2026-07-19T03:04:15-06:00 with blocker/critical/major/minor/nit = 0/0/0/0/0. The next exact hosted installer run must prove the resource bytes in a real Windows package."
+        "command": "pnpm.cmd check:notices; pnpm.cmd exec vitest run tests/scripts/third-party-notices.test.ts tests/scripts/licenses.test.ts tests/scripts/windows-installer.test.ts tests/scripts/ci-workflow.test.ts tests/scripts/desktop-public-assets.test.ts --reporter=dot; pnpm.cmd exec biome check scripts/generate-third-party-notices.mjs scripts/lib/third-party-notices.mjs tests/scripts/third-party-notices.test.ts tests/scripts/windows-installer.test.ts; PowerShell AST parse",
+        "observedAt": "2026-07-19T03:10:02-06:00",
+        "outcome": "GREEN: the final 656,257-byte notice was current for 26 production npm and 278 activated Windows Cargo packages; 5 focused files and 23 tests passed at 2026-07-19T03:10:02-06:00 after the Windows-only resource/prebuild, regular-file, realpath-link escape, and POSIX-root repairs; Biome exited zero. Inactive bs58, chrono, schemars 0.9/1.2, tray-icon, tinyvec, and related packages were absent. The installed-lifecycle PowerShell parser passed separately. Prior pre-correction reviews are superseded; the final combined-delta independent review completed at 2026-07-19T03:12:14-06:00 with blocker/critical/major/minor/nit = 0/0/0/0/0. The next exact hosted installer run must prove the resource bytes in a real Windows package."
       }
     }
   ],
@@ -129,7 +129,17 @@
     {
       "url": "local://src/desktop-shell/src-tauri/tauri.conf.json",
       "sought": "Prevent Windows-only notice claims from entering non-Windows verification artifacts or drifting during manual packaging",
-      "confirmation": "Independent review found the first resource map was global and the notice drift check existed only in CI. The resource now exists only in tauri.windows.conf.json, and every Tauri package build runs the fail-closed notice check through its prebuild command before compiling desktop assets."
+      "confirmation": "Independent review found the first resource map was global and the notice drift check existed only in CI. The resource now exists only in tauri.windows.conf.json, and every Windows Tauri package build runs the fail-closed notice check through its platform prebuild command before compiling desktop assets."
+    },
+    {
+      "url": "local://github-actions/29680948263/job/88176901233",
+      "sought": "Host-independent validation of the Windows-target notice from non-Windows verification packaging lanes",
+      "confirmation": "The exact-head macOS job failed closed because cargo tree included the macOS-host swift-rs build dependency while Windows-filtered metadata correctly did not. Since the notice and public beta are Windows-only, the accurate repair removed the Windows notice check from DMG/AppImage verification and moved both its resource map and mandatory Tauri prebuild into tauri.windows.conf.json; focused workflow/config tests bind that separation."
+    },
+    {
+      "url": "local://github-actions/29680948263/job/88176901237",
+      "sought": "Cross-platform enforcement of notice-path containment tests",
+      "confirmation": "The exact-head Ubuntu test job proved that path.win32 treats a slash-rooted POSIX base as absolute, causing POSIX temporary roots to resolve with Windows separators and making both real-file regressions fail. Path-family selection now chooses win32 only for roots that are Windows-absolute but not POSIX-absolute; explicit Windows and POSIX root assertions plus the directory and link tests pass together."
     }
   ],
   "questions": ["Q-0038 requires the owner to select Apache-2.0, MIT, or supply a proprietary beta EULA before public release. Q-0039 requires the owner to select GitHub private vulnerability reporting or provide a verified private email. Neither question blocks candidate engineering or evidence."],

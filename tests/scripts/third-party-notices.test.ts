@@ -67,6 +67,9 @@ describe("third-party notice generation", () => {
     expect(resolveContainedPath("C:\\repo\\package", "LICENSE")).toBe(
       "C:\\repo\\package\\LICENSE",
     );
+    expect(resolveContainedPath("/tmp/repo/package", "LICENSE")).toBe(
+      "/tmp/repo/package/LICENSE",
+    );
     for (const candidate of ["../secret.txt", "C:\\secret.txt", "/etc/passwd"]) {
       expect(() => resolveContainedPath("C:\\repo\\package", candidate)).toThrow(
         "must stay inside",

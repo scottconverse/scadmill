@@ -69,6 +69,7 @@ describe("installer lifecycle contract", () => {
       };
     };
     const windowsConfig = JSON.parse(windowsConfigSource) as {
+      build?: { beforeBuildCommand?: string };
       bundle?: { resources?: Record<string, string> };
     };
     const packageManifest = JSON.parse(packageSource) as {
@@ -91,7 +92,8 @@ describe("installer lifecycle contract", () => {
     expect(windowsConfig.bundle?.resources).toEqual({
       "../../../THIRD-PARTY-NOTICES.txt": "THIRD-PARTY-NOTICES.txt",
     });
-    expect(tauriConfig.build?.beforeBuildCommand).toBe(
+    expect(tauriConfig.build?.beforeBuildCommand).toBe("pnpm --dir ../.. build:desktop");
+    expect(windowsConfig.build?.beforeBuildCommand).toBe(
       "pnpm --dir ../.. build:desktop:tauri-prebuild",
     );
     expect(packageManifest.scripts?.["build:desktop:tauri-prebuild"]).toBe(
@@ -224,6 +226,9 @@ describe("installer lifecycle contract", () => {
     const mac = namedStep(job, "Mount, launch, and remove macOS candidate");
     const linux = namedStep(job, "Launch and remove Linux AppImage candidate");
     const upload = namedStep(job, "Upload platform installer");
+    expect(job.steps.some((step) => step.name === "Verify distributable third-party notices")).toBe(
+      false,
+    );
     expect(prerequisites.run).toContain("xdotool");
     expect(mac.run).toContain("CGWindowListCopyWindowInfo");
     expect(mac.run).toContain("owner.int32Value == pid");

@@ -253,8 +253,6 @@ jobs:
             xvfb \
             xdotool
       - run: pnpm install --frozen-lockfile
-      - name: Verify distributable third-party notices
-        run: pnpm check:notices
       - name: Build platform installer
         run: |
           rustc --version | grep '^rustc 1.96.0 '
