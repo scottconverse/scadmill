@@ -28,6 +28,8 @@
   },
   "bundle": {
     "active": true,
+    "license": "Apache-2.0",
+    "licenseFile": "../../../LICENSE",
     "targets": ["nsis"],
     "icon": [
       "icons/32x32.png",

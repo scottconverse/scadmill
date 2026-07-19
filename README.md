@@ -9,7 +9,7 @@ ScadMill is a source-first OpenSCAD workbench under development for desktop and 
 
 The first beta is intended to provide the editor, native OpenSCAD rendering and export, project/file workflows, Customizer, 2D/3D viewers, animation, render cache, geometry comparison, AI assistance, local MCP bridge, and command history described below. Rendering requires the separate, exact OpenSCAD 2026.06.12 Windows snapshot; ScadMill does not replace another OpenSCAD installation. See the [Windows beta guide](docs/WINDOWS-BETA.md) for the verified engine download, hashes, configuration steps, installation model, and current limitations.
 
-The candidate is **not release-qualified yet**. Publication remains blocked on exact-candidate one-hour literal N-2 soak evidence, a clean packaged Windows Sandbox walkthrough, the owner-designated Radeon 780M qualification, a signed installer lifecycle, exact-head hosted and isolated similarity gates, owner resolution of the product-license and private security-reporting questions [Q-0038 and Q-0039](spec/QUESTIONS.md), and the final documentation, visitor, walkthrough, strict-zero, and owner go/no-go gates. The Radeon 780M is evidence hardware, not a minimum supported GPU.
+The candidate is **not release-qualified yet**. Publication remains blocked on exact-candidate one-hour literal N-2 soak evidence, a clean packaged Windows Sandbox walkthrough, the owner-designated Radeon 780M qualification, a signed installer lifecycle, exact-head hosted and isolated similarity gates, owner resolution of the private security-reporting question [Q-0039](spec/QUESTIONS.md), and the final documentation, visitor, walkthrough, strict-zero, and owner go/no-go gates. The Radeon 780M is evidence hardware, not a minimum supported GPU.
 
 The first beta does not publish a browser application or OpenSCAD WebAssembly engine, and it does not publish macOS or Linux installers. Those targets remain in the product plan. Installed-library expansion, navigation/refactoring expansion, batch features, manufacturing/slicing estimates, and the headless CLI remain later M5/M6 work rather than beta claims.
 
@@ -133,4 +133,4 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the clean-room rules, setup, and ve
 
 ## License
 
-No public reuse license has been selected. ScadMill's original application code remains all rights reserved; the separately distributed OpenSCAD WebAssembly engine must ship with the approved corresponding-source and GPL-2.0-or-later compliance package described in Q-0033. See [`LICENSE`](LICENSE).
+ScadMill's original application code is licensed under the [Apache License 2.0](LICENSE). Separately distributed OpenSCAD engine artifacts and third-party components remain subject to their own licenses; the OpenSCAD WebAssembly engine must ship with the approved corresponding-source and GPL-2.0-or-later compliance package described in Q-0033.

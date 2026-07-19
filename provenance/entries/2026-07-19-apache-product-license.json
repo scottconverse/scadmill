@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-19-apache-product-license",
+  "createdAt": "2026-07-19T17:35:00-06:00",
+  "summary": "Apply the owner's Apache-2.0 product-license decision consistently across source, package metadata, documentation, and the Windows desktop bundle.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 question protocol", "Section 6 product licensing", "Q-0038", "Windows public-beta release gate"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "LICENSE", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "docs/WINDOWS-BETA.md", "status": "modified" },
+    { "path": "package.json", "status": "modified" },
+    { "path": "provenance/entries/2026-07-19-apache-product-license.json", "status": "added" },
+    { "path": "spec/QUESTIONS.md", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/Cargo.toml", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/tauri.conf.json", "status": "modified" },
+    { "path": "src/native-engine/Cargo.toml", "status": "modified" },
+    { "path": "tests/scripts/product-license.test.ts", "status": "added" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://v2.tauri.app/reference/config/",
+      "accessedOn": "2026-07-19",
+      "purpose": "Verify the official Tauri v2 bundle license and licenseFile configuration fields."
+    },
+    {
+      "url": "https://v2.tauri.app/start/migrate/from-tauri-1/",
+      "accessedOn": "2026-07-19",
+      "purpose": "Verify that Tauri v2 replaced the former NSIS-specific license property with bundle.licenseFile."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0412",
+      "topic": "ScadMill product license",
+      "decision": "License ScadMill's original application code under Apache License 2.0, declare Apache-2.0 in npm and both Rust manifests, and include the root license through Tauri's desktop bundle configuration.",
+      "rationale": "The owner explicitly selected Apache-2.0. Synchronizing every package and installer surface prevents the former no-permission placeholder or proprietary metadata from contradicting the public grant.",
+      "specBasis": ["Section 2.7 owner decision protocol", "Section 6 product licensing", "Q-0038"]
+    },
+    {
+      "id": "D-0413",
+      "topic": "Separate engine and dependency licensing boundary",
+      "decision": "Apply Apache-2.0 only to ScadMill's original application code; retain each separately distributed OpenSCAD engine artifact and third-party component under its own license and compliance materials.",
+      "rationale": "A ScadMill application license cannot and does not replace upstream grants, notices, corresponding-source obligations, or the approved Q-0033 engine compliance package.",
+      "specBasis": ["Section 6 engine license", "Q-0033", "Q-0038"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The complete byte-pinned root license and application notice, npm and Rust package metadata, and resolved Tauri bundle license file must all expose the same Apache-2.0 product-license decision.",
+      "test": "Add a focused repository-surface contract first, retain its failure against the no-permission placeholder, then apply the owner decision and rerun once.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/product-license.test.ts --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-19T17:35:16-06:00",
+        "outcome": "RED: 1 file and 1 test failed because LICENSE still contained the all-rights-reserved no-permission placeholder instead of the Apache License 2.0 text."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/product-license.test.ts --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-19T17:44:15-06:00",
+        "outcome": "GREEN: 1 file and its 1 strengthened test passed in 529 ms. It pins the full LICENSE SHA-256, requires the application notice, synchronizes every SPDX surface, resolves bundle.licenseFile relative to tauri.conf.json, and proves the referenced bytes equal the root license."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://tests/scripts/product-license.test.ts",
+      "sought": "A complete, non-dangling product-license contract",
+      "confirmation": "Independent review rejected the first substring-only test because it could pass with truncated terms or a dangling Tauri path. The final test pins every license byte and resolves the installer reference to the root file."
+    }
+  ],
+  "questions": ["Q-0038 is resolved. Q-0039 remains open until the owner selects GitHub private vulnerability reporting or supplies a verified private email address."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

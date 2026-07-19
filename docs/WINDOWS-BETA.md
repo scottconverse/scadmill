@@ -86,4 +86,4 @@ Back up project folders before installation, upgrade, uninstall, or recovery wor
 
 ## Release qualification still in progress
 
-The candidate must not be called shipped until its exact source and installer have passed the one-hour literal N-2 soak, clean packaged Windows Sandbox walkthrough, Radeon 780M qualification, valid signed-installer lifecycle, exact-head hosted and isolated similarity gates, owner resolution of the product-license and private security-reporting questions [Q-0038 and Q-0039](../spec/QUESTIONS.md), final strict-zero review, public-surface audit, clean public-installer walkthrough, and owner go/no-go.
+The candidate must not be called shipped until its exact source and installer have passed the one-hour literal N-2 soak, clean packaged Windows Sandbox walkthrough, Radeon 780M qualification, valid signed-installer lifecycle, exact-head hosted and isolated similarity gates, owner resolution of the private security-reporting question [Q-0039](../spec/QUESTIONS.md), final strict-zero review, public-surface audit, clean public-installer walkthrough, and owner go/no-go.

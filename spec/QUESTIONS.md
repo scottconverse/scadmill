@@ -12,7 +12,8 @@ Numbered questions are appended here under §2.7. Only the affected work item is
 | Open/actionable — policy gate | Q-0002 | Q-0002 does not block product implementation. |
 | Open/actionable — scoped behavior | Q-0003, Q-0005–Q-0010, Q-0013, Q-0015–Q-0019, Q-0021–Q-0022, Q-0024–Q-0028, Q-0030–Q-0031 | Each blocks only the item named in its **Blocked** field; no question silently blocks unrelated work. |
 | Open/actionable — M4 scoped behavior | Q-0035–Q-0037 | Conservative implementation proceeds under §2.7; each question parks only alternate owner-selected semantics or final wording. |
-| Open/actionable — public beta policy | Q-0038–Q-0039 | Only the product-license grant and private security-reporting publication surfaces are parked; Windows-beta engineering and evidence continue. |
+| Resolved — public beta license | Q-0038 | The owner selected Apache-2.0 for ScadMill's original application code and installer license surface. |
+| Open/actionable — public beta security policy | Q-0039 | Only the private security-reporting publication surface remains parked; Windows-beta engineering and evidence continue. |
 | Open/historical — delivered conservatively | Q-0004, Q-0011–Q-0012, Q-0014, Q-0020, Q-0023, Q-0029 | M2/M3 delivered the stricter or later capability named by each question. The owner answer still governs the historical milestone interpretation. |
 
 ## Q-0035 — Open — 2026-07-17
@@ -36,12 +37,14 @@ Numbered questions are appended here under §2.7. Only the affected work item is
 - **Evidence:** FR-15.13 assigns thumbnail capture and three presentation surfaces to M4, while FR-15.3 assigns the history timeline that owns one of those surfaces to M5. Recent-project records identify only the project, not a document. Pulling the complete history UI into the thumbnail slice would contradict the milestone table and create a second history owner.
 - **Blocked:** Only the actual history-timeline thumbnail placement before FR-15.3 and any owner-selected project-level thumbnail choice. M4 proceeds with automatic latest-per-document capture, durable non-source workspace state, Welcome using the newest successful document thumbnail per project, file-tree hover/focus presentation, and a tested M5 history seam.
 
-## Q-0038 — Open — 2026-07-19
+## Q-0038 — Resolved 2026-07-19 — owner-directed
 
 - **Section:** §6 product licensing; Windows public-beta release gate
 - **Question:** Which product license grants public beta users permission to download, install, and use ScadMill: Apache-2.0, MIT, or an owner-supplied proprietary beta EULA?
-- **Evidence:** The current root `LICENSE` explicitly grants no permission to use the software without prior written permission. That is incompatible with a public beta download. Dependency licenses and OpenSCAD compliance materials remain separate and do not supply a license grant for ScadMill itself.
-- **Blocked:** Only finalizing the root product license/EULA, installer license surface, and public release. Engineering, packaging mechanics, third-party notices, candidate verification, and all unrelated work continue. The implementer will not infer a product-license grant.
+- **Opening evidence:** Before resolution, the root `LICENSE` explicitly granted no permission to use the software without prior written permission, which was incompatible with a public beta download. Dependency licenses and OpenSCAD compliance materials remain separate and do not supply a license grant for ScadMill itself.
+- **Blocked:** No product-license decision remains. Public release remains subject to the other release gates.
+- **Owner decision (2026-07-19):** License ScadMill's original application code under Apache License 2.0.
+- **Resolution evidence:** The root `LICENSE` contains the Apache License 2.0 text and application notice; npm and both Rust package manifests declare `Apache-2.0`; the Tauri bundle declares the same SPDX identifier and includes the root license file in appropriate installer bundles. Separately distributed OpenSCAD engine artifacts and third-party components retain their own licenses.
 
 ## Q-0039 — Open — 2026-07-19
 

@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-19-hosted-test-portability",
+  "createdAt": "2026-07-19T11:47:00-06:00",
+  "summary": "Correct two exact-head Ubuntu unit-test portability defects without weakening the M4 artifact-path or Windows close behavior contracts.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "FR-13.4", "AC-13.b", "N-7"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-19-hosted-test-portability.json", "status": "added" },
+    { "path": "tests/scripts/m4-hosted-evidence-runner.test.mjs", "status": "modified" },
+    { "path": "tests/scripts/windows-installer.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29697383871/job/88220355405",
+      "accessedOn": "2026-07-19",
+      "purpose": "Inspect the exact-head Ubuntu Web-check failures and distinguish test portability defects from product behavior failures."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0410",
+      "topic": "Cross-platform evidence-runner path assertion",
+      "decision": "Construct the whitespace-fallback test workspace and expected artifact directory with the host path implementation instead of asserting a Windows drive path on every operating system.",
+      "rationale": "The production resolver correctly uses node:path.resolve. On Ubuntu, C:/workspace is a relative POSIX string, so the former expected Windows absolute path tested the host incorrectly rather than testing whitespace fallback behavior.",
+      "specBasis": ["N-7"]
+    },
+    {
+      "id": "D-0411",
+      "topic": "Cold PowerShell Core behavior-harness bound",
+      "decision": "Give the cross-platform executable PowerShell behavior test a 15-second child deadline inside a 20-second Vitest deadline while preserving the helper's exact 15,000-millisecond product close assertion inside the harness.",
+      "rationale": "Ubuntu's cold pwsh startup exceeded Vitest's unrelated five-second default during the aggregate suite. The harness remains bounded and still asserts the exact product close deadline; only its outer process-start allowance changes.",
+      "specBasis": ["FR-13.4", "AC-13.b", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The M4 fallback-path contract and executable Windows close harness must run under both Windows and Ubuntu test hosts without changing their behavioral assertions.",
+      "test": "Use the retained exact-head Ubuntu aggregate failure as RED, then run the two focused test files locally once; require the next ordinary hosted Web check for Ubuntu proof.",
+      "red": {
+        "command": "pnpm test (Ubuntu Web checks, run 29697383871 job 88220355405)",
+        "observedAt": "2026-07-19T11:44:40-06:00",
+        "outcome": "RED: 2 of 1,469 tests failed. The path test expected C:/workspace on POSIX and received the correct cwd-resolved POSIX path; the pwsh behavior test hit Vitest's 5,000 ms outer timeout. The other 1,467 tests passed."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/product-license.test.ts tests/scripts/m4-hosted-evidence-runner.test.mjs tests/scripts/windows-installer.test.ts --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-19T17:38:49-06:00",
+        "outcome": "GREEN locally: 3 files and all 10 tests passed in 3.06 seconds. Ubuntu confirmation remains pending the next ordinary exact-head hosted Web check."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

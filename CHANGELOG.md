@@ -7,10 +7,12 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 ### Release status
 
 - `0.1.0-beta.1` is an unpublished 64-bit Windows desktop candidate. There is no public ScadMill installer or web application yet; CI artifacts are verification inputs, not supported downloads.
-- Publication remains blocked on exact-candidate one-hour literal N-2 soak evidence, a clean packaged Windows Sandbox walkthrough, Radeon 780M qualification, a valid signed-installer lifecycle, exact-head hosted and isolated similarity gates, owner resolution of Q-0038's product license/EULA and Q-0039's private security-reporting route, final documentation and visitor checks, a clean public-installer walkthrough, strict-zero closure, and owner go/no-go.
+- Publication remains blocked on exact-candidate one-hour literal N-2 soak evidence, a clean packaged Windows Sandbox walkthrough, Radeon 780M qualification, a valid signed-installer lifecycle, exact-head hosted and isolated similarity gates, owner resolution of Q-0039's private security-reporting route, final documentation and visitor checks, a clean public-installer walkthrough, strict-zero closure, and owner go/no-go. The owner resolved Q-0038 by selecting Apache-2.0 for ScadMill's original application code.
 - The M3 parity/compliance execution passed on historical candidate `1b6343a`. That evidence validates the M3 implementation but does not release the OpenSCAD WebAssembly pair and does not qualify the current Windows beta head.
 
 ### Added
+
+- Licensed ScadMill's original application code under Apache License 2.0, synchronized npm and Rust package metadata, and bound the root license into the desktop bundle.
 
 - Prepared synchronized `0.1.0-beta.1` web, Tauri, desktop-crate, native-engine, and lockfile metadata for the owner-approved Windows-first beta, with a named-owner withdrawal and forward-replacement rollback plan.
 

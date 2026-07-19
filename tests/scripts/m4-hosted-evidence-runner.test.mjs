@@ -123,8 +123,9 @@ it("records spawn exceptions and null exit statuses as retained failures", async
 });
 
 it("uses the default artifact directory for a whitespace environment value", () => {
+  const workingDirectory = join(process.cwd(), "workspace");
   expect(resolveM4HostedArtifactDirectory({
     environment: { SCADMILL_M4_HOSTED_ARTIFACT_DIR: "   " },
-    workingDirectory: "C:/workspace",
-  }).replaceAll("\\", "/")).toBe("C:/workspace/test-results/m4-hosted-artifacts");
+    workingDirectory,
+  })).toBe(join(workingDirectory, "test-results", "m4-hosted-artifacts"));
 });
