@@ -33,6 +33,7 @@ export interface ViewerResources {
   controls: OrbitControls;
   mesh?: Mesh<BufferGeometry, MeshStandardMaterial>;
   parsed?: ParsedBinaryStl;
+  presentationToken?: string;
   furniture?: FurnitureResources;
   frame: number | null;
   width: number;
@@ -102,6 +103,7 @@ export function configureMouse(
 export function removeModel(resources: ViewerResources): void {
   clearFurniture(resources.scene, resources.furniture);
   resources.furniture = undefined;
+  resources.presentationToken = undefined;
   if (!resources.mesh) return;
   resources.scene.remove(resources.mesh);
   resources.mesh.geometry.dispose();

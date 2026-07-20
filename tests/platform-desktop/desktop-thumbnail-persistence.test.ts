@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createBrowserRenderThumbnailPersistence, createDesktopRenderThumbnailPersistence } from "../../src/platform-desktop/desktop-thumbnail-persistence";
 
@@ -60,6 +60,45 @@ describe("desktop render thumbnail persistence", () => {
     expect(persistence.load(workspaceIdentity)[0].pngBytes).toEqual(png(2));
     persistence.clear(workspaceIdentity);
     expect(persistence.load(workspaceIdentity)).toEqual([]);
+  });
+
+  it("notifies once after save and clear, and stops after unsubscribe", () => {
+    const persistence = createDesktopRenderThumbnailPersistence(new MemoryStorage());
+    const listener = vi.fn();
+    const unsubscribe = persistence.subscribe?.(listener);
+
+    persistence.save(workspaceIdentity, {
+      documentPath: "main.scad",
+      renderIdentity,
+      capturedAt: "2026-07-17T00:00:00.000Z",
+      pngBytes: png(1),
+    });
+    persistence.clear(workspaceIdentity);
+
+    expect(listener).toHaveBeenCalledTimes(2);
+    unsubscribe?.();
+    persistence.clear(workspaceIdentity);
+    expect(listener).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not notify when durable storage rejects a save or clear", () => {
+    const storage = new MemoryStorage();
+    const persistence = createDesktopRenderThumbnailPersistence(storage);
+    const listener = vi.fn();
+    persistence.subscribe?.(listener);
+    storage.setItem = () => { throw new Error("storage full"); };
+
+    expect(() => persistence.save(workspaceIdentity, {
+      documentPath: "main.scad",
+      renderIdentity,
+      capturedAt: "2026-07-17T00:00:00.000Z",
+      pngBytes: png(1),
+    })).toThrow("storage full");
+    expect(listener).not.toHaveBeenCalled();
+
+    storage.removeItem = () => { throw new Error("storage locked"); };
+    expect(() => persistence.clear(workspaceIdentity)).toThrow("storage locked");
+    expect(listener).not.toHaveBeenCalled();
   });
 
   it("fails closed on malformed data and never accepts a source path as workspace identity", () => {

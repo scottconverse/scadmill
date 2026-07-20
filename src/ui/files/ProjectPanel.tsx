@@ -12,6 +12,7 @@ import type { WorkbenchRuntime } from "../../application/runtime/workbench-runti
 import { messages } from "../../messages/en";
 import { useReadonlyStore } from "../use-readonly-store";
 import { ProjectLifecycleControls } from "./ProjectLifecycleControls";
+import { useThumbnailPersistenceRevision } from "./use-thumbnail-persistence-revision";
 
 export interface ProjectPanelProps {
   readonly runtime: WorkbenchRuntime;
@@ -98,6 +99,7 @@ export function ProjectPanel({
   directoryPicker,
   workspaceDirectory,
 }: ProjectPanelProps) {
+  useThumbnailPersistenceRevision(runtime.renderThumbnails);
   const project = useReadonlyStore(runtime.project, (state) => state);
   const workspace = useReadonlyStore(runtime.documents, (state) => state);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());

@@ -17,8 +17,11 @@ const captureThumbnailPng = vi.fn<() => Promise<Uint8Array>>();
 afterEach(() => vi.useRealTimers());
 
 vi.mock("../../../src/ui/viewer/ModelViewer", () => ({
-  ModelViewer: forwardRef(({ onFrameRendered }: { readonly onFrameRendered?: () => void }, ref) => {
-    reportFrameRendered = onFrameRendered;
+  ModelViewer: forwardRef(({ onFrameRendered, presentationToken }: {
+    readonly onFrameRendered?: (durationMs: number, presentationToken?: string) => void;
+    readonly presentationToken?: string;
+  }, ref) => {
+    reportFrameRendered = () => onFrameRendered?.(0, presentationToken);
     useImperativeHandle(ref, () => ({
       capturePng: vi.fn(),
       captureThumbnailPng,
@@ -295,6 +298,37 @@ it("drops a scheduled old frame until the new identity actually renders", async 
     renderIdentity: secondIdentity,
     pngBytes: Uint8Array.of(7),
   }));
+  view.unmount();
+  runtime.dispose();
+});
+
+it("bounds thumbnail delay while rendered frames keep arriving", async () => {
+  captureThumbnailPng.mockReset().mockResolvedValue(Uint8Array.of(8));
+  const runtime = createWorkbenchRuntime({
+    render: vi.fn(), export: vi.fn(), version: vi.fn(), cancel: vi.fn(),
+  }, {
+    renderThumbnailPersistence: { load: () => [], save: vi.fn(), clear: vi.fn() },
+  });
+  const identity = `sha256:${"7".repeat(64)}`;
+  const viewer = presentation(identity, identity);
+  const view = render(
+    <ViewerPaneConnector
+      colors={colors} dimmed={false} documentId="document-main" maximized={false}
+      narrow={false} onLayoutAction={vi.fn()} onShowConsole={vi.fn()}
+      renderStatus="success" result={viewer.presentation?.result} runtime={runtime}
+      viewer={viewer}
+    />,
+  );
+  await view.findByTestId("model-viewer");
+  await waitFor(() => expect(reportFrameRendered).toBeDefined());
+
+  for (let frame = 0; frame < 10; frame += 1) {
+    act(() => reportFrameRendered?.());
+    await act(() => delay(100));
+  }
+  await act(() => delay(75));
+
+  expect(captureThumbnailPng).toHaveBeenCalledOnce();
   view.unmount();
   runtime.dispose();
 });

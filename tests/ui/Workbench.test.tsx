@@ -632,7 +632,7 @@ describe("Workbench", () => {
     await waitFor(() => expect(runtime.documents.getState().activeDocumentId).toBe("document-wheel"));
     await act(async () => resolveRender(result));
 
-    expect(await workbench.findByText("Rendered main.scad (3d)")).toBeVisible();
+    expect(await workbench.findByText("Render complete main.scad (3d) - not displayed")).toBeVisible();
     expect(workbench.queryByText(messages.previewQuality)).not.toBeInTheDocument();
     expect(workbench.queryByText("10 × 10 × 10 mm")).not.toBeInTheDocument();
     expect(within(view.container.querySelector("footer") as HTMLElement).getByText(
@@ -700,7 +700,7 @@ describe("Workbench", () => {
     resolveRender(result);
     await act(async () => pending);
 
-    expect(await workbench.findByText("Rendered main.scad (3d, stale)")).toBeVisible();
+    expect(await workbench.findByText("Render complete main.scad (3d, stale) - not displayed")).toBeVisible();
     expect(workbench.queryByText(messages.previewQuality)).not.toBeInTheDocument();
     expect(workbench.queryByText("10 × 10 × 10 mm")).not.toBeInTheDocument();
     expect(within(view.container.querySelector("footer") as HTMLElement).getByText(

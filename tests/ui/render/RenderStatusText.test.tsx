@@ -33,4 +33,77 @@ describe("RenderStatusText", () => {
     act(() => store.setState({ ...store.getState(), cached: true }, true));
     expect(screen.getByTestId("status")).toHaveTextContent("Rendered main.scad (3d, cached)");
   });
+
+  it("does not claim a successful result is rendered before its first presentation frame", () => {
+    const store = createStore<RenderState>(() => ({
+      status: "success",
+      cached: false,
+      entryFile: "main.scad",
+      result,
+    }));
+    render(<span data-testid="status"><RenderStatusText
+      documentPath="main.scad"
+      presentationStatus="presenting"
+      renderStore={store}
+      stale={false}
+    /></span>);
+
+    expect(screen.getByTestId("status")).toHaveTextContent("Presenting main.scad");
+    expect(screen.getByTestId("status")).not.toHaveTextContent("Rendered");
+  });
+
+  it("reports a terminal display failure instead of remaining in Presenting", () => {
+    const store = createStore<RenderState>(() => ({
+      status: "success",
+      cached: false,
+      entryFile: "main.scad",
+      result,
+    }));
+    render(<span data-testid="status"><RenderStatusText
+      documentPath="main.scad"
+      presentationStatus="failed"
+      renderStore={store}
+      stale={false}
+    /></span>);
+
+    expect(screen.getByTestId("status")).toHaveTextContent("Could not display main.scad");
+  });
+
+  it("discloses when the pinned viewer mode intentionally hides the result", () => {
+    const store = createStore<RenderState>(() => ({
+      status: "success",
+      cached: true,
+      entryFile: "main.scad",
+      result,
+    }));
+    render(<span data-testid="status"><RenderStatusText
+      documentPath="main.scad"
+      presentationStatus="skipped"
+      renderStore={store}
+      stale={false}
+    /></span>);
+
+    expect(screen.getByTestId("status")).toHaveTextContent(
+      "Rendered main.scad (3d, cached) - hidden by viewer mode",
+    );
+  });
+
+  it("distinguishes a completed result that was intentionally withheld from the viewer", () => {
+    const store = createStore<RenderState>(() => ({
+      status: "success",
+      cached: false,
+      entryFile: "background.scad",
+      result,
+    }));
+    render(<span data-testid="status"><RenderStatusText
+      documentPath="main.scad"
+      presentationStatus="withheld"
+      renderStore={store}
+      stale
+    /></span>);
+
+    expect(screen.getByTestId("status")).toHaveTextContent(
+      "Render complete background.scad (3d, stale) - not displayed",
+    );
+  });
 });

@@ -256,13 +256,18 @@ describe("createWorkbenchRuntime", () => {
 
     await setSize(1);
     await runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
+    const firstPresentation = runtime.render.getState().presentationToken;
     await setSize(2);
     await runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
+    const secondPresentation = runtime.render.getState().presentationToken;
     await setSize(1);
     await runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
+    const returnedPresentation = runtime.render.getState().presentationToken;
 
     expect(engine.render).toHaveBeenCalledTimes(2);
     expect(cacheGet).toHaveBeenCalledOnce();
+    expect(firstPresentation).toEqual(expect.any(String));
+    expect(new Set([firstPresentation, secondPresentation, returnedPresentation])).toHaveProperty("size", 3);
     const cachedA = runtime.render.getState().result;
     expect(cachedA?.kind).toBe("3d");
     if (cachedA?.kind !== "3d") throw new Error("Expected cached A geometry.");
@@ -271,6 +276,7 @@ describe("createWorkbenchRuntime", () => {
     await runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
     expect(cacheGet).toHaveBeenCalledOnce();
     expect(runtime.render.getState().result).toBe(cachedA);
+    expect(runtime.render.getState().presentationToken).toBe(returnedPresentation);
   });
 
   it("checks a cold disk-capable tier before invoking the engine", async () => {
@@ -411,7 +417,7 @@ describe("createWorkbenchRuntime", () => {
       result: { kind: "3d", stats: { triangles: 12 } },
     });
     expect(runtime.viewer.getState().documents.get("document-main")?.presentation).toMatchObject({
-      modelIdentity: "render-1",
+      modelIdentity: "command-2",
       quality: "preview",
       result: { kind: "3d", stats: { triangles: 12 } },
     });
@@ -462,7 +468,7 @@ describe("createWorkbenchRuntime", () => {
     await runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
 
     expect(runtime.viewer.getState().documents.get("document-main")?.presentation).toMatchObject({
-      modelIdentity: "render-2d",
+      modelIdentity: "render-2d-command",
       quality: "preview",
       result: {
         ...drawing,
@@ -504,7 +510,7 @@ describe("createWorkbenchRuntime", () => {
     await runtime.dispatch({ kind: "render-active", origin: "user", quality: "full" });
 
     expect(runtime.viewer.getState().documents.get("document-main")?.presentation).toMatchObject({
-      modelIdentity: "render-first",
+      modelIdentity: "render-command",
       geometryDelta: { kind: "unchanged" },
       result: { kind: "3d", mesh: { geometryIdentity: expect.stringMatching(/^sha256:/u) } },
     });

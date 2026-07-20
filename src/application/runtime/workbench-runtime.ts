@@ -1628,7 +1628,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     }
     if (renderAttempt !== renderAttemptGeneration || !snapshotIsCurrent()) return;
     if (cachedResult && knownKey) {
-      const cacheJobId = `cache:${knownKey}`;
+      const cacheJobId = `cache:${commandId}`;
       presentedCacheKeys.set(cachedResult.result, knownKey);
       render.setState({
         status: "success",
@@ -1641,6 +1641,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
         projectRevision,
         parameterValues,
         result: cachedResult.result,
+        presentationToken: commandId,
       }, true);
       if (command.animationTime === undefined) {
         record(
@@ -1653,7 +1654,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       viewer.setState(reduceViewerState(viewer.getState(), {
         kind: "present-result",
         documentId: document.id,
-        modelIdentity: cacheJobId,
+        modelIdentity: commandId,
         quality: command.quality,
         result: cachedResult.result,
       }), true);
@@ -1731,11 +1732,12 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       parameterValues,
       result,
       cached: false,
+      presentationToken: result.kind === "failure" ? undefined : commandId,
     }, true);
     if (!snapshotIsCurrent() || renderAttempt !== renderAttemptGeneration) return;
     const currentWorkspace = documents.getState();
     if (result.kind !== "failure") {
-      const presentationJobId = job.jobId;
+      const presentationJobId = commandId;
       viewer.setState(reduceViewerState(viewer.getState(), {
         kind: "present-result",
         documentId: document.id,

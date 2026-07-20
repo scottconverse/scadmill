@@ -6,6 +6,7 @@ import { SvgViewer } from "../../../src/ui/viewer/SvgViewer";
 
 const result: RenderSuccess2D = {
   kind: "2d",
+  geometryIdentity: `sha256:${"9".repeat(64)}`,
   svg: `<svg width="32mm" height="22mm" viewBox="-1 -21 32 22" xmlns="http://www.w3.org/2000/svg" version="1.1"><title>OpenSCAD Model</title><path d="M0,0 L30,0 L30,-20 L0,-20 z" stroke="black" fill="none" stroke-width="0.35"/></svg>`,
   boundingBox: { min: [0, 0], max: [30, 20] },
   diagnostics: [],
@@ -13,6 +14,7 @@ const result: RenderSuccess2D = {
 };
 
 describe("SvgViewer", () => {
+  const presentationToken = "svg-presentation";
   beforeEach(() => {
     vi.stubGlobal(
       "ResizeObserver",
@@ -40,6 +42,14 @@ describe("SvgViewer", () => {
     expect(view.getByRole("button", { name: "Fit drawing" })).toBeEnabled();
   });
 
+  it("reports presentation readiness only when the sanitized drawing image loads", () => {
+    const onPresentationReady = vi.fn();
+    render(<SvgViewer result={result} onPresentationReady={onPresentationReady} presentationToken={presentationToken} />);
+
+    expect(onPresentationReady).toHaveBeenCalledOnce();
+    expect(onPresentationReady).toHaveBeenCalledWith(presentationToken);
+  });
+
   it("zooms at the pointer and restores fit", () => {
     const view = render(<SvgViewer result={result} />);
     const viewport = view.getByRole("button", { name: "2D drawing viewer" });
@@ -54,9 +64,32 @@ describe("SvgViewer", () => {
 
   it("fails closed when engine SVG contains active content", () => {
     const unsafe = { ...result, svg: `<svg xmlns="http://www.w3.org/2000/svg"><script/></svg>` };
-    const view = render(<SvgViewer result={unsafe} />);
+    const onPresentationFailed = vi.fn();
+    const view = render(
+      <SvgViewer
+        onPresentationFailed={onPresentationFailed}
+        presentationToken={presentationToken}
+        result={unsafe}
+      />,
+    );
 
     expect(view.queryByRole("img")).not.toBeInTheDocument();
     expect(view.getByRole("alert")).toHaveTextContent("The 2D engine output could not be displayed safely.");
+    expect(onPresentationFailed).toHaveBeenCalledWith(presentationToken);
+  });
+
+  it("reports a sanitized drawing that the image element cannot load", () => {
+    const onPresentationFailed = vi.fn();
+    const view = render(
+      <SvgViewer
+        onPresentationFailed={onPresentationFailed}
+        presentationToken={presentationToken}
+        result={result}
+      />,
+    );
+
+    fireEvent.error(view.getByRole("img", { name: "2D OpenSCAD drawing" }));
+
+    expect(onPresentationFailed).toHaveBeenCalledWith(presentationToken);
   });
 });

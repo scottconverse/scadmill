@@ -3,6 +3,7 @@ import { type RefObject, useCallback, useEffect, useRef } from "react";
 import type { ModelViewerHandle } from "./ModelViewer";
 
 const AUTOMATIC_THUMBNAIL_DELAY_MS = 250;
+const AUTOMATIC_THUMBNAIL_MAX_DELAY_MS = 1_000;
 
 interface ThumbnailCaptureRequest {
   generation: number;
@@ -22,12 +23,14 @@ export function useViewerThumbnail(
   const inFlight = useRef(false);
   const pending = useRef<ThumbnailCaptureRequest | null>(null);
   const scheduled = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const burstStartedAt = useRef<number | null>(null);
   const startRequestRef = useRef<(request: ThumbnailCaptureRequest) => void>(() => undefined);
   const lastIdentity = useRef<string | null>(null);
   if (lastIdentity.current !== captureIdentity) {
     lastIdentity.current = captureIdentity;
     generation.current += 1;
     capturedIdentity.current = null;
+    burstStartedAt.current = null;
   }
 
   const startRequest = useCallback((request: ThumbnailCaptureRequest) => {
@@ -59,6 +62,7 @@ export function useViewerThumbnail(
     if (scheduled.current !== null) clearTimeout(scheduled.current);
     scheduled.current = null;
     pending.current = null;
+    burstStartedAt.current = null;
   }, []);
 
   return useCallback(() => {
@@ -71,8 +75,15 @@ export function useViewerThumbnail(
     };
     pending.current = null;
     if (scheduled.current !== null) clearTimeout(scheduled.current);
+    const now = Date.now();
+    burstStartedAt.current ??= now;
+    const delay = Math.max(0, Math.min(
+      now + AUTOMATIC_THUMBNAIL_DELAY_MS,
+      burstStartedAt.current + AUTOMATIC_THUMBNAIL_MAX_DELAY_MS,
+    ) - now);
     scheduled.current = setTimeout(() => {
       scheduled.current = null;
+      burstStartedAt.current = null;
       if (
         generation.current !== request.generation
         || capturedIdentity.current === request.identity
@@ -82,6 +93,6 @@ export function useViewerThumbnail(
         return;
       }
       startRequestRef.current(request);
-    }, AUTOMATIC_THUMBNAIL_DELAY_MS);
+    }, delay);
   }, [captureIdentity, onThumbnail, renderIdentity]);
 }

@@ -17,6 +17,7 @@ export interface RenderThumbnailPersistence {
   load(workspaceIdentity: string): readonly RenderThumbnailRecord[];
   save(workspaceIdentity: string, thumbnail: RenderThumbnailRecord): void;
   clear(workspaceIdentity: string): void;
+  subscribe?(listener: () => void): () => void;
 }
 
 export function validateRenderThumbnailRecord(record: RenderThumbnailRecord): RenderThumbnailRecord {

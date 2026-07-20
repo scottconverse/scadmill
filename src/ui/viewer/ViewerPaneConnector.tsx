@@ -40,6 +40,9 @@ export interface ViewerPaneConnectorProps {
   readonly viewer: ViewerDocumentState;
   readonly onLayoutAction: (action: WorkspaceLayoutAction) => void;
   readonly onShowConsole: () => void;
+  readonly onPresentationFailed?: (token: string) => void;
+  readonly onPresentationReady?: (identity: string) => void;
+  readonly waitForPresentation?: (token?: string, signal?: AbortSignal) => Promise<void>;
   readonly onScreenshotCaptured?: (bytes: Uint8Array) => void;
   readonly onMcpScreenshotCaptureAvailable?: (capture: ((width: number, height: number) => Promise<Uint8Array>) | undefined) => void;
 }
@@ -66,6 +69,9 @@ export function ViewerPaneConnector({
   viewer,
   onLayoutAction,
   onShowConsole,
+  onPresentationFailed,
+  onPresentationReady,
+  waitForPresentation,
   onScreenshotCaptured,
   onMcpScreenshotCaptureAvailable,
 }: ViewerPaneConnectorProps) {
@@ -182,6 +188,8 @@ export function ViewerPaneConnector({
           }
         : undefined}
       onMcpScreenshotCaptureAvailable={onMcpScreenshotCaptureAvailable}
+      onPresentationFailed={onPresentationFailed}
+      onPresentationReady={onPresentationReady}
       onThumbnail={runtime.renderThumbnails
         ? (bytes) => {
             const result = viewer.presentation?.result;
@@ -204,7 +212,7 @@ export function ViewerPaneConnector({
       onShowConsole={onShowConsole}
       onViewerAction={dispatchViewer}
     />
-    <AnimationBar documentId={documentId} engineAvailable={engineAvailable} entryFile={entryFile} runtime={runtime} source={source} sourceFiles={sourceFiles} />
+    <AnimationBar documentId={documentId} engineAvailable={engineAvailable} entryFile={entryFile} runtime={runtime} source={source} sourceFiles={sourceFiles} waitForPresentation={waitForPresentation} />
     </div>
   );
 }

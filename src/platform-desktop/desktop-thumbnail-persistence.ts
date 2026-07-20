@@ -87,6 +87,10 @@ export function createDesktopRenderThumbnailPersistence(
   options: { readonly prefix?: string; readonly allowAnyWorkspace?: boolean } = {},
 ): RenderThumbnailPersistence {
   const selected = availableStorage(storage);
+  const listeners = new Set<() => void>();
+  const notify = () => {
+    for (const listener of listeners) listener();
+  };
   return {
     load: (workspaceIdentity) => {
       const key = storageKey(workspaceIdentity, options.prefix, options.allowAnyWorkspace);
@@ -113,12 +117,18 @@ export function createDesktopRenderThumbnailPersistence(
           pngBase64: encodeBase64(pngBytes),
         })),
       }));
+      notify();
     },
     clear: (workspaceIdentity) => {
       const key = storageKey(workspaceIdentity, options.prefix, options.allowAnyWorkspace);
       if (!key) throw new Error("Thumbnail persistence requires an opaque desktop project identity.");
       if (!selected) throw new Error("Desktop profile storage is unavailable.");
       selected.removeItem(key);
+      notify();
+    },
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
     },
   };
 }

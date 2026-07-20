@@ -23,13 +23,13 @@ import {
 import { messages } from "../../messages/en";
 import type { ModelViewerHandle } from "./ModelViewer";
 import { RenderProgressOverlay } from "./RenderProgressOverlay";
+import { useModelFrameReport } from "./use-model-frame-report";
 import { useViewerThumbnail } from "./use-viewer-thumbnail";
 import { useMcpScreenshotCapture } from "./use-mcp-screenshot-capture";
 import { ViewerDetailsPanel } from "./ViewerDetailsPanel";
 import { type ViewerTool, ViewerToolbar } from "./ViewerToolbar";
 import { boundsLabel } from "./viewer-bounds-label";
 import type { ViewerDegradation } from "./viewer-furniture";
-
 const ModelViewer = lazy(() =>
   import("./ModelViewer").then((module) => ({ default: module.ModelViewer })),
 );
@@ -71,8 +71,7 @@ export interface ViewerPaneProps {
     readonly orbit: "left" | "middle" | "right";
     readonly pan: "left" | "middle" | "right";
   };
-  readonly onCancel?: () => void;
-  readonly annotationPersistence?: WorkspaceAnnotationPersistenceState;
+  readonly onCancel?: () => void; readonly annotationPersistence?: WorkspaceAnnotationPersistenceState;
   readonly onRetryAnnotationPersistence?: () => void | Promise<void>;
   readonly onExportAnnotationMetadata?: () => void | Promise<void>;
   readonly onLayoutAction: (action: WorkspaceLayoutAction) => void;
@@ -81,6 +80,8 @@ export interface ViewerPaneProps {
   readonly onMcpScreenshotCaptureAvailable?: (capture: ((width: number, height: number) => Promise<Uint8Array>) | undefined) => void;
   readonly thumbnailPersistenceDestination?: string;
   readonly onThumbnail?: (bytes: Uint8Array) => void | Promise<void>;
+  readonly onPresentationFailed?: (token: string) => void;
+  readonly onPresentationReady?: (identity: string) => void;
   readonly onShowConsole?: () => void;
   readonly onViewerAction?: (action: ViewerAction) => void;
 }
@@ -113,7 +114,7 @@ export function ViewerPane({
   onModeChange,
   onScreenshot,
   onMcpScreenshotCaptureAvailable, thumbnailPersistenceDestination = documentId,
-  onThumbnail,
+  onThumbnail, onPresentationFailed, onPresentationReady,
   onShowConsole,
   onViewerAction,
 }: ViewerPaneProps) {
@@ -123,10 +124,7 @@ export function ViewerPane({
   const [tool, setTool] = useState<ViewerTool>("navigate");
   const [annotationDraft, setAnnotationDraft] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
-  const [degradation, setDegradation] = useState<ViewerDegradation>({
-    edges: false,
-    shadow: false,
-  });
+  const [degradation, setDegradation] = useState<ViewerDegradation>({ edges: false, shadow: false });
   const geometry = result?.kind === "2d" || result?.kind === "3d" ? result : undefined;
   const visibleGeometry = viewerMode === "auto" || geometry?.kind === viewerMode
     ? geometry
@@ -149,6 +147,8 @@ export function ViewerPane({
     setNotice(null);
   }, [documentId, modelIdentity]);
   const captureThumbnail = useViewerThumbnail(modelViewer, viewer.presentation?.renderIdentity ?? "", thumbnailPersistenceDestination, onThumbnail);
+  const presentationToken = viewer.presentation?.renderIdentity;
+  const reportModelFrame = useModelFrameReport(presentationToken, onPresentationReady, captureThumbnail);
   const dispatchViewer = useCallback(
     (action: ViewerAction) => onViewerAction?.(action),
     [onViewerAction],
@@ -226,7 +226,6 @@ export function ViewerPane({
       .then(() => setNotice(messages.annotationMetadataExported))
       .catch(() => setNotice(messages.annotationMetadataExportFailed));
   };
-
   useEffect(() => {
     if (!keybindings || visibleKind !== "3d") return;
     const modifier = primaryModifierForPlatform();
@@ -261,7 +260,6 @@ export function ViewerPane({
     globalThis.addEventListener?.("keydown", handleKeyDown);
     return () => globalThis.removeEventListener?.("keydown", handleKeyDown);
   }, [bounds, captureScreenshot, dispatchViewer, documentId, keybindings, viewer.camera, visibleKind]);
-
   return (
     <section
       className={`viewer-panel${visibleGeometry?.kind === "3d" ? " viewer-panel-with-toolbar" : ""}`}
@@ -305,7 +303,7 @@ export function ViewerPane({
       <div className="viewer-content">
         <Suspense fallback={<div className="surface-loading" role="status">{messages.loadingViewer}</div>}>
           {visibleGeometry?.kind === "2d" ? (
-            <SvgViewer result={visibleGeometry} onThumbnail={onThumbnail} />
+            <SvgViewer result={visibleGeometry} onPresentationFailed={onPresentationFailed} onPresentationReady={onPresentationReady} onThumbnail={onThumbnail} presentationToken={presentationToken} />
           ) : visibleGeometry?.kind === "3d" ? (
             <ModelViewer
               annotations={viewer.annotations}
@@ -318,10 +316,12 @@ export function ViewerPane({
               mouseMapping={mouseMapping}
               onCameraChange={(camera) => dispatchViewer({ kind: "set-camera", documentId, camera })}
               onDegradationChange={updateDegradation}
+              onPresentationFailed={onPresentationFailed}
               onPointPick={pickPoint}
-              onFrameRendered={captureThumbnail}
+              onFrameRendered={reportModelFrame}
               ref={modelViewer}
               result={visibleGeometry}
+              presentationToken={presentationToken}
               tool={tool}
             />
           ) : !mismatch ? (

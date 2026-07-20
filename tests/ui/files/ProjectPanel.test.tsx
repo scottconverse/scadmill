@@ -8,6 +8,7 @@ import {
   createProjectSnapshot,
   type ProjectFileContent,
 } from "../../../src/application/files/project-snapshot";
+import type { RenderThumbnailPersistence } from "../../../src/application/render-cache/render-thumbnail-persistence";
 import { createWorkbenchRuntime } from "../../../src/application/runtime/workbench-runtime";
 import { messages } from "../../../src/messages/en";
 import { ProjectPanel } from "../../../src/ui/files/ProjectPanel";
@@ -21,7 +22,7 @@ function engine(): EngineService {
   };
 }
 
-function setup() {
+function setup(renderThumbnailPersistence?: RenderThumbnailPersistence) {
   const files = new Map<string, ProjectFileContent>([
     ["main.scad", "include <parts/wheel.scad>\ncube(10);"],
     ["parts/wheel.scad", "module wheel() { cylinder(4); }"],
@@ -44,6 +45,7 @@ function setup() {
     initialProject: createProjectSnapshot("project-a", files),
     projectStorage: storage,
     makeId: () => "project-panel-command",
+    renderThumbnailPersistence,
   });
   return { files, revealed, runtime, storage };
 }
@@ -157,5 +159,36 @@ describe("ProjectPanel", () => {
 
     await waitFor(() => expect(files.has("parts/main.scad")).toBe(true));
     expect(files.has("main.scad")).toBe(false);
+  });
+
+  it("shows a thumbnail saved after the file is already hovered", async () => {
+    let records: ReturnType<RenderThumbnailPersistence["load"]> = [];
+    const listeners = new Set<() => void>();
+    const thumbnails: RenderThumbnailPersistence = {
+      load: () => records,
+      save: (_workspaceIdentity, thumbnail) => {
+        records = [thumbnail];
+        for (const listener of listeners) listener();
+      },
+      clear: () => { records = []; },
+      subscribe: (listener) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+    };
+    const { runtime } = setup(thumbnails);
+    const view = render(<ProjectPanel runtime={runtime} />);
+    fireEvent.mouseEnter(view.getByRole("button", { name: "main.scad" }).closest('[role="treeitem"]') as HTMLElement);
+    expect(view.queryByRole("img")).not.toBeInTheDocument();
+
+    thumbnails.save(runtime.project.getState().snapshot.workspaceIdentity, {
+      documentPath: "main.scad",
+      renderIdentity: `sha256:${"8".repeat(64)}`,
+      capturedAt: "2026-07-20T08:30:00.000Z",
+      pngBytes: Uint8Array.of(137, 80, 78, 71, 13, 10, 26, 10),
+    });
+
+    await waitFor(() => expect(view.container.querySelector(".project-file-thumbnail")).toBeVisible());
+    runtime.dispose();
   });
 });

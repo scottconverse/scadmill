@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { fireEvent, render, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { createRef, StrictMode } from "react";
 import {
   AmbientLight,
@@ -193,14 +193,23 @@ describe("ModelViewer theme", () => {
 
   it("shows an accessible fallback when WebGL is unavailable for a rendered model", async () => {
     vi.stubGlobal("WebGLRenderingContext", undefined);
+    const onPresentationFailed = vi.fn();
 
-    const view = render(<ModelViewer colors={darkColors} result={oneTriangleResult()} />);
+    const view = render(
+      <ModelViewer
+        colors={darkColors}
+        onPresentationFailed={onPresentationFailed}
+        presentationToken="webgl-unavailable"
+        result={oneTriangleResult()}
+      />,
+    );
 
     expect(await view.findByRole("alert")).toHaveTextContent(
       "3D model display is unavailable because WebGL could not start. Editing and exports remain available.",
     );
     expect(view.container.querySelector("canvas")).toHaveAttribute("aria-hidden", "true");
     expect(view.container.querySelector("canvas")).toHaveAttribute("tabindex", "-1");
+    expect(onPresentationFailed).toHaveBeenCalledWith("webgl-unavailable");
   });
 
   it("shows the WebGL fallback instead of crashing when renderer creation fails", async () => {
@@ -211,6 +220,48 @@ describe("ModelViewer theme", () => {
     expect(await view.findByRole("alert")).toHaveTextContent(
       "3D model display is unavailable because WebGL could not start. Editing and exports remain available.",
     );
+  });
+
+  it("terminates presentation when an established WebGL renderer cannot submit a frame", async () => {
+    const onPresentationFailed = vi.fn();
+    const onFrameRendered = vi.fn();
+    const first = identifiedTriangleResult(`sha256:${"e".repeat(64)}`);
+    const view = render(
+      <ModelViewer
+        colors={darkColors}
+        onFrameRendered={onFrameRendered}
+        onPresentationFailed={onPresentationFailed}
+        presentationToken="lost-webgl-frame"
+        result={first}
+      />,
+    );
+    await waitFor(() => expect(modelMesh(threeHarness.scenes[0])).toBeInstanceOf(Mesh));
+    required(threeHarness.renderers[0], "a renderer").render.mockImplementationOnce(() => {
+      throw new Error("context lost");
+    });
+    const frame = required(
+      vi.mocked(requestAnimationFrame).mock.calls[0]?.[0],
+      "a requested animation frame",
+    );
+
+    act(() => frame(performance.now()));
+
+    expect(onPresentationFailed).toHaveBeenCalledWith("lost-webgl-frame");
+    const requestedFramesAfterFailure = vi.mocked(requestAnimationFrame).mock.calls.length;
+    view.rerender(
+      <ModelViewer colors={lightColors} onFrameRendered={onFrameRendered} onPresentationFailed={onPresentationFailed} presentationToken="lost-webgl-frame" result={first} />,
+    );
+    expect(vi.mocked(requestAnimationFrame)).toHaveBeenCalledTimes(requestedFramesAfterFailure);
+    onPresentationFailed.mockClear();
+    view.rerender(
+      <ModelViewer colors={darkColors} onFrameRendered={onFrameRendered} onPresentationFailed={onPresentationFailed} presentationToken="same-after-failure" result={{ ...first, mesh: { ...first.mesh } }} />,
+    );
+    await waitFor(() => expect(onPresentationFailed).toHaveBeenCalledWith("same-after-failure"));
+    view.rerender(
+      <ModelViewer colors={darkColors} onFrameRendered={onFrameRendered} onPresentationFailed={onPresentationFailed} presentationToken="changed-after-failure" result={identifiedTriangleResult(`sha256:${"f".repeat(64)}`)} />,
+    );
+    await waitFor(() => expect(onPresentationFailed).toHaveBeenCalledWith("changed-after-failure"));
+    expect(onFrameRendered).not.toHaveBeenCalled();
   });
 
   it("observes the stable viewport wrapper instead of the canvas it resizes", () => {
@@ -311,19 +362,21 @@ describe("ModelViewer theme", () => {
     const first = identifiedTriangleResult(`sha256:${"a".repeat(64)}`);
     const failed = identifiedTriangleResult(`sha256:${"b".repeat(64)}`);
     const retry = identifiedTriangleResult(`sha256:${"b".repeat(64)}`);
+    const onPresentationFailed = vi.fn();
     const view = render(
-      <ModelViewer colors={darkColors} meshParser={meshParser} result={first} />,
+      <ModelViewer colors={darkColors} meshParser={meshParser} onPresentationFailed={onPresentationFailed} presentationToken="first" result={first} />,
     );
 
     await waitFor(() => expect(modelMesh(threeHarness.scenes[0])).toBeInstanceOf(Mesh));
     view.rerender(
-      <ModelViewer colors={darkColors} meshParser={meshParser} result={failed} />,
+      <ModelViewer colors={darkColors} meshParser={meshParser} onPresentationFailed={onPresentationFailed} presentationToken="failed" result={failed} />,
     );
     expect(await view.findByRole("alert")).toHaveTextContent(
       "The rendered mesh could not be displayed.",
     );
+    expect(onPresentationFailed).toHaveBeenCalledWith("failed");
     view.rerender(
-      <ModelViewer colors={darkColors} meshParser={meshParser} result={retry} />,
+      <ModelViewer colors={darkColors} meshParser={meshParser} onPresentationFailed={onPresentationFailed} presentationToken="retry" result={retry} />,
     );
 
     await waitFor(() => expect(meshParser).toHaveBeenCalledTimes(3));

@@ -27,6 +27,7 @@ export interface AnimationBarProps {
   readonly runtime: WorkbenchRuntime;
   readonly source: string;
   readonly sourceFiles?: ReadonlyMap<string, ProjectFileContent>;
+  readonly waitForPresentation?: (token?: string, signal?: AbortSignal) => Promise<void>;
 }
 
 export function AnimationBar({
@@ -36,6 +37,7 @@ export function AnimationBar({
   runtime,
   source,
   sourceFiles,
+  waitForPresentation,
 }: AnimationBarProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
@@ -47,6 +49,7 @@ export function AnimationBar({
   const generation = useRef(0);
   const mounted = useRef(true);
   const previousDocumentId = useRef(documentId);
+  const presentationAbort = useRef<AbortController | undefined>(undefined);
   const timer = useRef<ReturnType<typeof globalThis.setTimeout> | undefined>(undefined);
   const visible = entryFile && sourceFiles
     ? projectUsesAnimationTime(entryFile, sourceFiles)
@@ -65,6 +68,8 @@ export function AnimationBar({
   const stop = useCallback((cancelActive = true, origin: "system" | "user" = "system") => {
     generation.current += 1;
     clearTimer();
+    presentationAbort.current?.abort();
+    presentationAbort.current = undefined;
     if (cancelActive && busyRef.current) {
       void runtime.dispatch({ kind: "cancel-animation", origin }).catch((reason: unknown) => {
         if (mounted.current) setError(messages.animationError(reason));
@@ -88,6 +93,18 @@ export function AnimationBar({
         quality: "preview",
         animationTime: animationTime(nextFrame),
       });
+      if (!mounted.current || generation.current !== expectedGeneration) return;
+      const rendered = runtime.render.getState();
+      if (rendered.status !== "success" || rendered.quality !== "preview" || !rendered.presentationToken) {
+        throw new Error(messages.animationFrameRenderFailed);
+      }
+      const controller = new AbortController();
+      presentationAbort.current = controller;
+      try {
+        await waitForPresentation?.(rendered.presentationToken, controller.signal);
+      } finally {
+        if (presentationAbort.current === controller) presentationAbort.current = undefined;
+      }
     } catch (reason: unknown) {
       if (mounted.current && generation.current === expectedGeneration) {
         setError(messages.animationError(reason));
@@ -110,7 +127,7 @@ export function AnimationBar({
       setFrame(followingFrame);
       void renderFrame(followingFrame, expectedGeneration, true);
     }, remainingDelay);
-  }, [runtime, stop, updateBusy]);
+  }, [runtime, stop, updateBusy, waitForPresentation]);
 
   const play = useCallback(() => {
     clearTimer();
@@ -148,6 +165,8 @@ export function AnimationBar({
       mounted.current = false;
       generation.current += 1;
       clearTimer();
+      presentationAbort.current?.abort();
+      presentationAbort.current = undefined;
       if (busyRef.current) void runtime.dispatch({ kind: "cancel-animation", origin: "system" });
     };
   }, [clearTimer, runtime]);

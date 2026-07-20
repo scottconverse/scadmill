@@ -21,10 +21,11 @@ import { useProjectOpenQueue } from "./files/use-project-open-queue";
 import { useLayoutKeybindings, useNarrowLayout, useNativeMenuState, usePlatformMenuCommands, WebMenuBar, WorkbenchStatusBar, WorkspaceFrame } from "./layout";
 import { HistoryActivityConnector, useMcpReviewApproval, useMcpStdio, useMcpViewportCapture } from "./mcp";
 import { ParameterPanelConnector } from "./parameters/ParameterPanelConnector";
-import { RenderControls, RenderStatusText, sameRenderStateExceptCached, useWorkbenchRenderCommands } from "./render";
+import { activePresentationToken, presentationHiddenByMode, RenderControls, RenderStatusText, sameRenderStateExceptCached, useWorkbenchRenderCommands } from "./render";
 import { SettingsLauncher } from "./settings/SettingsLauncher";
 import { useReadonlyStore } from "./use-readonly-store";
 import { resolveActiveViewerPresentation } from "./viewer/active-viewer-presentation";
+import { usePresentationReadiness } from "./viewer/use-presentation-readiness";
 import { pngDataUrl } from "./viewer/png-data-url";
 import { ViewerPaneConnector } from "./viewer/ViewerPaneConnector";
 import { WorkbenchBanners } from "./WorkbenchBanners";
@@ -74,12 +75,13 @@ export function Workbench({
   const narrow = useNarrowLayout(undefined, forceNarrowLayout);
   const activeViewer = viewerDocument(viewerState, document.id);
   const presentation = resolveActiveViewerPresentation({
-    activeDocumentId: document.id,
-    documents,
-    parameters: parameterState,
-    render,
+    activeDocumentId: document.id, documents,
+    parameters: parameterState, render,
     viewer: activeViewer,
   });
+  const presentationToken = activePresentationToken(render, document.id, presentation.stale);
+  const presentationReadiness = usePresentationReadiness(presentationToken, Boolean(presentationToken && presentationHiddenByMode(render.result, activeViewer.mode)));
+  const presentationStatus = render.status === "success" && (render.result?.kind === "2d" || render.result?.kind === "3d") && !presentationToken ? "withheld" : presentationReadiness.presentationStatus;
   const aiDiagnostics = (presentation.currentResult?.diagnostics ?? []).map((diagnostic) => `${diagnostic.severity}: ${diagnostic.message}`);
   const aiParameters = currentParameters.parameters.map((parameter) => `${parameter.name} = ${String(parameter.defaultValue)}`);
   const diagnosticNavigation = useDiagnosticNavigation({
@@ -298,7 +300,7 @@ export function Workbench({
       renderStartedAtMonotonicMs={presentation.status === "rendering" ? render.startedAtMonotonicMs : undefined}
       renderStartedAtMs={presentation.status === "rendering" ? render.startedAtMs : undefined}
       renderStatus={presentation.status} result={presentation.result} runtime={runtime}
-      viewer={activeViewer} onLayoutAction={dispatchLayout} onShowConsole={focusConsole}
+      viewer={activeViewer} onLayoutAction={dispatchLayout} onShowConsole={focusConsole} onPresentationFailed={presentationReadiness.onPresentationFailed} onPresentationReady={presentationReadiness.onPresentationReady} waitForPresentation={presentationReadiness.waitForPresentation}
       onScreenshotCaptured={(bytes) => setViewerScreenshotDataUrl(pngDataUrl(bytes))} onMcpScreenshotCaptureAvailable={setMcpScreenshotCapture}
     />
   );
@@ -387,7 +389,7 @@ export function Workbench({
       <WorkbenchStatusBar
         customThemes={customThemes} cursor={cursor}
         diagnosticStatus={diagnosticStatus} engineLabel={engineLabel}
-        geometryStatus={geometryStatus} renderStatus={<RenderStatusText documentPath={document.path} renderStore={runtime.render} stale={presentation.stale} />} mcpConnected={mcpConnected}
+        geometryStatus={geometryStatus} renderStatus={<RenderStatusText documentPath={document.path} presentationStatus={presentationStatus} renderStore={runtime.render} stale={presentation.stale} />} mcpConnected={mcpConnected}
         consoleVisible={consoleVisible} consoleButtonRef={statusConsoleButton}
         themePreference={themePreference} onFocusConsole={focusConsole}
         themePreferenceDisabled={settingsPersistenceStatus.status === "load-error"}

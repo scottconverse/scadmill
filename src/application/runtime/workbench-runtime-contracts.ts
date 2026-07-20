@@ -47,6 +47,7 @@ export interface RenderState {
   parameterValues?: Readonly<Record<string, ParamValue>>;
   result?: RenderResult;
   cached?: boolean;
+  presentationToken?: string;
 }
 
 export type WorkbenchCommand =

@@ -20,13 +20,16 @@ import { messages } from "../../messages/en";
 export interface SvgViewerProps {
   readonly result: RenderSuccess2D;
   readonly onThumbnail?: (bytes: Uint8Array) => void | Promise<void>;
+  readonly onPresentationFailed?: (token: string) => void;
+  readonly onPresentationReady?: (token: string) => void;
+  readonly presentationToken?: string;
 }
 
 function exactDimension(value: number): number {
   return Number(value.toFixed(6));
 }
 
-export function SvgViewer({ result, onThumbnail }: SvgViewerProps) {
+export function SvgViewer({ result, onPresentationFailed, onPresentationReady, onThumbnail, presentationToken }: SvgViewerProps) {
   const container = useRef<HTMLButtonElement>(null);
   const pointer = useRef<{ id: number; x: number; y: number } | null>(null);
   const [size, setSize] = useState<ViewportSize | null>(null);
@@ -151,6 +154,10 @@ export function SvgViewer({ result, onThumbnail }: SvgViewerProps) {
   const source = safeSvg ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(safeSvg)}` : "";
 
   useEffect(() => {
+    if (!safeSvg && presentationToken) onPresentationFailed?.(presentationToken);
+  }, [onPresentationFailed, presentationToken, safeSvg]);
+
+  useEffect(() => {
     if (!onThumbnail || !safeSvg || typeof document === "undefined" || typeof Image === "undefined") return;
     let active = true;
     const image = new Image();
@@ -211,6 +218,9 @@ export function SvgViewer({ result, onThumbnail }: SvgViewerProps) {
         <img
           alt={messages.svgDrawingAlt}
           draggable={false}
+          key={presentationToken ?? source}
+          onError={() => presentationToken && onPresentationFailed?.(presentationToken)}
+          onLoad={() => presentationToken && onPresentationReady?.(presentationToken)}
           src={source}
           style={{ transform: `translate(${translateX}px, ${translateY}px) scale(${zoom})` }}
         />

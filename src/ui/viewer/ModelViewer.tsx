@@ -19,7 +19,6 @@ import {
   WebGLRenderer,
 } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-
 import type { RenderSuccess3D } from "../../application/engine/contracts";
 import type { Point3 } from "../../application/viewer/measurements";
 import type {
@@ -52,22 +51,15 @@ import { useMeshParser } from "./use-mesh-parser";
 export interface ModelViewerHandle { capturePng(width?: number, height?: number): Promise<Uint8Array>; captureThumbnailPng(): Promise<Uint8Array>; }
 export type { ModelMeshParser } from "./model-viewer-defaults";
 export interface ModelViewerProps {
-  readonly result?: RenderSuccess3D;
-  readonly emptyMessage?: string;
-  readonly colors: ViewerThemeColors;
-  readonly camera?: ViewerCameraState;
-  readonly furniture?: ViewerFurnitureState;
-  readonly measurements?: readonly PointMeasurement[];
-  readonly annotations?: readonly ViewerAnnotation[];
-  readonly tool?: ViewerTool;
-  readonly dimmed?: boolean;
-  readonly meshColor?: string | null;
-  readonly mouseMapping?: { readonly orbit: MouseButton; readonly pan: MouseButton };
-  readonly meshParser?: ModelMeshParser;
-  readonly onCameraChange?: (camera: ViewerCameraState) => void;
-  readonly onPointPick?: (point: Point3) => void;
-  readonly onDegradationChange?: (degradation: ViewerDegradation) => void;
-  readonly onFrameRendered?: (durationMs: number) => void;
+  readonly result?: RenderSuccess3D; readonly emptyMessage?: string;
+  readonly colors: ViewerThemeColors; readonly camera?: ViewerCameraState;
+  readonly furniture?: ViewerFurnitureState; readonly measurements?: readonly PointMeasurement[];
+  readonly annotations?: readonly ViewerAnnotation[]; readonly tool?: ViewerTool;
+  readonly dimmed?: boolean; readonly meshColor?: string | null;
+  readonly mouseMapping?: { readonly orbit: MouseButton; readonly pan: MouseButton }; readonly meshParser?: ModelMeshParser;
+  readonly presentationToken?: string; readonly onCameraChange?: (camera: ViewerCameraState) => void;
+  readonly onPointPick?: (point: Point3) => void; readonly onDegradationChange?: (degradation: ViewerDegradation) => void;
+  readonly onFrameRendered?: (durationMs: number, presentationToken?: string) => void; readonly onPresentationFailed?: (presentationToken: string) => void;
 }
 export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(function ModelViewer({
   result,
@@ -82,32 +74,25 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
   meshColor = null,
   mouseMapping = DEFAULT_MOUSE_MAPPING,
   meshParser,
+  presentationToken,
   onCameraChange,
   onPointPick,
   onDegradationChange,
   onFrameRendered,
+  onPresentationFailed,
 }, forwardedRef) {
   const canvas = useRef<HTMLCanvasElement>(null);
-  const resources = useRef<ViewerResources | null>(null);
-  const parsedMeshReuse = useRef(new ParsedMeshReuse());
-  const activeMeshParser = useMeshParser(meshParser);
-  const cameraRef = useRef(camera);
-  const colorsRef = useRef(colors);
-  const furnitureRef = useRef(furniture);
-  const measurementsRef = useRef(measurements);
-  const annotationsRef = useRef(annotations);
-  const toolRef = useRef(tool);
-  const dimmedRef = useRef(dimmed);
-  const meshColorRef = useRef(meshColor);
+  const resources = useRef<ViewerResources | null>(null); const rendererFailed = useRef(false);
+  const parsedMeshReuse = useRef(new ParsedMeshReuse()); const activeMeshParser = useMeshParser(meshParser);
+  const cameraRef = useRef(camera); const colorsRef = useRef(colors);
+  const furnitureRef = useRef(furniture); const measurementsRef = useRef(measurements);
+  const annotationsRef = useRef(annotations); const toolRef = useRef(tool);
+  const dimmedRef = useRef(dimmed); const meshColorRef = useRef(meshColor);
   const mouseMappingRef = useRef(mouseMapping);
-  const onCameraChangeRef = useRef(onCameraChange);
-  const onPointPickRef = useRef(onPointPick);
-  const onDegradationChangeRef = useRef(onDegradationChange);
-  const onFrameRenderedRef = useRef(onFrameRendered);
-  const [overlays, setOverlays] = useState<SpatialOverlays>({
-    measurements: new Map(),
-    annotations: new Map(),
-  });
+  const onCameraChangeRef = useRef(onCameraChange); const onPointPickRef = useRef(onPointPick);
+  const onDegradationChangeRef = useRef(onDegradationChange); const onFrameRenderedRef = useRef(onFrameRendered);
+  const onPresentationFailedRef = useRef(onPresentationFailed);
+  const [overlays, setOverlays] = useState<SpatialOverlays>({ measurements: new Map(), annotations: new Map() });
   const [geometryError, setGeometryError] = useState<string | null>(null);
   const [viewerError, setViewerError] = useState<string | null>(null);
   cameraRef.current = camera;
@@ -119,10 +104,9 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
   dimmedRef.current = dimmed;
   meshColorRef.current = meshColor;
   mouseMappingRef.current = mouseMapping;
-  onCameraChangeRef.current = onCameraChange;
-  onPointPickRef.current = onPointPick;
-  onDegradationChangeRef.current = onDegradationChange;
-  onFrameRenderedRef.current = onFrameRendered;
+  onCameraChangeRef.current = onCameraChange; onPointPickRef.current = onPointPick;
+  onDegradationChangeRef.current = onDegradationChange; onFrameRenderedRef.current = onFrameRendered;
+  onPresentationFailedRef.current = onPresentationFailed;
   const appearanceKey = [
     colors.background,
     colors.mesh,
@@ -159,6 +143,7 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
     try {
       renderer = new WebGLRenderer({ canvas: canvas.current, antialias: true });
       renderer.setPixelRatio(Math.min(globalThis.devicePixelRatio || 1, 2));
+      rendererFailed.current = false;
     } catch {
       renderer?.dispose();
       setViewerError(messages.webglViewerUnavailable);
@@ -198,12 +183,14 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
       if (active) setOverlays({ measurements: measurementPositions, annotations: annotationPositions });
     };
     viewer.invalidate = () => {
-      if (!active || viewer.frame !== null) return;
+      if (!active || rendererFailed.current || viewer.frame !== null) return;
       viewer.frame = requestAnimationFrame(() => {
-        viewer.frame = null;
-        const startedAt = performance.now();
-        viewer.renderer.render(viewer.scene, viewer.camera);
-        onFrameRenderedRef.current?.(performance.now() - startedAt);
+        viewer.frame = null; const startedAt = performance.now();
+        try {
+          viewer.renderer.render(viewer.scene, viewer.camera); onFrameRenderedRef.current?.(performance.now() - startedAt, viewer.presentationToken);
+        } catch {
+          rendererFailed.current = true; setViewerError(messages.webglViewerUnavailable); if (viewer.presentationToken) onPresentationFailedRef.current?.(viewer.presentationToken);
+        }
         updateOverlays();
       });
     };
@@ -299,7 +286,14 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
   useEffect(() => resources.current?.applyCamera(camera), [camera]);
   useEffect(() => {
     const viewer = resources.current;
-    if (!viewer) return;
+    if (!viewer) {
+      if (result && presentationToken) onPresentationFailed?.(presentationToken);
+      return;
+    }
+    if (rendererFailed.current) {
+      if (result && presentationToken) onPresentationFailed?.(presentationToken);
+      return;
+    }
     let active = true;
     setGeometryError(null);
     if (!result) {
@@ -307,7 +301,11 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
       viewer.refreshAppearance();
       return;
     }
-    if (viewer.parsed && parsedMeshReuse.current.matches(result, activeMeshParser)) return;
+    if (viewer.parsed && parsedMeshReuse.current.matches(result, activeMeshParser)) {
+      viewer.presentationToken = presentationToken;
+      if (presentationToken) onFrameRenderedRef.current?.(0, presentationToken);
+      return;
+    }
     const parser = new AbortController();
     void activeMeshParser(result.mesh.bytes, parser.signal).then((parsed) => {
       if (!active || resources.current !== viewer) return;
@@ -319,15 +317,17 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
       removeModel(viewer);
       viewer.mesh = mesh;
       viewer.parsed = parsed;
+      viewer.presentationToken = presentationToken;
       parsedMeshReuse.current.accept(result, activeMeshParser);
       viewer.scene.add(mesh);
       viewer.refreshAppearance();
     }, () => {
       if (!active || resources.current !== viewer) return;
       setGeometryError(messages.renderedMeshDisplayFailed);
+      if (presentationToken) onPresentationFailed?.(presentationToken);
     });
     return () => { active = false; parser.abort(); };
-  }, [activeMeshParser, result]);
+  }, [activeMeshParser, onPresentationFailed, presentationToken, result]);
   useEffect(() => {
     if (appearanceKey.length > 0) resources.current?.refreshAppearance();
   }, [appearanceKey]);
