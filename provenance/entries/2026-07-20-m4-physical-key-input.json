@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-m4-physical-key-input",
+  "createdAt": "2026-07-20T11:03:00-06:00",
+  "summary": "Use keyboard-layout-resolved virtual-key events for the packaged Message walkthrough after a clean Sandbox proved ordinary physical-key input and disproved Unicode packet input.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "AC-10.b", "AC-10.c", "N-3 keyboard operability", "N-7 evidence honesty"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-m4-physical-key-input.json", "status": "added" },
+    { "path": "scripts/run-packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "scripts/windows/send-unicode-input.ps1", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0454",
+      "topic": "Windows packaged text-event semantics",
+      "decision": "Keep the verified-process and focused-textarea boundaries from D-0453, but replace KEYEVENTF_UNICODE records with keyboard-layout-resolved virtual-key down/up records. Permit only mappings that require no modifier or Shift, fail closed on unsupported characters or Control/Alt mappings, and accept only bounded even sent-record counts before the independent React commit oracle runs.",
+      "rationale": "The c1da348 exact guest helper sent every requested Unicode record but React retained no Message value. A separate clean Windows Sandbox session using the same c1da348 binary and fixed WebView2 150 runtime retained ordinary physical-key input and enabled Send. That isolates the remaining difference to Unicode packet versus physical virtual-key semantics; it does not reopen the exhausted WebDriver/CDP event permutations.",
+      "specBasis": ["AC-10.b", "AC-10.c", "N-3 keyboard operability", "N-7 evidence honesty"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The helper must compile, map test text to ordinary virtual-key records, reject unsupported modifiers, expose no message content, and remain manifest-bound to the verified guest process.",
+      "test": "Run the focused packaged-input wiring test, compile the real PowerShell/C# helper against a nonexistent PID, and perform one clean Windows Sandbox real-input check on the exact predecessor binary.",
+      "red": {
+        "command": "Exact clean packaged Windows Sandbox run bound to commit c1da348798fd378c185d2bc188ddaf9b9b969a81 and tree 620a0cdff747ca7916975b2f41da99d0fafe0c0b",
+        "observedAt": "2026-07-20T10:49:00-06:00",
+        "outcome": "RUNTIME RED: KEYEVENTF_UNICODE reported the full sent count but the packaged Message value remained empty and the mock received zero requests. Thirteen pre-message guest events and cleanup passed. No WebDriver/CDP permutation will be retried."
+      },
+      "green": {
+        "command": "npm.cmd test -- --run tests/scripts/packaged-desktop-evidence.test.ts -t \"wires verified Windows input\"",
+        "observedAt": "2026-07-20T11:02:33-06:00",
+        "outcome": "GREEN: 1 focused test passed, 54 skipped. The helper source requires VkKeyScanEx/AddPhysicalCharacter, forbids KEYEVENTF_UNICODE, retains exact process binding, and validates bounded record-count evidence. The real helper C# compiled and rejected nonexistent PID 2147483646 before input."
+      }
+    },
+    {
+      "criterion": "A real clean Windows user must be able to enter a Message and reach the enabled Send state on the exact packaged binary.",
+      "test": "Launch c1da348 scadmill.exe with its pinned fixed WebView2 150 runtime in networking-disabled Windows Sandbox, configure a synthetic local provider, focus Message, and send ordinary physical-key events without clicking Send.",
+      "red": {
+        "command": "Exact clean packaged Windows Sandbox run bound to commit c1da348798fd378c185d2bc188ddaf9b9b969a81 using KEYEVENTF_UNICODE",
+        "observedAt": "2026-07-20T10:49:00-06:00",
+        "outcome": "RUNTIME RED: the verified helper sent every Unicode record but the focused packaged Message field retained no text and Send stayed disabled."
+      },
+      "green": {
+        "command": "Computer Use clean-Sandbox manual input walkthrough; evidence local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-manual-input-c1da348-evidence-20260720.json",
+        "observedAt": "2026-07-20T10:59:11-06:00",
+        "outcome": "GREEN: the exact SHA-256 D61DD03AA4DCA79BF9275CAF2EB4F82B90F0259FB485C19E0DD8EBAD30E4A5A1 binary retained non-empty Message text and enabled Send. The message was not submitted."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-c1da348-sandbox-m4-sendinput-20260720/evidence.json",
+      "sought": "Exact clean packaged M4 walkthrough using Unicode SendInput records",
+      "confirmation": "The helper activated the verified process and sent the full Unicode record count, but React retained no Message text and the mock received zero requests. The distinct physical-key hypothesis is allowed one source-bound clean run and will not be blindly rerun."
+    }
+  ],
+  "questions": ["No owner decision is required. One exact clean source-bound packaged run will decide this physical-key implementation."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

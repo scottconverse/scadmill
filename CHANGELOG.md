@@ -12,7 +12,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Added
 
-- Packaged textarea automation now leaves the exhausted WebDriver/CDP event boundary and uses bounded Win32 `SendInput` inside the isolated Windows guest. The exact verified ScadMill process is activated, Ctrl+A plus UTF-16 keyboard events replace the already-focused Message value, the helper returns only fixed-shape activation/count evidence, and the existing two-read React oracle still decides success.
+- Packaged textarea automation now leaves the exhausted WebDriver/CDP event boundary and uses bounded Win32 `SendInput` inside the isolated Windows guest. The exact verified ScadMill process is activated, Ctrl+A plus keyboard-layout-resolved virtual-key down/up events replace the already-focused Message value, unsupported modifier mappings fail closed, the helper returns only fixed-shape activation/count evidence, and the existing two-read React oracle still decides success. A clean Windows Sandbox check established that these ordinary physical-key semantics retain Message text and enable Send, while Unicode packet injection does not cross the same remote-session boundary.
 
 - The packaged browser-editing command now dispatches a main-world `InputEvent` after Chromium accepts `insertText`, with fixed-shape acceptance evidence and the existing React commit oracle. The same exact path now runs in the hosted M4 browser journey, closing the event-delivery gap exposed by two clean WebView2 runs without adding a test-only product bridge.
 

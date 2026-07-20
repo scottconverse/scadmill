@@ -1481,14 +1481,18 @@ describe("packaged desktop evidence helpers", () => {
     expect(runner).toContain('client.bindApplicationProcess(lastVerifiedAppProcess?.pid)');
     expect(runner).toContain('run("powershell.exe", [');
     expect(runner).toContain('"-File", this.keyboardInputPath');
-    expect(runner).toContain('const expectedSent = 4 + text.length * 2;');
+    expect(runner).toContain('const minimumSent = 4 + text.length * 2;');
+    expect(runner).toContain('const maximumSent = 4 + text.length * 4;');
     expect(runner).not.toContain("insertTextThroughCdp(this.debuggerAddress");
     expect(wrapper).toContain('scripts\\windows\\send-unicode-input.ps1');
     expect(wrapper).toContain('keyboardInput = [ordered]@{ path = "scripts/send-unicode-input.ps1"');
     expect(bootstrap).toContain('"--keyboard-input", "$local\\scripts\\send-unicode-input.ps1"');
     expect(keyboardInput).toContain("SendInput");
     expect(keyboardInput).toContain("SetForegroundWindow");
-    expect(keyboardInput).toContain("KEYEVENTF_UNICODE");
+    expect(keyboardInput).toContain("VkKeyScanEx");
+    expect(keyboardInput).toContain("AddPhysicalCharacter");
+    expect(keyboardInput).toContain("GetKeyboardLayout(windowThreadId)");
+    expect(keyboardInput).not.toContain("KEYEVENTF_UNICODE");
     expect(keyboardInput).not.toContain("Write-Host $text");
   });
 

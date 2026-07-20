@@ -370,9 +370,12 @@ class WebDriverClient {
     }
     let evidence;
     try { evidence = JSON.parse(result.stdout); } catch { /* fail closed below */ }
-    const expectedSent = 4 + text.length * 2;
+    const minimumSent = 4 + text.length * 2;
+    const maximumSent = 4 + text.length * 4;
     if (!evidence || Object.keys(evidence).sort().join(",") !== "activated,sent"
-      || evidence.activated !== true || evidence.sent !== expectedSent) {
+      || evidence.activated !== true || !Number.isSafeInteger(evidence.sent)
+      || evidence.sent < minimumSent || evidence.sent > maximumSent
+      || evidence.sent % 2 !== 0) {
       throw new Error("Windows text input returned invalid evidence.");
     }
   }

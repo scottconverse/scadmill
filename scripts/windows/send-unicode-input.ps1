@@ -23,8 +23,8 @@ namespace ScadMill {
   public static class WindowsInput {
     private const uint INPUT_KEYBOARD = 1;
     private const uint KEYEVENTF_KEYUP = 0x0002;
-    private const uint KEYEVENTF_UNICODE = 0x0004;
     private const ushort VK_CONTROL = 0x11;
+    private const ushort VK_SHIFT = 0x10;
     private const ushort VK_A = 0x41;
     private const int SW_RESTORE = 9;
 
@@ -82,6 +82,12 @@ namespace ScadMill {
     [DllImport("user32.dll")]
     private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
 
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetKeyboardLayout(uint threadId);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern short VkKeyScanEx(char character, IntPtr keyboardLayout);
+
     private static INPUT VirtualKey(ushort key, bool keyUp) {
       return new INPUT {
         type = INPUT_KEYBOARD,
@@ -91,16 +97,19 @@ namespace ScadMill {
       };
     }
 
-    private static INPUT Unicode(char character, bool keyUp) {
-      return new INPUT {
-        type = INPUT_KEYBOARD,
-        data = new INPUTUNION {
-          ki = new KEYBDINPUT {
-            wScan = character,
-            dwFlags = KEYEVENTF_UNICODE | (keyUp ? KEYEVENTF_KEYUP : 0)
-          }
-        }
-      };
+    private static void AddPhysicalCharacter(List<INPUT> inputs, char character, IntPtr keyboardLayout) {
+      short mapping = VkKeyScanEx(character, keyboardLayout);
+      if (mapping == -1) throw new InvalidOperationException("Text contains an unsupported keyboard character.");
+      ushort virtualKey = (ushort)(mapping & 0xff);
+      int modifiers = (mapping >> 8) & 0xff;
+      if ((modifiers & ~1) != 0) {
+        throw new InvalidOperationException("Text requires an unsupported keyboard modifier.");
+      }
+      bool shifted = (modifiers & 1) != 0;
+      if (shifted) inputs.Add(VirtualKey(VK_SHIFT, false));
+      inputs.Add(VirtualKey(virtualKey, false));
+      inputs.Add(VirtualKey(virtualKey, true));
+      if (shifted) inputs.Add(VirtualKey(VK_SHIFT, true));
     }
 
     public static int ReplaceFocusedText(int processId, string text) {
@@ -109,7 +118,7 @@ namespace ScadMill {
         IntPtr window = process.MainWindowHandle;
         if (window == IntPtr.Zero) throw new InvalidOperationException("Target process has no main window.");
         uint owner;
-        GetWindowThreadProcessId(window, out owner);
+        uint windowThreadId = GetWindowThreadProcessId(window, out owner);
         if (owner != (uint)processId) throw new InvalidOperationException("Main window process identity changed.");
         ShowWindow(window, SW_RESTORE);
         if (!SetForegroundWindow(window) && GetForegroundWindow() != window) {
@@ -117,15 +126,16 @@ namespace ScadMill {
         }
         Thread.Sleep(100);
 
-        var inputs = new List<INPUT>(4 + text.Length * 2) {
+        var inputs = new List<INPUT>(4 + text.Length * 4) {
           VirtualKey(VK_CONTROL, false),
           VirtualKey(VK_A, false),
           VirtualKey(VK_A, true),
           VirtualKey(VK_CONTROL, true)
         };
+        IntPtr keyboardLayout = GetKeyboardLayout(windowThreadId);
+        if (keyboardLayout == IntPtr.Zero) throw new InvalidOperationException("No keyboard layout is available.");
         foreach (char character in text) {
-          inputs.Add(Unicode(character, false));
-          inputs.Add(Unicode(character, true));
+          AddPhysicalCharacter(inputs, character, keyboardLayout);
         }
         INPUT[] payload = inputs.ToArray();
         uint sent = SendInput((uint)payload.Length, payload, Marshal.SizeOf(typeof(INPUT)));
