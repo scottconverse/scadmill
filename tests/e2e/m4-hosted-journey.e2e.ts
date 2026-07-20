@@ -27,6 +27,36 @@ async function replaceEditorSource(page: Page, source: string): Promise<void> {
   await expect.poll(() => editorSource(page)).toBe(source);
 }
 
+async function enterMessageThroughBrowserEditing(message: Locator, text: string): Promise<void> {
+  const result = await message.evaluate((node, value) => {
+    if (!(node instanceof HTMLTextAreaElement) || node.disabled) {
+      return { accepted: false, inputDispatched: false, targetReady: false, valueMatches: false };
+    }
+    node.focus();
+    node.setSelectionRange(0, node.value.length);
+    const accepted = document.execCommand("insertText", false, value);
+    const inputDispatched = node.dispatchEvent(new InputEvent("input", {
+      bubbles: true,
+      composed: true,
+      data: value,
+      inputType: "insertText",
+    }));
+    return {
+      accepted,
+      inputDispatched,
+      targetReady: document.activeElement === node,
+      valueMatches: node.value === value,
+    };
+  }, text);
+  expect(result).toEqual({
+    accepted: true,
+    inputDispatched: true,
+    targetReady: true,
+    valueMatches: true,
+  });
+  await expect(message).toHaveValue(text);
+}
+
 async function openFilesPanel(page: Page): Promise<Locator> {
   const button = page.getByRole("button", { name: "Files", exact: true });
   if (await button.getAttribute("aria-pressed") !== "true") await button.click();
@@ -304,7 +334,10 @@ test("hosted M4 journey uses real web capabilities while keeping MCP desktop-onl
 
     await page.getByRole("button", { name: "AI", exact: true }).click();
     const ai = page.getByRole("region", { name: "AI panel" });
-    await ai.getByLabel("Message").fill("Change the cube to the requested dimensions.");
+    await enterMessageThroughBrowserEditing(
+      ai.getByLabel("Message"),
+      "Change the cube to the requested dimensions.",
+    );
     await ai.getByRole("button", { name: "Send", exact: true }).click();
     await expect(ai.locator(".ai-proposal")).toContainText(PROPOSAL_SOURCE, { timeout: 30_000 });
     await ai.getByRole("radio", { name: "Inline" }).check();

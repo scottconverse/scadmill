@@ -1103,7 +1103,9 @@ describe("packaged desktop evidence helpers", () => {
           result: {
             result: {
               type: "object",
-              value: { accepted: true, targetReady: true, valueMatches: true },
+              value: {
+                accepted: true, inputDispatched: true, targetReady: true, valueMatches: true,
+              },
             },
           },
         }) }));
@@ -1140,6 +1142,7 @@ describe("packaged desktop evidence helpers", () => {
       params: { returnByValue: true },
     });
     expect(command.params.expression).toContain("document.execCommand('insertText'");
+    expect(command.params.expression).toContain("new InputEvent('input'");
     expect(command.params.expression).toContain(JSON.stringify("A🧱"));
     expect(closes).toBe(1);
   });
@@ -1159,7 +1162,9 @@ describe("packaged desktop evidence helpers", () => {
           result: {
             result: {
               type: "object",
-              value: { accepted: false, targetReady: true, valueMatches: false },
+              value: {
+                accepted: false, inputDispatched: true, targetReady: true, valueMatches: false,
+              },
             },
           },
         }) }));
@@ -1325,7 +1330,9 @@ describe("packaged desktop evidence helpers", () => {
           result: {
             result: {
               type: "object",
-              value: { accepted: true, targetReady: true, valueMatches: true },
+              value: {
+                accepted: true, inputDispatched: true, targetReady: true, valueMatches: true,
+              },
             },
           },
         }) }));

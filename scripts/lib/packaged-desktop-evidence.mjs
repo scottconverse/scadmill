@@ -249,8 +249,15 @@ function sendCdpInsertText(
     }
     target.setSelectionRange(0, target.value.length);
     const accepted = document.execCommand('insertText', false, ${encodedText});
+    const inputDispatched = target.dispatchEvent(new InputEvent('input', {
+      bubbles: true,
+      composed: true,
+      data: ${encodedText},
+      inputType: 'insertText',
+    }));
     return {
       accepted,
+      inputDispatched,
       targetReady: document.activeElement === target,
       valueMatches: target.value === ${encodedText},
     };
@@ -378,6 +385,7 @@ function sendCdpInsertText(
           || !record(message.result.result) || message.result.result.type !== "object"
           || !record(message.result.result.value)
           || message.result.result.value.accepted !== true
+          || message.result.result.value.inputDispatched !== true
           || message.result.result.value.targetReady !== true
           || message.result.result.value.valueMatches !== true) {
           requestClose(new Error("CDP text insertion returned an invalid result."));
