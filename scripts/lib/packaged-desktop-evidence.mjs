@@ -80,6 +80,27 @@ export const FIND_PACKAGED_TEXTAREA_CONTROL_SCRIPT = `
   return eligible[0];
 `;
 
+export const FOCUS_PACKAGED_TEXTAREA_CONTROL_SCRIPT = `
+  const target = arguments[0];
+  const targetIsTextarea = target instanceof HTMLTextAreaElement;
+  const targetConnected = target instanceof Element && target.isConnected;
+  const targetEnabled = target instanceof HTMLTextAreaElement && !target.disabled;
+  const focusedBefore = document.activeElement === target;
+  if (targetIsTextarea && targetConnected && targetEnabled && !focusedBefore) {
+    target.focus({ preventScroll: true });
+  }
+  const focused = document.activeElement === target;
+  if (targetIsTextarea && focused) target.setSelectionRange(0, target.value.length);
+  return {
+    targetIsTextarea,
+    targetConnected,
+    targetEnabled,
+    focusedBefore,
+    focused,
+    focusCorrected: !focusedBefore && focused,
+  };
+`;
+
 const WEBDRIVER_CONTROL_KEY = "\uE009";
 
 export function textReplacementKeyActions(value) {
@@ -168,6 +189,28 @@ export async function setVisibleEnabledTextArea(client, label, value, options) {
   }
   const expected = String(value);
   await client.clickElement(elementId);
+  const focus = await client.execute(FOCUS_PACKAGED_TEXTAREA_CONTROL_SCRIPT, [reference]);
+  const validFocusEvidence = record(focus)
+    && typeof focus.targetIsTextarea === "boolean"
+    && typeof focus.targetConnected === "boolean"
+    && typeof focus.targetEnabled === "boolean"
+    && typeof focus.focusedBefore === "boolean"
+    && typeof focus.focused === "boolean"
+    && typeof focus.focusCorrected === "boolean";
+  if (!validFocusEvidence || !focus.targetIsTextarea || !focus.targetConnected
+    || !focus.targetEnabled || !focus.focused) {
+    const diagnostic = validFocusEvidence
+      ? JSON.stringify({
+          targetIsTextarea: focus.targetIsTextarea,
+          targetConnected: focus.targetConnected,
+          targetEnabled: focus.targetEnabled,
+          focusedBefore: focus.focusedBefore,
+          focused: focus.focused,
+          focusCorrected: focus.focusCorrected,
+        })
+      : "invalid focus evidence";
+    throw new Error(`Could not establish WebDriver focus for ${JSON.stringify(label)}: ${diagnostic}.`);
+  }
   let actionFailure;
   try {
     await client.performActions(textReplacementKeyActions(expected));

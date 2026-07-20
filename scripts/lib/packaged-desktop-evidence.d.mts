@@ -69,6 +69,7 @@ export function clickVisibleEnabledButton(
 export const SET_PACKAGED_CONTROL_VALUE_SCRIPT: string;
 export const READ_PACKAGED_CONTROL_VALUE_SCRIPT: string;
 export const FIND_PACKAGED_TEXTAREA_CONTROL_SCRIPT: string;
+export const FOCUS_PACKAGED_TEXTAREA_CONTROL_SCRIPT: string;
 export function textReplacementKeyActions(value: string): Array<{
   type: "key";
   id: "scadmill-text-entry";

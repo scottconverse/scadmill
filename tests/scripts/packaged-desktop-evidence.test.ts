@@ -10,6 +10,7 @@ import {
   CLICK_PACKAGED_BUTTON_SCRIPT,
   clickVisibleEnabledButton,
   FIND_PACKAGED_TEXTAREA_CONTROL_SCRIPT,
+  FOCUS_PACKAGED_TEXTAREA_CONTROL_SCRIPT,
   mcpEndpointManifestPath,
   mirrorWebViewDevToolsPort,
   parseBinaryStl,
@@ -1039,6 +1040,47 @@ describe("packaged desktop evidence helpers", () => {
     window.close();
   });
 
+  it("focuses and verifies the exact resolved packaged textarea", () => {
+    const window = new Window();
+    const focus = window.eval(`(function(control) {${FOCUS_PACKAGED_TEXTAREA_CONTROL_SCRIPT}})`) as (
+      control: unknown,
+    ) => {
+      targetIsTextarea: boolean;
+      targetConnected: boolean;
+      targetEnabled: boolean;
+      focusedBefore: boolean;
+      focused: boolean;
+      focusCorrected: boolean;
+    };
+    window.document.body.innerHTML = "<textarea>existing</textarea><input>";
+    const textarea = window.document.querySelector("textarea");
+    const input = window.document.querySelector("input");
+    if (!textarea || !input) throw new Error("Focus fixtures were not created.");
+
+    input.focus();
+    expect(window.document.activeElement).toBe(input);
+    expect(focus(textarea)).toEqual({
+      targetIsTextarea: true,
+      targetConnected: true,
+      targetEnabled: true,
+      focusedBefore: false,
+      focused: true,
+      focusCorrected: true,
+    });
+    expect(window.document.activeElement).toBe(textarea);
+    expect(textarea.selectionStart).toBe(0);
+    expect(textarea.selectionEnd).toBe("existing".length);
+    expect(focus(input)).toEqual({
+      targetIsTextarea: false,
+      targetConnected: true,
+      targetEnabled: false,
+      focusedBefore: false,
+      focused: false,
+      focusCorrected: false,
+    });
+    window.close();
+  });
+
   it("builds real keyboard actions that replace focused text and release every key", () => {
     expect(textReplacementKeyActions("A🧱")).toEqual([{
       type: "key",
@@ -1063,6 +1105,17 @@ describe("packaged desktop evidence helpers", () => {
     const client = {
       execute: async (script: string, args: readonly unknown[]) => {
         if (script === FIND_PACKAGED_TEXTAREA_CONTROL_SCRIPT) return { [elementKey]: "message-1" };
+        if (script === FOCUS_PACKAGED_TEXTAREA_CONTROL_SCRIPT) {
+          expect(args).toEqual([{ [elementKey]: "message-1" }]);
+          return {
+            targetIsTextarea: true,
+            targetConnected: true,
+            targetEnabled: true,
+            focusedBefore: true,
+            focused: true,
+            focusCorrected: false,
+          };
+        }
         expect(script).toBe(READ_PACKAGED_CONTROL_VALUE_SCRIPT);
         expect(args).toEqual(["Message"]);
         reads += 1;
@@ -1090,7 +1143,12 @@ describe("packaged desktop evidence helpers", () => {
     const elementKey = "element-6066-11e4-a52e-4f735466cecf";
     let released = 0;
     await expect(setVisibleEnabledTextArea({
-      execute: async () => ({ [elementKey]: "message-1" }),
+      execute: async (script: string) => script === FIND_PACKAGED_TEXTAREA_CONTROL_SCRIPT
+        ? { [elementKey]: "message-1" }
+        : {
+            targetIsTextarea: true, targetConnected: true, targetEnabled: true,
+            focusedBefore: true, focused: true, focusCorrected: false,
+          },
       clickElement: async () => undefined,
       performActions: async () => { throw new Error("keyboard actions failed"); },
       releaseActions: async () => { released += 1; },
@@ -1101,7 +1159,12 @@ describe("packaged desktop evidence helpers", () => {
   it("retains both the primary keyboard failure and a secondary release failure", async () => {
     const elementKey = "element-6066-11e4-a52e-4f735466cecf";
     const failure = await setVisibleEnabledTextArea({
-      execute: async () => ({ [elementKey]: "message-1" }),
+      execute: async (script: string) => script === FIND_PACKAGED_TEXTAREA_CONTROL_SCRIPT
+        ? { [elementKey]: "message-1" }
+        : {
+            targetIsTextarea: true, targetConnected: true, targetEnabled: true,
+            focusedBefore: true, focused: true, focusCorrected: false,
+          },
       clickElement: async () => undefined,
       performActions: async () => { throw new Error("primary keyboard failure"); },
       releaseActions: async () => { throw new Error("secondary release failure"); },
@@ -1112,6 +1175,28 @@ describe("packaged desktop evidence helpers", () => {
       expect.objectContaining({ message: "primary keyboard failure" }),
       expect.objectContaining({ message: "secondary release failure" }),
     ]);
+  });
+
+  it("fails before keyboard entry when WebDriver cannot focus the resolved textarea", async () => {
+    const elementKey = "element-6066-11e4-a52e-4f735466cecf";
+    let keyboardCalls = 0;
+    const sensitiveLabel = "DO-NOT-LOG-secret-project-path-or-token";
+    const failure = await setVisibleEnabledTextArea({
+      execute: async (script: string) => script === FIND_PACKAGED_TEXTAREA_CONTROL_SCRIPT
+        ? { [elementKey]: "message-1" }
+        : {
+            targetIsTextarea: true, targetConnected: true, targetEnabled: true,
+            focusedBefore: false, focused: false, focusCorrected: false,
+            activeAriaLabel: sensitiveLabel,
+          },
+      clickElement: async () => undefined,
+      performActions: async () => { keyboardCalls += 1; },
+      releaseActions: async () => { keyboardCalls += 1; },
+    }, "Message", "value").then(() => undefined, (error: unknown) => error);
+    expect(failure).toBeInstanceOf(Error);
+    expect((failure as Error).message).toContain("focus");
+    expect((failure as Error).message).not.toContain(sensitiveLabel);
+    expect(keyboardCalls).toBe(0);
   });
 
   it("wires W3C perform and release Actions through the packaged WebDriver client", async () => {
