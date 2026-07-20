@@ -1,7 +1,7 @@
 import type { RenderSuccess3D } from "../../application/engine/contracts";
 import { isSha256GeometryIdentity } from "../../application/geometry/geometry-identity";
 import type { ParsedBinaryStl } from "../../application/geometry/stl";
-import { parseBinaryStlOffThread } from "../../application/geometry/stl-parser-worker-client";
+import { createReusableBinaryStlParser } from "../../application/geometry/stl-parser-worker-client";
 import {
   createDefaultViewerCamera,
   type ViewerFurnitureState,
@@ -33,8 +33,7 @@ export class ParsedMeshReuse {
   }
 }
 
-export const DEFAULT_MESH_PARSER: ModelMeshParser = (bytes, signal) =>
-  parseBinaryStlOffThread(bytes, undefined, signal);
+export const createDefaultMeshParser = createReusableBinaryStlParser;
 export const DEFAULT_CAMERA = createDefaultViewerCamera();
 export const DEFAULT_FURNITURE: ViewerFurnitureState = {
   grid: true,

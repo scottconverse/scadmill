@@ -112,6 +112,10 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Exact runtime enforcement of the OpenSCAD 2026.06.12 engine pin, with a version-mismatch fix-it instead of silently accepting an older PATH installation.
 - Discoverable browser **Create workspace** and existing/recent **Open** actions backed by opaque, exclusive IndexedDB identities, plus a native **Choose folder…** action routed through the typed platform boundary and the exact-pinned official Tauri dialog plugin 2.7.1. Manual desktop path entry remains an advanced fallback.
 
+### Fixed
+
+- Repeated 3D renders now reuse one lifecycle-owned STL parser worker instead of constructing and terminating a new worker for every mesh, and automatic thumbnails no longer resize the live WebGL drawing buffer twice per render. Thumbnails render the stable viewport once and downsample into a bounded 240x160 2D canvas; explicit sized screenshots remain unchanged.
+
 ### Changed
 
 - Made exact unchanged renders reuse the already-presented resident memory result without cloning mesh bytes or republishing viewer/layout state; evicted, disk-only, oversized, and zero-budget entries retain the normal fail-safe path. The hosted AI journey now also proves that rail remounting revokes session-only tool consent before explicitly opting in again.

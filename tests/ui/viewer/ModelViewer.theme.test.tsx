@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { fireEvent, render, waitFor } from "@testing-library/react";
-import { createRef } from "react";
+import { createRef, StrictMode } from "react";
 import {
   AmbientLight,
   BufferGeometry,
@@ -135,6 +135,18 @@ function oneTriangleResult(): RenderSuccess3D {
     },
     diagnostics: [],
     rawLog: "rendered",
+  };
+}
+
+function validWorkerResponse() {
+  const positions = new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]);
+  const normals = new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1]);
+  return {
+    ok: true,
+    triangleCount: 1,
+    positions: positions.buffer,
+    normals: normals.buffer,
+    bounds: { min: [0, 0, 0], max: [1, 1, 0], size: [1, 1, 0] },
   };
 }
 
@@ -567,6 +579,69 @@ describe("ModelViewer theme", () => {
       expect.objectContaining({ bytes: expect.any(ArrayBuffer) }),
       [expect.any(ArrayBuffer)],
     );
+  });
+
+  it("reuses one parser worker after successful mesh replacements and disposes it on unmount", async () => {
+    const workers: ParserWorker[] = [];
+    class ParserWorker {
+      onmessage: ((event: MessageEvent) => void) | null = null;
+      onerror: ((event: ErrorEvent) => void) | null = null;
+      readonly terminate = vi.fn();
+      readonly postMessage = vi.fn(() => {
+        const positions = new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]);
+        const normals = new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1]);
+        queueMicrotask(() => this.onmessage?.({ data: {
+          ok: true,
+          triangleCount: 1,
+          positions: positions.buffer,
+          normals: normals.buffer,
+          bounds: { min: [0, 0, 0], max: [1, 1, 0], size: [1, 1, 0] },
+        } } as MessageEvent));
+      });
+
+      constructor() { workers.push(this); }
+    }
+    vi.stubGlobal("Worker", ParserWorker);
+    const first = oneTriangleResult();
+    const second = oneTriangleResult();
+    second.mesh.bytes[100] = 5;
+    const view = render(<ModelViewer colors={darkColors} result={first} />);
+    await waitFor(() => expect(workers[0]?.postMessage).toHaveBeenCalledOnce());
+
+    view.rerender(<ModelViewer colors={darkColors} result={second} />);
+    await waitFor(() => expect(workers[0]?.postMessage).toHaveBeenCalledTimes(2));
+
+    expect(workers).toHaveLength(1);
+    expect(workers[0].terminate).not.toHaveBeenCalled();
+    view.unmount();
+    expect(workers[0].terminate).toHaveBeenCalledOnce();
+  });
+
+  it("creates a live default parser after StrictMode rehearsal and disposes it on unmount", async () => {
+    const workers: ParserWorker[] = [];
+    class ParserWorker {
+      onmessage: ((event: MessageEvent) => void) | null = null;
+      onerror: ((event: ErrorEvent) => void) | null = null;
+      readonly terminate = vi.fn();
+      readonly postMessage = vi.fn(() => {
+        queueMicrotask(() => this.onmessage?.({ data: validWorkerResponse() } as MessageEvent));
+      });
+      constructor() { workers.push(this); }
+    }
+    vi.stubGlobal("Worker", ParserWorker);
+
+    const view = render(
+      <StrictMode><ModelViewer colors={darkColors} result={oneTriangleResult()} /></StrictMode>,
+    );
+    await waitFor(() => expect(workers).toHaveLength(2));
+    await waitFor(() => expect(modelMesh(threeHarness.scenes.at(-1) as Scene)).toBeInstanceOf(Mesh));
+
+    expect(workers[0].terminate).toHaveBeenCalledOnce();
+    expect(workers[1].postMessage).toHaveBeenCalledOnce();
+    expect(workers[1].terminate).not.toHaveBeenCalled();
+    expect(view.queryByRole("alert")).toBeNull();
+    view.unmount();
+    expect(workers[1].terminate).toHaveBeenCalledOnce();
   });
 
   it("shows the catalogued mesh fallback when the STL worker cannot be constructed", async () => {

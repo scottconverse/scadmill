@@ -29,7 +29,7 @@ import type {
   ViewerFurnitureState,
 } from "../../application/viewer/viewer-state";
 import { messages } from "../../messages/en";
-import { DEFAULT_CAMERA, DEFAULT_FURNITURE, DEFAULT_MESH_PARSER, DEFAULT_MOUSE_MAPPING, type ModelMeshParser, ParsedMeshReuse } from "./model-viewer-defaults";
+import { DEFAULT_CAMERA, DEFAULT_FURNITURE, DEFAULT_MOUSE_MAPPING, type ModelMeshParser, ParsedMeshReuse } from "./model-viewer-defaults";
 import { ModelViewerOverlays, type SpatialOverlays } from "./model-viewer-overlays";
 import {
   captureViewportPng,
@@ -48,6 +48,7 @@ import {
 import type { ViewerTool } from "./ViewerToolbar";
 import { rebuildFurniture, type ViewerDegradation } from "./viewer-furniture";
 import { applyViewerTheme, type ViewerThemeColors } from "./viewer-theme";
+import { useMeshParser } from "./use-mesh-parser";
 export interface ModelViewerHandle { capturePng(width?: number, height?: number): Promise<Uint8Array>; captureThumbnailPng(): Promise<Uint8Array>; }
 export type { ModelMeshParser } from "./model-viewer-defaults";
 export interface ModelViewerProps {
@@ -80,7 +81,7 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
   dimmed = false,
   meshColor = null,
   mouseMapping = DEFAULT_MOUSE_MAPPING,
-  meshParser = DEFAULT_MESH_PARSER,
+  meshParser,
   onCameraChange,
   onPointPick,
   onDegradationChange,
@@ -89,6 +90,7 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
   const canvas = useRef<HTMLCanvasElement>(null);
   const resources = useRef<ViewerResources | null>(null);
   const parsedMeshReuse = useRef(new ParsedMeshReuse());
+  const activeMeshParser = useMeshParser(meshParser);
   const cameraRef = useRef(camera);
   const colorsRef = useRef(colors);
   const furnitureRef = useRef(furniture);
@@ -305,9 +307,9 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
       viewer.refreshAppearance();
       return;
     }
-    if (viewer.parsed && parsedMeshReuse.current.matches(result, meshParser)) return;
+    if (viewer.parsed && parsedMeshReuse.current.matches(result, activeMeshParser)) return;
     const parser = new AbortController();
-    void meshParser(result.mesh.bytes, parser.signal).then((parsed) => {
+    void activeMeshParser(result.mesh.bytes, parser.signal).then((parsed) => {
       if (!active || resources.current !== viewer) return;
       const geometry = new BufferGeometry();
       geometry.setAttribute("position", new BufferAttribute(parsed.positions, 3));
@@ -317,7 +319,7 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
       removeModel(viewer);
       viewer.mesh = mesh;
       viewer.parsed = parsed;
-      parsedMeshReuse.current.accept(result, meshParser);
+      parsedMeshReuse.current.accept(result, activeMeshParser);
       viewer.scene.add(mesh);
       viewer.refreshAppearance();
     }, () => {
@@ -325,7 +327,7 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
       setGeometryError(messages.renderedMeshDisplayFailed);
     });
     return () => { active = false; parser.abort(); };
-  }, [meshParser, result]);
+  }, [activeMeshParser, result]);
   useEffect(() => {
     if (appearanceKey.length > 0) resources.current?.refreshAppearance();
   }, [appearanceKey]);
@@ -343,7 +345,6 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
     }
     resources.current?.invalidate();
   }, [overlayKey]);
-
   useImperativeHandle(forwardedRef, () => ({
     async capturePng(width, height) {
       const viewer = resources.current;
@@ -375,7 +376,6 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
     if (hit) onPointPickRef.current?.(hit.point.toArray());
   };
   const displayError = viewerError ?? geometryError;
-
   return (
     <div className={`model-viewer${dimmed ? " model-viewer-dimmed" : ""}`}>
       <canvas

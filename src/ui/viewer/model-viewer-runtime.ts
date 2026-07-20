@@ -162,16 +162,14 @@ export async function thumbnailPng(
   viewer: ViewerResources,
   canvas: HTMLCanvasElement,
 ): Promise<Uint8Array> {
-  const previousWidth = viewer.width;
-  const previousHeight = viewer.height;
-  viewer.renderer.setSize(240, 160, false);
-  try {
-    viewer.renderer.render(viewer.scene, viewer.camera);
-    return await canvasPng(canvas);
-  } finally {
-    viewer.renderer.setSize(previousWidth, previousHeight, false);
-    viewer.renderer.render(viewer.scene, viewer.camera);
-  }
+  viewer.renderer.render(viewer.scene, viewer.camera);
+  const thumbnail = canvas.ownerDocument.createElement("canvas");
+  thumbnail.width = 240;
+  thumbnail.height = 160;
+  const context = thumbnail.getContext("2d");
+  if (!context) throw new Error("The thumbnail canvas is unavailable.");
+  context.drawImage(canvas, 0, 0, thumbnail.width, thumbnail.height);
+  return canvasPng(thumbnail);
 }
 
 export async function sizedPng(
