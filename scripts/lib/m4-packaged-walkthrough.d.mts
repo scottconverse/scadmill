@@ -239,6 +239,23 @@ export function sanitizeAiTranscript(
   secret: string,
 ): { readonly records: readonly M4SanitizedAiTranscriptRecord[]; readonly sha256: string };
 
+export function waitForM4AiProposalOutcome(
+  automation: Pick<M4PackagedAutomation, "execute">,
+  expectedSource: string,
+  options?: {
+    readonly timeoutMs?: number;
+    readonly intervalMs?: number;
+    readonly delayImpl?: (milliseconds: number) => Promise<void>;
+  },
+): Promise<{
+  readonly aiVisible: boolean;
+  readonly proposalCount: number;
+  readonly pendingProposalCount: number;
+  readonly assistantCount: number;
+  readonly assistantHasExpected: boolean;
+  readonly alertText: string;
+}>;
+
 export function runM4PackagedWalkthrough(
   options: M4PackagedWalkthroughOptions,
 ): Promise<M4PackagedWalkthroughEvidence>;

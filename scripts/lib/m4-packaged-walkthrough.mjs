@@ -230,6 +230,28 @@ export const M4_DOM_SCRIPTS = Object.freeze({
         && !proposal.textContent?.includes('rejected')).length,
     };
   `,
+  aiProposalOutcome: `
+    const expectedSource = String(arguments[0]);
+    const visible = (element) => element.getClientRects().length > 0
+      && getComputedStyle(element).visibility !== 'hidden'
+      && getComputedStyle(element).display !== 'none';
+    const ai = document.querySelector('section[aria-label="AI"]');
+    const proposals = ai ? [...ai.querySelectorAll('.ai-proposal')].filter(visible) : [];
+    const pending = proposals.filter((proposal) => !proposal.textContent?.includes('accepted')
+      && !proposal.textContent?.includes('rejected'));
+    const assistants = ai
+      ? [...ai.querySelectorAll('.ai-conversation-messages [data-role="assistant"]')].filter(visible)
+      : [];
+    const alerts = ai ? [...ai.querySelectorAll('[role="alert"]')].filter(visible) : [];
+    return {
+      aiVisible: Boolean(ai && visible(ai)),
+      proposalCount: proposals.length,
+      pendingProposalCount: pending.length,
+      assistantCount: assistants.length,
+      assistantHasExpected: assistants.some((message) => message.textContent?.includes(expectedSource)),
+      alertText: (alerts[0]?.textContent ?? '').trim().slice(0, 1000),
+    };
+  `,
   conversationModelSnapshot: `
     const control = document.querySelector('[aria-label="Conversation model"]');
     if (!(control instanceof HTMLSelectElement)) return null;
@@ -237,6 +259,23 @@ export const M4_DOM_SCRIPTS = Object.freeze({
       optionCount: control.options.length,
       selectedLabel: control.selectedOptions[0]?.textContent?.trim() ?? '',
       selectedValue: control.value,
+    };
+  `,
+  settingsAiProfileSnapshot: `
+    const control = (name) => {
+      const candidates = [...document.querySelectorAll('[aria-label="' + CSS.escape(name) + '"]')]
+        .filter((candidate) => (candidate instanceof HTMLInputElement
+          || candidate instanceof HTMLSelectElement)
+          && !candidate.disabled
+          && candidate.getClientRects().length > 0
+          && getComputedStyle(candidate).visibility !== 'hidden'
+          && getComputedStyle(candidate).display !== 'none');
+      return candidates.length === 1 ? candidates[0].value : null;
+    };
+    return {
+      provider: control('AI provider'),
+      endpoint: control('AI endpoint'),
+      model: control('AI model'),
     };
   `,
   renderSnapshot: `
@@ -1151,6 +1190,54 @@ function validateRestart(value) {
   assert.equal(value.freshWebViewProcesses, true, "Restart did not create fresh WebView processes.");
 }
 
+export async function waitForM4AiProposalOutcome(
+  automation,
+  expectedSource,
+  {
+    timeoutMs = 60_000,
+    intervalMs = 50,
+    delayImpl = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
+  } = {},
+) {
+  assert.ok(exactRecord(automation) && typeof automation.execute === "function", "M4 AI outcome wait requires automation execution.");
+  assert.ok(safeString(expectedSource, 1_000_000), "M4 AI outcome wait requires bounded expected source.");
+  assert.ok(Number.isSafeInteger(timeoutMs) && timeoutMs > 0
+    && Number.isSafeInteger(intervalMs) && intervalMs > 0 && intervalMs <= timeoutMs
+    && typeof delayImpl === "function", "M4 AI outcome wait options are invalid.");
+  const deadline = Date.now() + timeoutMs;
+  let lastObservation;
+  do {
+    const observation = await automation.execute(M4_DOM_SCRIPTS.aiProposalOutcome, [expectedSource.trim()]);
+    assert.ok(exactKeys(observation, ["aiVisible", "proposalCount", "pendingProposalCount", "assistantCount", "assistantHasExpected", "alertText"]), "M4 AI proposal-outcome observation has the wrong shape.");
+    assert.equal(typeof observation.aiVisible, "boolean", "M4 AI proposal visibility observation is invalid.");
+    for (const key of ["proposalCount", "pendingProposalCount", "assistantCount"]) {
+      assert.ok(Number.isSafeInteger(observation[key]) && observation[key] >= 0, `M4 AI ${key} is invalid.`);
+    }
+    assert.equal(typeof observation.assistantHasExpected, "boolean", "M4 AI assistant source observation is invalid.");
+    assert.ok(typeof observation.alertText === "string" && observation.alertText.length <= 1_000, "M4 AI alert observation is invalid.");
+    if (observation.alertText) {
+      throw new Error(`M4 AI request failed before producing a proposal: visible error (sha256 ${sha256(observation.alertText)}).`);
+    }
+    if (observation.proposalCount > 1 || observation.pendingProposalCount > 1) {
+      throw new Error(`M4 AI request produced an ambiguous proposal set: ${JSON.stringify(observation)}`);
+    }
+    if (observation.aiVisible && observation.proposalCount === 1
+      && observation.pendingProposalCount === 1 && observation.assistantHasExpected) return observation;
+    lastObservation = observation;
+    await delayImpl(intervalMs);
+  } while (Date.now() < deadline);
+  throw new Error(`M4 AI proposal did not arrive within ${timeoutMs} ms; last observation: ${JSON.stringify(lastObservation)}`);
+}
+
+function aiFailureTranscriptDiagnostic(records) {
+  if (!Array.isArray(records)) return { requestCount: null, ordinals: [], responseToolNames: [] };
+  return {
+    requestCount: records.length,
+    ordinals: records.slice(0, 8).map((record) => Number.isSafeInteger(record?.ordinal) ? record.ordinal : null),
+    responseToolNames: records.slice(0, 8).map((record) => safeString(record?.responseToolName, 128) ? record.responseToolName : null),
+  };
+}
+
 export async function runM4PackagedWalkthrough({
   automation,
   initialSource,
@@ -1174,6 +1261,7 @@ export async function runM4PackagedWalkthrough({
   let mock;
   let mockStopped = false;
   let networkMonitorActive = false;
+  let failureMockDiagnostic;
   let result;
   let failure;
   try {
@@ -1206,6 +1294,12 @@ export async function runM4PackagedWalkthrough({
     await automation.setControl("AI endpoint", mock.endpoint);
     await automation.setControl("AI model", mock.model);
     await automation.setControl("AI API key", mock.secret);
+    const committedAiProfile = await automation.execute(M4_DOM_SCRIPTS.settingsAiProfileSnapshot);
+    assert.deepEqual(committedAiProfile, {
+      provider: "local",
+      endpoint: mock.endpoint,
+      model: mock.model,
+    }, "Packaged Settings did not retain the exact AI profile before close.");
     await automation.clickButton("Save AI key");
     await automation.waitForText("AI key saved.");
     await automation.clickAria("Close settings");
@@ -1226,7 +1320,7 @@ export async function runM4PackagedWalkthrough({
     await automation.setChecked("Viewer screenshot", true);
     await automation.setControl("Message", "Change the cube to the exact requested dimensions.");
     await automation.clickButton("Send");
-    await automation.waitForText(proposalSource.trim());
+    await waitForM4AiProposalOutcome(automation, proposalSource);
     await automation.setChecked("Inline", true);
     await automation.clickButton("Use disk change");
     await automation.clickButton("Apply hunk choices");
@@ -1489,7 +1583,10 @@ export async function runM4PackagedWalkthrough({
       }
     }
     if (mock && !mockStopped) {
-      try { await automation.stopAiMock(); } catch (stopError) {
+      try {
+        const failureTranscript = await automation.stopAiMock();
+        failureMockDiagnostic = aiFailureTranscriptDiagnostic(failureTranscript);
+      } catch (stopError) {
         failure = failure ? new AggregateError([failure, stopError], "M4 journey and AI mock shutdown failed.") : stopError;
       }
     }
@@ -1505,6 +1602,12 @@ export async function runM4PackagedWalkthrough({
     } catch (restoreError) {
       failure = failure ? new AggregateError([failure, restoreError], "M4 journey and source restoration failed.") : restoreError;
     }
+  }
+  if (failure && failureMockDiagnostic) {
+    failure = new Error(
+      `${failure instanceof Error ? failure.message : String(failure)}; safe AI mock diagnostic: ${JSON.stringify(failureMockDiagnostic)}`,
+      { cause: failure },
+    );
   }
   if (failure) throw failure;
   assert.ok(result, "M4 walkthrough produced no result.");

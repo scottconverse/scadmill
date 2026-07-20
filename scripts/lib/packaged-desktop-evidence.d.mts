@@ -67,6 +67,17 @@ export function clickVisibleEnabledButton(
   },
 ): Promise<void>;
 export const SET_PACKAGED_CONTROL_VALUE_SCRIPT: string;
+export const READ_PACKAGED_CONTROL_VALUE_SCRIPT: string;
+export function setVisibleEnabledControl(
+  client: { execute(script: string, args: readonly unknown[]): Promise<unknown> },
+  label: string,
+  value: unknown,
+  options?: {
+    timeoutMs?: number;
+    intervalMs?: number;
+    delayImpl?: (milliseconds: number) => Promise<void>;
+  },
+): Promise<void>;
 export function parseBinaryStl(bytes: Uint8Array): StlEvidence;
 export function webViewAutomationArgument(): "--edge-webview-switches=--remote-debugging-port=0";
 export function processHasExited(exitCode: number | null, signalCode: NodeJS.Signals | null): boolean;

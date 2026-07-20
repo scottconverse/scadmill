@@ -43,6 +43,7 @@ pub(crate) enum AiHttpEvent {
         headers: Vec<(String, String)>,
     },
     Chunk {
+        #[serde(rename = "bytesBase64")]
         bytes_base64: String,
     },
     End,
@@ -675,6 +676,33 @@ mod tests {
             );
         }
         assert!(response_headers(&headers).unwrap_err().contains("too many"));
+    }
+
+    #[test]
+    fn serializes_channel_events_with_the_exact_renderer_contract() {
+        assert_eq!(
+            serde_json::to_value(AiHttpEvent::Start {
+                status: 200,
+                headers: vec![("content-type".into(), "application/x-ndjson".into())],
+            })
+            .unwrap(),
+            serde_json::json!({
+                "kind": "start",
+                "status": 200,
+                "headers": [["content-type", "application/x-ndjson"]],
+            })
+        );
+        assert_eq!(
+            serde_json::to_value(AiHttpEvent::Chunk {
+                bytes_base64: "Y3ViZSgxMCk7".into(),
+            })
+            .unwrap(),
+            serde_json::json!({ "kind": "chunk", "bytesBase64": "Y3ViZSgxMCk7" })
+        );
+        assert_eq!(
+            serde_json::to_value(AiHttpEvent::End).unwrap(),
+            serde_json::json!({ "kind": "end" })
+        );
     }
 
     #[tokio::test]

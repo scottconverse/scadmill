@@ -1,0 +1,142 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-m4-native-ai-stream-contract",
+  "createdAt": "2026-07-20T07:32:00-06:00",
+  "summary": "Correct the deterministic Rust-to-TypeScript AI stream field mismatch exposed by the second clean packaged M4 attempt, then harden queued channel delivery, committed Settings values, and failure diagnostics before any further Sandbox run.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "M4 release candidate", "N-7 evidence honesty"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-m4-native-ai-stream-contract.json", "status": "added" },
+    { "path": "scripts/lib/m4-packaged-walkthrough.d.mts", "status": "modified" },
+    { "path": "scripts/lib/m4-packaged-walkthrough.mjs", "status": "modified" },
+    { "path": "scripts/lib/packaged-desktop-evidence.d.mts", "status": "modified" },
+    { "path": "scripts/lib/packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "scripts/run-packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/src/ai_http_broker.rs", "status": "modified" },
+    { "path": "src/platform-desktop/tauri-ai-http-fetch.ts", "status": "modified" },
+    { "path": "tests/platform-desktop/tauri-ai-http-fetch.test.ts", "status": "modified" },
+    { "path": "tests/scripts/m4-packaged-walkthrough.test.ts", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0441",
+      "topic": "Exact native AI stream serialization contract",
+      "decision": "Serialize the Rust chunk payload field explicitly as bytesBase64 and assert the complete Start, Chunk, and End JSON shapes at the Rust boundary. Reject a missing or incorrectly cased bytesBase64 field explicitly in the renderer.",
+      "rationale": "Serde's enum-level rename_all changes variant names but not struct-variant field names. The broker therefore emitted bytes_base64 while the renderer read bytesBase64, deterministically discarding the proposal stream after a successful native request. Cross-language wire shapes require an executable serialization contract, not parallel in-memory tests that fabricate their own casing.",
+      "specBasis": ["M4 C10 AI assist", "N-7 evidence honesty"]
+    },
+    {
+      "id": "D-0442",
+      "topic": "Bounded Tauri terminal-event delivery grace",
+      "decision": "After the native command resolves, allow its already-emitted Tauri Channel callbacks up to one bounded second to reach JavaScript before declaring the terminal event omitted. Clear the timer on every success, failure, or abort and cap any injected test value at ten seconds.",
+      "rationale": "The native command emits End before resolving, but WebView callback delivery can be queued behind promise resolution. Immediate failure creates a false transport error. A single bounded delivery grace preserves the omitted-terminal failure oracle without creating a workflow retry or an unbounded wait.",
+      "specBasis": ["M4 C10 AI assist", "Section 2.7 delivery protocol"]
+    },
+    {
+      "id": "D-0443",
+      "topic": "Committed Settings and semantic packaged AI failure evidence",
+      "decision": "Make each packaged form update survive two consecutive exact controlled-value reads on separate UI tasks before the next update, then assert the grouped provider, endpoint, and model through the exact visible main aria-labeled controls immediately before closing Settings. Replace the proposal body-text wait with a bounded semantic proposal-or-alert observation and, on failure, retain only request count, ordinals, and scripted tool names from the local mock transcript.",
+      "rationale": "Back-to-back imperative value changes could outrun a React commit, while the former 60-second body-text timeout discarded the visible product error and all mock reachability evidence. The new oracle proves sequential state commitment, terminates immediately on a real AI alert, and preserves actionable diagnostics without persisting the synthetic secret, authorization header, or request body.",
+      "specBasis": ["M4 release candidate", "N-7 evidence honesty"]
+    },
+    {
+      "id": "D-0444",
+      "topic": "Fail-closed renderer decoding of native AI events",
+      "decision": "Treat Tauri Channel payloads as unknown at runtime and accept only a valid start event, a string bytesBase64 chunk, or an explicit end event. Reject unknown kinds, non-object payloads, invalid status values, and malformed header tuples instead of coercing them or treating them as completion.",
+      "rationale": "The first correction still treated every post-start kind other than chunk as End, allowing a malformed or future event to truncate a response and report success. Runtime validation makes the TypeScript union an enforced wire contract rather than a compile-time assumption.",
+      "specBasis": ["M4 C10 AI assist", "N-7 evidence honesty"]
+    },
+    {
+      "id": "D-0445",
+      "topic": "Secret-free visible AI error retention",
+      "decision": "Use visible AI alerts to terminate the proposal wait immediately, but retain only the fact that an alert occurred and its SHA-256 digest. Never copy raw alert text into the thrown error or packaged evidence.",
+      "rationale": "A provider or broker error could echo a synthetic credential into visible text. Hashing preserves stable failure identity for comparison while preventing the alert content, bearer value, or credential from entering the runner's retained message and stack.",
+      "specBasis": ["M4 release candidate", "N-7 evidence honesty"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The Rust broker must serialize the exact renderer chunk field name.",
+      "test": "Serialize all three AiHttpEvent variants to serde_json and compare exact JSON objects.",
+      "red": {
+        "command": "cargo test --manifest-path src/desktop-shell/src-tauri/Cargo.toml serializes_channel_events_with_the_exact_renderer_contract --locked",
+        "observedAt": "2026-07-20T07:23:00-06:00",
+        "outcome": "RED: 0 passed, 1 failed; actual Chunk JSON contained bytes_base64 while the required object contained bytesBase64."
+      },
+      "green": {
+        "command": "cargo test --manifest-path src/desktop-shell/src-tauri/Cargo.toml serializes_channel_events_with_the_exact_renderer_contract --locked",
+        "observedAt": "2026-07-20T07:25:00-06:00",
+        "outcome": "GREEN: the focused contract passed 1/1 with 58 filtered out; auxiliary binaries contained no matching tests."
+      }
+    },
+    {
+      "criterion": "Renderer transport must accept queued post-resolution channel delivery, retain an omitted-terminal bound, and reject incorrect chunk casing clearly.",
+      "test": "Resolve the mocked invoke before delayed Start/Chunk/End delivery, separately omit End, and separately emit bytes_base64.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/platform-desktop/tauri-ai-http-fetch.test.ts",
+        "observedAt": "2026-07-20T07:25:19-06:00",
+        "outcome": "RED: 4 passed, 2 failed; delayed valid delivery was rejected immediately and malformed casing surfaced only an opaque base64 decoder error."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/platform-desktop/tauri-ai-http-fetch.test.ts",
+        "observedAt": "2026-07-20T07:26:02-06:00",
+        "outcome": "GREEN: all 6 focused transport tests passed."
+      }
+    },
+    {
+      "criterion": "Packaged Settings changes and AI proposal evidence must converge within one finite action and retain safe failure diagnostics.",
+      "test": "Simulate a stale first controlled-value read followed by the committed value; poll pending then exact proposal; fail immediately on an AI alert; and prove cleanup reports one safe mock request without the synthetic secret.",
+      "red": {
+        "command": "Second exact clean Sandbox M4 attempt fb23d47 plus focused helper falsification",
+        "observedAt": "2026-07-20T07:15:00-06:00",
+        "outcome": "RED: the clean app reached Send but timed out after 60 seconds waiting for proposal source, retaining neither the visible AI error nor mock request count; setControl returned before a React commit."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/m4-packaged-walkthrough.test.ts tests/scripts/packaged-desktop-evidence.test.ts tests/platform-desktop/tauri-ai-http-fetch.test.ts",
+        "observedAt": "2026-07-20T07:35:29-06:00",
+        "outcome": "GREEN: all three affected TypeScript files passed 62/62 tests with zero failures."
+      }
+    },
+    {
+      "criterion": "The complete Rust AI broker module must remain green after the wire-contract correction.",
+      "test": "Run every Rust ai_http_broker unit test against the locked dependency graph.",
+      "red": {
+        "command": "Independent strict-zero review of the provisional ledger pairing",
+        "observedAt": "2026-07-20T07:40:00-06:00",
+        "outcome": "RED: the provisional ledger attached the Rust 10/10 claim to a Vitest-only command, so the evidence identity was inaccurate even though the separately run Rust result was green."
+      },
+      "green": {
+        "command": "cargo test --manifest-path src/desktop-shell/src-tauri/Cargo.toml ai_http_broker::tests --locked",
+        "observedAt": "2026-07-20T07:35:29-06:00",
+        "outcome": "GREEN: 10 passed, 0 failed, 49 filtered out; all auxiliary binaries had zero matching tests and passed."
+      }
+    },
+    {
+      "criterion": "Unknown or malformed native AI events, late Settings overwrites, and secret-bearing visible alerts must fail closed.",
+      "test": "Emit an unknown event and malformed start shapes; observe expected, late-stale, expected, expected control values; execute the grouped snapshot against the clean profile's real main AI controls; and inject a secret-bearing visible alert.",
+      "red": {
+        "command": "Independent dual strict-zero review plus focused adversarial Vitest regressions",
+        "observedAt": "2026-07-20T07:45:04-06:00",
+        "outcome": "RED: unknown events falsely completed truncated streams; malformed starts coerced, hung, or resolved; the helper returned on the first matching reread; raw alert text retained the synthetic secret; and the first grouped snapshot queried optional configuration rows absent from a clean profile."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/platform-desktop/tauri-ai-http-fetch.test.ts tests/scripts/m4-packaged-walkthrough.test.ts tests/scripts/packaged-desktop-evidence.test.ts",
+        "observedAt": "2026-07-20T07:51:19-06:00",
+        "outcome": "GREEN: all 3 affected files and 67/67 tests passed with zero failures after all reviewer findings converged, including the executable clean-profile DOM snapshot."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-fb23d47-sandbox-m4-converged-20260720/evidence.json",
+      "sought": "Exact clean packaged M4 walkthrough on candidate fb23d47",
+      "confirmation": "The clean source-bound build, cube render/export, MCP journey, N-2-disabled marker, current AI setup, settings controls, context toggles, Message entry, and Send activation passed. The run then timed out waiting for the proposal because the native chunk field serialized with the wrong case. Exact host cleanup removed the Sandbox session and staging directory. This artifact remains failed and is not packaged-pass evidence."
+    }
+  ],
+  "questions": ["No owner decision is required. Focused static gates and dual independent strict-zero review passed; one exact M4-only clean Sandbox rerun is now permitted."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

@@ -37,6 +37,58 @@ export const SET_PACKAGED_CONTROL_VALUE_SCRIPT = `
   return control.value;
 `;
 
+export const READ_PACKAGED_CONTROL_VALUE_SCRIPT = `
+  const wanted = arguments[0];
+  const visible = (element) => element.getClientRects().length > 0
+    && getComputedStyle(element).visibility !== 'hidden'
+    && getComputedStyle(element).display !== 'none';
+  const formControl = (element) => element instanceof HTMLInputElement
+    || element instanceof HTMLSelectElement
+    || element instanceof HTMLTextAreaElement;
+  const candidates = new Set(
+    [...document.querySelectorAll('[aria-label="' + CSS.escape(wanted) + '"]')],
+  );
+  for (const label of document.querySelectorAll('label')) {
+    if (!visible(label) || label.textContent.trim() !== wanted) continue;
+    if (formControl(label.control)) candidates.add(label.control);
+    for (const descendant of label.querySelectorAll('input, select, textarea')) {
+      candidates.add(descendant);
+    }
+  }
+  const eligible = [...candidates].filter((candidate) =>
+    formControl(candidate) && visible(candidate) && !candidate.matches(':disabled'));
+  return eligible.length === 1 ? eligible[0].value : null;
+`;
+
+export async function setVisibleEnabledControl(
+  client,
+  label,
+  value,
+  { timeoutMs = 10_000, intervalMs = 50, delayImpl = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)) } = {},
+) {
+  if (!client || typeof client.execute !== "function" || typeof label !== "string" || label.length === 0) {
+    throw new Error("Packaged control automation requires a client and non-empty label.");
+  }
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0
+    || !Number.isSafeInteger(intervalMs) || intervalMs <= 0 || intervalMs > timeoutMs
+    || typeof delayImpl !== "function") throw new Error("Packaged control wait options are invalid.");
+  const expected = String(value);
+  const selected = await client.execute(SET_PACKAGED_CONTROL_VALUE_SCRIPT, [label, expected]);
+  if (selected !== expected) throw new Error(`Could not set ${JSON.stringify(label)} to the requested value.`);
+  const deadline = Date.now() + timeoutMs;
+  let consecutiveCommittedReads = 0;
+  do {
+    await delayImpl(intervalMs);
+    if (await client.execute(READ_PACKAGED_CONTROL_VALUE_SCRIPT, [label]) === expected) {
+      consecutiveCommittedReads += 1;
+      if (consecutiveCommittedReads >= 2) return;
+    } else {
+      consecutiveCommittedReads = 0;
+    }
+  } while (Date.now() < deadline);
+  throw new Error(`Control ${JSON.stringify(label)} did not retain the requested value after its UI commit.`);
+}
+
 export const CLICK_PACKAGED_BUTTON_SCRIPT = `
   const wanted = arguments[0];
   const visible = (element) => element.getClientRects().length > 0

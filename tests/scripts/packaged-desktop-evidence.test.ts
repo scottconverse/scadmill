@@ -15,10 +15,12 @@ import {
   parseSourceMetadata,
   parseWindowsNetstatTcpListeners,
   processHasExited,
+  READ_PACKAGED_CONTROL_VALUE_SCRIPT,
   SET_PACKAGED_CONTROL_VALUE_SCRIPT,
   sanitizeMcpEndpointManifest,
   sanitizeMcpTranscript,
   scanFileForBytes,
+  setVisibleEnabledControl,
   unwrapWebDriverValue,
   validateCredentialProbe,
   validateHarnessManifest,
@@ -939,7 +941,7 @@ describe("packaged desktop evidence helpers", () => {
     expect(helpers).toContain("async function activateRail");
     expect(helpers).toContain("button.getAttribute('aria-pressed') !== 'true'");
     expect(helpers).toContain("visible activity rail");
-    expect(runner).toContain("client.execute(SET_PACKAGED_CONTROL_VALUE_SCRIPT, [label, value])");
+    expect(runner).toContain("await setVisibleEnabledControl(client, label, value)");
     expect(runner).toContain("await clickVisibleEnabledButton(client, text)");
     expect(helpers.match(/getClientRects\(\)\.length > 0/gu)?.length).toBeGreaterThanOrEqual(5);
     const m4 = runner.slice(runner.indexOf("const m4InitialSource"));
@@ -1005,6 +1007,34 @@ describe("packaged desktop evidence helpers", () => {
     expect(run("Message", "ambiguous")).toBeNull();
 
     window.close();
+  });
+
+  it("waits for the controlled value to survive a UI commit before continuing", async () => {
+    const calls: string[] = [];
+    let reads = 0;
+    const endpoint = "http://127.0.0.1:42123/api/chat";
+    const observedValues = [endpoint, "https://late-react-commit.example/api", endpoint, endpoint];
+    await setVisibleEnabledControl({
+      execute: async (script: string, args: readonly unknown[]) => {
+        calls.push(script);
+        if (script === SET_PACKAGED_CONTROL_VALUE_SCRIPT) {
+          expect(args).toEqual(["AI endpoint", endpoint]);
+          return args[1];
+        }
+        expect(script).toBe(READ_PACKAGED_CONTROL_VALUE_SCRIPT);
+        expect(args).toEqual(["AI endpoint"]);
+        reads += 1;
+        return observedValues.shift();
+      },
+    }, "AI endpoint", endpoint, {
+      timeoutMs: 1_000,
+      intervalMs: 25,
+      delayImpl: async () => undefined,
+    });
+
+    expect(calls[0]).toBe(SET_PACKAGED_CONTROL_VALUE_SCRIPT);
+    expect(reads).toBe(4);
+    expect(calls.slice(1)).toEqual(Array.from({ length: 4 }, () => READ_PACKAGED_CONTROL_VALUE_SCRIPT));
   });
 
   it("requires an exact isolated-Sandbox harness manifest", () => {

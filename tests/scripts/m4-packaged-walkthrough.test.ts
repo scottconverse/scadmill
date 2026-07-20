@@ -1,5 +1,6 @@
 import { request as requestHttp } from "node:http";
 import { deflateSync } from "node:zlib";
+import { Window } from "happy-dom";
 import { describe, expect, it } from "vitest";
 import type {
   M4PackagedAutomation,
@@ -12,6 +13,7 @@ import {
   startScriptedM4LocalProviderMock,
   validateM4RawTranscriptSemantics,
   validateM4ZeroNetworkAttempts,
+  waitForM4AiProposalOutcome,
 } from "../../scripts/lib/m4-packaged-walkthrough.mjs";
 import { messages } from "../../src/messages/en";
 
@@ -56,6 +58,67 @@ function pngBase64(): string {
 }
 
 describe("M4 packaged newcomer walkthrough", () => {
+  it("reads the clean profile's exact main AI settings controls", () => {
+    const window = new Window();
+    window.document.body.innerHTML = `
+      <select aria-label="AI provider"><option selected value="local">Local</option></select>
+      <input aria-label="AI endpoint" value="http://127.0.0.1:42123/api/chat">
+      <input aria-label="AI model" value="m4-local">
+    `;
+    for (const control of window.document.querySelectorAll("input, select")) {
+      Object.defineProperty(control, "getClientRects", { value: () => [{ width: 10, height: 10 }] });
+    }
+    const snapshot = window.eval(`(function() {${M4_DOM_SCRIPTS.settingsAiProfileSnapshot}})`) as () => unknown;
+
+    expect(snapshot()).toEqual({
+      provider: "local",
+      endpoint: "http://127.0.0.1:42123/api/chat",
+      model: "m4-local",
+    });
+    window.close();
+  });
+
+  it("waits for one semantic proposal and fails immediately on an AI alert", async () => {
+    const pending = {
+      aiVisible: true, proposalCount: 0, pendingProposalCount: 0,
+      assistantCount: 0, assistantHasExpected: false, alertText: "",
+    };
+    const ready = {
+      aiVisible: true, proposalCount: 1, pendingProposalCount: 1,
+      assistantCount: 1, assistantHasExpected: true, alertText: "",
+    };
+    const observations = [pending, ready];
+    const delays: number[] = [];
+    await expect(waitForM4AiProposalOutcome({
+      execute: async (script: string, args?: readonly unknown[]) => {
+        expect(script).toBe(M4_DOM_SCRIPTS.aiProposalOutcome);
+        expect(args).toEqual(["cube(12);"]);
+        return observations.shift() ?? ready;
+      },
+    }, "cube(12);\n", {
+      timeoutMs: 1_000,
+      intervalMs: 25,
+      delayImpl: async (milliseconds: number) => { delays.push(milliseconds); },
+    })).resolves.toEqual(ready);
+    expect(delays).toEqual([25]);
+
+    const syntheticSecret = "M4-SYNTHETIC-SECRET-SENTINEL";
+    let alertFailure = "";
+    try {
+      await waitForM4AiProposalOutcome({
+        execute: async () => ({ ...pending, alertText: `provider failed with ${syntheticSecret}` }),
+      }, "cube(12);", {
+        timeoutMs: 1_000,
+        intervalMs: 25,
+        delayImpl: async () => { throw new Error("alert failure should not poll"); },
+      });
+    } catch (error) {
+      alertFailure = error instanceof Error ? error.message : String(error);
+    }
+    expect(alertFailure).toMatch(/visible error.+sha256 [a-f0-9]{64}/u);
+    expect(alertFailure).not.toContain(syntheticSecret);
+  });
+
   it("serves the exact seven-response local-provider script on loopback with CORS", async () => {
     const secret = "bounded-m4-provider-secret";
     const mock = await startScriptedM4LocalProviderMock({
@@ -538,6 +601,93 @@ describe("M4 packaged newcomer walkthrough", () => {
     expect(source).toBe(initialSource);
   });
 
+  it("retains bounded non-secret mock metadata when the packaged AI request fails", async () => {
+    const initialSource = "cube([10, 10, 10]);";
+    const secret = "m4-secret-must-not-escape";
+    let source = initialSource;
+    const zeroNetwork = {
+      rendererAttemptCount: 0,
+      rendererExternalAttemptCount: 0,
+      rendererInternalAttemptCount: 0,
+      rendererDroppedAttemptCount: 0,
+      rendererObservations: [],
+      tauriInvokeAttemptCount: null,
+      tauriInvokeMonitoring: "protected-nonwritable",
+    };
+    const automation: M4PackagedAutomation = {
+      readSource: async () => source,
+      replaceSource: async (next) => { source = next; },
+      waitForSource: async () => undefined,
+      activateRail: async () => undefined,
+      clickAria: async () => undefined,
+      clickButton: async () => undefined,
+      setControl: async () => undefined,
+      setChecked: async () => undefined,
+      waitForText: async () => undefined,
+      execute: async (script) => {
+        if (script === M4_DOM_SCRIPTS.installNetworkAttemptMonitor
+          || script === M4_DOM_SCRIPTS.networkAttemptSnapshot) return zeroNetwork;
+        if (script === M4_DOM_SCRIPTS.aiUnconfigured) return { guidanceVisible: true, sendCount: 0 };
+        if (script === M4_DOM_SCRIPTS.conversationModelSnapshot) {
+          return { optionCount: 1, selectedLabel: "Local - m4-local", selectedValue: "model-abc123" };
+        }
+        if (script === M4_DOM_SCRIPTS.settingsAiProfileSnapshot) {
+          return { provider: "local", endpoint: "http://127.0.0.1:42123/api/chat", model: "m4-local" };
+        }
+        if (script === M4_DOM_SCRIPTS.aiProposalOutcome) {
+          return {
+            aiVisible: true, proposalCount: 0, pendingProposalCount: 0,
+            assistantCount: 0, assistantHasExpected: false,
+            alertText: "Desktop AI HTTP response omitted its terminal event.",
+          };
+        }
+        throw new Error("unexpected diagnostic fixture script");
+      },
+      executeAsync: async (script) => {
+        expect(script).toBe(M4_DOM_SCRIPTS.fullRenderCompleted);
+        return { consoleRunsBefore: 0, consoleRunsAfter: 1, status: "Rendered main.scad (3d)", canvasVisible: true };
+      },
+      captureScreenshot: async () => PNG,
+      startAiMock: async () => ({ endpoint: "http://127.0.0.1:42123/api/chat", model: "m4-local", secret }),
+      stopAiMock: async () => [{
+        ordinal: 1,
+        method: "POST",
+        path: "/api/chat",
+        headers: { authorization: `Bearer ${secret}` },
+        requestBody: `{"secret":"${secret}"}`,
+        responseBody: "{}",
+        roles: ["system", "user"],
+        toolNames: [],
+        responseToolName: null,
+        context: { source: true, diagnostics: true, parameters: true, screenshot: true },
+      }],
+      probeMcpDefaultDeny: async () => ({ error: { code: -32001, message: "MCP mutation denied by the current permission gate." }, writeOccurred: false }),
+      runMcpAllowSessionJourney: async () => ({
+        protocolVersion: "2025-11-25", toolNames: [], preview: { kind: "3d", triangles: 12 },
+        diagnostics: { quality: "preview", count: 0 }, pendingReview: { status: "pending_review" }, mutationApproved: true,
+      }),
+      restartApplication: async () => ({ beforePid: 1, afterPid: 2, freshWebViewProcesses: true }),
+    };
+
+    let failure = "";
+    try {
+      await runM4PackagedWalkthrough({
+        automation,
+        initialSource,
+        proposalSource: "cube([12, 10, 10]);\n",
+        agentSource: "cube([14, 10, 10]);\n",
+        projectPath: "main.scad",
+      });
+    } catch (error) {
+      failure = error instanceof Error ? error.message : String(error);
+    }
+    expect(failure).toMatch(/visible error.+sha256 [a-f0-9]{64}/u);
+    expect(failure).toContain('"requestCount":1');
+    expect(failure).toContain('"responseToolNames":[null]');
+    expect(failure).not.toContain(secret);
+    expect(source).toBe(initialSource);
+  });
+
   it("proves the ordered C10/C11/cache/delta/animation/thumbnail/restart journey without retaining secrets", async () => {
     const initialSource = "cube([10, 10, 10]);";
     const proposalSource = "cube([12, 10, 10]);\n";
@@ -707,8 +857,21 @@ describe("M4 packaged newcomer walkthrough", () => {
         if (script === M4_DOM_SCRIPTS.aiProposal) {
           return { acceptedCount: 1, assistantRoles: 1, pendingProposals: 0 };
         }
+        if (script === M4_DOM_SCRIPTS.aiProposalOutcome) {
+          return {
+            aiVisible: true,
+            proposalCount: 1,
+            pendingProposalCount: 1,
+            assistantCount: 1,
+            assistantHasExpected: true,
+            alertText: "",
+          };
+        }
         if (script === M4_DOM_SCRIPTS.conversationModelSnapshot) {
           return { optionCount: 1, selectedLabel: "Local — m4-local", selectedValue: "model-6d342d6c6f63616c" };
+        }
+        if (script === M4_DOM_SCRIPTS.settingsAiProfileSnapshot) {
+          return { provider: "local", endpoint: "http://127.0.0.1:42123", model: "m4-local" };
         }
         if (script === M4_DOM_SCRIPTS.renderSnapshot) {
           return {

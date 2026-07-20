@@ -29,10 +29,10 @@ import {
   parseSourceMetadata,
   parseWindowsNetstatTcpListeners,
   processHasExited,
-  SET_PACKAGED_CONTROL_VALUE_SCRIPT,
   sanitizeMcpEndpointManifest,
   sanitizeMcpTranscript,
   scanFileForBytes,
+  setVisibleEnabledControl,
   unwrapWebDriverValue,
   validateCredentialProbe,
   validateHarnessManifest,
@@ -511,10 +511,7 @@ async function dismissWelcome(client) {
 }
 
 async function setControl(client, label, value) {
-  const selected = await client.execute(SET_PACKAGED_CONTROL_VALUE_SCRIPT, [label, value]);
-  if (selected !== String(value)) {
-    throw new Error(`Could not set ${JSON.stringify(label)} to the requested value.`);
-  }
+  await setVisibleEnabledControl(client, label, value);
 }
 
 async function setChecked(client, label, checked) {
