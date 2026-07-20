@@ -168,7 +168,7 @@ export const M4_DOM_SCRIPTS = Object.freeze({
     const text = ai?.textContent ?? '';
     return {
       guidanceVisible: text.includes('AI is not configured.')
-        && text.includes('Configure an AI provider in Settings to start a conversation.'),
+        && text.includes('No network requests are made until you choose a provider and send a message.'),
       sendCount: ai ? [...ai.querySelectorAll('button')]
         .filter((button) => button.textContent?.trim() === 'Send').length : -1,
     };

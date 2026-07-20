@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-m4-ai-guidance-probe",
+  "createdAt": "2026-07-20T05:45:36-06:00",
+  "summary": "Bind the packaged M4 unconfigured-AI guidance probe to ScadMill's current no-network-before-send security copy after the exact clean Sandbox candidate exposed a stale harness sentence.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "AC-10.a", "M4 release candidate", "N-7 evidence honesty"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-m4-ai-guidance-probe.json", "status": "added" },
+    { "path": "scripts/lib/m4-packaged-walkthrough.mjs", "status": "modified" },
+    { "path": "tests/scripts/m4-packaged-walkthrough.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0434",
+      "topic": "Packaged unconfigured-AI visible guidance oracle",
+      "decision": "The black-box M4 probe requires both the visible 'AI is not configured.' state and ScadMill's current 'No network requests are made until you choose a provider and send a message.' security guidance, while independently requiring that no Send button is exposed.",
+      "rationale": "The exact clean fd0e88e Sandbox candidate reached the real unconfigured AI panel with zero Send buttons and the current security-honesty copy, but the harness rejected it because it still required a removed setup sentence. Executing the actual injected DOM script against the current rendered copy reproduced the false negative before the one-line oracle correction.",
+      "specBasis": ["AC-10.a", "N-7 evidence honesty", "M4 release candidate"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The actual packaged DOM script must recognize the current unconfigured-AI security guidance and still require that no Send path exists.",
+      "test": "Execute M4_DOM_SCRIPTS.aiUnconfigured against a DOM fixture containing the exact current production messages and no buttons.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/m4-packaged-walkthrough.test.ts -t \"recognizes the current unconfigured-AI security guidance\" --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T05:44:57-06:00",
+        "outcome": "RED: the actual injected probe returned guidanceVisible false against the current production copy; sendCount remained zero."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/m4-packaged-walkthrough.test.ts -t \"recognizes the current unconfigured-AI security guidance\" --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T05:45:14-06:00",
+        "outcome": "GREEN: the actual injected probe returned guidanceVisible true and sendCount zero against the exact current copy."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-fd0e88e-sandbox-m4-corrected-20260720/evidence.json",
+      "sought": "Exact clean packaged M4 walkthrough on candidate fd0e88e",
+      "confirmation": "The clean build, native cube render/export, MCP packaged walkthrough, process inspection, and N-2-disabled boundary passed. M4 then failed only because the harness's second visible-guidance sentence was stale; the retained observation showed sendCount zero, and no later M4 assertions ran."
+    }
+  ],
+  "questions": ["No owner decision is required. Rerun the clean packaged lane once after committing this bounded harness-only correction."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

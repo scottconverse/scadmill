@@ -13,6 +13,7 @@ import {
   validateM4RawTranscriptSemantics,
   validateM4ZeroNetworkAttempts,
 } from "../../scripts/lib/m4-packaged-walkthrough.mjs";
+import { messages } from "../../src/messages/en";
 
 function fixtureCrc32(bytes: Uint8Array): number {
   let crc = 0xffffffff;
@@ -224,6 +225,31 @@ describe("M4 packaged newcomer walkthrough", () => {
     expect(M4_DOM_SCRIPTS.installNetworkAttemptMonitor).toContain("command === 'ai_http_request'");
     expect(M4_DOM_SCRIPTS.installNetworkAttemptMonitor).toContain("blocked an AI broker request");
     expect(M4_DOM_SCRIPTS.networkAttemptSnapshot).toContain("Object.defineProperty(monitor.tauriInternals, 'invoke', monitor.invokeDescriptor)");
+  });
+
+  it("recognizes the current unconfigured-AI security guidance without a send path", () => {
+    const target = globalThis as typeof globalThis & { document?: unknown };
+    const priorDocument = Object.getOwnPropertyDescriptor(target, "document");
+    Object.defineProperty(target, "document", {
+      configurable: true,
+      value: {
+        querySelector: (selector: string) => selector === '[aria-label="AI"]'
+          ? {
+              textContent: `${messages.aiNotConfigured} ${messages.aiSetupGuidance}`,
+              querySelectorAll: () => [],
+            }
+          : null,
+      },
+    });
+    try {
+      expect(new Function(M4_DOM_SCRIPTS.aiUnconfigured)()).toEqual({
+        guidanceVisible: true,
+        sendCount: 0,
+      });
+    } finally {
+      if (priorDocument) Object.defineProperty(target, "document", priorDocument);
+      else Reflect.deleteProperty(target, "document");
+    }
   });
 
   it("keeps renderer monitoring usable when Tauri protects its invoke bridge", () => {
