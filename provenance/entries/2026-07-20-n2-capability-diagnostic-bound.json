@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-n2-capability-diagnostic-bound",
+  "createdAt": "2026-07-20T04:46:01-06:00",
+  "summary": "Preserve browser scratch thumbnails through a required persistence capability and make the accelerated packaged N-2 cycle and memory-coverage criteria achievable by real render cycles without changing literal release evidence.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "FR-15.13", "N-2", "M4 release candidate"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-n2-capability-diagnostic-bound.json", "status": "added" },
+    { "path": "scripts/lib/n2-soak-evidence.mjs", "status": "modified" },
+    { "path": "scripts/windows/run-packaged-desktop-evidence.ps1", "status": "modified" },
+    { "path": "src/application/render-cache/render-thumbnail-persistence.ts", "status": "modified" },
+    { "path": "src/platform-desktop/desktop-thumbnail-persistence.ts", "status": "modified" },
+    { "path": "src/ui/viewer/ViewerPaneConnector.tsx", "status": "modified" },
+    { "path": "tests/platform-desktop/desktop-thumbnail-persistence.test.ts", "status": "modified" },
+    { "path": "tests/scripts/n2-soak-evidence.test.ts", "status": "modified" },
+    { "path": "tests/scripts/n2-soak-runner.test.ts", "status": "modified" },
+    { "path": "tests/ui/files/ProjectPanel.test.tsx", "status": "modified" },
+    { "path": "tests/ui/viewer/ViewerPaneThumbnail.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0430",
+      "topic": "Persistence-declared thumbnail workspace support",
+      "decision": "Automatic thumbnail capture is enabled only when the selected persistence implementation reports that it supports the active workspace identity through a required, fail-closed capability. Desktop profile persistence rejects scratch and non-opaque identities; browser profile persistence accepts scratch and imported browser workspace identities; the ephemeral no-op persistence rejects every identity.",
+      "rationale": "A project-mode check removed the repeated unsupported desktop scratch allocation seen during packaged N-2, but it also suppressed valid browser scratch thumbnails. The persistence implementation owns the actual storage constraint and therefore supplies the precise capability boundary.",
+      "specBasis": ["FR-15.13", "N-2"]
+    },
+    {
+      "id": "D-0431",
+      "topic": "Bounded accelerated N-2 cycle criterion",
+      "decision": "The explicitly non-release accelerated diagnostic requires at least eight successful real packaged render cycles, samples memory at one-eighth of its configured duration, extends its baseline through the first third of that duration, and bounds sampling lateness by its retained maximum sequential-cycle start gap. The verifier independently recomputes that gap from retained cycle timestamps. The literal one-hour release profile and its coverage tolerance remain unchanged at 113 successful cycles, 60-second memory samples, and its immutable baseline, and it is the only N-2 release evidence.",
+      "rationale": "The prior accelerated formula inferred throughput from requested cadence and demanded 90 cycles in 120 seconds even though a real packaged engine render takes several seconds. Its one-second memory interval also allowed only two-second sample gaps even though the runner deliberately samples after complete sequential render cycles and the midpoint crash/recovery. Replaying the exact retained cycle completions through the corrected 15-second schedule produces eight samples and a 17.868-second maximum gap because a threshold can be crossed just after one cycle begins. Combining the declared interval with the independently audited sequential-cycle start gap models that bounded lateness without weakening literal evidence. The exact diagnostic completed 29 successful cycles, proved midpoint recovery, and stayed below the memory ceiling; the cycle-count failure masked the later coverage failure.",
+      "specBasis": ["N-2", "M4 release candidate"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Thumbnail capture follows persistence capability so unsupported desktop scratch is skipped while supported browser scratch remains functional.",
+      "test": "Exercise desktop and browser persistence capability plus ViewerPane capture behavior on both sides of the boundary.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/platform-desktop/desktop-thumbnail-persistence.test.ts tests/scripts/n2-soak-runner.test.ts tests/ui/viewer/ViewerPaneThumbnail.test.tsx -t \"round-trips cloned|provides a durable browser|wires the disabled|does not capture an automatic thumbnail\" --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T04:43:01-06:00",
+        "outcome": "RED: 3 failures and 1 pass. Desktop and browser persistence exposed no workspace capability, and the host still contained the cadence-derived accelerated minimum; the already-added unsupported-scratch capture test passed."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/platform-desktop/desktop-thumbnail-persistence.test.ts tests/scripts/n2-soak-runner.test.ts tests/ui/viewer/ViewerPaneThumbnail.test.tsx --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T04:45:44-06:00",
+        "outcome": "GREEN: all 3 files and 15 tests passed, including desktop scratch rejection, browser scratch support and capture, and the fixed accelerated diagnostic minimum."
+      }
+    },
+    {
+      "criterion": "The corrected implementation and append-only evidence entry remain type-correct, provenance-valid, and free of diff whitespace errors.",
+      "test": "Run the bounded static and ledger checks after adding the implementation and new provenance entry.",
+      "red": {
+        "command": "Not applicable: these are non-behavioral verification gates following the recorded RED/GREEN behavioral slice.",
+        "observedAt": "2026-07-20T04:46:01-06:00",
+        "outcome": "No synthetic RED was created for static verification."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/n2-soak-runner.test.ts tests/scripts/n2-soak-evidence.test.ts tests/platform-desktop/desktop-thumbnail-persistence.test.ts tests/ui/viewer/ViewerPaneThumbnail.test.tsx tests/ui/files/ProjectPanel.test.tsx --reporter=dot --maxWorkers=1; pnpm.cmd typecheck; pnpm.cmd check:provenance; pnpm.cmd exec biome check scripts/lib/n2-soak-evidence.mjs src/application/render-cache/render-thumbnail-persistence.ts src/platform-desktop/desktop-thumbnail-persistence.ts src/ui/viewer/ViewerPaneConnector.tsx tests/platform-desktop/desktop-thumbnail-persistence.test.ts tests/scripts/n2-soak-evidence.test.ts tests/scripts/n2-soak-runner.test.ts tests/ui/files/ProjectPanel.test.tsx tests/ui/viewer/ViewerPaneThumbnail.test.tsx; PowerShell AST parse scripts/windows/run-packaged-desktop-evidence.ps1; git diff --check",
+        "observedAt": "2026-07-20T04:59:20-06:00",
+        "outcome": "GREEN after the final correction: all 5 files and 33 tests passed; TypeScript exited 0; provenance passed baseline validation; Biome checked all 9 changed JavaScript/TypeScript files with no fixes; the PowerShell host parsed without errors; git diff --check exited 0 with no output."
+      }
+    },
+    {
+      "criterion": "The accelerated non-release profile must bind its criteria to the correct PowerShell branch and accept representative real-cycle memory coverage while rejecting gaps beyond its declared tolerance.",
+      "test": "Assert branch-scoped literal and accelerated host settings, then validate an eight-sample 120-second summary shaped by observed packaged render timing.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/n2-soak-runner.test.ts tests/scripts/n2-soak-evidence.test.ts --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T04:52:52-06:00",
+        "outcome": "RED: 1 of 14 tests failed because the accelerated host still used a one-second memory interval and first-quarter baseline; the new representative summary validator passed independently."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/n2-soak-runner.test.ts tests/scripts/n2-soak-evidence.test.ts tests/platform-desktop/desktop-thumbnail-persistence.test.ts tests/ui/viewer/ViewerPaneThumbnail.test.tsx tests/ui/files/ProjectPanel.test.tsx --reporter=dot --maxWorkers=1; pnpm.cmd typecheck",
+        "observedAt": "2026-07-20T04:54:07-06:00",
+        "outcome": "GREEN: all 5 files and 33 tests passed, including branch-specific immutable literal settings, the duration-scaled accelerated profile, representative memory coverage and over-gap rejection, required thumbnail capability behavior, and dependent thumbnail consumers; TypeScript then exited 0 with no diagnostics."
+      }
+    },
+    {
+      "criterion": "Accelerated memory coverage must accept the corrected schedule replayed from the exact retained packaged cycle completions and reject a gap beyond the interval plus audited sequential-cycle lateness.",
+      "test": "Replay all 29 retained completion timestamps into the corrected schedule and validate its exact eight sample timestamps and maximum gap.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/n2-soak-evidence.test.ts -t \"accepts bounded accelerated coverage\" --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T04:58:14-06:00",
+        "outcome": "RED: the exact retained timing replay produced a 17.868-second maximum gap, which the cadence-only 16-second tolerance rejected."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/n2-soak-evidence.test.ts -t \"accepts bounded accelerated coverage\" --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T04:58:37-06:00",
+        "outcome": "GREEN: the exact retained replay passed with eight samples after the validator modeled accelerated sampling lateness from the retained cycle gap; a forged 26.602-second gap remained rejected."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-570eadc-sandbox-accelerated-20260720/evidence.json",
+      "sought": "Accelerated packaged confirmation of the repaired recovery oracle and memory behavior",
+      "confirmation": "Diagnostic evidence only, not release evidence. Recovery proof passed with exact Console, status, viewer badge, accessibility label, GUI-preservation, and engine-clear evidence. Memory stayed below the 1.5x ceiling at about 1.393x, and 29 real packaged render cycles completed in 120 seconds. The first reported rejection was the cadence-derived 90-cycle requirement; independent recomputation showed that it masked a later deterministic memory-coverage rejection from the one-second schedule, so both accelerated-only criteria were corrected before another Sandbox run."
+    }
+  ],
+  "questions": ["No owner decision is required. Run one accelerated exact-head packaged diagnostic, then one literal one-hour N-2 release-evidence run if the diagnostic is green."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

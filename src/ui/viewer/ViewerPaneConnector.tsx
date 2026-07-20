@@ -14,8 +14,8 @@ import type {
   ViewerAction,
   ViewerDocumentState,
 } from "../../application/viewer/viewer-state";
-import { useReadonlyStore } from "../use-readonly-store";
 import { AnimationBar } from "../animation/AnimationBar";
+import { useReadonlyStore } from "../use-readonly-store";
 import { ViewerPane } from "./ViewerPane";
 
 export interface ViewerPaneConnectorProps {
@@ -86,6 +86,9 @@ export function ViewerPaneConnector({
     (state) => state,
   );
   const project = useReadonlyStore(runtime.project, (state) => state);
+  const thumbnailWorkspaceSupported = runtime.renderThumbnails.supportsWorkspace(
+    project.snapshot.workspaceIdentity,
+  );
   const documents = useReadonlyStore(runtime.documents, (state) => state);
   const thumbnailDocumentPath = documents.documents.find(({ id }) => id === documentId)?.path ?? "Untitled";
   const thumbnailPersistenceDestination = JSON.stringify([
@@ -190,7 +193,7 @@ export function ViewerPaneConnector({
       onMcpScreenshotCaptureAvailable={onMcpScreenshotCaptureAvailable}
       onPresentationFailed={onPresentationFailed}
       onPresentationReady={onPresentationReady}
-      onThumbnail={runtime.renderThumbnails && project.mode === "project"
+      onThumbnail={thumbnailWorkspaceSupported
         ? (bytes) => {
             const result = viewer.presentation?.result;
             const renderIdentity = result?.kind === "2d"

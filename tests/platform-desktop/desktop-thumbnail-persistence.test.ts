@@ -17,6 +17,8 @@ describe("desktop render thumbnail persistence", () => {
   it("round-trips cloned binary records under an app-owned opaque workspace key", () => {
     const storage = new MemoryStorage();
     const persistence = createDesktopRenderThumbnailPersistence(storage);
+    expect(persistence.supportsWorkspace?.("scratch")).toBe(false);
+    expect(persistence.supportsWorkspace?.(workspaceIdentity)).toBe(true);
     const bytes = png(1);
     persistence.save(workspaceIdentity, {
       documentPath: "parts/gear.scad",
@@ -120,6 +122,7 @@ describe("desktop render thumbnail persistence", () => {
   it("provides a durable browser-profile namespace for non-path workspace identities", () => {
     const storage = new MemoryStorage();
     const persistence = createBrowserRenderThumbnailPersistence(storage);
+    expect(persistence.supportsWorkspace?.("scratch")).toBe(true);
     persistence.save("web-import-project", {
       documentPath: "main.scad",
       renderIdentity,

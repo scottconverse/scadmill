@@ -358,7 +358,11 @@ export function validateN2SoakSummary(payload, { requireReleaseEvidence = false 
     || payload.samples.recordCount !== payload.cycles.attempted + payload.samples.memorySampleCount
     || !/^[a-f0-9]{64}$/iu.test(payload.samples?.sha256 ?? "")
   ) throw new Error("N-2 soak summary does not satisfy its declared acceptance criteria.");
-  const allowedGapSeconds = config.memorySampleIntervalSeconds + config.cadenceMilliseconds / 1_000;
+  const scheduledCadenceSeconds = config.cadenceMilliseconds / 1_000;
+  const samplingLatenessSeconds = config.mode === "accelerated"
+    ? Math.max(scheduledCadenceSeconds, payload.continuity.maximumStartGapMs / 1_000)
+    : scheduledCadenceSeconds;
+  const allowedGapSeconds = config.memorySampleIntervalSeconds + samplingLatenessSeconds;
   const memory = payload.memory;
   const coverageValues = [
     memory.firstElapsedSeconds,

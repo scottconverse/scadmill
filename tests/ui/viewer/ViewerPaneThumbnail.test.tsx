@@ -103,7 +103,9 @@ it("does not capture an automatic thumbnail for an unsaved scratch document", as
   const runtime = createWorkbenchRuntime({
     render: vi.fn(), export: vi.fn(), version: vi.fn(), cancel: vi.fn(),
   }, {
-    renderThumbnailPersistence: { load: () => [], save, clear: vi.fn() },
+    renderThumbnailPersistence: {
+      load: () => [], save, clear: vi.fn(), supportsWorkspace: () => false,
+    },
   });
   const identity = `sha256:${"9".repeat(64)}`;
   const viewer = presentation(identity, identity);
@@ -127,6 +129,42 @@ it("does not capture an automatic thumbnail for an unsaved scratch document", as
   runtime.dispose();
 });
 
+it("captures an automatic thumbnail for a browser-supported scratch workspace", async () => {
+  captureThumbnailPng.mockReset().mockResolvedValue(Uint8Array.of(7));
+  const save = vi.fn();
+  const runtime = createWorkbenchRuntime({
+    render: vi.fn(), export: vi.fn(), version: vi.fn(), cancel: vi.fn(),
+  }, {
+    renderThumbnailPersistence: {
+      load: () => [], save, clear: vi.fn(), supportsWorkspace: () => true,
+    },
+  });
+  const identity = `sha256:${"8".repeat(64)}`;
+  const viewer = presentation(identity, identity);
+  const view = render(
+    <ViewerPaneConnector
+      colors={colors} dimmed={false} documentId="document-main" maximized={false}
+      narrow={false} onLayoutAction={vi.fn()} onShowConsole={vi.fn()}
+      renderStatus="success" result={viewer.presentation?.result} runtime={runtime}
+      viewer={viewer}
+    />,
+  );
+  await view.findByTestId("model-viewer");
+  await waitFor(() => expect(reportFrameRendered).toBeDefined());
+
+  act(() => reportFrameRendered?.());
+  await act(() => delay(300));
+
+  await waitFor(() => expect(save).toHaveBeenCalledOnce());
+  expect(save).toHaveBeenCalledWith("scratch", expect.objectContaining({
+    documentPath: "main.scad",
+    renderIdentity: identity,
+    pngBytes: Uint8Array.of(7),
+  }));
+  view.unmount();
+  runtime.dispose();
+});
+
 it("persists the newest 3D thumbnail when its frame arrives during an older capture", async () => {
   const firstCapture = deferred<Uint8Array>();
   const secondCapture = deferred<Uint8Array>();
@@ -136,6 +174,7 @@ it("persists the newest 3D thumbnail when its frame arrives during an older capt
     .mockReturnValueOnce(secondCapture.promise);
   const save = vi.fn();
   const renderThumbnails: RenderThumbnailPersistence = {
+    supportsWorkspace: () => true,
     load: () => [],
     save,
     clear: vi.fn(),
@@ -214,6 +253,7 @@ it("captures the same render identity for each distinct project and document des
     .mockResolvedValueOnce(Uint8Array.of(2));
   const save = vi.fn();
   const renderThumbnails: RenderThumbnailPersistence = {
+    supportsWorkspace: () => true,
     load: () => [],
     save,
     clear: vi.fn(),
@@ -283,7 +323,7 @@ it("cancels a scheduled automatic thumbnail when the viewer unmounts", async () 
     render: vi.fn(), export: vi.fn(), version: vi.fn(), cancel: vi.fn(),
   }, {
     ...thumbnailProject("unmount"),
-    renderThumbnailPersistence: { load: () => [], save: vi.fn(), clear: vi.fn() },
+    renderThumbnailPersistence: { supportsWorkspace: () => true, load: () => [], save: vi.fn(), clear: vi.fn() },
   });
   const identity = `sha256:${"4".repeat(64)}`;
   const viewer = presentation(identity, identity);
@@ -313,7 +353,7 @@ it("drops a scheduled old frame until the new identity actually renders", async 
     render: vi.fn(), export: vi.fn(), version: vi.fn(), cancel: vi.fn(),
   }, {
     ...thumbnailProject("superseded"),
-    renderThumbnailPersistence: { load: () => [], save, clear: vi.fn() },
+    renderThumbnailPersistence: { supportsWorkspace: () => true, load: () => [], save, clear: vi.fn() },
   });
   const firstIdentity = `sha256:${"5".repeat(64)}`;
   const secondIdentity = `sha256:${"6".repeat(64)}`;
@@ -355,7 +395,7 @@ it("bounds thumbnail delay while rendered frames keep arriving", async () => {
     render: vi.fn(), export: vi.fn(), version: vi.fn(), cancel: vi.fn(),
   }, {
     ...thumbnailProject("bounded"),
-    renderThumbnailPersistence: { load: () => [], save: vi.fn(), clear: vi.fn() },
+    renderThumbnailPersistence: { supportsWorkspace: () => true, load: () => [], save: vi.fn(), clear: vi.fn() },
   });
   const identity = `sha256:${"7".repeat(64)}`;
   const viewer = presentation(identity, identity);

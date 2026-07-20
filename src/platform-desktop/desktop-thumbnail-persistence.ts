@@ -92,6 +92,9 @@ export function createDesktopRenderThumbnailPersistence(
     for (const listener of listeners) listener();
   };
   return {
+    supportsWorkspace: (workspaceIdentity) => Boolean(
+      selected && storageKey(workspaceIdentity, options.prefix, options.allowAnyWorkspace),
+    ),
     load: (workspaceIdentity) => {
       const key = storageKey(workspaceIdentity, options.prefix, options.allowAnyWorkspace);
       if (!key || !selected) return [];

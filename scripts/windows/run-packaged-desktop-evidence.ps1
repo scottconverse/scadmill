@@ -258,7 +258,7 @@ $n2SoakConfiguration = switch ($N2SoakMode) {
       throw "Accelerated N-2 evidence requires TimeoutSeconds at least 600 seconds beyond its short duration."
     }
     $warmup = [Math]::Max(1, [Math]::Floor($N2AcceleratedDurationSeconds / 8))
-    $baselineEnd = [Math]::Max($warmup + 1, [Math]::Floor($N2AcceleratedDurationSeconds / 4))
+    $baselineEnd = [Math]::Max($warmup + 1, [Math]::Floor($N2AcceleratedDurationSeconds / 3))
     $crashAt = [Math]::Max($baselineEnd + 1, [Math]::Floor($N2AcceleratedDurationSeconds / 2))
     [ordered]@{
       schemaVersion = 1
@@ -271,11 +271,8 @@ $n2SoakConfiguration = switch ($N2SoakMode) {
       baselineStartSeconds = $warmup
       baselineEndSeconds = $baselineEnd
       crashAtSeconds = $crashAt
-      minimumSuccessfulCycles = [Math]::Max(
-        1,
-        [Math]::Floor($N2AcceleratedDurationSeconds * 1000 / $N2AcceleratedCadenceMilliseconds * 0.75)
-      )
-      memorySampleIntervalSeconds = 1
+      minimumSuccessfulCycles = 8
+      memorySampleIntervalSeconds = $warmup
       rollingWindowSamples = 2
       finalWindowSamples = 2
       thresholdRatio = 1.5

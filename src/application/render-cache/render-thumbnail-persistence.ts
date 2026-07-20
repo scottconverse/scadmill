@@ -14,6 +14,7 @@ export interface RenderThumbnailRecord {
 }
 
 export interface RenderThumbnailPersistence {
+  supportsWorkspace(workspaceIdentity: string): boolean;
   load(workspaceIdentity: string): readonly RenderThumbnailRecord[];
   save(workspaceIdentity: string, thumbnail: RenderThumbnailRecord): void;
   clear(workspaceIdentity: string): void;
@@ -38,6 +39,7 @@ export function validateRenderThumbnailRecord(record: RenderThumbnailRecord): Re
 }
 
 export const EPHEMERAL_RENDER_THUMBNAIL_PERSISTENCE: RenderThumbnailPersistence = Object.freeze({
+  supportsWorkspace: () => false,
   load: () => [],
   save: () => undefined,
   clear: () => undefined,

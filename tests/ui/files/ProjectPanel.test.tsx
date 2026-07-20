@@ -165,6 +165,7 @@ describe("ProjectPanel", () => {
     let records: ReturnType<RenderThumbnailPersistence["load"]> = [];
     const listeners = new Set<() => void>();
     const thumbnails: RenderThumbnailPersistence = {
+      supportsWorkspace: () => true,
       load: () => records,
       save: (_workspaceIdentity, thumbnail) => {
         records = [thumbnail];

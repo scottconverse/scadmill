@@ -753,4 +753,62 @@ describe("N-2 soak evidence", () => {
       durationSeconds: Number.NaN,
     })).toThrow("declared duration");
   });
+
+  it("accepts bounded accelerated coverage shaped by real packaged render cycles", () => {
+    const configuration = {
+      ...acceleratedConfiguration(),
+      warmupSeconds: 15,
+      baselineStartSeconds: 15,
+      baselineEndSeconds: 40,
+      minimumSuccessfulCycles: 8,
+      memorySampleIntervalSeconds: 15,
+      rollingWindowSamples: 2,
+      finalWindowSamples: 2,
+    } as const;
+    const retainedCycleCompletions = [
+      2.46, 4.725, 7.023, 9.43, 11.87, 14.555, 17.05, 21.404, 25.806, 30.306,
+      34.743, 39.225, 43.694, 48.1, 52.49, 56.929, 61.412, 73.053, 77.388,
+      81.976, 86.652, 91.113, 95.524, 100.007, 104.475, 108.981, 113.569,
+      118.005, 122.45,
+    ];
+    let nextSampleAt = configuration.warmupSeconds;
+    const replayedSamples = retainedCycleCompletions.filter((elapsedSeconds) => {
+      if (elapsedSeconds < nextSampleAt) return false;
+      nextSampleAt += configuration.memorySampleIntervalSeconds;
+      return true;
+    });
+    expect(replayedSamples).toEqual([17.05, 30.306, 48.1, 61.412, 77.388, 91.113, 108.981, 122.45]);
+    const maximumGapSeconds = Math.max(...replayedSamples.slice(1).map(
+      (elapsedSeconds, index) => elapsedSeconds - replayedSamples[index],
+    ));
+    const summary = {
+      schemaVersion: 1,
+      status: "passed",
+      configuration,
+      durationSeconds: 122.45,
+      cycles: { attempted: 30, successful: 29, expectedCrashFailures: 1, unexpectedFailures: 0 },
+      continuity: { maximumStartGapMs: 11_601, overlappingRequests: 0 },
+      memory: {
+        memoryGrowthPassed: true,
+        sampleCount: 8,
+        firstElapsedSeconds: replayedSamples[0],
+        lastElapsedSeconds: replayedSamples.at(-1),
+        maximumGapSeconds,
+        baselineSampleCount: 2,
+        baselineFirstElapsedSeconds: replayedSamples[0],
+        baselineLastElapsedSeconds: replayedSamples[1],
+        baselineBytes: 416_575_488,
+        thresholdBytes: 624_863_232,
+        finalMedianBytes: 580_000_000,
+      },
+      crashProbe: { attempted: true, engineKilled: true, guiIdentityPreserved: true, engineCleared: true, recoveryCyclePassed: true },
+      orphans: { passed: true },
+      samples: { recordCount: 38, memorySampleCount: 8, sha256: "ab".repeat(32) },
+    };
+    expect(validateN2SoakSummary(summary)).toEqual(summary);
+    expect(() => validateN2SoakSummary({
+      ...summary,
+      memory: { ...summary.memory, maximumGapSeconds: 26.602 },
+    })).toThrow("memory coverage");
+  });
 });
