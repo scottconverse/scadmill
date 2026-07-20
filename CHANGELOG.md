@@ -116,6 +116,8 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 - Made exact unchanged renders reuse the already-presented resident memory result without cloning mesh bytes or republishing viewer/layout state; evicted, disk-only, oversized, and zero-budget entries retain the normal fail-safe path. The hosted AI journey now also proves that rail remounting revokes session-only tool consent before explicitly opting in again.
 
+- Isolated the cached-render status into a lightweight leaf subscription and moved History state ownership into its mounted panel, so an unchanged cache hit no longer rebuilds the editor/viewer root merely to paint one status marker and record one command.
+
 - Reused the already parsed 3D mesh when a cloned cache result carries the same application-verified SHA-256 geometry identity, while still reparsing changed identities and preserving current diagnostics and render metadata.
 - Gave the stateful M4 hosted journey an eight-minute aggregate envelope consistent with the sum of its existing bounded steps; individual 30/60-second waits, one worker, and zero retries remain unchanged.
 - Replaced the unsupported macOS `hdiutil attach -acceptlicense` probe with one explicit affirmative stdin response, strict pipeline failure propagation, image-last argument ordering, and EXIT cleanup for any mounted candidate.

@@ -1,4 +1,4 @@
-import type { RefObject } from "react";
+import type { ReactNode, RefObject } from "react";
 
 import type { ThemePreference } from "../../application/theme/theme-runtime";
 import type { ThemeTokens } from "../../application/theme/theme-schema";
@@ -12,7 +12,7 @@ export interface WorkbenchStatusBarProps {
   readonly engineLabel: string;
   readonly geometryStatus: { readonly detail: string; readonly summary: string } | null;
   readonly mcpConnected?: boolean;
-  readonly renderStatus: string;
+  readonly renderStatus: ReactNode;
   readonly consoleVisible: boolean;
   readonly consoleButtonRef: RefObject<HTMLButtonElement | null>;
   readonly themePreference: ThemePreference;
