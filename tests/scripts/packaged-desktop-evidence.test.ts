@@ -1098,7 +1098,15 @@ describe("packaged desktop evidence helpers", () => {
       }
       send(payload: string) {
         sent.push(payload);
-        queueMicrotask(() => this.emit("message", { data: JSON.stringify({ id: 1, result: {} }) }));
+        queueMicrotask(() => this.emit("message", { data: JSON.stringify({
+          id: 1,
+          result: {
+            result: {
+              type: "object",
+              value: { accepted: true, targetReady: true, valueMatches: true },
+            },
+          },
+        }) }));
       }
       close() {
         closes += 1;
@@ -1125,12 +1133,51 @@ describe("packaged desktop evidence helpers", () => {
       timeoutMs: 1_000,
     });
     expect(opened).toEqual(["ws://127.0.0.1:49673/devtools/page/exact-target"]);
-    expect(sent.map((payload) => JSON.parse(payload))).toEqual([{
+    const [command] = sent.map((payload) => JSON.parse(payload));
+    expect(command).toMatchObject({
       id: 1,
-      method: "Input.insertText",
-      params: { text: "A🧱" },
-    }]);
+      method: "Runtime.evaluate",
+      params: { returnByValue: true },
+    });
+    expect(command.params.expression).toContain("document.execCommand('insertText'");
+    expect(command.params.expression).toContain(JSON.stringify("A🧱"));
     expect(closes).toBe(1);
+  });
+
+  it("rejects a CDP editing command that did not update the focused textarea", async () => {
+    class RejectedEditingWebSocket {
+      listeners = new Map<string, Array<(event: { data?: unknown }) => void>>();
+      addEventListener(name: string, listener: (event: { data?: unknown }) => void) {
+        this.listeners.set(name, [...(this.listeners.get(name) ?? []), listener]);
+      }
+      emit(name: string, event: { data?: unknown } = {}) {
+        for (const listener of this.listeners.get(name) ?? []) listener(event);
+      }
+      send() {
+        queueMicrotask(() => this.emit("message", { data: JSON.stringify({
+          id: 1,
+          result: {
+            result: {
+              type: "object",
+              value: { accepted: false, targetReady: true, valueMatches: false },
+            },
+          },
+        }) }));
+      }
+      close() { queueMicrotask(() => this.emit("close")); }
+    }
+    await expect(insertTextThroughCdp("localhost:9222", "value", "tauri://localhost/", {
+      fetchImpl: async () => new Response(JSON.stringify([{
+        type: "page", url: "tauri://localhost/",
+        webSocketDebuggerUrl: "ws://localhost:9222/devtools/page/target",
+      }])),
+      webSocketFactory: () => {
+        const socket = new RejectedEditingWebSocket();
+        queueMicrotask(() => socket.emit("open"));
+        return socket;
+      },
+      timeoutMs: 1_000,
+    })).rejects.toThrow("invalid result");
   });
 
   it("rejects remote, cross-port, and ambiguous CDP discovery before opening a socket", async () => {
@@ -1273,7 +1320,15 @@ describe("packaged desktop evidence helpers", () => {
         for (const listener of this.listeners.get(name) ?? []) listener(event);
       }
       send() {
-        queueMicrotask(() => this.emit("message", { data: JSON.stringify({ id: 1, result: {} }) }));
+        queueMicrotask(() => this.emit("message", { data: JSON.stringify({
+          id: 1,
+          result: {
+            result: {
+              type: "object",
+              value: { accepted: true, targetReady: true, valueMatches: true },
+            },
+          },
+        }) }));
       }
       close() { /* the test controls acknowledgement */ }
     }

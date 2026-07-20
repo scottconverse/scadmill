@@ -241,6 +241,20 @@ function sendCdpInsertText(
   onSocketCreated,
   onSocketClosed,
 ) {
+  const encodedText = JSON.stringify(text);
+  const editingExpression = `(() => {
+    const target = document.activeElement;
+    if (!(target instanceof HTMLTextAreaElement) || !target.isConnected || target.disabled) {
+      return { accepted: false, targetReady: false, valueMatches: false };
+    }
+    target.setSelectionRange(0, target.value.length);
+    const accepted = document.execCommand('insertText', false, ${encodedText});
+    return {
+      accepted,
+      targetReady: document.activeElement === target,
+      valueMatches: target.value === ${encodedText},
+    };
+  })()`;
   return new Promise((resolveCommand, rejectCommand) => {
     let socket;
     try {
@@ -313,7 +327,14 @@ function sendCdpInsertText(
       closeListenerReady = true;
       socket.addEventListener("open", () => {
         try {
-          socket.send(JSON.stringify({ id: 1, method: "Input.insertText", params: { text } }));
+          socket.send(JSON.stringify({
+            id: 1,
+            method: "Runtime.evaluate",
+            params: {
+              expression: editingExpression,
+              returnByValue: true,
+            },
+          }));
         } catch {
           requestClose(new Error("CDP text insertion command could not be sent."));
         }
@@ -353,7 +374,12 @@ function sendCdpInsertText(
           requestClose(new Error(`CDP text insertion failed with code ${code} and message digest ${digest}.`));
           return;
         }
-        if (!record(message.result)) {
+        if (!record(message.result) || "exceptionDetails" in message.result
+          || !record(message.result.result) || message.result.result.type !== "object"
+          || !record(message.result.result.value)
+          || message.result.result.value.accepted !== true
+          || message.result.result.value.targetReady !== true
+          || message.result.result.value.valueMatches !== true) {
           requestClose(new Error("CDP text insertion returned an invalid result."));
           return;
         }
