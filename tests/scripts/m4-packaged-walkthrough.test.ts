@@ -896,6 +896,10 @@ describe("M4 packaged newcomer walkthrough", () => {
       agentConsoleRunsAfter: 2,
     })).toThrow("console run");
     expect(calls).toContain("checked:Viewer screenshot=true");
+    expect(calls).toContain("checked:Inline=true");
+    expect(calls).not.toContain("button:Inline");
+    expect(calls).toContain("control:Search settings=Rendering");
+    expect(calls).not.toContain("control:Search settings=Cache");
     expect(calls).toContain("checked:Current file=false");
     expect(calls).toContain("checked:Diagnostics=false");
     expect(calls).toContain("checked:Parameters=false");

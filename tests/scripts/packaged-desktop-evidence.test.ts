@@ -2,15 +2,20 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { Window } from "happy-dom";
+
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  CLICK_PACKAGED_BUTTON_SCRIPT,
+  clickVisibleEnabledButton,
   mcpEndpointManifestPath,
   mirrorWebViewDevToolsPort,
   parseBinaryStl,
   parseSourceMetadata,
   parseWindowsNetstatTcpListeners,
   processHasExited,
+  SET_PACKAGED_CONTROL_VALUE_SCRIPT,
   sanitizeMcpEndpointManifest,
   sanitizeMcpTranscript,
   scanFileForBytes,
@@ -934,11 +939,72 @@ describe("packaged desktop evidence helpers", () => {
     expect(helpers).toContain("async function activateRail");
     expect(helpers).toContain("button.getAttribute('aria-pressed') !== 'true'");
     expect(helpers).toContain("visible activity rail");
-    expect(helpers.match(/getClientRects\(\)\.length > 0/gu)?.length).toBeGreaterThanOrEqual(6);
+    expect(runner).toContain("client.execute(SET_PACKAGED_CONTROL_VALUE_SCRIPT, [label, value])");
+    expect(runner).toContain("await clickVisibleEnabledButton(client, text)");
+    expect(helpers.match(/getClientRects\(\)\.length > 0/gu)?.length).toBeGreaterThanOrEqual(5);
     const m4 = runner.slice(runner.indexOf("const m4InitialSource"));
     expect(m4).not.toContain('clickAria(client, "History")');
     expect(m4).not.toContain('clickAria(client, "Files")');
     expect(runner).toContain('activateRail: (title) => activateRail(client, title)');
+  });
+
+  it("waits within one bound for a delayed visible enabled button", async () => {
+    let attempts = 0;
+    const delays: number[] = [];
+    await clickVisibleEnabledButton({
+      execute: async (script: string, args: readonly unknown[]) => {
+        expect(script).toBe(CLICK_PACKAGED_BUTTON_SCRIPT);
+        expect(args).toEqual(["Apply hunk choices"]);
+        attempts += 1;
+        return attempts === 3;
+      },
+    }, "Apply hunk choices", {
+      timeoutMs: 1_000,
+      intervalMs: 25,
+      delayImpl: async (milliseconds: number) => { delays.push(milliseconds); },
+    });
+    expect(attempts).toBe(3);
+    expect(delays).toEqual([25, 25]);
+  });
+
+  it("sets exactly one visible enabled control through its native wrapping label", () => {
+    const window = new Window();
+    const run = window.eval(`(function(label, value) {${SET_PACKAGED_CONTROL_VALUE_SCRIPT}})`) as (
+      label: string,
+      value: string,
+    ) => unknown;
+    const visible = (element: object) => {
+      Object.defineProperty(element, "getClientRects", {
+        configurable: true,
+        value: () => [{ width: 10, height: 10 }],
+      });
+    };
+    const mount = (markup: string) => {
+      window.document.body.innerHTML = markup;
+      for (const label of window.document.querySelectorAll("label")) visible(label);
+    };
+
+    mount('<label>Message<textarea></textarea></label>');
+    const textarea = window.document.querySelector("textarea");
+    if (!textarea) throw new Error("Visible textarea fixture was not created.");
+    visible(textarea);
+    expect(run("Message", "hello")).toBe("hello");
+    expect(textarea.value).toBe("hello");
+
+    mount('<label>Message<textarea style="display:none"></textarea></label>');
+    expect(run("Message", "hidden")).toBeNull();
+
+    mount("<label>Message<textarea disabled></textarea></label>");
+    const disabled = window.document.querySelector("textarea");
+    if (!disabled) throw new Error("Disabled textarea fixture was not created.");
+    visible(disabled);
+    expect(run("Message", "disabled")).toBeNull();
+
+    mount("<label>Message<textarea></textarea><input></label>");
+    for (const control of window.document.querySelectorAll("textarea, input")) visible(control);
+    expect(run("Message", "ambiguous")).toBeNull();
+
+    window.close();
   });
 
   it("requires an exact isolated-Sandbox harness manifest", () => {

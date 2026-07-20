@@ -56,6 +56,17 @@ export function sanitizeMcpEndpointManifest(
 ): SanitizedMcpEndpointManifest;
 export function sanitizeMcpTranscript(payload: unknown, token: string): unknown;
 
+export const CLICK_PACKAGED_BUTTON_SCRIPT: string;
+export function clickVisibleEnabledButton(
+  client: { execute(script: string, args: readonly unknown[]): Promise<unknown> },
+  text: string,
+  options?: {
+    timeoutMs?: number;
+    intervalMs?: number;
+    delayImpl?: (milliseconds: number) => Promise<void>;
+  },
+): Promise<void>;
+export const SET_PACKAGED_CONTROL_VALUE_SCRIPT: string;
 export function parseBinaryStl(bytes: Uint8Array): StlEvidence;
 export function webViewAutomationArgument(): "--edge-webview-switches=--remote-debugging-port=0";
 export function processHasExited(exitCode: number | null, signalCode: NodeJS.Signals | null): boolean;

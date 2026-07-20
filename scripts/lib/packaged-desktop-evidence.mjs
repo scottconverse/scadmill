@@ -2,6 +2,73 @@ import { createHash } from "node:crypto";
 import { open, readFile, writeFile } from "node:fs/promises";
 import { join, win32 } from "node:path";
 
+export const SET_PACKAGED_CONTROL_VALUE_SCRIPT = `
+  const wanted = arguments[0];
+  const visible = (element) => element.getClientRects().length > 0
+    && getComputedStyle(element).visibility !== 'hidden'
+    && getComputedStyle(element).display !== 'none';
+  const formControl = (element) => element instanceof HTMLInputElement
+    || element instanceof HTMLSelectElement
+    || element instanceof HTMLTextAreaElement;
+  const candidates = new Set(
+    [...document.querySelectorAll('[aria-label="' + CSS.escape(wanted) + '"]')],
+  );
+  for (const label of document.querySelectorAll('label')) {
+    if (!visible(label) || label.textContent.trim() !== wanted) continue;
+    if (formControl(label.control)) candidates.add(label.control);
+    for (const descendant of label.querySelectorAll('input, select, textarea')) {
+      candidates.add(descendant);
+    }
+  }
+  const eligible = [...candidates].filter((candidate) =>
+    formControl(candidate) && visible(candidate) && !candidate.matches(':disabled'));
+  if (eligible.length !== 1) return null;
+  const control = eligible[0];
+  const prototype = control instanceof HTMLInputElement
+    ? HTMLInputElement.prototype
+    : control instanceof HTMLSelectElement
+      ? HTMLSelectElement.prototype
+      : HTMLTextAreaElement.prototype;
+  const setter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
+  if (!setter) return null;
+  setter.call(control, arguments[1]);
+  control.dispatchEvent(new Event('input', { bubbles: true }));
+  control.dispatchEvent(new Event('change', { bubbles: true }));
+  return control.value;
+`;
+
+export const CLICK_PACKAGED_BUTTON_SCRIPT = `
+  const wanted = arguments[0];
+  const visible = (element) => element.getClientRects().length > 0
+    && getComputedStyle(element).visibility !== 'hidden'
+    && getComputedStyle(element).display !== 'none';
+  const matches = [...document.querySelectorAll('button')]
+    .filter((candidate) => candidate.textContent.trim() === wanted
+      && !candidate.disabled && visible(candidate));
+  if (matches.length !== 1) return false;
+  matches[0].click();
+  return true;
+`;
+
+export async function clickVisibleEnabledButton(
+  client,
+  text,
+  { timeoutMs = 10_000, intervalMs = 50, delayImpl = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)) } = {},
+) {
+  if (!client || typeof client.execute !== "function" || typeof text !== "string" || text.length === 0) {
+    throw new Error("Packaged button automation requires a client and non-empty label.");
+  }
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0
+    || !Number.isSafeInteger(intervalMs) || intervalMs <= 0 || intervalMs > timeoutMs
+    || typeof delayImpl !== "function") throw new Error("Packaged button wait options are invalid.");
+  const deadline = Date.now() + timeoutMs;
+  do {
+    if (await client.execute(CLICK_PACKAGED_BUTTON_SCRIPT, [text]) === true) return;
+    await delayImpl(intervalMs);
+  } while (Date.now() < deadline);
+  throw new Error(`Could not click enabled button ${JSON.stringify(text)}.`);
+}
+
 function record(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }

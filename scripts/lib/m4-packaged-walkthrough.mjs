@@ -1227,7 +1227,7 @@ export async function runM4PackagedWalkthrough({
     await automation.setControl("Message", "Change the cube to the exact requested dimensions.");
     await automation.clickButton("Send");
     await automation.waitForText(proposalSource.trim());
-    await automation.clickButton("Inline");
+    await automation.setChecked("Inline", true);
     await automation.clickButton("Use disk change");
     await automation.clickButton("Apply hunk choices");
     await automation.waitForText("accepted");
@@ -1283,7 +1283,7 @@ export async function runM4PackagedWalkthrough({
     order.push("c11-allow-session");
 
     await automation.clickAria("Open settings");
-    await automation.setControl("Search settings", "Cache");
+    await automation.setControl("Search settings", "Rendering");
     await automation.setChecked("Persist render cache for this project", true);
     await automation.clickAria("Close settings");
     await automation.replaceSource(`${initialSource}\n// M4 cache baseline`);

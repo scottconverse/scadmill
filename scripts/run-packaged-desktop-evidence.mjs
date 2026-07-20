@@ -22,12 +22,14 @@ import {
 import { runN2Soak } from "./lib/n2-soak-runner.mjs";
 import { verifyN2SoakArtifacts } from "./lib/n2-soak-verifier.mjs";
 import {
+  clickVisibleEnabledButton,
   mcpEndpointManifestPath,
   mirrorWebViewDevToolsPort,
   parseBinaryStl,
   parseSourceMetadata,
   parseWindowsNetstatTcpListeners,
   processHasExited,
+  SET_PACKAGED_CONTROL_VALUE_SCRIPT,
   sanitizeMcpEndpointManifest,
   sanitizeMcpTranscript,
   scanFileForBytes,
@@ -420,19 +422,7 @@ async function waitForBody(client, expected, timeoutMs = 30_000) {
 }
 
 async function clickButton(client, text) {
-  const clicked = await client.execute(`
-    const wanted = arguments[0];
-    const visible = (element) => element.getClientRects().length > 0
-      && getComputedStyle(element).visibility !== 'hidden'
-      && getComputedStyle(element).display !== 'none';
-    const button = [...document.querySelectorAll('button')]
-      .find((candidate) => candidate.textContent.trim() === wanted
-        && !candidate.disabled && visible(candidate));
-    if (!button) return false;
-    button.click();
-    return true;
-  `, [text]);
-  if (clicked !== true) throw new Error(`Could not click enabled button ${JSON.stringify(text)}.`);
+  await clickVisibleEnabledButton(client, text);
 }
 
 async function clickAria(client, label) {
@@ -521,25 +511,7 @@ async function dismissWelcome(client) {
 }
 
 async function setControl(client, label, value) {
-  const selected = await client.execute(`
-    const visible = (element) => element.getClientRects().length > 0
-      && getComputedStyle(element).visibility !== 'hidden'
-      && getComputedStyle(element).display !== 'none';
-    const control = [...document.querySelectorAll('[aria-label="' + CSS.escape(arguments[0]) + '"]')]
-      .find((candidate) => visible(candidate));
-    if (!(control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement)) return null;
-    const prototype = control instanceof HTMLInputElement
-      ? HTMLInputElement.prototype
-      : control instanceof HTMLSelectElement
-        ? HTMLSelectElement.prototype
-        : HTMLTextAreaElement.prototype;
-    const setter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
-    if (!setter) return null;
-    setter.call(control, arguments[1]);
-    control.dispatchEvent(new Event('input', { bubbles: true }));
-    control.dispatchEvent(new Event('change', { bubbles: true }));
-    return control.value;
-  `, [label, value]);
+  const selected = await client.execute(SET_PACKAGED_CONTROL_VALUE_SCRIPT, [label, value]);
   if (selected !== String(value)) {
     throw new Error(`Could not set ${JSON.stringify(label)} to the requested value.`);
   }
@@ -552,14 +524,21 @@ async function setChecked(client, label, checked) {
     const visible = (element) => element.getClientRects().length > 0
       && getComputedStyle(element).visibility !== 'hidden'
       && getComputedStyle(element).display !== 'none';
-    const direct = [...document.querySelectorAll('[aria-label="' + CSS.escape(wanted) + '"]')]
-      .find((candidate) => visible(candidate));
-    const labelled = [...document.querySelectorAll('label')]
-      .find((candidate) => candidate.textContent.trim() === wanted && visible(candidate))
-      ?.querySelector('input[type="checkbox"]');
-    const control = direct instanceof HTMLInputElement ? direct : labelled;
-    if (!(control instanceof HTMLInputElement) || control.type !== 'checkbox'
-      || control.disabled || !visible(control)) return null;
+    const candidates = new Set(
+      [...document.querySelectorAll('[aria-label="' + CSS.escape(wanted) + '"]')],
+    );
+    for (const label of document.querySelectorAll('label')) {
+      if (!visible(label) || label.textContent.trim() !== wanted) continue;
+      if (label.control instanceof HTMLInputElement) candidates.add(label.control);
+      for (const descendant of label.querySelectorAll('input[type="checkbox"], input[type="radio"]')) {
+        candidates.add(descendant);
+      }
+    }
+    const eligible = [...candidates].filter((candidate) => candidate instanceof HTMLInputElement
+      && ['checkbox', 'radio'].includes(candidate.type)
+      && !candidate.disabled && visible(candidate));
+    if (eligible.length !== 1 || (eligible[0].type === 'radio' && arguments[1] !== true)) return null;
+    const control = eligible[0];
     if (control.checked !== arguments[1]) control.click();
     return control.checked;
   `, [label, checked]);
@@ -569,13 +548,20 @@ async function setChecked(client, label, checked) {
     const visible = (element) => element.getClientRects().length > 0
       && getComputedStyle(element).visibility !== 'hidden'
       && getComputedStyle(element).display !== 'none';
-    const direct = [...document.querySelectorAll('[aria-label="' + CSS.escape(wanted) + '"]')]
-      .find((candidate) => visible(candidate));
-    const labelled = [...document.querySelectorAll('label')]
-      .find((candidate) => candidate.textContent.trim() === wanted && visible(candidate))
-      ?.querySelector('input[type="checkbox"]');
-    const control = direct instanceof HTMLInputElement ? direct : labelled;
-    return control instanceof HTMLInputElement && visible(control) ? control.checked : null;
+    const candidates = new Set(
+      [...document.querySelectorAll('[aria-label="' + CSS.escape(wanted) + '"]')],
+    );
+    for (const label of document.querySelectorAll('label')) {
+      if (!visible(label) || label.textContent.trim() !== wanted) continue;
+      if (label.control instanceof HTMLInputElement) candidates.add(label.control);
+      for (const descendant of label.querySelectorAll('input[type="checkbox"], input[type="radio"]')) {
+        candidates.add(descendant);
+      }
+    }
+    const eligible = [...candidates].filter((candidate) => candidate instanceof HTMLInputElement
+      && ['checkbox', 'radio'].includes(candidate.type)
+      && !candidate.disabled && visible(candidate));
+    return eligible.length === 1 ? eligible[0].checked : null;
   `, [label])) === checked, `checkbox ${JSON.stringify(label)} state`, 10_000, 50);
 }
 

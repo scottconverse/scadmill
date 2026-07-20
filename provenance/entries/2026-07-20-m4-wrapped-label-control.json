@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-m4-wrapped-label-control",
+  "createdAt": "2026-07-20T06:51:00-06:00",
+  "summary": "Make packaged form automation follow the accessible native-label relationship exposed by the real AI message textarea after the converged no-provider probe passed in a clean Sandbox.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "M4 release candidate", "N-7 evidence honesty"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-m4-wrapped-label-control.json", "status": "added" },
+    { "path": "scripts/lib/m4-packaged-walkthrough.mjs", "status": "modified" },
+    { "path": "scripts/lib/packaged-desktop-evidence.d.mts", "status": "modified" },
+    { "path": "scripts/lib/packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "scripts/run-packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "tests/scripts/m4-packaged-walkthrough.test.ts", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0439",
+      "topic": "Accessible packaged form-control lookup",
+      "decision": "For text, select, and textarea entry, prefer a visible control with the exact aria-label and otherwise resolve a visible native control wrapped by a visible label whose rendered text exactly matches the requested accessible name. Continue rejecting hidden, missing, ambiguous-by-order, or unsupported elements.",
+      "rationale": "The exact clean 3d6f7ca Sandbox run passed the build, cube, MCP, current no-provider guidance, transport classification, settings configuration, context render, viewport capture, and four context toggles. It then failed because the real AI message textarea is accessible through its wrapping Message label but intentionally has no redundant aria-label. WebDriver's normal accessible-name lookup and the hosted journey already recognize this standard relationship; the custom packaged setter did not. The bounded fallback aligns the helper with native labeling without weakening visibility checks.",
+      "specBasis": ["M4 release candidate", "N-7 evidence honesty"]
+    },
+    {
+      "id": "D-0440",
+      "topic": "Pre-rerun convergence of remaining packaged actions",
+      "decision": "Select the Inline proposal layout through its exact visible enabled radio label rather than button text, filter Settings by the real Rendering section title before changing the project render-cache preference, and bound button activation while React mounts or enables exactly one visible target. Use exact-one eligible visible enabled control resolution for text/select/textarea and checkbox/radio automation.",
+      "rationale": "The mandated post-failure static audit mapped every remaining action to production markup before another Sandbox run. It found that Inline is a labeled radio input, that its merge controls mount and enable across React commits, and that Settings filters section titles, where the render-cache control belongs to Rendering rather than Cache. The same audit falsified the first wrapping-label fallback with hidden, disabled, and ambiguous controls. These deterministic next-step failures and false passes were corrected together; the rest of the post-Message sequence mapped cleanly.",
+      "specBasis": ["Section 2.7 delivery protocol", "M4 release candidate", "N-7 evidence honesty"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The packaged control helper must recognize the application's visible wrapping-label form while retaining visible-only selection.",
+      "test": "Execute the exact shared WebDriver script against a visible wrapping-label textarea and hidden, disabled, and two-control ambiguous fixtures.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts -t \"limits packaged actions\" --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T06:49:45-06:00",
+        "outcome": "RED: the helper slice lacked the native wrapping-label query and the new assertion failed."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts -t \"limits packaged actions\" --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T06:50:13-06:00",
+        "outcome": "GREEN: the first focused helper regression passed after adding exact visible wrapping-label resolution; the later adversarial audit then required executable fail-closed fixtures before rerun."
+      }
+    },
+    {
+      "criterion": "The complete remaining M4 sequence and generic accessible-control helper must not contain the three deterministic false-pass/failure paths found by pre-rerun review.",
+      "test": "Execute the shared control script against visible/hidden/disabled/ambiguous DOM fixtures, require Inline through setChecked, require Rendering as the settings-section query, and run both affected helper/walkthrough suites.",
+      "red": {
+        "command": "Independent post-Message static audit and direct selector falsification",
+        "observedAt": "2026-07-20T06:54:00-06:00",
+        "outcome": "RED: the first fallback could select a hidden, disabled, or ambiguous descendant; Inline was addressed as a button although it is a radio input; and the Cache query hid the render-cache control because its section title is Rendering."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts tests/scripts/m4-packaged-walkthrough.test.ts --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T06:57:58-06:00",
+        "outcome": "GREEN: both files and all 52 tests passed, including executable visible/hidden/disabled/ambiguous control fixtures and exact sequence-call assertions."
+      }
+    },
+    {
+      "criterion": "React-delayed proposal merge buttons must be activated inside one existing bounded action rather than through a one-shot query or an outer Sandbox retry.",
+      "test": "Drive the shared button helper with two unavailable observations followed by one visible-enabled success and assert the exact script, label, attempt count, and bounded intervals.",
+      "red": {
+        "command": "Independent post-Message lifecycle audit of ExternalChangeDiff",
+        "observedAt": "2026-07-20T07:03:00-06:00",
+        "outcome": "RED: Inline immediately called one-shot Use disk change and Apply hunk choices queries even though the merge view mounts in an effect and Apply enables after a later state commit."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts -t \"waits within one bound for a delayed visible enabled button\" --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T07:05:19-06:00",
+        "outcome": "GREEN: the shared bounded helper observed two unavailable states, then clicked exactly once on the third visible-enabled observation without any outer workflow retry."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-3d6f7ca-sandbox-m4-converged-20260720/evidence.json",
+      "sought": "Exact clean packaged M4 walkthrough on candidate 3d6f7ca",
+      "confirmation": "The clean source-bound build, cube render/export, MCP process and protocol journey, N-2-disabled marker, current no-provider guidance, renderer transport classification, AI configuration, context render, viewport capture, and four context toggles passed. The run then failed setting the wrapping-label Message textarea because the custom helper only queried aria-label. The exact Sandbox session and staging directory were removed. This artifact remains failed and is not packaged-pass evidence."
+    }
+  ],
+  "questions": ["No owner decision is required. Do not rerun Sandbox until the complete remaining M4 sequence and this helper correction pass independent strict-zero review."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
