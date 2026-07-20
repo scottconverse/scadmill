@@ -69,6 +69,11 @@ export function clickVisibleEnabledButton(
 export const SET_PACKAGED_CONTROL_VALUE_SCRIPT: string;
 export const READ_PACKAGED_CONTROL_VALUE_SCRIPT: string;
 export const FIND_PACKAGED_TEXTAREA_CONTROL_SCRIPT: string;
+export function textReplacementKeyActions(value: string): Array<{
+  type: "key";
+  id: "scadmill-text-entry";
+  actions: Array<{ type: "keyDown" | "keyUp"; value: string }>;
+}>;
 export function waitForVisibleEnabledControlValue(
   client: { execute(script: string, args: readonly unknown[]): Promise<unknown> },
   label: string,
@@ -93,7 +98,8 @@ export function setVisibleEnabledTextArea(
   client: {
     execute(script: string, args: readonly unknown[]): Promise<unknown>;
     clickElement(elementId: string): Promise<unknown>;
-    sendKeys(elementId: string, text: string): Promise<unknown>;
+    performActions(actions: readonly unknown[]): Promise<unknown>;
+    releaseActions(): Promise<unknown>;
   },
   label: string,
   value: unknown,

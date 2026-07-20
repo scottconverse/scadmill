@@ -23,6 +23,7 @@ import {
   scanFileForBytes,
   setVisibleEnabledControl,
   setVisibleEnabledTextArea,
+  textReplacementKeyActions,
   unwrapWebDriverValue,
   validateCredentialProbe,
   validateHarnessManifest,
@@ -1038,7 +1039,24 @@ describe("packaged desktop evidence helpers", () => {
     window.close();
   });
 
-  it("enters controlled textarea content through WebDriver before proving committed reads", async () => {
+  it("builds real keyboard actions that replace focused text and release every key", () => {
+    expect(textReplacementKeyActions("A🧱")).toEqual([{
+      type: "key",
+      id: "scadmill-text-entry",
+      actions: [
+        { type: "keyDown", value: "\uE009" },
+        { type: "keyDown", value: "a" },
+        { type: "keyUp", value: "a" },
+        { type: "keyUp", value: "\uE009" },
+        { type: "keyDown", value: "A" },
+        { type: "keyUp", value: "A" },
+        { type: "keyDown", value: "🧱" },
+        { type: "keyUp", value: "🧱" },
+      ],
+    }]);
+  });
+
+  it("enters controlled textarea content through WebDriver keyboard actions before proving committed reads", async () => {
     const elementKey = "element-6066-11e4-a52e-4f735466cecf";
     const calls: string[] = [];
     let reads = 0;
@@ -1051,7 +1069,8 @@ describe("packaged desktop evidence helpers", () => {
         return "Change the cube.";
       },
       clickElement: async (id: string) => { calls.push(`click:${id}`); },
-      sendKeys: async (id: string, text: string) => { calls.push(`keys:${id}:${JSON.stringify(text)}`); },
+      performActions: async (actions: unknown) => { calls.push(`actions:${JSON.stringify(actions)}`); },
+      releaseActions: async () => { calls.push("release"); },
     };
 
     await expect(setVisibleEnabledTextArea(client, "Message", "Change the cube.", {
@@ -1062,8 +1081,44 @@ describe("packaged desktop evidence helpers", () => {
     expect(reads).toBe(2);
     expect(calls).toEqual([
       "click:message-1",
-      `keys:message-1:${JSON.stringify("\uE009a\uE000Change the cube.")}`,
+      `actions:${JSON.stringify(textReplacementKeyActions("Change the cube."))}`,
+      "release",
     ]);
+  });
+
+  it("releases WebDriver keyboard state when textarea actions fail", async () => {
+    const elementKey = "element-6066-11e4-a52e-4f735466cecf";
+    let released = 0;
+    await expect(setVisibleEnabledTextArea({
+      execute: async () => ({ [elementKey]: "message-1" }),
+      clickElement: async () => undefined,
+      performActions: async () => { throw new Error("keyboard actions failed"); },
+      releaseActions: async () => { released += 1; },
+    }, "Message", "value")).rejects.toThrow("keyboard actions failed");
+    expect(released).toBe(1);
+  });
+
+  it("retains both the primary keyboard failure and a secondary release failure", async () => {
+    const elementKey = "element-6066-11e4-a52e-4f735466cecf";
+    const failure = await setVisibleEnabledTextArea({
+      execute: async () => ({ [elementKey]: "message-1" }),
+      clickElement: async () => undefined,
+      performActions: async () => { throw new Error("primary keyboard failure"); },
+      releaseActions: async () => { throw new Error("secondary release failure"); },
+    }, "Message", "value").catch((error: unknown) => error);
+
+    expect(failure).toBeInstanceOf(AggregateError);
+    expect((failure as AggregateError).errors).toEqual([
+      expect.objectContaining({ message: "primary keyboard failure" }),
+      expect.objectContaining({ message: "secondary release failure" }),
+    ]);
+  });
+
+  it("wires W3C perform and release Actions through the packaged WebDriver client", async () => {
+    const runner = await readFile(join(process.cwd(), "scripts", "run-packaged-desktop-evidence.mjs"), "utf8");
+
+    expect(runner).toContain('this.request("POST", this.sessionPath("/actions"), { actions })');
+    expect(runner).toContain('this.request("DELETE", this.sessionPath("/actions"))');
   });
 
   it("rejects invalid control wait options before any UI mutation", async () => {
@@ -1077,7 +1132,8 @@ describe("packaged desktop evidence helpers", () => {
     await expect(setVisibleEnabledTextArea({
       execute: async () => { textareaCalls += 1; return { kind: "absent" }; },
       clickElement: async () => { textareaCalls += 1; },
-      sendKeys: async () => { textareaCalls += 1; },
+      performActions: async () => { textareaCalls += 1; },
+      releaseActions: async () => { textareaCalls += 1; },
     }, "Message", "value", { intervalMs: 10_001 })).rejects.toThrow("wait options");
     expect(textareaCalls).toBe(0);
   });

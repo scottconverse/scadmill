@@ -80,6 +80,22 @@ export const FIND_PACKAGED_TEXTAREA_CONTROL_SCRIPT = `
   return eligible[0];
 `;
 
+const WEBDRIVER_CONTROL_KEY = "\uE009";
+
+export function textReplacementKeyActions(value) {
+  if (typeof value !== "string") throw new Error("WebDriver text replacement requires text.");
+  const actions = [
+    { type: "keyDown", value: WEBDRIVER_CONTROL_KEY },
+    { type: "keyDown", value: "a" },
+    { type: "keyUp", value: "a" },
+    { type: "keyUp", value: WEBDRIVER_CONTROL_KEY },
+  ];
+  for (const character of value) {
+    actions.push({ type: "keyDown", value: character }, { type: "keyUp", value: character });
+  }
+  return [{ type: "key", id: "scadmill-text-entry", actions }];
+}
+
 function controlWaitOptions(options) {
   if (options !== undefined && !record(options)) throw new Error("Packaged control wait options are invalid.");
   const {
@@ -136,7 +152,8 @@ export async function setVisibleEnabledControl(
 
 export async function setVisibleEnabledTextArea(client, label, value, options) {
   if (!client || typeof client.execute !== "function" || typeof client.clickElement !== "function"
-    || typeof client.sendKeys !== "function" || typeof label !== "string" || label.length === 0) {
+    || typeof client.performActions !== "function" || typeof client.releaseActions !== "function"
+    || typeof label !== "string" || label.length === 0) {
     throw new Error("Packaged textarea automation requires a WebDriver client and non-empty label.");
   }
   const validatedOptions = controlWaitOptions(options);
@@ -151,7 +168,26 @@ export async function setVisibleEnabledTextArea(client, label, value, options) {
   }
   const expected = String(value);
   await client.clickElement(elementId);
-  await client.sendKeys(elementId, `\uE009a\uE000${expected}`);
+  let actionFailure;
+  try {
+    await client.performActions(textReplacementKeyActions(expected));
+  } catch (error) {
+    actionFailure = error;
+  }
+  let releaseFailure;
+  try {
+    await client.releaseActions();
+  } catch (error) {
+    releaseFailure = error;
+  }
+  if (actionFailure && releaseFailure) {
+    throw new AggregateError(
+      [actionFailure, releaseFailure],
+      "WebDriver keyboard actions and release both failed.",
+    );
+  }
+  if (actionFailure) throw actionFailure;
+  if (releaseFailure) throw releaseFailure;
   await waitForVisibleEnabledControlValue(client, label, expected, validatedOptions);
   return true;
 }

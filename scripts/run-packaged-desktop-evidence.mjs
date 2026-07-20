@@ -340,6 +340,14 @@ class WebDriverClient {
     });
   }
 
+  performActions(actions) {
+    return this.request("POST", this.sessionPath("/actions"), { actions });
+  }
+
+  releaseActions() {
+    return this.request("DELETE", this.sessionPath("/actions"));
+  }
+
   async screenshot(path) {
     await writeFile(path, await this.screenshotBytes());
   }
