@@ -76,6 +76,8 @@ Use **Render preview** or F5 for preview-quality geometry. Use **Full render** o
 - The local MCP bridge is off by default. Mutation tools remain denied unless you grant a session permission, and accepted requests still require review before changing a project.
 - Durable desktop render caching is off by default and enabled separately for each project.
 
+Report suspected vulnerabilities through the private channel described in [`SECURITY.md`](../SECURITY.md). Do not disclose sensitive security details in a public issue.
+
 ## Uninstall and retained data
 
 After publication, uninstall ScadMill through **Windows Settings → Apps → Installed apps → ScadMill → Uninstall**. The installer lifecycle removes the installed application and ScadMill's `.scad` association. User-selected project folders and `.scad` files remain outside the application install directory.
@@ -86,4 +88,4 @@ Back up project folders before installation, upgrade, uninstall, or recovery wor
 
 ## Release qualification still in progress
 
-The candidate must not be called shipped until its exact source and installer have passed the one-hour literal N-2 soak, clean packaged Windows Sandbox walkthrough, Radeon 780M qualification, valid signed-installer lifecycle, exact-head hosted and isolated similarity gates, owner resolution of the private security-reporting question [Q-0039](../spec/QUESTIONS.md), final strict-zero review, public-surface audit, clean public-installer walkthrough, and owner go/no-go.
+The candidate must not be called shipped until its exact source and installer have passed the one-hour literal N-2 soak, clean packaged Windows Sandbox walkthrough, Radeon 780M qualification, valid signed-installer lifecycle, exact-head hosted and isolated similarity gates, final strict-zero review, public-surface audit, clean public-installer walkthrough, and owner go/no-go.

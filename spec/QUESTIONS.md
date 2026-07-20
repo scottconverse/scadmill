@@ -13,7 +13,7 @@ Numbered questions are appended here under §2.7. Only the affected work item is
 | Open/actionable — scoped behavior | Q-0003, Q-0005–Q-0010, Q-0013, Q-0015–Q-0019, Q-0021–Q-0022, Q-0024–Q-0028, Q-0030–Q-0031 | Each blocks only the item named in its **Blocked** field; no question silently blocks unrelated work. |
 | Open/actionable — M4 scoped behavior | Q-0035–Q-0037 | Conservative implementation proceeds under §2.7; each question parks only alternate owner-selected semantics or final wording. |
 | Resolved — public beta license | Q-0038 | The owner selected Apache-2.0 for ScadMill's original application code and installer license surface. |
-| Open/actionable — public beta security policy | Q-0039 | Only the private security-reporting publication surface remains parked; Windows-beta engineering and evidence continue. |
+| Resolved — public beta security policy | Q-0039 | GitHub private vulnerability reporting is the documented channel; no bounty or response-time SLA is promised. |
 | Open/historical — delivered conservatively | Q-0004, Q-0011–Q-0012, Q-0014, Q-0020, Q-0023, Q-0029 | M2/M3 delivered the stricter or later capability named by each question. The owner answer still governs the historical milestone interpretation. |
 
 ## Q-0035 — Open — 2026-07-17
@@ -46,12 +46,14 @@ Numbered questions are appended here under §2.7. Only the affected work item is
 - **Owner decision (2026-07-19):** License ScadMill's original application code under Apache License 2.0.
 - **Resolution evidence:** The root `LICENSE` contains the Apache License 2.0 text and application notice; npm and both Rust package manifests declare `Apache-2.0`; the Tauri bundle declares the same SPDX identifier and includes the root license file in appropriate installer bundles. Separately distributed OpenSCAD engine artifacts and third-party components retain their own licenses.
 
-## Q-0039 — Open — 2026-07-19
+## Q-0039 — Resolved 2026-07-19 — owner-directed
 
 - **Section:** Public-beta security policy; C4/C11/C13 attack surface
 - **Question:** Should public vulnerability reports use GitHub private vulnerability reporting, or what owner-verified private email address should `SECURITY.md` name?
-- **Evidence:** The Windows beta runs a native engine subprocess, stores AI credentials, makes provider network requests, exposes local MCP, mutates project files, and installs executable code. No private vulnerability-reporting route is currently documented, and inventing an email address or response SLA would be misleading.
-- **Blocked:** Only the final reporting-channel wording in `SECURITY.md` and public release. A channel-neutral security policy draft, hardening, verification, packaging, and all unrelated work continue.
+- **Opening evidence:** The Windows beta runs a native engine subprocess, stores AI credentials, makes provider network requests, exposes local MCP, mutates project files, and installs executable code. Before resolution, no private vulnerability-reporting route was documented, and inventing an email address or response SLA would have been misleading.
+- **Blocked:** No security-reporting owner decision remains. Public release remains subject to the other release gates.
+- **Owner decision (2026-07-19):** Use GitHub private vulnerability reporting and publish `SECURITY.md` without a bug bounty or response-time SLA.
+- **Resolution evidence:** The repository security policy links directly to ScadMill's private GitHub advisory form, warns against public disclosure and inclusion of secrets, defines the latest public Windows beta as the supported line once one exists, and explicitly makes no bounty or timing commitment. Repository-level private vulnerability reporting is enabled on GitHub.
 
 ## Q-0032 — Resolved 2026-07-14 — owner-directed
 
