@@ -563,7 +563,7 @@ export async function scanFileForBytes(path, needle, chunkSize = 64 * 1024) {
 
 export async function mirrorWebViewDevToolsPort(
   userDataFolder,
-  { timeoutMs = 60_000, intervalMs = 10 } = {},
+  { timeoutMs = 60_000, intervalMs = 10, readFileImpl = readFile } = {},
 ) {
   if (typeof userDataFolder !== "string" || userDataFolder.length === 0) {
     throw new Error("WebView2 user-data folder must be a non-empty path.");
@@ -579,24 +579,28 @@ export async function mirrorWebViewDevToolsPort(
   const deadline = Date.now() + timeoutMs;
   let latest = "source not created";
   while (Date.now() < deadline) {
+    let bytes;
     try {
-      const bytes = await readFile(source);
-      const [port, browserPath] = bytes.toString("utf8").trimEnd().split(/\r?\n/u);
-      const numericPort = Number(port);
-      if (
-        Number.isSafeInteger(numericPort)
-        && numericPort > 0
-        && numericPort <= 65_535
-        && browserPath?.startsWith("/devtools/browser/")
-      ) {
-        await writeFile(destination, bytes);
-        return { copied: true, source, destination, byteLength: bytes.byteLength };
-      }
-      latest = "source was incomplete";
+      bytes = await readFileImpl(source);
     } catch (error) {
-      if (error?.code !== "ENOENT") throw error;
-      latest = "source not created";
+      if (error?.code === "ENOENT") latest = "source not created";
+      else if (error?.code === "EBUSY") latest = "source temporarily locked";
+      else throw error;
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      continue;
     }
+    const [port, browserPath] = bytes.toString("utf8").trimEnd().split(/\r?\n/u);
+    const numericPort = Number(port);
+    if (
+      Number.isSafeInteger(numericPort)
+      && numericPort > 0
+      && numericPort <= 65_535
+      && browserPath?.startsWith("/devtools/browser/")
+    ) {
+      await writeFile(destination, bytes);
+      return { copied: true, source, destination, byteLength: bytes.byteLength };
+    }
+    latest = "source was incomplete";
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }
   throw new Error(`Timed out mirroring WebView2 DevToolsActivePort (${latest}).`);

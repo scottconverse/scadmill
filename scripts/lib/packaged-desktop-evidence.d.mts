@@ -150,5 +150,9 @@ export interface DevToolsPortMirror {
 }
 export function mirrorWebViewDevToolsPort(
   userDataFolder: string,
-  options?: { timeoutMs?: number; intervalMs?: number },
+  options?: {
+    timeoutMs?: number;
+    intervalMs?: number;
+    readFileImpl?: (path: string) => Promise<Buffer>;
+  },
 ): Promise<DevToolsPortMirror>;

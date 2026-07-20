@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-webview-port-transient-lock",
+  "createdAt": "2026-07-20T05:55:00-06:00",
+  "summary": "Keep the clean Windows Sandbox evidence startup inside its existing bound when WebView2 briefly returns EBUSY while publishing DevToolsActivePort.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "M4 release candidate", "N-7 evidence honesty"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-webview-port-transient-lock.json", "status": "added" },
+    { "path": "scripts/lib/packaged-desktop-evidence.d.mts", "status": "modified" },
+    { "path": "scripts/lib/packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0435",
+      "topic": "Transient WebView2 DevTools port sharing lock",
+      "decision": "Treat only ENOENT and EBUSY while reading WebView2's DevToolsActivePort as retryable inside the existing timeout and interval. Continue failing every other filesystem error immediately.",
+      "rationale": "The exact clean 51abdf3 Sandbox guest exited before application automation because Windows returned EBUSY once while WebView2 was creating its port file. ENOENT was already polled, and the same bounded polling safely covers this observed publication race without expanding the deadline or hiding access, integrity, or path errors.",
+      "specBasis": ["M4 release candidate", "N-7 evidence honesty"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "A single EBUSY read must retry and succeed inside the existing bound, while a permanent error must still fail immediately.",
+      "test": "Inject one EBUSY read followed by the real valid file read, assert two attempts and a copied result, then inject EACCES and require the exact error to escape.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts -t \"retries a transient WebView2 DevTools port sharing lock\" --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T05:54:22-06:00",
+        "outcome": "RED: the helper ignored the injected transient read path and completed with zero injected attempts instead of two."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T05:59:10-06:00",
+        "outcome": "GREEN after narrowing the retry catch to the source read only: all 36 helper tests passed; the new test retried the single EBUSY, copied the valid file on its second read, and required EACCES to escape unchanged."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-51abdf3-sandbox-m4-corrected-20260720/runner-console.txt",
+      "sought": "Exact clean packaged M4 rerun on candidate 51abdf3",
+      "confirmation": "The exact clean build completed, but the guest exited during WebView2 startup with EBUSY opening EBWebView/DevToolsActivePort before application automation. Host cleanup removed the exact Sandbox session and staging directory. This run is not packaged-pass evidence."
+    }
+  ],
+  "questions": ["No owner decision is required. Commit this bounded harness correction before one clean packaged rerun."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

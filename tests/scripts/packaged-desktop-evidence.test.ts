@@ -495,6 +495,37 @@ describe("packaged desktop evidence helpers", () => {
       .resolves.toBe("54321\n/devtools/browser/fresh\n");
   });
 
+  it("retries a transient WebView2 DevTools port sharing lock within the existing bound", async () => {
+    const root = await mkdtemp(join(tmpdir(), "scadmill-webview-port-lock-"));
+    temporaryRoots.push(root);
+    const webViewRoot = join(root, "EBWebView");
+    await mkdir(webViewRoot);
+    await writeFile(join(webViewRoot, "DevToolsActivePort"), "54321\n/devtools/browser/fresh\n");
+    let attempts = 0;
+    const readFileImpl = async (path: string) => {
+      attempts += 1;
+      if (attempts === 1) {
+        throw Object.assign(new Error("temporarily locked"), { code: "EBUSY" });
+      }
+      return readFile(path);
+    };
+
+    await expect(mirrorWebViewDevToolsPort(root, {
+      intervalMs: 5,
+      timeoutMs: 1_000,
+      readFileImpl,
+    }))
+      .resolves.toMatchObject({ copied: true });
+    expect(attempts).toBe(2);
+
+    const permanent = Object.assign(new Error("access denied"), { code: "EACCES" });
+    await expect(mirrorWebViewDevToolsPort(root, {
+      intervalMs: 5,
+      timeoutMs: 1_000,
+      readFileImpl: async () => { throw permanent; },
+    })).rejects.toBe(permanent);
+  });
+
   it("forces WebView2 remote debugging through the documented host-app switch", () => {
     expect(webViewAutomationArgument()).toBe(
       "--edge-webview-switches=--remote-debugging-port=0",
