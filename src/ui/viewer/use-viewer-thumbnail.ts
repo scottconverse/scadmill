@@ -1,6 +1,14 @@
-import { type RefObject, useCallback, useRef } from "react";
+import { type RefObject, useCallback, useEffect, useRef } from "react";
 
 import type { ModelViewerHandle } from "./ModelViewer";
+
+const AUTOMATIC_THUMBNAIL_DELAY_MS = 250;
+
+interface ThumbnailCaptureRequest {
+  generation: number;
+  identity: string;
+  persist(bytes: Uint8Array): void | Promise<void>;
+}
 
 export function useViewerThumbnail(
   modelViewer: RefObject<ModelViewerHandle | null>,
@@ -12,33 +20,68 @@ export function useViewerThumbnail(
   const capturedIdentity = useRef<string | null>(null);
   const generation = useRef(0);
   const inFlight = useRef(false);
-  const pending = useRef(false);
-  const captureLatest = useRef<() => void>(() => undefined);
+  const pending = useRef<ThumbnailCaptureRequest | null>(null);
+  const scheduled = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const startRequestRef = useRef<(request: ThumbnailCaptureRequest) => void>(() => undefined);
   const lastIdentity = useRef<string | null>(null);
   if (lastIdentity.current !== captureIdentity) {
     lastIdentity.current = captureIdentity;
     generation.current += 1;
     capturedIdentity.current = null;
   }
-  const capture = useCallback(() => {
-    if (!onThumbnail || !renderIdentity || capturedIdentity.current === captureIdentity) return;
-    if (inFlight.current) {
-      pending.current = true;
-      return;
-    }
-    const captureGeneration = generation.current;
+
+  const startRequest = useCallback((request: ThumbnailCaptureRequest) => {
+    if (
+      generation.current !== request.generation
+      || capturedIdentity.current === request.identity
+    ) return;
+    const viewer = modelViewer.current;
+    if (!viewer) return;
+
     inFlight.current = true;
-    void modelViewer.current?.captureThumbnailPng().then(async (bytes) => {
-      if (generation.current !== captureGeneration || capturedIdentity.current === captureIdentity) return;
-      await onThumbnail(bytes);
-      capturedIdentity.current = captureIdentity;
+    void viewer.captureThumbnailPng().then(async (bytes) => {
+      if (
+        generation.current !== request.generation
+        || capturedIdentity.current === request.identity
+      ) return;
+      await request.persist(bytes);
+      if (generation.current === request.generation) capturedIdentity.current = request.identity;
     }).catch(() => undefined).finally(() => {
       inFlight.current = false;
-      if (!pending.current) return;
-      pending.current = false;
-      captureLatest.current();
+      const next = pending.current;
+      pending.current = null;
+      if (next) startRequestRef.current(next);
     });
-  }, [captureIdentity, modelViewer, onThumbnail, renderIdentity]);
-  captureLatest.current = capture;
-  return capture;
+  }, [modelViewer]);
+  startRequestRef.current = startRequest;
+
+  useEffect(() => () => {
+    if (scheduled.current !== null) clearTimeout(scheduled.current);
+    scheduled.current = null;
+    pending.current = null;
+  }, []);
+
+  return useCallback(() => {
+    if (!onThumbnail || !renderIdentity || capturedIdentity.current === captureIdentity) return;
+
+    const request: ThumbnailCaptureRequest = {
+      generation: generation.current,
+      identity: captureIdentity,
+      persist: onThumbnail,
+    };
+    pending.current = null;
+    if (scheduled.current !== null) clearTimeout(scheduled.current);
+    scheduled.current = setTimeout(() => {
+      scheduled.current = null;
+      if (
+        generation.current !== request.generation
+        || capturedIdentity.current === request.identity
+      ) return;
+      if (inFlight.current) {
+        pending.current = request;
+        return;
+      }
+      startRequestRef.current(request);
+    }, AUTOMATIC_THUMBNAIL_DELAY_MS);
+  }, [captureIdentity, onThumbnail, renderIdentity]);
 }

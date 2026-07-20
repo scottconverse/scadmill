@@ -115,6 +115,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 ### Fixed
 
 - Repeated 3D renders now reuse one lifecycle-owned STL parser worker instead of constructing and terminating a new worker for every mesh, and automatic thumbnails no longer resize the live WebGL drawing buffer twice per render. Thumbnails render the stable viewport once and downsample into a bounded 240x160 2D canvas; explicit sized screenshots remain unchanged.
+- Automatic project-thumbnail readback now waits for a short quiet window instead of running inside the viewer's render-frame callback, preserving immediate render/cache interaction while retaining newest-identity persistence and unmount cancellation.
 
 ### Changed
 

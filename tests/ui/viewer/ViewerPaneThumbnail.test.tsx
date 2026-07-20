@@ -2,7 +2,7 @@
 
 import { act, render, waitFor } from "@testing-library/react";
 import { forwardRef, useImperativeHandle } from "react";
-import { expect, it, vi } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 
 import type { EngineService, RenderSuccess3D } from "../../../src/application/engine/contracts";
 import { createProjectSnapshot } from "../../../src/application/files/project-snapshot";
@@ -13,6 +13,8 @@ import { ViewerPaneConnector } from "../../../src/ui/viewer/ViewerPaneConnector"
 
 let reportFrameRendered: (() => void) | undefined;
 const captureThumbnailPng = vi.fn<() => Promise<Uint8Array>>();
+
+afterEach(() => vi.useRealTimers());
 
 vi.mock("../../../src/ui/viewer/ModelViewer", () => ({
   ModelViewer: forwardRef(({ onFrameRendered }: { readonly onFrameRendered?: () => void }, ref) => {
@@ -49,6 +51,8 @@ function deferred<T>() {
   const promise = new Promise<T>((accept) => { resolve = accept; });
   return { promise, resolve };
 }
+
+const delay = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 function presentation(renderIdentity: string, geometryIdentity: string): ViewerDocumentState {
   const result: RenderSuccess3D = {
@@ -122,6 +126,12 @@ it("persists the newest 3D thumbnail when its frame arrives during an older capt
   await waitFor(() => expect(reportFrameRendered).toBeDefined());
 
   act(() => reportFrameRendered?.());
+  expect(captureThumbnailPng).not.toHaveBeenCalled();
+  await act(() => delay(200));
+  act(() => reportFrameRendered?.());
+  await act(() => delay(120));
+  expect(captureThumbnailPng).not.toHaveBeenCalled();
+  await act(() => delay(150));
   expect(captureThumbnailPng).toHaveBeenCalledOnce();
 
   view.rerender(
@@ -133,6 +143,9 @@ it("persists the newest 3D thumbnail when its frame arrives during an older capt
   );
   act(() => reportFrameRendered?.());
   firstCapture.resolve(Uint8Array.of(1));
+  await act(() => delay(120));
+  expect(captureThumbnailPng).toHaveBeenCalledOnce();
+  await act(() => delay(150));
 
   await waitFor(() => expect(captureThumbnailPng).toHaveBeenCalledTimes(2));
   secondCapture.resolve(Uint8Array.of(2));
@@ -196,6 +209,8 @@ it("captures the same render identity for each distinct project and document des
   await waitFor(() => expect(reportFrameRendered).toBeDefined());
 
   act(() => reportFrameRendered?.());
+  expect(captureThumbnailPng).not.toHaveBeenCalled();
+  await act(() => delay(300));
   await waitFor(() => expect(save).toHaveBeenCalledOnce());
 
   const secondDocumentId = secondRuntime.documents.getState().activeDocumentId ?? "";
@@ -203,6 +218,7 @@ it("captures the same render identity for each distinct project and document des
     <ViewerPaneConnector {...props} documentId={secondDocumentId} runtime={secondRuntime} />,
   );
   act(() => reportFrameRendered?.());
+  await act(() => delay(300));
   await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
 
   expect(save.mock.calls).toEqual([
@@ -211,4 +227,74 @@ it("captures the same render identity for each distinct project and document des
   ]);
   firstRuntime.dispose();
   secondRuntime.dispose();
+});
+
+it("cancels a scheduled automatic thumbnail when the viewer unmounts", async () => {
+  captureThumbnailPng.mockReset().mockResolvedValue(Uint8Array.of(1));
+  const runtime = createWorkbenchRuntime({
+    render: vi.fn(), export: vi.fn(), version: vi.fn(), cancel: vi.fn(),
+  }, {
+    renderThumbnailPersistence: { load: () => [], save: vi.fn(), clear: vi.fn() },
+  });
+  const identity = `sha256:${"4".repeat(64)}`;
+  const viewer = presentation(identity, identity);
+  const view = render(
+    <ViewerPaneConnector
+      colors={colors} dimmed={false} documentId="document-main" maximized={false}
+      narrow={false} onLayoutAction={vi.fn()} onShowConsole={vi.fn()}
+      renderStatus="success" result={viewer.presentation?.result} runtime={runtime}
+      viewer={viewer}
+    />,
+  );
+  await view.findByTestId("model-viewer");
+  await waitFor(() => expect(reportFrameRendered).toBeDefined());
+
+  act(() => reportFrameRendered?.());
+  view.unmount();
+  await act(() => delay(300));
+
+  expect(captureThumbnailPng).not.toHaveBeenCalled();
+  runtime.dispose();
+});
+
+it("drops a scheduled old frame until the new identity actually renders", async () => {
+  captureThumbnailPng.mockReset().mockResolvedValue(Uint8Array.of(7));
+  const save = vi.fn();
+  const runtime = createWorkbenchRuntime({
+    render: vi.fn(), export: vi.fn(), version: vi.fn(), cancel: vi.fn(),
+  }, {
+    renderThumbnailPersistence: { load: () => [], save, clear: vi.fn() },
+  });
+  const firstIdentity = `sha256:${"5".repeat(64)}`;
+  const secondIdentity = `sha256:${"6".repeat(64)}`;
+  const firstViewer = presentation("render-a", firstIdentity);
+  const secondViewer = presentation("render-b", secondIdentity);
+  const common = {
+    colors, dimmed: false, documentId: "document-main", maximized: false,
+    narrow: false, onLayoutAction: vi.fn(), onShowConsole: vi.fn(),
+    renderStatus: "success" as const, runtime,
+  };
+  const view = render(
+    <ViewerPaneConnector {...common} result={firstViewer.presentation?.result} viewer={firstViewer} />,
+  );
+  await view.findByTestId("model-viewer");
+  await waitFor(() => expect(reportFrameRendered).toBeDefined());
+  act(() => reportFrameRendered?.());
+
+  view.rerender(
+    <ViewerPaneConnector {...common} result={secondViewer.presentation?.result} viewer={secondViewer} />,
+  );
+  await act(() => delay(300));
+  expect(captureThumbnailPng).not.toHaveBeenCalled();
+  expect(save).not.toHaveBeenCalled();
+
+  act(() => reportFrameRendered?.());
+  await act(() => delay(300));
+  await waitFor(() => expect(save).toHaveBeenCalledOnce());
+  expect(save).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({
+    renderIdentity: secondIdentity,
+    pngBytes: Uint8Array.of(7),
+  }));
+  view.unmount();
+  runtime.dispose();
 });

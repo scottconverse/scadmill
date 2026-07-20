@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-m4-background-thumbnail-headroom",
+  "createdAt": "2026-07-20T02:12:20-06:00",
+  "summary": "Move automatic project-thumbnail readback out of the viewer render frame after exact hosted AC-15.a measured 111.8 ms while all other Ubuntu browser and M4 journey checks passed.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "AC-15.a", "M4 release candidate", "N-1"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-m4-background-thumbnail-headroom.json", "status": "added" },
+    { "path": "src/ui/viewer/use-viewer-thumbnail.ts", "status": "modified" },
+    { "path": "tests/ui/viewer/ViewerPaneThumbnail.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29726692703/job/88301341916",
+      "accessedOn": "2026-07-20",
+      "purpose": "Inspect the exact 782e92f Ubuntu browser failure. The unchanged production-static gate measured AC-15.a at 111.800 ms; its other static test, all 24 aggregate browser tests, and the full hosted M4 journey passed."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0424",
+      "topic": "Background automatic-thumbnail scheduling",
+      "decision": "Schedule non-user-requested project-thumbnail capture after a 250 ms quiet window rather than starting WebGL-to-2D readback and PNG encoding inside the viewer's rendered-frame callback. Coalesce scheduled frames to the latest identity, retain the existing in-flight newest-result handoff, cancel pending work on unmount, and leave explicit user/MCP screenshot capture immediate and unchanged.",
+      "rationale": "The automatic thumbnail became a full live-canvas readback after the memory repair. Starting that persistence-only work synchronously from onFrameRendered can occupy the same main-thread/frame window as the immediate cache interaction measured by AC-15.a. Thumbnail persistence is not visible interaction feedback and can safely yield for a bounded quiet window; cached status, user screenshots, and render semantics must not yield to it.",
+      "specBasis": ["AC-15.a", "N-1"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Automatic 3D thumbnails must not start in the render-frame callback, must run after the bounded quiet window, must still persist the newest project/document/render identity across overlap, and must cancel scheduled work on unmount.",
+      "test": "Exercise the production ViewerPane/ModelViewer thumbnail connector with deferred capture promises and real timers.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/viewer/ViewerPaneThumbnail.test.tsx --reporter=verbose --maxWorkers=1",
+        "observedAt": "2026-07-20T02:18:43-06:00",
+        "outcome": "RED: 2 of 4 integration tests failed in 3.34 seconds. A second frame did not restart the quiet window, and an identity change without a rendered frame let the scheduled old frame invoke capture under the new identity. An earlier RED run also proved the pre-change implementation captured synchronously inside the frame callback."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/viewer/ViewerPaneThumbnail.test.tsx --reporter=verbose --maxWorkers=1",
+        "observedAt": "2026-07-20T02:19:18-06:00",
+        "outcome": "GREEN: all 4 integration tests passed in 4.18 seconds. Capture remained absent until 250 ms after the latest frame, an in-flight old capture could not bypass the next identity's quiet window, an identity change without a new frame dropped scheduled old work, cross-destination records persisted correctly, and unmount prevented scheduled capture."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://tests/e2e/m4-cache-paint.e2e.ts",
+      "sought": "Increasing the 100 ms limit, removing either post-mutation animation frame, adding retries, selecting a faster sample, or weakening the status mutation oracle",
+      "confirmation": "Rejected. The exact one-sample, zero-retry, under-100-ms hosted gate remains unchanged."
+    },
+    {
+      "url": "local://src/ui/viewer/model-viewer-runtime.ts",
+      "sought": "Delaying explicit viewport screenshots or returning stale pixels",
+      "confirmation": "Rejected. Only automatic project-thumbnail scheduling changed; user and MCP captures remain immediate and render the current scene before encoding."
+    }
+  ],
+  "questions": ["No owner decision is required. Exact hosted AC-15.a confirmation is required on the next committed head."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
