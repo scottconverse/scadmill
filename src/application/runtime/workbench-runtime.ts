@@ -44,7 +44,7 @@ import {
   parameterRecordsEqual,
   reduceParameterState,
 } from "../parameters/parameter-state";
-import type { CachedRenderResult, RenderCache } from "../render-cache/render-cache";
+import type { CacheableRenderResult, CachedRenderResult, RenderCache } from "../render-cache/render-cache";
 import {
   createRenderCacheKey,
   RenderCacheKeyIndex,
@@ -274,6 +274,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
   let engineInfoPromise: Promise<EngineInfo | null> | undefined;
   let resolvedEngineInfo: EngineInfo | null | undefined;
   const knownCacheKeys = new RenderCacheKeyIndex();
+  const presentedCacheKeys = new WeakMap<CacheableRenderResult, string>();
   let renderAttemptGeneration = 0;
   let activeAnimationCommand: WorkbenchCommand | undefined;
   let disposed = false;
@@ -1585,6 +1586,37 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
         if (memoKey && knownKey) knownCacheKeys.set(memoKey, knownKey);
       }
     }
+    const currentRender = render.getState();
+    const currentPresentation = viewer.getState().documents.get(document.id)?.presentation;
+    const canReusePresentedResult = Boolean(
+      renderCache
+      && knownKey
+      && renderAttempt === renderAttemptGeneration
+      && snapshotIsCurrent()
+      && currentRender.status === "success"
+      && currentRender.quality === command.quality
+      && currentRender.documentId === document.id
+      && currentRender.entryFile === document.path
+      && currentRender.sourceRevision === document.revision
+      && currentRender.projectRevision === projectRevision
+      && currentRender.result
+      && currentRender.result.kind !== "failure"
+      && currentRender.result === currentPresentation?.result
+      && presentedCacheKeys.get(currentRender.result) === knownKey
+      && renderCache.touch?.(projectState.snapshot.workspaceIdentity, knownKey),
+    );
+    if (canReusePresentedResult) {
+      render.setState({ ...currentRender, cached: true }, true);
+      if (command.animationTime === undefined) {
+        record(
+          command,
+          commandId,
+          `Render ${document.path} at ${command.quality} quality`,
+          false,
+        );
+      }
+      return;
+    }
     let cachedResult: CachedRenderResult | undefined;
     if (renderCache && knownKey) {
       try {
@@ -1597,6 +1629,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     if (renderAttempt !== renderAttemptGeneration || !snapshotIsCurrent()) return;
     if (cachedResult && knownKey) {
       const cacheJobId = `cache:${knownKey}`;
+      presentedCacheKeys.set(cachedResult.result, knownKey);
       render.setState({
         status: "success",
         cached: true,
@@ -1721,6 +1754,9 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       if (cacheKey && renderCache) {
         try {
           await renderCache.put(projectState.snapshot.workspaceIdentity, cacheKey, result);
+          if (renderCache.touch?.(projectState.snapshot.workspaceIdentity, cacheKey)) {
+            presentedCacheKeys.set(result, cacheKey);
+          }
           if (engineInfo) {
             knownCacheKeys.set(
               renderMemoKey(

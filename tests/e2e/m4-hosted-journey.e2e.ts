@@ -337,7 +337,13 @@ test("hosted M4 journey uses real web capabilities while keeping MCP desktop-onl
     await ai.getByLabel("Current file").check();
     await ai.getByLabel("Diagnostics").check();
     await ai.getByLabel("Parameters").check();
-    await ai.getByLabel("Maximum tool-call rounds").fill("2");
+    const agentOptIn = ai.getByLabel("Allow tool calls for this conversation");
+    await expect(agentOptIn).not.toBeChecked();
+    await expect(ai.getByLabel("Maximum tool-call rounds")).toHaveCount(0);
+    await ai.getByLabel("Allow tool calls for this conversation").check();
+    const maximumRounds = ai.getByLabel("Maximum tool-call rounds");
+    await expect(maximumRounds).toBeVisible();
+    await maximumRounds.fill("2");
     await ai.getByLabel("Message").fill("Exercise the bounded looping-tool response.");
     await ai.getByRole("button", { name: "Send", exact: true }).click();
     await expect(ai).toContainText("Agent status: capped", { timeout: 60_000 });

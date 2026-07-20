@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-m4-hosted-reconsent-cache-touch",
+  "createdAt": "2026-07-20T00:25:29-06:00",
+  "summary": "Resume the hosted M4 journey through its intentional fail-closed AI remount and remove redundant cloning and viewer publication from an exact already-presented memory-cache hit.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "AC-15.a", "FR-15.3", "M4 hosted evidence", "N-7"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-m4-hosted-reconsent-cache-touch.json", "status": "added" },
+    { "path": "src/application/render-cache/render-cache.ts", "status": "modified" },
+    { "path": "src/application/runtime/workbench-runtime.ts", "status": "modified" },
+    { "path": "tests/application/render-cache/render-cache.test.ts", "status": "modified" },
+    { "path": "tests/application/runtime/workbench-runtime.test.ts", "status": "modified" },
+    { "path": "tests/e2e/m4-hosted-journey.e2e.ts", "status": "modified" },
+    { "path": "tests/scripts/m4-hosted-config.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29720698800/job/88282986929",
+      "accessedOn": "2026-07-20",
+      "purpose": "Inspect the exact-head Ubuntu failures, including the 116.600 ms unchanged-render measurement and the retained M4 page snapshot showing that returning from History remounted AI with tool consent unchecked and the maximum-round control absent."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0421",
+      "topic": "Exact already-presented render reuse",
+      "decision": "Before an ordinary cache read, reuse the current successful render object only when a weak object association binds it to the request's exact cache key, that key is still resident in the memory tier, and the same object remains the document's active viewer presentation; refresh LRU residency without returning bytes and otherwise retain the normal cloned cache path.",
+      "rationale": "The normative second-render path was still cloning the complete cached mesh, replacing viewer state, calculating geometry delta, and notifying viewer and layout subscribers even though the identical result was already visible. The exact-key object binding plus memory-residency touch removes that redundant work without confusing an earlier parameter, animation, quality, facet, source, or engine result; trusting a stale key; bypassing eviction; exposing mutable cached bytes; weakening clone isolation; or treating an oversized or zero-budget cache rejection as a hit.",
+      "specBasis": ["AC-15.a", "FR-15.1", "N-1"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "An unchanged successful render whose exact result is already presented must avoid a cache clone and redundant viewer/layout publication while retaining a real cache-residency guard and command history.",
+      "test": "Spy on the memory cache get and touch paths plus viewer/layout subscriptions across the second exact render; separately reject the fast path under a zero-byte cache budget.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/runtime/workbench-runtime.test.ts -t \"reuses an unchanged successful render without a second engine invocation\" --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T00:22:54-06:00",
+        "outcome": "RED: 1 focused test failed because RenderMemoryCache.get was called once for the unchanged second render, proving the entire cached geometry was still cloned before paint."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/render-cache/render-cache.test.ts tests/application/runtime/workbench-runtime.test.ts tests/scripts/m4-hosted-config.test.ts --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T00:25:12-06:00",
+        "outcome": "GREEN locally before independent-review repair: 3 files and all 46 tests passed in 2.26 seconds. The exact-hit test required touch residency, zero cache reads, stable result and presentation identity, and zero viewer/layout notifications; cache tests covered missing, LRU, disk-only, oversized, and zero-budget behavior. Independent review then identified the missing cross-key object association, recorded separately below."
+      }
+    },
+    {
+      "criterion": "Returning to AI after the History review must preserve fail-closed session-only tool permission and require an explicit new consent before bounded agent execution.",
+      "test": "Require two explicit consent checks in the stateful journey, and at the second AI mount assert consent unchecked and the maximum-round control absent before opting in and filling the cap.",
+      "red": {
+        "command": "Ubuntu M4 hosted journey job 88282986929; pnpm.cmd exec vitest run tests/scripts/m4-hosted-config.test.ts --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T00:18:07-06:00",
+        "outcome": "RED hosted: the journey waited for an absent Maximum tool-call rounds control while the snapshot showed tool consent unchecked. RED locally: the structural test found one explicit consent check where two were required."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/render-cache/render-cache.test.ts tests/application/runtime/workbench-runtime.test.ts tests/scripts/m4-hosted-config.test.ts --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T00:25:12-06:00",
+        "outcome": "GREEN locally: 3 files and all 46 tests passed in 2.26 seconds. Exact hosted journey confirmation remains required."
+      }
+    },
+    {
+      "criterion": "Revisiting resident key A while key B is currently presented must load and present A, and only the next unchanged A render may use the zero-copy presented-result shortcut.",
+      "test": "Render parameter sets A then B, switch back to A, require one normal cache read and A's distinct bytes, then render unchanged A again and require no additional read or engine call.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/runtime/workbench-runtime.test.ts -t \"loads the requested cached result before reusing it as the current presentation\" --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T00:30:06-06:00",
+        "outcome": "RED: the focused regression failed because cache get was called zero times. The shortcut incorrectly treated currently presented B as requested resident A."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/runtime/workbench-runtime.test.ts --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T00:33:33-06:00",
+        "outcome": "GREEN on the final exact runtime-test source after adding the weak exact-result-to-key association: the file and all 31 tests passed in 1.10 seconds. The combined cache/runtime/config run had already passed all 47 tests in 2.26 seconds. A fixture-only default-parameter correction followed one intermediate 46/47 run; a later typecheck-required no-op subscribeOutput member changed only the test mock and this final run covers it."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://src/application/runtime/workbench-runtime.ts",
+      "sought": "A known-cache-key-only presented-result shortcut",
+      "confirmation": "Rejected because the bounded key index can outlive an evicted, oversized, or zero-budget memory entry. The implemented shortcut requires a non-copying positive residency touch from the memory tier and exact render-to-presentation object identity."
+    },
+    {
+      "url": "local://src/application/runtime/workbench-runtime.ts",
+      "sought": "A residency-plus-current-presentation shortcut without an exact object-to-key binding",
+      "confirmation": "Independent review classified this as Major because resident A could incorrectly reuse currently presented B after parameters returned to A. The repair records each presented result object's exact key in a WeakMap and the A-to-B-to-A regression now requires a real A cache read before subsequent zero-copy reuse."
+    },
+    {
+      "url": "local://tests/e2e/m4-hosted-journey.e2e.ts",
+      "sought": "Persisting or bypassing AI tool consent across rail navigation",
+      "confirmation": "Rejected. Agent-mode permission is intentionally session-only local component state and AI rail unmount revokes it fail-closed. The journey now observes that state and explicitly opts in again."
+    },
+    {
+      "url": "local://tests/e2e/m4-production-static.e2e.ts",
+      "sought": "A threshold, retry, timeout, or paint-observation relaxation",
+      "confirmation": "Rejected. The under-100-ms limit and double-animation-frame observation remain unchanged; one exact hosted run must confirm the real optimized path."
+    },
+    {
+      "url": "local://tests/application/runtime/workbench-runtime.test.ts",
+      "sought": "A type-complete parameterized engine fixture",
+      "confirmation": "The first regression mock omitted RenderJob's required subscribeOutput member and the final typecheck failed. A no-op subscriber was added to the test fixture only; typecheck, lint, source policy, provenance, and the exact 31-test runtime file then passed."
+    }
+  ],
+  "questions": ["No owner decision is required. Exact hosted M4 and AC-15.a confirmation remains pending."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

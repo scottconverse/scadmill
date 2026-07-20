@@ -217,8 +217,26 @@ describe("render cache", () => {
     const cache = new RenderMemoryCache(64);
     await cache.put("project", "large", result(7, 1_024));
 
+    expect(cache.touch("project", "large")).toBe(false);
     await expect(cache.get("project", "large")).resolves.toBeUndefined();
     expect(cache.entryCount).toBe(0);
+  });
+
+  it("touches resident entries without exposing bytes and updates LRU order", async () => {
+    const first = result(1);
+    const second = result(2);
+    const third = result(3);
+    const cache = new RenderMemoryCache(estimateRenderCacheEntryBytes(first) * 2);
+    await cache.put("project", "first", first);
+    await cache.put("project", "second", second);
+
+    expect(cache.touch("project", "missing")).toBe(false);
+    expect(cache.touch("project", "first")).toBe(true);
+    await cache.put("project", "third", third);
+
+    await expect(cache.get("project", "second")).resolves.toBeUndefined();
+    await expect(cache.get("project", "first")).resolves.toBeDefined();
+    await expect(cache.get("project", "third")).resolves.toBeDefined();
   });
 
   it("bounds the revision-to-key side index independently of geometry eviction", () => {
@@ -260,6 +278,17 @@ describe("render cache", () => {
     const diskHit = await tiered.get("project", "key");
     expect(diskHit?.tier).toBe("memory");
     expect(await memory.get("project", "key")).toBeDefined();
+  });
+
+  it("checks presented-result residency only in the memory tier", async () => {
+    const memory = new RenderMemoryCache();
+    const disk = new RenderMemoryCache();
+    const tiered = new TieredRenderCache(memory, disk);
+    await disk.put("project", "disk-only", result(4));
+
+    expect(tiered.touch("project", "disk-only")).toBe(false);
+    await tiered.get("project", "disk-only");
+    expect(tiered.touch("project", "disk-only")).toBe(true);
   });
 
   it("does not call or persist to a disabled disk tier", async () => {

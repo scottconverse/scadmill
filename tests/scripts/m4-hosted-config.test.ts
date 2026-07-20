@@ -31,5 +31,8 @@ describe("M4 hosted Playwright bounds", () => {
     expect(journey).not.toContain(
       'getByRole("button", { name: "History", exact: true }).click()',
     );
+    expect(journey.match(
+      /getByLabel\("Allow tool calls for this conversation"\)\.check\(\)/gu,
+    )).toHaveLength(2);
   });
 });

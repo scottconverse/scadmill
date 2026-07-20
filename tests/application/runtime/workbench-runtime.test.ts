@@ -178,21 +178,99 @@ describe("createWorkbenchRuntime", () => {
 
   it("reuses an unchanged successful render without a second engine invocation", async () => {
     const engine = cacheableEngine();
-    const runtime = createWorkbenchRuntime(engine);
+    const cache = new RenderMemoryCache();
+    const cacheGet = vi.spyOn(cache, "get");
+    const cacheTouch = vi.spyOn(cache, "touch");
+    const runtime = createWorkbenchRuntime(engine, { renderCache: cache });
 
     await runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
+    const presentationBefore = runtime.viewer.getState().documents.get("document-main")?.presentation;
+    cacheTouch.mockClear();
+    const viewerUpdate = vi.fn();
+    const layoutUpdate = vi.fn();
+    const unsubscribeViewer = runtime.viewer.subscribe(viewerUpdate);
+    const unsubscribeLayout = runtime.layout.subscribe(layoutUpdate);
     const started = performance.now();
     await runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
+    unsubscribeViewer();
+    unsubscribeLayout();
 
     expect(performance.now() - started).toBeLessThan(100);
+    expect(cacheGet).not.toHaveBeenCalled();
+    expect(cacheTouch).toHaveBeenCalledOnce();
     expect(engine.render).toHaveBeenCalledTimes(1);
     expect(engine.version).toHaveBeenCalledTimes(1);
+    expect(viewerUpdate).not.toHaveBeenCalled();
+    expect(layoutUpdate).not.toHaveBeenCalled();
+    expect(runtime.viewer.getState().documents.get("document-main")?.presentation).toBe(presentationBefore);
+    expect(runtime.render.getState().result).toBe(presentationBefore?.result);
     expect(runtime.render.getState()).toMatchObject({
       status: "success",
       cached: true,
       result: { kind: "3d" },
     });
     expect(runtime.console.getState().runs).toHaveLength(1);
+  });
+
+  it("does not reuse a presented result after the cache rejects it", async () => {
+    const engine = cacheableEngine();
+    const runtime = createWorkbenchRuntime(engine, { renderCache: new RenderMemoryCache(0) });
+
+    await runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
+    await runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
+
+    expect(engine.render).toHaveBeenCalledTimes(2);
+    expect(runtime.render.getState()).toMatchObject({ status: "success", cached: false });
+  });
+
+  it("loads the requested cached result before reusing it as the current presentation", async () => {
+    const engine = cacheableEngine();
+    let job = 0;
+    vi.mocked(engine.render).mockImplementation((request) => {
+      const fill = Number(request.parameters.size ?? 1);
+      const rendered: RenderSuccess3D = {
+        kind: "3d",
+        mesh: { format: "stl-binary", bytes: new Uint8Array(128).fill(fill) },
+        stats: { triangles: fill, engineTimeMs: 1 },
+        diagnostics: [],
+        rawLog: `size ${fill}`,
+      };
+      job += 1;
+      return {
+        jobId: `render-${job}`,
+        done: Promise.resolve(rendered),
+        subscribeOutput: () => () => undefined,
+      };
+    });
+    const cache = new RenderMemoryCache();
+    const cacheGet = vi.spyOn(cache, "get");
+    const runtime = createWorkbenchRuntime(engine, {
+      renderCache: cache,
+      initialScratchSource: "size = 1; cube(size);",
+    });
+    const setSize = (value: number) => runtime.dispatch({
+      kind: "update-parameters" as const,
+      origin: "user" as const,
+      action: { kind: "set-value" as const, documentId: "document-main", name: "size", value },
+    });
+
+    await setSize(1);
+    await runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
+    await setSize(2);
+    await runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
+    await setSize(1);
+    await runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
+
+    expect(engine.render).toHaveBeenCalledTimes(2);
+    expect(cacheGet).toHaveBeenCalledOnce();
+    const cachedA = runtime.render.getState().result;
+    expect(cachedA?.kind).toBe("3d");
+    if (cachedA?.kind !== "3d") throw new Error("Expected cached A geometry.");
+    expect(cachedA.mesh.bytes[0]).toBe(1);
+
+    await runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
+    expect(cacheGet).toHaveBeenCalledOnce();
+    expect(runtime.render.getState().result).toBe(cachedA);
   });
 
   it("checks a cold disk-capable tier before invoking the engine", async () => {

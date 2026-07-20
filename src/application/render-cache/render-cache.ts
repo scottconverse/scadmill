@@ -20,6 +20,8 @@ export interface CachedRenderResult {
 export interface RenderCache {
   get(projectIdentity: string, key: string): Promise<CachedRenderResult | undefined>;
   put(projectIdentity: string, key: string, result: CacheableRenderResult): Promise<void>;
+  /** Confirms and refreshes memory residency without exposing mutable cached bytes. */
+  touch?(projectIdentity: string, key: string): boolean;
   /** Disk-backed tiers need a cold-start key before the first engine invocation. */
   readonly requiresColdLookup?: boolean;
 }
@@ -197,6 +199,15 @@ export class RenderMemoryCache implements RenderCache {
     return this.#entries.size;
   }
 
+  touch(projectIdentity: string, key: string): boolean {
+    const scopedKey = JSON.stringify([projectIdentity, key]);
+    const entry = this.#entries.get(scopedKey);
+    if (!entry) return false;
+    this.#entries.delete(scopedKey);
+    this.#entries.set(scopedKey, entry);
+    return true;
+  }
+
   async get(projectIdentity: string, key: string): Promise<CachedRenderResult | undefined> {
     const scopedKey = JSON.stringify([projectIdentity, key]);
     const entry = this.#entries.get(scopedKey);
@@ -240,6 +251,10 @@ export class TieredRenderCache implements RenderCache {
 
   get requiresColdLookup(): boolean {
     return Boolean(this.#disk && this.#diskEnabled());
+  }
+
+  touch(projectIdentity: string, key: string): boolean {
+    return this.#memory.touch?.(projectIdentity, key) ?? false;
   }
 
   async get(projectIdentity: string, key: string): Promise<CachedRenderResult | undefined> {
