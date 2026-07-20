@@ -325,7 +325,7 @@ test("hosted M4 journey uses real web capabilities while keeping MCP desktop-onl
     await expect(ai).toContainText("Agent status: completed", { timeout: 60_000 });
     await expect.poll(() => page.locator(".console-run").count()).toBe(runsBeforeAgent + 1);
 
-    await page.getByRole("button", { name: "History", exact: true }).click();
+    await page.getByRole("button", { name: /^History(?:, activity pending)?$/u }).click();
     const history = page.getByRole("region", { name: "History panel" });
     await expect(history).toContainText("Pending review");
     await history.getByRole("button", { name: "Approve change" }).click();

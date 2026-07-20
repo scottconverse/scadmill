@@ -25,5 +25,11 @@ describe("M4 hosted Playwright bounds", () => {
       "60_000",
       "60_000",
     ]);
+    expect(journey).toContain(
+      'getByRole("button", { name: /^History(?:, activity pending)?$/u }).click()',
+    );
+    expect(journey).not.toContain(
+      'getByRole("button", { name: "History", exact: true }).click()',
+    );
   });
 });
