@@ -10,6 +10,7 @@ const artifactRoot = resolve(
 export default defineConfig({
   testDir: ".",
   testMatch: "m4-hosted-journey.e2e.ts",
+  timeout: 480_000,
   outputDir: resolve(artifactRoot, "playwright"),
   forbidOnly: true,
   fullyParallel: false,

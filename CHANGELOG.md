@@ -114,6 +114,10 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Changed
 
+- Reused the already parsed 3D mesh when a cloned cache result carries the same application-verified SHA-256 geometry identity, while still reparsing changed identities and preserving current diagnostics and render metadata.
+- Gave the stateful M4 hosted journey an eight-minute aggregate envelope consistent with the sum of its existing bounded steps; individual 30/60-second waits, one worker, and zero retries remain unchanged.
+- Replaced the unsupported macOS `hdiutil attach -acceptlicense` probe with one explicit affirmative stdin response, strict pipeline failure propagation, image-last argument ordering, and EXIT cleanup for any mounted candidate.
+
 - Corrected M4 render-cache dependency completeness for `surface()` assets, dynamic asset paths, and project-provided fonts, and queued the newest 3D thumbnail when an older capture is still in flight so stale work cannot suppress the last successful render preview.
 
 - Scratch autosave now stores a strict versioned path-and-source snapshot, migrates legacy source-only profiles to a renderable filename, persists clean welcome-sample identity immediately, and restores cached production renders under the exact entry path.

@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
-import { createRef } from "react";
+
 import { fireEvent, render, waitFor } from "@testing-library/react";
+import { createRef } from "react";
 import {
   AmbientLight,
   BufferGeometry,
@@ -137,6 +138,12 @@ function oneTriangleResult(): RenderSuccess3D {
   };
 }
 
+function identifiedTriangleResult(identity: string): RenderSuccess3D {
+  const result = oneTriangleResult();
+  result.mesh.geometryIdentity = identity;
+  return result;
+}
+
 describe("ModelViewer theme", () => {
   beforeEach(() => {
     threeHarness.scenes.length = 0;
@@ -220,6 +227,94 @@ describe("ModelViewer theme", () => {
 
     await waitFor(() => expect(modelMesh(threeHarness.scenes[0])).toBeInstanceOf(Mesh));
     expect(meshParser).toHaveBeenCalledWith(result.mesh.bytes, expect.any(AbortSignal));
+  });
+
+  it("retains parsed geometry for cloned cache results with the same verified identity", async () => {
+    const parsed: ParsedBinaryStl = {
+      triangleCount: 1,
+      positions: new Float32Array([0, 0, 0, 10, 0, 0, 10, 10, 10]),
+      normals: new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1]),
+      bounds: { min: [0, 0, 0], max: [10, 10, 10], size: [10, 10, 10] },
+    };
+    const meshParser = vi.fn(async () => parsed);
+    const first = identifiedTriangleResult(`sha256:${"a".repeat(64)}`);
+    const cloned = identifiedTriangleResult(`sha256:${"a".repeat(64)}`);
+    const replacement = identifiedTriangleResult(`sha256:${"b".repeat(64)}`);
+    const view = render(
+      <ModelViewer colors={darkColors} meshParser={meshParser} result={first} />,
+    );
+
+    await waitFor(() => expect(modelMesh(threeHarness.scenes[0])).toBeInstanceOf(Mesh));
+    expect(meshParser).toHaveBeenCalledTimes(1);
+    view.rerender(
+      <ModelViewer colors={darkColors} meshParser={meshParser} result={cloned} />,
+    );
+    await waitFor(() => expect(meshParser).toHaveBeenCalledTimes(1));
+
+    view.rerender(
+      <ModelViewer colors={darkColors} meshParser={meshParser} result={replacement} />,
+    );
+    await waitFor(() => expect(meshParser).toHaveBeenCalledTimes(2));
+
+    const replacementParser = vi.fn(async () => parsed);
+    view.rerender(
+      <ModelViewer colors={darkColors} meshParser={replacementParser} result={replacement} />,
+    );
+    await waitFor(() => expect(replacementParser).toHaveBeenCalledOnce());
+  });
+
+  it("never reuses parsed geometry without a verified identity", async () => {
+    const parsed: ParsedBinaryStl = {
+      triangleCount: 1,
+      positions: new Float32Array([0, 0, 0, 10, 0, 0, 10, 10, 10]),
+      normals: new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1]),
+      bounds: { min: [0, 0, 0], max: [10, 10, 10], size: [10, 10, 10] },
+    };
+    const meshParser = vi.fn(async () => parsed);
+    const first = identifiedTriangleResult("not-a-verified-identity");
+    const sameMutableBytes = { ...first, mesh: { ...first.mesh } };
+    const view = render(
+      <ModelViewer colors={darkColors} meshParser={meshParser} result={first} />,
+    );
+
+    await waitFor(() => expect(modelMesh(threeHarness.scenes[0])).toBeInstanceOf(Mesh));
+    view.rerender(
+      <ModelViewer colors={darkColors} meshParser={meshParser} result={sameMutableBytes} />,
+    );
+
+    await waitFor(() => expect(meshParser).toHaveBeenCalledTimes(2));
+  });
+
+  it("retries a verified identity that failed to parse", async () => {
+    const parsed: ParsedBinaryStl = {
+      triangleCount: 1,
+      positions: new Float32Array([0, 0, 0, 10, 0, 0, 10, 10, 10]),
+      normals: new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1]),
+      bounds: { min: [0, 0, 0], max: [10, 10, 10], size: [10, 10, 10] },
+    };
+    const meshParser = vi.fn()
+      .mockResolvedValueOnce(parsed)
+      .mockRejectedValueOnce(new Error("simulated parser failure"))
+      .mockResolvedValueOnce(parsed);
+    const first = identifiedTriangleResult(`sha256:${"a".repeat(64)}`);
+    const failed = identifiedTriangleResult(`sha256:${"b".repeat(64)}`);
+    const retry = identifiedTriangleResult(`sha256:${"b".repeat(64)}`);
+    const view = render(
+      <ModelViewer colors={darkColors} meshParser={meshParser} result={first} />,
+    );
+
+    await waitFor(() => expect(modelMesh(threeHarness.scenes[0])).toBeInstanceOf(Mesh));
+    view.rerender(
+      <ModelViewer colors={darkColors} meshParser={meshParser} result={failed} />,
+    );
+    expect(await view.findByRole("alert")).toHaveTextContent(
+      "The rendered mesh could not be displayed.",
+    );
+    view.rerender(
+      <ModelViewer colors={darkColors} meshParser={meshParser} result={retry} />,
+    );
+
+    await waitFor(() => expect(meshParser).toHaveBeenCalledTimes(3));
   });
 
   it("hot-applies viewer colors without reconstructing Three resources", async () => {

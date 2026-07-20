@@ -29,7 +29,7 @@ import type {
   ViewerFurnitureState,
 } from "../../application/viewer/viewer-state";
 import { messages } from "../../messages/en";
-import { DEFAULT_CAMERA, DEFAULT_FURNITURE, DEFAULT_MESH_PARSER, DEFAULT_MOUSE_MAPPING, type ModelMeshParser } from "./model-viewer-defaults";
+import { DEFAULT_CAMERA, DEFAULT_FURNITURE, DEFAULT_MESH_PARSER, DEFAULT_MOUSE_MAPPING, type ModelMeshParser, ParsedMeshReuse } from "./model-viewer-defaults";
 import { ModelViewerOverlays, type SpatialOverlays } from "./model-viewer-overlays";
 import {
   captureViewportPng,
@@ -88,6 +88,7 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
 }, forwardedRef) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const resources = useRef<ViewerResources | null>(null);
+  const parsedMeshReuse = useRef(new ParsedMeshReuse());
   const cameraRef = useRef(camera);
   const colorsRef = useRef(colors);
   const furnitureRef = useRef(furniture);
@@ -279,9 +280,7 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
         resize();
       });
     };
-    const observer = typeof ResizeObserver === "undefined"
-      ? null
-      : new ResizeObserver(requestResize);
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(requestResize);
     observer?.observe(canvas.current.parentElement ?? canvas.current);
     return () => {
       active = false;
@@ -306,6 +305,7 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
       viewer.refreshAppearance();
       return;
     }
+    if (viewer.parsed && parsedMeshReuse.current.matches(result, meshParser)) return;
     const parser = new AbortController();
     void meshParser(result.mesh.bytes, parser.signal).then((parsed) => {
       if (!active || resources.current !== viewer) return;
@@ -317,6 +317,7 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
       removeModel(viewer);
       viewer.mesh = mesh;
       viewer.parsed = parsed;
+      parsedMeshReuse.current.accept(result, meshParser);
       viewer.scene.add(mesh);
       viewer.refreshAppearance();
     }, () => {

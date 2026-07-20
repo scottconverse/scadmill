@@ -262,10 +262,33 @@ describe("installer lifecycle contract", () => {
     expect(prerequisites.run).toContain("xdotool");
     expect(mac.run).toContain("CGWindowListCopyWindowInfo");
     expect(mac.run).toContain("owner.int32Value == pid");
-    expect(mac.run).toContain(
-      'hdiutil attach "$SCADMILL_DESKTOP_INSTALLER" -acceptlicense -nobrowse -readonly',
+    expect(mac.run).toContain("set -euo pipefail");
+    const attachStart = mac.run?.indexOf("printf 'Y\\n' | hdiutil attach") ?? -1;
+    const mountedStart = mac.run?.indexOf("mounted=1", attachStart) ?? -1;
+    const attachBlock = mac.run?.slice(attachStart, mountedStart) ?? "";
+    expect(attachBlock).toBe(
+      `printf 'Y\\n' | hdiutil attach \\\n  -nobrowse \\\n  -readonly \\\n  -mountpoint "$mount_point" \\\n  "$SCADMILL_DESKTOP_INSTALLER"\n`,
     );
+    expect(mac.run).not.toContain("-acceptlicense");
+    expect(attachBlock).not.toContain("-quiet");
+    expect(attachBlock).not.toContain("-imagekey");
+    expect(mac.run).not.toMatch(/\byes\b[^\n]*\|\s*hdiutil attach/u);
+    expect(attachBlock).not.toContain("|| true");
     expect(mac.run?.match(/hdiutil attach/gu)).toHaveLength(1);
+    expect(mac.run).toContain("trap cleanup_dmg EXIT");
+    expect(mac.run).toContain('if [ "$mounted" -eq 1 ]; then');
+    expect(mac.run).toContain('hdiutil detach "$mount_point" || cleanup_status=1');
+    expect(mac.run).toContain(
+      'if [ "$status" -eq 0 ] && [ "$cleanup_status" -ne 0 ]; then',
+    );
+    expect(mac.run).toContain('exit "$cleanup_status"');
+    expect(mac.run).toContain('exit "$status"');
+    const detached = mac.run?.indexOf('hdiutil detach "$mount_point"', mountedStart) ?? -1;
+    const mountedClear = mac.run?.indexOf("mounted=0", detached) ?? -1;
+    expect(attachStart).toBeGreaterThan(-1);
+    expect(mountedStart).toBeGreaterThan(attachStart);
+    expect(detached).toBeGreaterThan(mountedStart);
+    expect(mountedClear).toBeGreaterThan(detached);
     expect(mac.run).toContain('test "$installed_executable_hash" = "$source_executable_hash"');
     expect(linux.run).toContain("Xvfb");
     expect(linux.run).toContain('APPIMAGE_EXTRACT_AND_RUN=1 "$installed"');

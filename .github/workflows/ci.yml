@@ -299,13 +299,37 @@ jobs:
         if: runner.os == 'macOS'
         shell: bash
         run: |
+          set -euo pipefail
           mount_point="$RUNNER_TEMP/scadmill-dmg"
           install_root="$RUNNER_TEMP/scadmill-installed"
           launch_log="$RUNNER_TEMP/scadmill-macos-launch.log"
           window_probe_source="$RUNNER_TEMP/scadmill-window-probe.swift"
           window_probe="$RUNNER_TEMP/scadmill-window-probe"
+          mounted=0
+
+          cleanup_dmg() {
+            local status=$?
+            local cleanup_status=0
+            trap - EXIT
+            set +e
+            if [ "$mounted" -eq 1 ]; then
+              hdiutil detach "$mount_point" || cleanup_status=1
+            fi
+            if [ "$status" -eq 0 ] && [ "$cleanup_status" -ne 0 ]; then
+              printf '%s\n' 'DMG cleanup failed to detach the mounted candidate.' >&2
+              exit "$cleanup_status"
+            fi
+            exit "$status"
+          }
+
           mkdir -p "$mount_point" "$install_root"
-          hdiutil attach "$SCADMILL_DESKTOP_INSTALLER" -acceptlicense -nobrowse -readonly -mountpoint "$mount_point"
+          trap cleanup_dmg EXIT
+          printf 'Y\n' | hdiutil attach \
+            -nobrowse \
+            -readonly \
+            -mountpoint "$mount_point" \
+            "$SCADMILL_DESKTOP_INSTALLER"
+          mounted=1
           app_count="$(find "$mount_point" -maxdepth 1 -type d -name '*.app' | wc -l | tr -d ' ')"
           test "$app_count" -eq 1
           app="$(find "$mount_point" -maxdepth 1 -type d -name '*.app' -print -quit)"
@@ -314,6 +338,7 @@ jobs:
           source_executable_hash="$(shasum -a 256 "$source_executable" | awk '{print $1}')"
           ditto "$app" "$install_root/ScadMill.app"
           hdiutil detach "$mount_point"
+          mounted=0
           executable="$(find "$install_root/ScadMill.app/Contents/MacOS" -type f -perm +111 -print -quit)"
           installed_executable_hash="$(shasum -a 256 "$executable" | awk '{print $1}')"
           test "$installed_executable_hash" = "$source_executable_hash"
