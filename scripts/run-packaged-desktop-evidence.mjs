@@ -23,6 +23,8 @@ import { runN2Soak } from "./lib/n2-soak-runner.mjs";
 import { verifyN2SoakArtifacts } from "./lib/n2-soak-verifier.mjs";
 import {
   clickVisibleEnabledButton,
+  createCdpSocketLease,
+  insertTextThroughCdp,
   mcpEndpointManifestPath,
   mirrorWebViewDevToolsPort,
   parseBinaryStl,
@@ -242,6 +244,8 @@ class WebDriverClient {
     this.baseUrl = baseUrl;
     this.sessionId = null;
     this.lastPortMirror = null;
+    this.debuggerAddress = null;
+    this.cdpSocketLease = createCdpSocketLease();
   }
 
   async request(method, path, body) {
@@ -303,6 +307,7 @@ class WebDriverClient {
       throw new Error("WebDriver did not return a session id.");
     }
     this.sessionId = value.sessionId;
+    this.debuggerAddress = value.capabilities?.["ms:edgeOptions"]?.debuggerAddress ?? null;
     return value.capabilities ?? {};
   }
 
@@ -340,12 +345,15 @@ class WebDriverClient {
     });
   }
 
-  performActions(actions) {
-    return this.request("POST", this.sessionPath("/actions"), { actions });
-  }
-
-  releaseActions() {
-    return this.request("DELETE", this.sessionPath("/actions"));
+  insertFocusedText(text, expectedPageUrl) {
+    return insertTextThroughCdp(this.debuggerAddress, text, expectedPageUrl, {
+      onSocketCreated: (socket) => {
+        this.cdpSocketLease.register(socket);
+      },
+      onSocketClosed: (socket) => {
+        this.cdpSocketLease.release(socket);
+      },
+    });
   }
 
   async screenshot(path) {
@@ -359,9 +367,14 @@ class WebDriverClient {
   }
 
   async deleteSession() {
-    if (!this.sessionId) return;
+    try { this.cdpSocketLease.closeActive(); } catch { /* session deletion remains authoritative */ }
+    if (!this.sessionId) {
+      this.debuggerAddress = null;
+      return;
+    }
     const active = this.sessionId;
     this.sessionId = null;
+    this.debuggerAddress = null;
     await this.request("DELETE", `/session/${encodeURIComponent(active)}`).catch(() => undefined);
   }
 }

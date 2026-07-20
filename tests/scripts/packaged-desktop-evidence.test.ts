@@ -9,8 +9,10 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   CLICK_PACKAGED_BUTTON_SCRIPT,
   clickVisibleEnabledButton,
+  createCdpSocketLease,
   FIND_PACKAGED_TEXTAREA_CONTROL_SCRIPT,
   FOCUS_PACKAGED_TEXTAREA_CONTROL_SCRIPT,
+  insertTextThroughCdp,
   mcpEndpointManifestPath,
   mirrorWebViewDevToolsPort,
   parseBinaryStl,
@@ -18,13 +20,13 @@ import {
   parseWindowsNetstatTcpListeners,
   processHasExited,
   READ_PACKAGED_CONTROL_VALUE_SCRIPT,
+  READ_PACKAGED_PAGE_URL_SCRIPT,
   SET_PACKAGED_CONTROL_VALUE_SCRIPT,
   sanitizeMcpEndpointManifest,
   sanitizeMcpTranscript,
   scanFileForBytes,
   setVisibleEnabledControl,
   setVisibleEnabledTextArea,
-  textReplacementKeyActions,
   unwrapWebDriverValue,
   validateCredentialProbe,
   validateHarnessManifest,
@@ -1081,24 +1083,253 @@ describe("packaged desktop evidence helpers", () => {
     window.close();
   });
 
-  it("builds real keyboard actions that replace focused text and release every key", () => {
-    expect(textReplacementKeyActions("A🧱")).toEqual([{
-      type: "key",
-      id: "scadmill-text-entry",
-      actions: [
-        { type: "keyDown", value: "\uE009" },
-        { type: "keyDown", value: "a" },
-        { type: "keyUp", value: "a" },
-        { type: "keyUp", value: "\uE009" },
-        { type: "keyDown", value: "A" },
-        { type: "keyUp", value: "A" },
-        { type: "keyDown", value: "🧱" },
-        { type: "keyUp", value: "🧱" },
-      ],
+  it("inserts focused text through one bounded loopback CDP page target", async () => {
+    const sent: string[] = [];
+    const opened: string[] = [];
+    let closes = 0;
+    class FakeWebSocket {
+      readyState = 0;
+      listeners = new Map<string, Array<(event: { data?: unknown }) => void>>();
+      addEventListener(name: string, listener: (event: { data?: unknown }) => void) {
+        this.listeners.set(name, [...(this.listeners.get(name) ?? []), listener]);
+      }
+      emit(name: string, event: { data?: unknown } = {}) {
+        for (const listener of this.listeners.get(name) ?? []) listener(event);
+      }
+      send(payload: string) {
+        sent.push(payload);
+        queueMicrotask(() => this.emit("message", { data: JSON.stringify({ id: 1, result: {} }) }));
+      }
+      close() {
+        closes += 1;
+        this.readyState = 3;
+        queueMicrotask(() => this.emit("close"));
+      }
+    }
+    await insertTextThroughCdp("localhost:49673", "A🧱", "tauri://localhost/", {
+      fetchImpl: async (url: string, init: { signal: AbortSignal; redirect: string }) => {
+        expect(url).toBe("http://127.0.0.1:49673/json/list");
+        expect(init.redirect).toBe("error");
+        return new Response(JSON.stringify([{
+          type: "page",
+          url: "tauri://localhost/",
+          webSocketDebuggerUrl: "ws://localhost:49673/devtools/page/exact-target",
+        }]));
+      },
+      webSocketFactory: (url: string) => {
+        opened.push(url);
+        const socket = new FakeWebSocket();
+        queueMicrotask(() => { socket.readyState = 1; socket.emit("open"); });
+        return socket;
+      },
+      timeoutMs: 1_000,
+    });
+    expect(opened).toEqual(["ws://127.0.0.1:49673/devtools/page/exact-target"]);
+    expect(sent.map((payload) => JSON.parse(payload))).toEqual([{
+      id: 1,
+      method: "Input.insertText",
+      params: { text: "A🧱" },
     }]);
+    expect(closes).toBe(1);
   });
 
-  it("enters controlled textarea content through WebDriver keyboard actions before proving committed reads", async () => {
+  it("rejects remote, cross-port, and ambiguous CDP discovery before opening a socket", async () => {
+    let sockets = 0;
+    const webSocketFactory = () => { sockets += 1; throw new Error("must not open"); };
+    await expect(insertTextThroughCdp("example.com:9222", "value", "tauri://localhost/", {
+      fetchImpl: async () => new Response("[]"), webSocketFactory,
+    })).rejects.toThrow("loopback");
+    await expect(insertTextThroughCdp("localhost:9222", "value", "tauri://localhost/", {
+      fetchImpl: async () => new Response(JSON.stringify([{
+        type: "page", url: "tauri://localhost/",
+        webSocketDebuggerUrl: "ws://localhost:9223/devtools/page/other-port",
+      }])),
+      webSocketFactory,
+    })).rejects.toThrow("target");
+    await expect(insertTextThroughCdp("localhost:9222", "value", "tauri://localhost/", {
+      fetchImpl: async () => new Response(JSON.stringify([
+        { type: "page", url: "tauri://localhost/", webSocketDebuggerUrl: "ws://localhost:9222/devtools/page/one" },
+        { type: "page", url: "tauri://localhost/", webSocketDebuggerUrl: "ws://localhost:9222/devtools/page/two" },
+      ])),
+      webSocketFactory,
+    })).rejects.toThrow("exactly one");
+    await expect(insertTextThroughCdp("localhost:9222", "value", "tauri://localhost/", {
+      fetchImpl: async () => new Response(JSON.stringify([{
+        type: "page", url: "https://unrelated.invalid/",
+        webSocketDebuggerUrl: "ws://localhost:9222/devtools/page/wrong-page",
+      }])),
+      webSocketFactory,
+    })).rejects.toThrow("current WebView");
+    expect(sockets).toBe(0);
+  });
+
+  it("closes CDP and hashes protocol errors without retaining inserted text or messages", async () => {
+    const sensitiveText = "DO-NOT-LOG-inserted-message";
+    const sensitiveProtocolMessage = "DO-NOT-LOG-protocol-message";
+    let closes = 0;
+    class ErrorWebSocket {
+      readyState = 0;
+      listeners = new Map<string, Array<(event: { data?: unknown }) => void>>();
+      addEventListener(name: string, listener: (event: { data?: unknown }) => void) {
+        this.listeners.set(name, [...(this.listeners.get(name) ?? []), listener]);
+      }
+      emit(name: string, event: { data?: unknown } = {}) {
+        for (const listener of this.listeners.get(name) ?? []) listener(event);
+      }
+      send() {
+        queueMicrotask(() => this.emit("message", { data: JSON.stringify({
+          id: 1, error: { code: -32000, message: sensitiveProtocolMessage },
+        }) }));
+      }
+      close() {
+        closes += 1;
+        this.readyState = 3;
+        queueMicrotask(() => this.emit("close"));
+      }
+    }
+    const failure = await insertTextThroughCdp("127.0.0.1:9222", sensitiveText, "tauri://localhost/", {
+      fetchImpl: async () => new Response(JSON.stringify([{
+        type: "page", url: "tauri://localhost/",
+        webSocketDebuggerUrl: "ws://127.0.0.1:9222/devtools/page/target",
+      }])),
+      webSocketFactory: () => {
+        const socket = new ErrorWebSocket();
+        queueMicrotask(() => { socket.readyState = 1; socket.emit("open"); });
+        return socket;
+      },
+      timeoutMs: 1_000,
+    }).then(() => undefined, (error: unknown) => error);
+    expect(failure).toBeInstanceOf(Error);
+    expect((failure as Error).message).toContain("-32000");
+    expect((failure as Error).message).not.toContain(sensitiveText);
+    expect((failure as Error).message).not.toContain(sensitiveProtocolMessage);
+    expect(closes).toBe(1);
+  });
+
+  it("rejects malformed CDP errors and oversized text before unsafe continuation", async () => {
+    let fetches = 0;
+    await expect(insertTextThroughCdp("localhost:9222", "x".repeat(8_193), "tauri://localhost/", {
+      fetchImpl: async () => { fetches += 1; return new Response("[]"); },
+    })).rejects.toThrow("byte limit");
+    expect(fetches).toBe(0);
+
+    class MalformedErrorWebSocket {
+      listeners = new Map<string, Array<(event: { data?: unknown }) => void>>();
+      addEventListener(name: string, listener: (event: { data?: unknown }) => void) {
+        this.listeners.set(name, [...(this.listeners.get(name) ?? []), listener]);
+      }
+      emit(name: string, event: { data?: unknown } = {}) {
+        for (const listener of this.listeners.get(name) ?? []) listener(event);
+      }
+      send() {
+        queueMicrotask(() => this.emit("message", { data: JSON.stringify({
+          id: 1, error: "malformed", result: {},
+        }) }));
+      }
+      close() { queueMicrotask(() => this.emit("close")); }
+    }
+    await expect(insertTextThroughCdp("localhost:9222", "value", "tauri://localhost/", {
+      fetchImpl: async () => new Response(JSON.stringify([{
+        type: "page", url: "tauri://localhost/",
+        webSocketDebuggerUrl: "ws://localhost:9222/devtools/page/target",
+      }])),
+      webSocketFactory: () => {
+        const socket = new MalformedErrorWebSocket();
+        queueMicrotask(() => socket.emit("open"));
+        return socket;
+      },
+      timeoutMs: 1_000,
+    })).rejects.toThrow("error response");
+  });
+
+  it("closes CDP when socket listener setup fails", async () => {
+    let closes = 0;
+    const sensitiveSetupError = "DO-NOT-LOG-listener-setup-secret";
+    const failure = await insertTextThroughCdp("localhost:9222", "value", "tauri://localhost/", {
+      fetchImpl: async () => new Response(JSON.stringify([{
+        type: "page", url: "tauri://localhost/",
+        webSocketDebuggerUrl: "ws://localhost:9222/devtools/page/target",
+      }])),
+      webSocketFactory: () => ({
+        addEventListener: () => { throw new Error(sensitiveSetupError); },
+        send: () => undefined,
+        close: () => { closes += 1; },
+      }),
+      timeoutMs: 1_000,
+    }).then(() => undefined, (error: unknown) => error);
+    expect(failure).toBeInstanceOf(Error);
+    expect((failure as Error).message).toContain("listener setup failed");
+    expect((failure as Error).message).not.toContain(sensitiveSetupError);
+    expect(closes).toBe(1);
+  });
+
+  it("waits for bounded CDP close acknowledgement", async () => {
+    class DeferredCloseWebSocket {
+      listeners = new Map<string, Array<(event: { data?: unknown }) => void>>();
+      addEventListener(name: string, listener: (event: { data?: unknown }) => void) {
+        this.listeners.set(name, [...(this.listeners.get(name) ?? []), listener]);
+      }
+      emit(name: string, event: { data?: unknown } = {}) {
+        for (const listener of this.listeners.get(name) ?? []) listener(event);
+      }
+      send() {
+        queueMicrotask(() => this.emit("message", { data: JSON.stringify({ id: 1, result: {} }) }));
+      }
+      close() { /* the test controls acknowledgement */ }
+    }
+    const socket = new DeferredCloseWebSocket();
+    let resolved = false;
+    const insertion = insertTextThroughCdp("localhost:9222", "value", "tauri://localhost/", {
+      fetchImpl: async () => new Response(JSON.stringify([{
+        type: "page", url: "tauri://localhost/",
+        webSocketDebuggerUrl: "ws://localhost:9222/devtools/page/target",
+      }])),
+      webSocketFactory: () => {
+        queueMicrotask(() => socket.emit("open"));
+        return socket;
+      },
+      timeoutMs: 1_000,
+    }).then(() => { resolved = true; });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(resolved).toBe(false);
+    socket.emit("close");
+    await insertion;
+    expect(resolved).toBe(true);
+
+    const timeoutSocket = new DeferredCloseWebSocket();
+    const lease = createCdpSocketLease();
+    await expect(insertTextThroughCdp("localhost:9222", "value", "tauri://localhost/", {
+      fetchImpl: async () => new Response(JSON.stringify([{
+        type: "page", url: "tauri://localhost/",
+        webSocketDebuggerUrl: "ws://localhost:9222/devtools/page/target",
+      }])),
+      webSocketFactory: () => {
+        queueMicrotask(() => timeoutSocket.emit("open"));
+        return timeoutSocket;
+      },
+      onSocketCreated: (socket) => lease.register(socket),
+      onSocketClosed: (socket) => lease.release(socket),
+      timeoutMs: 25,
+    })).rejects.toThrow("cleanup timed out");
+    expect(lease.hasActive()).toBe(true);
+    lease.closeActive();
+    expect(lease.hasActive()).toBe(false);
+  });
+
+  it("clears a retained CDP socket even when authoritative close throws", () => {
+    const lease = createCdpSocketLease();
+    let closes = 0;
+    lease.register({
+      addEventListener: () => undefined,
+      send: () => undefined,
+      close: () => { closes += 1; throw new Error("close failed"); },
+    });
+    expect(() => lease.closeActive()).toThrow("close failed");
+    expect(closes).toBe(1);
+    expect(lease.hasActive()).toBe(false);
+  });
+
+  it("enters controlled textarea content through CDP before proving committed reads", async () => {
     const elementKey = "element-6066-11e4-a52e-4f735466cecf";
     const calls: string[] = [];
     let reads = 0;
@@ -1116,14 +1347,14 @@ describe("packaged desktop evidence helpers", () => {
             focusCorrected: false,
           };
         }
+        if (script === READ_PACKAGED_PAGE_URL_SCRIPT) return "tauri://localhost/";
         expect(script).toBe(READ_PACKAGED_CONTROL_VALUE_SCRIPT);
         expect(args).toEqual(["Message"]);
         reads += 1;
         return "Change the cube.";
       },
       clickElement: async (id: string) => { calls.push(`click:${id}`); },
-      performActions: async (actions: unknown) => { calls.push(`actions:${JSON.stringify(actions)}`); },
-      releaseActions: async () => { calls.push("release"); },
+      insertFocusedText: async (text: string, pageUrl: string) => { calls.push(`insert:${pageUrl}:${text}`); },
     };
 
     await expect(setVisibleEnabledTextArea(client, "Message", "Change the cube.", {
@@ -1134,47 +1365,26 @@ describe("packaged desktop evidence helpers", () => {
     expect(reads).toBe(2);
     expect(calls).toEqual([
       "click:message-1",
-      `actions:${JSON.stringify(textReplacementKeyActions("Change the cube."))}`,
-      "release",
+      "insert:tauri://localhost/:Change the cube.",
     ]);
   });
 
-  it("releases WebDriver keyboard state when textarea actions fail", async () => {
+  it("propagates CDP textarea insertion failure", async () => {
     const elementKey = "element-6066-11e4-a52e-4f735466cecf";
     let released = 0;
     await expect(setVisibleEnabledTextArea({
       execute: async (script: string) => script === FIND_PACKAGED_TEXTAREA_CONTROL_SCRIPT
         ? { [elementKey]: "message-1" }
-        : {
+        : script === READ_PACKAGED_PAGE_URL_SCRIPT
+          ? "tauri://localhost/"
+          : {
             targetIsTextarea: true, targetConnected: true, targetEnabled: true,
             focusedBefore: true, focused: true, focusCorrected: false,
           },
       clickElement: async () => undefined,
-      performActions: async () => { throw new Error("keyboard actions failed"); },
-      releaseActions: async () => { released += 1; },
-    }, "Message", "value")).rejects.toThrow("keyboard actions failed");
+      insertFocusedText: async () => { released += 1; throw new Error("CDP insertion failed"); },
+    }, "Message", "value")).rejects.toThrow("CDP insertion failed");
     expect(released).toBe(1);
-  });
-
-  it("retains both the primary keyboard failure and a secondary release failure", async () => {
-    const elementKey = "element-6066-11e4-a52e-4f735466cecf";
-    const failure = await setVisibleEnabledTextArea({
-      execute: async (script: string) => script === FIND_PACKAGED_TEXTAREA_CONTROL_SCRIPT
-        ? { [elementKey]: "message-1" }
-        : {
-            targetIsTextarea: true, targetConnected: true, targetEnabled: true,
-            focusedBefore: true, focused: true, focusCorrected: false,
-          },
-      clickElement: async () => undefined,
-      performActions: async () => { throw new Error("primary keyboard failure"); },
-      releaseActions: async () => { throw new Error("secondary release failure"); },
-    }, "Message", "value").catch((error: unknown) => error);
-
-    expect(failure).toBeInstanceOf(AggregateError);
-    expect((failure as AggregateError).errors).toEqual([
-      expect.objectContaining({ message: "primary keyboard failure" }),
-      expect.objectContaining({ message: "secondary release failure" }),
-    ]);
   });
 
   it("fails before keyboard entry when WebDriver cannot focus the resolved textarea", async () => {
@@ -1190,8 +1400,7 @@ describe("packaged desktop evidence helpers", () => {
             activeAriaLabel: sensitiveLabel,
           },
       clickElement: async () => undefined,
-      performActions: async () => { keyboardCalls += 1; },
-      releaseActions: async () => { keyboardCalls += 1; },
+      insertFocusedText: async () => { keyboardCalls += 1; },
     }, "Message", "value").then(() => undefined, (error: unknown) => error);
     expect(failure).toBeInstanceOf(Error);
     expect((failure as Error).message).toContain("focus");
@@ -1199,11 +1408,11 @@ describe("packaged desktop evidence helpers", () => {
     expect(keyboardCalls).toBe(0);
   });
 
-  it("wires W3C perform and release Actions through the packaged WebDriver client", async () => {
+  it("wires bounded CDP insertion through the packaged WebDriver client", async () => {
     const runner = await readFile(join(process.cwd(), "scripts", "run-packaged-desktop-evidence.mjs"), "utf8");
 
-    expect(runner).toContain('this.request("POST", this.sessionPath("/actions"), { actions })');
-    expect(runner).toContain('this.request("DELETE", this.sessionPath("/actions"))');
+    expect(runner).toContain("insertTextThroughCdp(this.debuggerAddress, text, expectedPageUrl, {");
+    expect(runner).toContain("this.cdpSocketLease.closeActive()");
   });
 
   it("rejects invalid control wait options before any UI mutation", async () => {
@@ -1217,8 +1426,7 @@ describe("packaged desktop evidence helpers", () => {
     await expect(setVisibleEnabledTextArea({
       execute: async () => { textareaCalls += 1; return { kind: "absent" }; },
       clickElement: async () => { textareaCalls += 1; },
-      performActions: async () => { textareaCalls += 1; },
-      releaseActions: async () => { textareaCalls += 1; },
+      insertFocusedText: async () => { textareaCalls += 1; },
     }, "Message", "value", { intervalMs: 10_001 })).rejects.toThrow("wait options");
     expect(textareaCalls).toBe(0);
   });

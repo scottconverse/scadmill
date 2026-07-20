@@ -70,11 +70,30 @@ export const SET_PACKAGED_CONTROL_VALUE_SCRIPT: string;
 export const READ_PACKAGED_CONTROL_VALUE_SCRIPT: string;
 export const FIND_PACKAGED_TEXTAREA_CONTROL_SCRIPT: string;
 export const FOCUS_PACKAGED_TEXTAREA_CONTROL_SCRIPT: string;
-export function textReplacementKeyActions(value: string): Array<{
-  type: "key";
-  id: "scadmill-text-entry";
-  actions: Array<{ type: "keyDown" | "keyUp"; value: string }>;
-}>;
+export const READ_PACKAGED_PAGE_URL_SCRIPT: string;
+export interface CdpSocketLike {
+  addEventListener(name: string, listener: (event: { data?: unknown }) => void, options?: unknown): void;
+  send(payload: string): void;
+  close(): void;
+}
+export function createCdpSocketLease(): {
+  register(socket: CdpSocketLike): void;
+  release(socket: CdpSocketLike): void;
+  hasActive(): boolean;
+  closeActive(): boolean;
+};
+export function insertTextThroughCdp(
+  debuggerAddress: unknown,
+  text: unknown,
+  expectedPageUrl: unknown,
+  options?: {
+    fetchImpl?: (url: string, init: { redirect: "error"; signal: AbortSignal }) => Promise<Response>;
+    webSocketFactory?: (url: string) => CdpSocketLike;
+    onSocketCreated?: (socket: CdpSocketLike) => void;
+    onSocketClosed?: (socket: CdpSocketLike) => void;
+    timeoutMs?: number;
+  },
+): Promise<void>;
 export function waitForVisibleEnabledControlValue(
   client: { execute(script: string, args: readonly unknown[]): Promise<unknown> },
   label: string,
@@ -99,8 +118,7 @@ export function setVisibleEnabledTextArea(
   client: {
     execute(script: string, args: readonly unknown[]): Promise<unknown>;
     clickElement(elementId: string): Promise<unknown>;
-    performActions(actions: readonly unknown[]): Promise<unknown>;
-    releaseActions(): Promise<unknown>;
+    insertFocusedText(text: string, expectedPageUrl: unknown): Promise<unknown>;
   },
   label: string,
   value: unknown,

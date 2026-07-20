@@ -101,20 +101,327 @@ export const FOCUS_PACKAGED_TEXTAREA_CONTROL_SCRIPT = `
   };
 `;
 
-const WEBDRIVER_CONTROL_KEY = "\uE009";
+export const READ_PACKAGED_PAGE_URL_SCRIPT = "return location.href;";
 
-export function textReplacementKeyActions(value) {
-  if (typeof value !== "string") throw new Error("WebDriver text replacement requires text.");
-  const actions = [
-    { type: "keyDown", value: WEBDRIVER_CONTROL_KEY },
-    { type: "keyDown", value: "a" },
-    { type: "keyUp", value: "a" },
-    { type: "keyUp", value: WEBDRIVER_CONTROL_KEY },
-  ];
-  for (const character of value) {
-    actions.push({ type: "keyDown", value: character }, { type: "keyUp", value: character });
+const CDP_MAX_DISCOVERY_BYTES = 65_536;
+const CDP_MAX_TARGETS = 16;
+const CDP_MAX_MESSAGE_BYTES = 65_536;
+const CDP_MAX_TEXT_BYTES = 8_192;
+const CDP_MAX_IGNORED_EVENTS = 32;
+
+function cdpDebuggerPort(value) {
+  const match = /^(?:localhost|127\.0\.0\.1):([1-9][0-9]{0,4})$/u.exec(value);
+  const port = Number(match?.[1]);
+  if (!match || !Number.isSafeInteger(port) || port > 65_535) {
+    throw new Error("CDP debugger address must be an explicit loopback host and port.");
   }
-  return [{ type: "key", id: "scadmill-text-entry", actions }];
+  return port;
+}
+
+async function boundedResponseText(response) {
+  const declaredLength = Number(response.headers.get("content-length"));
+  if (Number.isFinite(declaredLength) && declaredLength > CDP_MAX_DISCOVERY_BYTES) {
+    throw new Error("CDP target discovery response exceeded its byte limit.");
+  }
+  if (!response.body) return "";
+  const reader = response.body.getReader();
+  const chunks = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > CDP_MAX_DISCOVERY_BYTES) {
+        await reader.cancel().catch(() => undefined);
+        throw new Error("CDP target discovery response exceeded its byte limit.");
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    throw new Error("CDP target discovery was not valid UTF-8.");
+  }
+}
+
+function normalizedCdpPageUrl(value) {
+  if (typeof value !== "string" || value.length === 0 || value.length > 2_048) {
+    throw new Error("CDP current WebView URL was invalid.");
+  }
+  let page;
+  try {
+    page = new URL(value);
+  } catch {
+    throw new Error("CDP current WebView URL was invalid.");
+  }
+  if (page.username !== "" || page.password !== "") {
+    throw new Error("CDP current WebView URL was invalid.");
+  }
+  return page.href;
+}
+
+function validatedCdpPageSocket(payload, port, expectedPageUrl) {
+  if (!Array.isArray(payload) || payload.length > CDP_MAX_TARGETS) {
+    throw new Error("CDP target discovery returned an invalid target list.");
+  }
+  const pages = payload.filter((target) => record(target) && target.type === "page");
+  if (pages.length !== 1) throw new Error("CDP target discovery requires exactly one page target.");
+  let discoveredPageUrl;
+  try {
+    discoveredPageUrl = normalizedCdpPageUrl(pages[0].url);
+  } catch {
+    throw new Error("CDP page target did not match the current WebView.");
+  }
+  if (discoveredPageUrl !== expectedPageUrl) {
+    throw new Error("CDP page target did not match the current WebView.");
+  }
+  if (typeof pages[0].webSocketDebuggerUrl !== "string") {
+    throw new Error("CDP page target did not expose a socket.");
+  }
+  let endpoint;
+  try {
+    endpoint = new URL(pages[0].webSocketDebuggerUrl);
+  } catch {
+    throw new Error("CDP page target socket was invalid.");
+  }
+  const endpointPort = Number(endpoint.port);
+  if (endpoint.protocol !== "ws:"
+    || !["localhost", "127.0.0.1"].includes(endpoint.hostname)
+    || endpointPort !== port
+    || endpoint.username !== ""
+    || endpoint.password !== ""
+    || endpoint.search !== ""
+    || endpoint.hash !== ""
+    || !/^\/devtools\/page\/[A-Za-z0-9_-]{1,256}$/u.test(endpoint.pathname)) {
+    throw new Error("CDP page target socket failed loopback and same-port validation.");
+  }
+  return `ws://127.0.0.1:${port}${endpoint.pathname}`;
+}
+
+export function createCdpSocketLease() {
+  let active = null;
+  return {
+    register(socket) {
+      if (!socket || typeof socket.close !== "function" || active) {
+        throw new Error("CDP socket lease cannot register the socket.");
+      }
+      active = socket;
+    },
+    release(socket) {
+      if (active === socket) active = null;
+    },
+    hasActive() {
+      return active !== null;
+    },
+    closeActive() {
+      if (!active) return false;
+      const socket = active;
+      active = null;
+      socket.close();
+      return true;
+    },
+  };
+}
+
+function sendCdpInsertText(
+  socketUrl,
+  text,
+  webSocketFactory,
+  timeoutMs,
+  onSocketCreated,
+  onSocketClosed,
+) {
+  return new Promise((resolveCommand, rejectCommand) => {
+    let socket;
+    try {
+      socket = webSocketFactory(socketUrl);
+    } catch {
+      rejectCommand(new Error("CDP page socket could not be created."));
+      return;
+    }
+    try {
+      onSocketCreated(socket);
+    } catch {
+      try { socket.close(); } catch { /* best effort before session cleanup */ }
+      rejectCommand(new Error("CDP page socket could not be registered."));
+      return;
+    }
+    let settled = false;
+    let closeRequested = false;
+    let closeListenerReady = false;
+    let ignoredEvents = 0;
+    let primaryFailure;
+    let commandTimeout;
+    let closeTimeout;
+    const settle = (cleanupFailure) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(commandTimeout);
+      clearTimeout(closeTimeout);
+      if (primaryFailure && cleanupFailure) {
+        rejectCommand(new AggregateError(
+          [primaryFailure, cleanupFailure],
+          "CDP insertion and cleanup both failed.",
+        ));
+      } else if (primaryFailure) rejectCommand(primaryFailure);
+      else if (cleanupFailure) rejectCommand(cleanupFailure);
+      else resolveCommand();
+    };
+    const requestClose = (failure) => {
+      if (settled) return;
+      if (failure && !primaryFailure) primaryFailure = failure;
+      if (closeRequested) return;
+      closeRequested = true;
+      clearTimeout(commandTimeout);
+      closeTimeout = setTimeout(
+        () => settle(new Error(`CDP page socket cleanup timed out after ${timeoutMs} ms.`)),
+        timeoutMs,
+      );
+      try {
+        socket.close();
+      } catch {
+        settle(new Error("CDP page socket cleanup failed."));
+      }
+    };
+    commandTimeout = setTimeout(
+      () => requestClose(new Error(`CDP text insertion timed out after ${timeoutMs} ms.`)),
+      timeoutMs,
+    );
+    try {
+      socket.addEventListener("close", () => {
+        if (!closeRequested) {
+          primaryFailure = new Error("CDP page socket closed before text insertion completed.");
+          closeRequested = true;
+        }
+        try {
+          onSocketClosed(socket);
+          settle();
+        } catch {
+          settle(new Error("CDP page socket cleanup registration failed."));
+        }
+      }, { once: true });
+      closeListenerReady = true;
+      socket.addEventListener("open", () => {
+        try {
+          socket.send(JSON.stringify({ id: 1, method: "Input.insertText", params: { text } }));
+        } catch {
+          requestClose(new Error("CDP text insertion command could not be sent."));
+        }
+      }, { once: true });
+      socket.addEventListener("message", (event) => {
+        if (settled) return;
+        if (typeof event.data !== "string" || Buffer.byteLength(event.data, "utf8") > CDP_MAX_MESSAGE_BYTES) {
+          requestClose(new Error("CDP text insertion returned an invalid response."));
+          return;
+        }
+        let message;
+        try {
+          message = JSON.parse(event.data);
+        } catch {
+          requestClose(new Error("CDP text insertion returned invalid JSON."));
+          return;
+        }
+        if (!record(message) || !("id" in message)) {
+          ignoredEvents += 1;
+          if (ignoredEvents > CDP_MAX_IGNORED_EVENTS) {
+            requestClose(new Error("CDP text insertion exceeded its event limit."));
+          }
+          return;
+        }
+        if (message.id !== 1) {
+          requestClose(new Error("CDP text insertion returned the wrong response id."));
+          return;
+        }
+        if ("error" in message) {
+          if (!record(message.error) || !Number.isSafeInteger(message.error.code)
+            || typeof message.error.message !== "string") {
+            requestClose(new Error("CDP text insertion returned an invalid error response."));
+            return;
+          }
+          const code = message.error.code;
+          const digest = createHash("sha256").update(message.error.message).digest("hex");
+          requestClose(new Error(`CDP text insertion failed with code ${code} and message digest ${digest}.`));
+          return;
+        }
+        if (!record(message.result)) {
+          requestClose(new Error("CDP text insertion returned an invalid result."));
+          return;
+        }
+        requestClose();
+      });
+      socket.addEventListener("error", () => requestClose(new Error("CDP page socket failed.")), { once: true });
+    } catch {
+      primaryFailure = new Error("CDP page socket listener setup failed.");
+      if (closeListenerReady) requestClose();
+      else {
+        clearTimeout(commandTimeout);
+        try {
+          socket.close();
+          settle();
+        } catch {
+          settle(new Error("CDP page socket cleanup failed."));
+        }
+      }
+    }
+  });
+}
+
+export async function insertTextThroughCdp(debuggerAddress, text, expectedPageUrl, options) {
+  if (typeof text !== "string") throw new Error("CDP text insertion requires text.");
+  if (Buffer.byteLength(text, "utf8") > CDP_MAX_TEXT_BYTES) {
+    throw new Error("CDP text insertion exceeded its byte limit.");
+  }
+  if (options !== undefined && !record(options)) throw new Error("CDP text insertion options are invalid.");
+  const {
+    fetchImpl = fetch,
+    webSocketFactory = (url) => new WebSocket(url),
+    onSocketCreated = () => undefined,
+    onSocketClosed = () => undefined,
+    timeoutMs = 5_000,
+  } = options ?? {};
+  if (typeof fetchImpl !== "function" || typeof webSocketFactory !== "function"
+    || typeof onSocketCreated !== "function" || typeof onSocketClosed !== "function"
+    || !Number.isSafeInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 30_000) {
+    throw new Error("CDP text insertion options are invalid.");
+  }
+  const port = cdpDebuggerPort(debuggerAddress);
+  const normalizedExpectedPageUrl = normalizedCdpPageUrl(expectedPageUrl);
+  let response;
+  try {
+    response = await fetchImpl(`http://127.0.0.1:${port}/json/list`, {
+      redirect: "error",
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch {
+    throw new Error("CDP target discovery failed.");
+  }
+  if (!response?.ok) throw new Error("CDP target discovery returned an unsuccessful response.");
+  let targets;
+  try {
+    targets = JSON.parse(await boundedResponseText(response));
+  } catch (error) {
+    if (error instanceof SyntaxError) throw new Error("CDP target discovery returned invalid JSON.");
+    throw error;
+  }
+  const socketUrl = validatedCdpPageSocket(targets, port, normalizedExpectedPageUrl);
+  await sendCdpInsertText(
+    socketUrl,
+    text,
+    webSocketFactory,
+    timeoutMs,
+    onSocketCreated,
+    onSocketClosed,
+  );
 }
 
 function controlWaitOptions(options) {
@@ -173,7 +480,7 @@ export async function setVisibleEnabledControl(
 
 export async function setVisibleEnabledTextArea(client, label, value, options) {
   if (!client || typeof client.execute !== "function" || typeof client.clickElement !== "function"
-    || typeof client.performActions !== "function" || typeof client.releaseActions !== "function"
+    || typeof client.insertFocusedText !== "function"
     || typeof label !== "string" || label.length === 0) {
     throw new Error("Packaged textarea automation requires a WebDriver client and non-empty label.");
   }
@@ -211,26 +518,8 @@ export async function setVisibleEnabledTextArea(client, label, value, options) {
       : "invalid focus evidence";
     throw new Error(`Could not establish WebDriver focus for ${JSON.stringify(label)}: ${diagnostic}.`);
   }
-  let actionFailure;
-  try {
-    await client.performActions(textReplacementKeyActions(expected));
-  } catch (error) {
-    actionFailure = error;
-  }
-  let releaseFailure;
-  try {
-    await client.releaseActions();
-  } catch (error) {
-    releaseFailure = error;
-  }
-  if (actionFailure && releaseFailure) {
-    throw new AggregateError(
-      [actionFailure, releaseFailure],
-      "WebDriver keyboard actions and release both failed.",
-    );
-  }
-  if (actionFailure) throw actionFailure;
-  if (releaseFailure) throw releaseFailure;
+  const pageUrl = await client.execute(READ_PACKAGED_PAGE_URL_SCRIPT);
+  await client.insertFocusedText(expected, pageUrl);
   await waitForVisibleEnabledControlValue(client, label, expected, validatedOptions);
   return true;
 }
