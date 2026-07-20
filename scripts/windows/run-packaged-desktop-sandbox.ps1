@@ -44,6 +44,7 @@ $arguments = @(
   "--native-driver", "$local\tools\msedgedriver.exe",
   "--webview", "$local\webview",
   "--credential-probe", "$local\scripts\credential-probe.ps1",
+  "--keyboard-input", "$local\scripts\send-unicode-input.ps1",
   "--source-metadata", "$local\scripts\source-metadata.json",
   "--harness-manifest", "C:\ScadMillEvidence\harness-manifest.json",
   "--soak-config", "$local\scripts\n2-soak-config.json",

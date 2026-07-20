@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-m4-windows-sendinput",
+  "createdAt": "2026-07-20T10:45:21-06:00",
+  "summary": "Replace the exhausted WebDriver/CDP packaged textarea boundary with bounded Win32 SendInput against the exact verified ScadMill guest process.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "AC-10.b", "AC-10.c", "N-3 keyboard operability", "N-7 evidence honesty"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-m4-windows-sendinput.json", "status": "added" },
+    { "path": "scripts/lib/packaged-desktop-evidence.d.mts", "status": "modified" },
+    { "path": "scripts/lib/packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "scripts/run-packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "scripts/windows/run-packaged-desktop-evidence.ps1", "status": "modified" },
+    { "path": "scripts/windows/run-packaged-desktop-sandbox.ps1", "status": "modified" },
+    { "path": "scripts/windows/send-unicode-input.ps1", "status": "added" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0453",
+      "topic": "Packaged Windows real-user text input boundary",
+      "decision": "After WebDriver resolves, clicks, focuses, and selects the exact visible enabled Message textarea, bind the automation client to the already hash-verified ScadMill process. Invoke a manifest-hashed guest helper that activates only that process's main window and sends Ctrl+A followed by Unicode key-down/key-up records through Win32 SendInput. Bound UTF-8 input to 8192 bytes, require the exact sent-record count, retain no message content, and preserve the independent two-read React commit oracle. Do not make another WebDriver or CDP text/event permutation.",
+      "rationale": "Five protocol routes and three exact clean CDP refinements either left the focused DOM unchanged or changed it immediately without delivering state to packaged WebView2 React. The exact 9b78252 hosted path passed normal Chromium but failed packaged WebView2 identically, proving the protocol-world boundary was exhausted. OS SendInput exercises the same keyboard boundary as a real Windows user without adding a product test bridge or weakening AC-10 automation.",
+      "specBasis": ["AC-10.b", "AC-10.c", "N-3 keyboard operability", "N-7 evidence honesty"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The guest input helper must compile, reject an invalid process identity before input, stage under the manifest hash, activate the exact verified app process, send bounded Unicode keyboard records, and expose only fixed-shape count evidence to the existing React oracle.",
+      "test": "Compile and invoke the real PowerShell/C# helper against a nonexistent PID, statically bind wrapper/bootstrap/runner paths and process identity, then run the full packaged helper contract suite.",
+      "red": {
+        "command": "Exact clean packaged Windows Sandbox run bound to commit 9b78252fcb8891bbe65df394e5c0a1ddf12a21fe and tree 8286428750abdd3520ed5b1d3630445c723ba980",
+        "observedAt": "2026-07-20T10:38:50-06:00",
+        "outcome": "RUNTIME RED: the exact browser editing plus main-world InputEvent path passed real Chromium but again failed to commit packaged WebView2 React state; the safe mock received zero requests. Thirteen prior guest events and exact cleanup passed. The WebDriver/CDP input boundary is exhausted and will not be retried."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts",
+        "observedAt": "2026-07-20T10:45:02-06:00",
+        "outcome": "GREEN: the exact packaged helper suite passed 55/55, including manifest shape, wrapper/bootstrap wiring, verified-process binding, PowerShell invocation, fixed sent-count evidence, focus preconditions, and committed-value oracle. A separate real helper invocation compiled the C# Win32 declarations and rejected nonexistent PID 2147483647 before input. Exact clean guest behavior remains unproven until one source-bound run."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-9b78252-sandbox-m4-input-event-20260720/evidence.json",
+      "sought": "Exact clean packaged M4 walkthrough on candidate 9b78252fcb8891bbe65df394e5c0a1ddf12a21fe",
+      "confirmation": "The release build and thirteen pre-message guest events passed. The same editing-plus-InputEvent path that completed hosted M4 did not commit React state inside packaged WebView2; the mock received zero requests. Exact Sandbox session and staging cleanup passed."
+    }
+  ],
+  "questions": ["No owner decision is required. The exhausted protocol path is retired. One exact clean source-bound run will decide the distinct OS-level input boundary and will not be blindly retried."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

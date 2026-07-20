@@ -972,6 +972,7 @@ export function parseSourceMetadata(serialized, expectedApplicationSha256) {
 const HARNESS_FILES = {
   config: "scadmill-packaged-evidence.wsb",
   credentialProbe: "scripts/credential-probe.ps1",
+  keyboardInput: "scripts/send-unicode-input.ps1",
   helper: "scripts/lib/packaged-desktop-evidence.mjs",
   m4PackagedWalkthrough: "scripts/lib/m4-packaged-walkthrough.mjs",
   m4PackagedVerifier: "scripts/lib/m4-packaged-verifier.mjs",

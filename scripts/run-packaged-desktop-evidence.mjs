@@ -23,8 +23,6 @@ import { runN2Soak } from "./lib/n2-soak-runner.mjs";
 import { verifyN2SoakArtifacts } from "./lib/n2-soak-verifier.mjs";
 import {
   clickVisibleEnabledButton,
-  createCdpSocketLease,
-  insertTextThroughCdp,
   mcpEndpointManifestPath,
   mirrorWebViewDevToolsPort,
   parseBinaryStl,
@@ -71,7 +69,7 @@ function parseArguments(values) {
     if (!name?.startsWith("--") || !value) throw new Error(`Invalid argument near ${name ?? "end"}.`);
     parsed[name.slice(2)] = resolve(value);
   }
-  for (const required of ["app", "engine", "tauri-driver", "native-driver", "webview", "credential-probe", "source-metadata", "harness-manifest", "soak-config", "output"]) {
+  for (const required of ["app", "engine", "tauri-driver", "native-driver", "webview", "credential-probe", "keyboard-input", "source-metadata", "harness-manifest", "soak-config", "output"]) {
     if (!parsed[required]) throw new Error(`Missing --${required}.`);
   }
   return parsed;
@@ -240,12 +238,20 @@ function structuredMcpToolResult(result, label) {
 }
 
 class WebDriverClient {
-  constructor(baseUrl) {
+  constructor(baseUrl, keyboardInputPath) {
     this.baseUrl = baseUrl;
+    this.keyboardInputPath = keyboardInputPath;
+    this.applicationProcessId = null;
     this.sessionId = null;
     this.lastPortMirror = null;
     this.debuggerAddress = null;
-    this.cdpSocketLease = createCdpSocketLease();
+  }
+
+  bindApplicationProcess(processId) {
+    if (!Number.isSafeInteger(processId) || processId <= 0) {
+      throw new Error("Windows text input requires a verified application process.");
+    }
+    this.applicationProcessId = processId;
   }
 
   async request(method, path, body) {
@@ -345,15 +351,30 @@ class WebDriverClient {
     });
   }
 
-  insertFocusedText(text, expectedPageUrl) {
-    return insertTextThroughCdp(this.debuggerAddress, text, expectedPageUrl, {
-      onSocketCreated: (socket) => {
-        this.cdpSocketLease.register(socket);
-      },
-      onSocketClosed: (socket) => {
-        this.cdpSocketLease.release(socket);
-      },
-    });
+  async insertFocusedText(text, _expectedPageUrl) {
+    if (!Number.isSafeInteger(this.applicationProcessId) || this.applicationProcessId <= 0) {
+      throw new Error("Windows text input requires a verified application process.");
+    }
+    const encoded = Buffer.from(text, "utf8").toString("base64");
+    let result;
+    try {
+      result = await run("powershell.exe", [
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-File", this.keyboardInputPath,
+        "-ProcessId", String(this.applicationProcessId),
+        "-TextBase64", encoded,
+      ], { timeoutMs: 10_000 });
+    } catch {
+      throw new Error("Windows text input failed.");
+    }
+    let evidence;
+    try { evidence = JSON.parse(result.stdout); } catch { /* fail closed below */ }
+    const expectedSent = 4 + text.length * 2;
+    if (!evidence || Object.keys(evidence).sort().join(",") !== "activated,sent"
+      || evidence.activated !== true || evidence.sent !== expectedSent) {
+      throw new Error("Windows text input returned invalid evidence.");
+    }
   }
 
   async screenshot(path) {
@@ -367,7 +388,6 @@ class WebDriverClient {
   }
 
   async deleteSession() {
-    try { this.cdpSocketLease.closeActive(); } catch { /* session deletion remains authoritative */ }
     if (!this.sessionId) {
       this.debuggerAddress = null;
       return;
@@ -533,6 +553,7 @@ async function dismissWelcome(client) {
 }
 
 async function setControl(client, label, value) {
+  client.bindApplicationProcess(lastVerifiedAppProcess?.pid);
   if (await setVisibleEnabledTextArea(client, label, value)) return;
   await setVisibleEnabledControl(client, label, value);
 }
@@ -1091,7 +1112,7 @@ try {
   });
 
   driver = await startDriver(args["tauri-driver"], args["native-driver"], args.output, 1);
-  client = new WebDriverClient(DRIVER_URL);
+  client = new WebDriverClient(DRIVER_URL, args["keyboard-input"]);
   const capabilities = await client.createSession(args.app, args.webview);
   await waitForBody(client, "ScadMill");
   await waitForBody(client, "Configure engine");
@@ -1531,7 +1552,7 @@ try {
         client = null;
         await waitForNoAppProcess(args.app);
         await waitForNoExactExecutableProcess(webViewExecutable, "M4 WebView process exit before restart");
-        client = new WebDriverClient(DRIVER_URL);
+        client = new WebDriverClient(DRIVER_URL, args["keyboard-input"]);
         await client.createSession(args.app, args.webview);
         await waitForBody(client, `OpenSCAD ${EXPECTED_ENGINE_VERSION}`, 60_000);
         await assertWelcomeStaysDisabled(client);
@@ -1599,7 +1620,7 @@ try {
     events,
   });
   await record("m4-final-artifacts-verified", finalM4Verification);
-  client = new WebDriverClient(DRIVER_URL);
+  client = new WebDriverClient(DRIVER_URL, args["keyboard-input"]);
   await client.createSession(args.app, args.webview);
   await waitForBody(client, `OpenSCAD ${EXPECTED_ENGINE_VERSION}`, 60_000);
   await assertWelcomeStaysDisabled(client);
@@ -1656,7 +1677,7 @@ try {
 
   await client.deleteSession();
   await waitForNoAppProcess(args.app);
-  client = new WebDriverClient(DRIVER_URL);
+  client = new WebDriverClient(DRIVER_URL, args["keyboard-input"]);
   await client.createSession(args.app, args.webview);
   await waitForBody(client, `OpenSCAD ${EXPECTED_ENGINE_VERSION}`, 60_000);
   await assertWelcomeStaysDisabled(client);
@@ -1702,7 +1723,7 @@ try {
   await mkdir(recoveryProjectDirectory, { recursive: true });
   await writeFile(recoveryProjectFile, cubeSource, "utf8");
   driver = await startDriver(args["tauri-driver"], args["native-driver"], args.output, 2);
-  client = new WebDriverClient(DRIVER_URL);
+  client = new WebDriverClient(DRIVER_URL, args["keyboard-input"]);
   await client.createSession(args.app, args.webview);
   await waitForBody(client, `OpenSCAD ${EXPECTED_ENGINE_VERSION}`, 60_000);
   await assertWelcomeStaysDisabled(client);
@@ -1766,7 +1787,7 @@ try {
   await waitForNoAppProcess(args.app);
   await waitForNoExactExecutableProcess(webViewExecutable, "fixed WebView2 process exit before layout restart");
 
-  client = new WebDriverClient(DRIVER_URL);
+  client = new WebDriverClient(DRIVER_URL, args["keyboard-input"]);
   await client.createSession(args.app, args.webview);
   await waitForBody(client, `OpenSCAD ${EXPECTED_ENGINE_VERSION}`, 60_000);
   await assertWelcomeStaysDisabled(client);
@@ -1889,7 +1910,7 @@ try {
   driver = null;
   await delay(500);
   driver = await startDriver(args["tauri-driver"], args["native-driver"], args.output, 3);
-  client = new WebDriverClient(DRIVER_URL);
+  client = new WebDriverClient(DRIVER_URL, args["keyboard-input"]);
   await client.createSession(args.app, args.webview);
   await waitForBody(client, "Restore unsaved work", 30_000);
   await assertWelcomeStaysDisabled(client);

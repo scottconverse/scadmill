@@ -377,6 +377,7 @@ try {
   Copy-Item -LiteralPath (Join-Path $repo "scripts\lib\n2-soak-runner.mjs") -Destination (Join-Path $stage "scripts\lib")
   Copy-Item -LiteralPath (Join-Path $repo "scripts\lib\n2-soak-verifier.mjs") -Destination (Join-Path $stage "scripts\lib")
   Copy-Item -LiteralPath (Join-Path $repo "scripts\windows\credential-probe.ps1") -Destination (Join-Path $stage "scripts")
+  Copy-Item -LiteralPath (Join-Path $repo "scripts\windows\send-unicode-input.ps1") -Destination (Join-Path $stage "scripts")
   Copy-Item -LiteralPath (Join-Path $repo "scripts\windows\run-packaged-desktop-sandbox.ps1") -Destination (Join-Path $stage "scripts")
   $sourceMetadata = [ordered]@{
     schemaVersion = 1
@@ -459,6 +460,7 @@ try {
     files = [ordered]@{
       config = [ordered]@{ path = "scadmill-packaged-evidence.wsb"; sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $configPath).Hash }
       credentialProbe = [ordered]@{ path = "scripts/credential-probe.ps1"; sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $stage "scripts\credential-probe.ps1")).Hash }
+      keyboardInput = [ordered]@{ path = "scripts/send-unicode-input.ps1"; sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $stage "scripts\send-unicode-input.ps1")).Hash }
       helper = [ordered]@{ path = "scripts/lib/packaged-desktop-evidence.mjs"; sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $stage "scripts\lib\packaged-desktop-evidence.mjs")).Hash }
       m4PackagedWalkthrough = [ordered]@{ path = "scripts/lib/m4-packaged-walkthrough.mjs"; sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $stage "scripts\lib\m4-packaged-walkthrough.mjs")).Hash }
       m4PackagedVerifier = [ordered]@{ path = "scripts/lib/m4-packaged-verifier.mjs"; sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $stage "scripts\lib\m4-packaged-verifier.mjs")).Hash }

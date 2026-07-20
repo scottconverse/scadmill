@@ -1470,11 +1470,26 @@ describe("packaged desktop evidence helpers", () => {
     expect(keyboardCalls).toBe(0);
   });
 
-  it("wires bounded CDP insertion through the packaged WebDriver client", async () => {
-    const runner = await readFile(join(process.cwd(), "scripts", "run-packaged-desktop-evidence.mjs"), "utf8");
+  it("wires verified Windows input through the packaged WebDriver client", async () => {
+    const [runner, wrapper, bootstrap, keyboardInput] = await Promise.all([
+      readFile(join(process.cwd(), "scripts", "run-packaged-desktop-evidence.mjs"), "utf8"),
+      readFile(join(process.cwd(), "scripts", "windows", "run-packaged-desktop-evidence.ps1"), "utf8"),
+      readFile(join(process.cwd(), "scripts", "windows", "run-packaged-desktop-sandbox.ps1"), "utf8"),
+      readFile(join(process.cwd(), "scripts", "windows", "send-unicode-input.ps1"), "utf8"),
+    ]);
 
-    expect(runner).toContain("insertTextThroughCdp(this.debuggerAddress, text, expectedPageUrl, {");
-    expect(runner).toContain("this.cdpSocketLease.closeActive()");
+    expect(runner).toContain('client.bindApplicationProcess(lastVerifiedAppProcess?.pid)');
+    expect(runner).toContain('run("powershell.exe", [');
+    expect(runner).toContain('"-File", this.keyboardInputPath');
+    expect(runner).toContain('const expectedSent = 4 + text.length * 2;');
+    expect(runner).not.toContain("insertTextThroughCdp(this.debuggerAddress");
+    expect(wrapper).toContain('scripts\\windows\\send-unicode-input.ps1');
+    expect(wrapper).toContain('keyboardInput = [ordered]@{ path = "scripts/send-unicode-input.ps1"');
+    expect(bootstrap).toContain('"--keyboard-input", "$local\\scripts\\send-unicode-input.ps1"');
+    expect(keyboardInput).toContain("SendInput");
+    expect(keyboardInput).toContain("SetForegroundWindow");
+    expect(keyboardInput).toContain("KEYEVENTF_UNICODE");
+    expect(keyboardInput).not.toContain("Write-Host $text");
   });
 
   it("rejects invalid control wait options before any UI mutation", async () => {
@@ -1528,6 +1543,7 @@ describe("packaged desktop evidence helpers", () => {
       files: {
         config: { path: "scadmill-packaged-evidence.wsb", sha256 },
         credentialProbe: { path: "scripts/credential-probe.ps1", sha256 },
+        keyboardInput: { path: "scripts/send-unicode-input.ps1", sha256 },
         helper: { path: "scripts/lib/packaged-desktop-evidence.mjs", sha256 },
         m4PackagedWalkthrough: { path: "scripts/lib/m4-packaged-walkthrough.mjs", sha256 },
         m4PackagedVerifier: { path: "scripts/lib/m4-packaged-verifier.mjs", sha256 },
