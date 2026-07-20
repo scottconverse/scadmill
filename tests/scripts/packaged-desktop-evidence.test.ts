@@ -921,6 +921,26 @@ describe("packaged desktop evidence helpers", () => {
     expect(runner).toContain('await record("m4-final-artifacts-verified", finalM4Verification)');
   });
 
+  it("limits packaged actions to visible controls and activates activity rails idempotently", async () => {
+    const runner = await readFile(
+      join(process.cwd(), "scripts", "run-packaged-desktop-evidence.mjs"),
+      "utf8",
+    );
+    const helpers = runner.slice(
+      runner.indexOf("async function clickButton"),
+      runner.indexOf("async function clearDiagnosticConsole"),
+    );
+    expect(helpers).toContain("element.getClientRects().length > 0");
+    expect(helpers).toContain("async function activateRail");
+    expect(helpers).toContain("button.getAttribute('aria-pressed') !== 'true'");
+    expect(helpers).toContain("visible activity rail");
+    expect(helpers.match(/getClientRects\(\)\.length > 0/gu)?.length).toBeGreaterThanOrEqual(6);
+    const m4 = runner.slice(runner.indexOf("const m4InitialSource"));
+    expect(m4).not.toContain('clickAria(client, "History")');
+    expect(m4).not.toContain('clickAria(client, "Files")');
+    expect(runner).toContain('activateRail: (title) => activateRail(client, title)');
+  });
+
   it("requires an exact isolated-Sandbox harness manifest", () => {
     const sha256 = "ab".repeat(32);
     const manifest = {

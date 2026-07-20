@@ -422,8 +422,12 @@ async function waitForBody(client, expected, timeoutMs = 30_000) {
 async function clickButton(client, text) {
   const clicked = await client.execute(`
     const wanted = arguments[0];
+    const visible = (element) => element.getClientRects().length > 0
+      && getComputedStyle(element).visibility !== 'hidden'
+      && getComputedStyle(element).display !== 'none';
     const button = [...document.querySelectorAll('button')]
-      .find((candidate) => candidate.textContent.trim() === wanted && !candidate.disabled);
+      .find((candidate) => candidate.textContent.trim() === wanted
+        && !candidate.disabled && visible(candidate));
     if (!button) return false;
     button.click();
     return true;
@@ -433,12 +437,40 @@ async function clickButton(client, text) {
 
 async function clickAria(client, label) {
   const clicked = await client.execute(`
-    const element = document.querySelector('[aria-label="' + CSS.escape(arguments[0]) + '"]');
+    const visible = (element) => element.getClientRects().length > 0
+      && getComputedStyle(element).visibility !== 'hidden'
+      && getComputedStyle(element).display !== 'none';
+    const element = [...document.querySelectorAll('[aria-label="' + CSS.escape(arguments[0]) + '"]')]
+      .find((candidate) => candidate instanceof HTMLElement && visible(candidate));
     if (!(element instanceof HTMLElement) || element.matches(':disabled')) return false;
     element.click();
     return true;
   `, [label]);
   if (clicked !== true) throw new Error(`Could not click element labelled ${JSON.stringify(label)}.`);
+}
+
+async function activateRail(client, title) {
+  const found = await client.execute(`
+    const visible = (element) => element.getClientRects().length > 0
+      && getComputedStyle(element).visibility !== 'hidden'
+      && getComputedStyle(element).display !== 'none';
+    const button = [...document.querySelectorAll('.activity-rail button[title]')]
+      .find((candidate) => candidate.getAttribute('title') === arguments[0]
+        && candidate instanceof HTMLButtonElement && visible(candidate));
+    if (!(button instanceof HTMLButtonElement) || button.disabled) return false;
+    if (button.getAttribute('aria-pressed') !== 'true') button.click();
+    return true;
+  `, [title]);
+  if (found !== true) throw new Error(`Could not activate activity rail ${JSON.stringify(title)}.`);
+  await waitFor(async () => (await client.execute(`
+    const button = [...document.querySelectorAll('.activity-rail button[title]')]
+      .find((candidate) => candidate.getAttribute('title') === arguments[0]);
+    const dock = document.querySelector('.workspace-dock');
+    const heading = dock?.querySelector('.layout-panel-heading span');
+    return button?.getAttribute('aria-pressed') === 'true'
+      && Boolean(dock && dock.getClientRects().length > 0)
+      && heading?.textContent?.trim() === arguments[0];
+  `, [title])) === true, `visible activity rail ${JSON.stringify(title)}`, 10_000, 50);
 }
 
 async function welcomeState(client) {
@@ -490,7 +522,11 @@ async function dismissWelcome(client) {
 
 async function setControl(client, label, value) {
   const selected = await client.execute(`
-    const control = document.querySelector('[aria-label="' + CSS.escape(arguments[0]) + '"]');
+    const visible = (element) => element.getClientRects().length > 0
+      && getComputedStyle(element).visibility !== 'hidden'
+      && getComputedStyle(element).display !== 'none';
+    const control = [...document.querySelectorAll('[aria-label="' + CSS.escape(arguments[0]) + '"]')]
+      .find((candidate) => visible(candidate));
     if (!(control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement)) return null;
     const prototype = control instanceof HTMLInputElement
       ? HTMLInputElement.prototype
@@ -513,25 +549,33 @@ async function setChecked(client, label, checked) {
   assert.equal(typeof checked, "boolean", "Checkbox automation requires a boolean state.");
   const selected = await client.execute(`
     const wanted = arguments[0];
-    const direct = document.querySelector('[aria-label="' + CSS.escape(wanted) + '"]');
+    const visible = (element) => element.getClientRects().length > 0
+      && getComputedStyle(element).visibility !== 'hidden'
+      && getComputedStyle(element).display !== 'none';
+    const direct = [...document.querySelectorAll('[aria-label="' + CSS.escape(wanted) + '"]')]
+      .find((candidate) => visible(candidate));
     const labelled = [...document.querySelectorAll('label')]
-      .find((candidate) => candidate.textContent.trim() === wanted)
+      .find((candidate) => candidate.textContent.trim() === wanted && visible(candidate))
       ?.querySelector('input[type="checkbox"]');
     const control = direct instanceof HTMLInputElement ? direct : labelled;
     if (!(control instanceof HTMLInputElement) || control.type !== 'checkbox'
-      || control.disabled) return null;
+      || control.disabled || !visible(control)) return null;
     if (control.checked !== arguments[1]) control.click();
     return control.checked;
   `, [label, checked]);
   if (selected !== checked) throw new Error(`Could not set ${JSON.stringify(label)} to ${checked}.`);
   await waitFor(async () => (await client.execute(`
     const wanted = arguments[0];
-    const direct = document.querySelector('[aria-label="' + CSS.escape(wanted) + '"]');
+    const visible = (element) => element.getClientRects().length > 0
+      && getComputedStyle(element).visibility !== 'hidden'
+      && getComputedStyle(element).display !== 'none';
+    const direct = [...document.querySelectorAll('[aria-label="' + CSS.escape(wanted) + '"]')]
+      .find((candidate) => visible(candidate));
     const labelled = [...document.querySelectorAll('label')]
-      .find((candidate) => candidate.textContent.trim() === wanted)
+      .find((candidate) => candidate.textContent.trim() === wanted && visible(candidate))
       ?.querySelector('input[type="checkbox"]');
     const control = direct instanceof HTMLInputElement ? direct : labelled;
-    return control instanceof HTMLInputElement ? control.checked : null;
+    return control instanceof HTMLInputElement && visible(control) ? control.checked : null;
   `, [label])) === checked, `checkbox ${JSON.stringify(label)} state`, 10_000, 50);
 }
 
@@ -1360,6 +1404,7 @@ try {
         30_000,
         50,
       ),
+      activateRail: (title) => activateRail(client, title),
       clickAria: (label) => clickAria(client, label),
       clickButton: (label) => clickButton(client, label),
       setControl: (label, value) => setControl(client, label, value),
@@ -1444,7 +1489,7 @@ try {
           "M4 write_file",
         );
         assert.equal(pending.status, "pending_review");
-        await clickAria(client, "History");
+        await activateRail(client, "History");
         await waitForBody(client, "Pending review");
         assert.deepEqual(await mcpDiffSources(client), { local: m4AgentSource, proposed: m4McpSource });
         await clickButton(client, "Approve change");
@@ -1468,7 +1513,7 @@ try {
         };
       },
       restartApplication: async (expectedSource) => {
-        await clickAria(client, "Files");
+        await activateRail(client, "Files");
         const savedSource = await editorSource(client);
         assert.equal(savedSource, expectedSource, "M4 restart source differs from the helper's cold-cache source.");
         assert.notEqual(await readFile(m4ProjectFile, "utf8"), expectedSource, "M4 cold-cache source reached disk before the explicit save.");
@@ -1504,7 +1549,7 @@ try {
     screenshotCount: m4Evidence.screenshots.length,
     secretSha256: m4SecretSha256,
   });
-  await clickAria(client, "Files");
+  await activateRail(client, "Files");
   assert.equal(await editorSource(client), m4InitialSource, "M4 helper did not restore the initial source before cleanup.");
   await clickButton(client, "Save active file");
   await waitFor(async () => (await readFile(m4ProjectFile, "utf8")) === m4InitialSource, "restored M4 source saved before cleanup", 15_000, 50);

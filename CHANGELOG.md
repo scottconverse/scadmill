@@ -114,6 +114,9 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Fixed
 
+- The packaged M4 no-provider security oracle now distinguishes Tauri's local `ipc.localhost` command transport from external provider egress, retains bounded sanitized transport observations, fails closed on unknown schemes, unparseable or dropped observations, and rejects `ai_http_request` even when a protected bridge exposes it only as renderer-observed Tauri IPC.
+- Packaged desktop controls now operate only on visible elements, activity-rail activation is idempotent, returning to the remounted AI panel explicitly restores the required session consent, animation evidence records the actual post-play frame 52 / `$t 0.51`, and thumbnail evidence waits within a five-second bound for the current persisted capture instead of accepting stale bytes.
+
 - Corrected the packaged N-2 midpoint fault-injection oracle to verify the two render-failure surfaces ScadMill actually presents—the status bar and viewer error badge—instead of requiring an unrelated `role="alert"` element.
 - Automatic render thumbnails now run only when the active platform persistence supports the workspace (including browser scratch workspaces while excluding unsupported desktop scratch storage), and the History rail mounts at most 200 newest commands at once while keeping older session commands reachable in bounded pages.
 - Accelerated, explicitly non-release N-2 diagnostics now use a duration-scaled memory sampling interval and baseline window that real packaged render cycles can satisfy, including bounded post-cycle sampling overhead during independent artifact verification; the literal one-hour release profile remains unchanged.

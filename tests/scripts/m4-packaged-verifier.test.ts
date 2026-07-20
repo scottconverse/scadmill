@@ -9,7 +9,7 @@ import { verifyM4PackagedArtifacts } from "../../scripts/lib/m4-packaged-verifie
 
 const SCREENSHOTS = [
   "04a-ai-unconfigured.png", "04b-ai-proposal-applied.png", "04c-ai-agent-pending-diff.png",
-  "04d-cache-geometry-delta.png", "04e-animation-frame-51.png", "04f-file-tree-thumbnail.png",
+  "04d-cache-geometry-delta.png", "04e-animation-frame-52.png", "04f-file-tree-thumbnail.png",
   "04g-welcome-recent-thumbnail.png", "04h-cold-cache-restored-thumbnail.png",
 ];
 const ORDER = [
@@ -92,7 +92,13 @@ async function fixture() {
     status: "passed",
     order: ORDER,
     ai: {
-      unconfiguredRequestCount: 0, unconfiguredRendererNetworkAttempts: 0,
+      unconfiguredRequestCount: 0,
+      unconfiguredRendererAttempts: 1, unconfiguredRendererExternalAttempts: 0,
+      unconfiguredRendererInternalAttempts: 1,
+      unconfiguredRendererObservations: [{
+        command: "update_native_menu_state", kind: "fetch", method: "POST",
+        origin: "http://ipc.localhost", targetClass: "tauri-ipc",
+      }],
       unconfiguredTauriInvokeAttempts: null, unconfiguredInvokeMonitoring: "protected-nonwritable",
       requestCount: 7,
       proposalAccepted: true, agentStatus: "completed", capStatus: "capped", capToolRounds: 2,
@@ -108,7 +114,7 @@ async function fixture() {
     mcp: { defaultDenyCode: -32001, mutationApproved: true },
     cache: { baselineConsoleRunsAdded: 1, elapsedMs: 42.25, consoleRunsAdded: 0, coldElapsedMs: 43.5, restoredAfterRestart: true },
     delta: { unchanged: true, volumeDeltaMm3: 200, boundsDeltaMm: [2, 0, 0] },
-    animation: { frame: 51, time: 0.5, fps: 24, scrubConsoleRunsAdded: 1, playConsoleRunsAdded: 1, serialized: true },
+    animation: { frame: 52, time: 0.51, fps: 24, scrubConsoleRunsAdded: 1, playConsoleRunsAdded: 1, serialized: true },
     thumbnails: { documentPath: "main.scad", renderIdentity: "1".repeat(64), pngSha256: "2".repeat(64), byteLength: 100, width: 240, height: 160, persistedAcrossRestart: true },
     restart: { beforePid: 100, afterPid: 200, freshWebViewProcesses: true },
     screenshots: SCREENSHOTS.map((name) => ({ name, sha256: sha256(bytes), byteLength: bytes.byteLength })),
@@ -167,6 +173,16 @@ describe("retained M4 packaged verifier", () => {
       requireFinalEvent: true,
     })).rejects.toThrow("final M4 verification event changed");
     await expect(verifyM4PackagedArtifacts({ ...input, events: [...value.events, finalEvent, finalEvent], requireFinalEvent: true })).rejects.toThrow("exactly one final M4");
+
+    const disguisedBroker = structuredClone(value.walkthrough);
+    disguisedBroker.ai.unconfiguredRendererObservations[0].command = "ai_http_request";
+    const disguisedBrokerText = `${JSON.stringify(disguisedBroker, null, 2)}\n`;
+    await writeFile(value.walkthroughPath, disguisedBrokerText);
+    await expect(verifyM4PackagedArtifacts({
+      ...input,
+      events: [{ ...value.initialEvent, evidenceSha256: sha256(disguisedBrokerText) }, value.cleanupEvent],
+    })).rejects.toThrow("AI evidence");
+    await writeFile(value.walkthroughPath, `${JSON.stringify(value.walkthrough, null, 2)}\n`);
 
     const target = join(value.root, SCREENSHOTS[0]);
     await rm(target);

@@ -10,7 +10,7 @@ const SCREENSHOTS = [
   "04b-ai-proposal-applied.png",
   "04c-ai-agent-pending-diff.png",
   "04d-cache-geometry-delta.png",
-  "04e-animation-frame-51.png",
+  "04e-animation-frame-52.png",
   "04f-file-tree-thumbnail.png",
   "04g-welcome-recent-thumbnail.png",
   "04h-cold-cache-restored-thumbnail.png",
@@ -59,8 +59,22 @@ function requireWalkthroughShape(value) {
     ...Array.from({ length: 4 }, () => ({ source: false, diagnostics: false, parameters: false, screenshot: false })),
     ...Array.from({ length: 2 }, () => ({ source: true, diagnostics: false, parameters: false, screenshot: false })),
   ];
-  if (!exactKeys(ai, ["unconfiguredRequestCount", "unconfiguredRendererNetworkAttempts", "unconfiguredTauriInvokeAttempts", "unconfiguredInvokeMonitoring", "requestCount", "proposalAccepted", "agentStatus", "capStatus", "capToolRounds", "selectedResponseToolSequence", "contextPatterns", "semanticTranscript", "transcript"])
-    || ai.unconfiguredRequestCount !== 0 || ai.unconfiguredRendererNetworkAttempts !== 0
+  if (!exactKeys(ai, ["unconfiguredRequestCount", "unconfiguredRendererAttempts", "unconfiguredRendererExternalAttempts", "unconfiguredRendererInternalAttempts", "unconfiguredRendererObservations", "unconfiguredTauriInvokeAttempts", "unconfiguredInvokeMonitoring", "requestCount", "proposalAccepted", "agentStatus", "capStatus", "capToolRounds", "selectedResponseToolSequence", "contextPatterns", "semanticTranscript", "transcript"])
+    || ai.unconfiguredRequestCount !== 0
+    || !Number.isSafeInteger(ai.unconfiguredRendererAttempts) || ai.unconfiguredRendererAttempts < 0
+    || ai.unconfiguredRendererExternalAttempts !== 0
+    || !Number.isSafeInteger(ai.unconfiguredRendererInternalAttempts) || ai.unconfiguredRendererInternalAttempts < 0
+    || ai.unconfiguredRendererAttempts !== ai.unconfiguredRendererInternalAttempts
+    || !Array.isArray(ai.unconfiguredRendererObservations)
+    || ai.unconfiguredRendererObservations.length !== ai.unconfiguredRendererAttempts
+    || ai.unconfiguredRendererObservations.some((observation) =>
+      !exactKeys(observation, ["command", "kind", "method", "origin", "targetClass"])
+      || !["fetch", "xhr"].includes(observation.kind)
+      || typeof observation.method !== "string" || !/^[A-Z]{1,16}$/u.test(observation.method)
+      || typeof observation.origin !== "string" || observation.origin.length === 0 || observation.origin.length > 256
+      || !["tauri-ipc", "same-origin", "local-scheme"].includes(observation.targetClass)
+      || (observation.targetClass === "tauri-ipc" && observation.command === "ai_http_request")
+      || (observation.command !== null && (typeof observation.command !== "string" || !/^[A-Za-z0-9:_-]{1,128}$/u.test(observation.command))))
     || !["installed", "protected-nonwritable", "patch-failed"].includes(ai.unconfiguredInvokeMonitoring)
     || ai.unconfiguredTauriInvokeAttempts !== (ai.unconfiguredInvokeMonitoring === "installed" ? 0 : null)
     || ai.requestCount !== 7
@@ -96,7 +110,7 @@ function requireWalkthroughShape(value) {
     || !Number.isFinite(value.cache.coldElapsedMs) || value.cache.coldElapsedMs < 0 || value.cache.coldElapsedMs >= 100) throw new Error("Retained M4 cache evidence is invalid.");
   if (JSON.stringify(value.delta) !== JSON.stringify({ unchanged: true, volumeDeltaMm3: 200, boundsDeltaMm: [2, 0, 0] })) throw new Error("Retained M4 delta evidence is invalid.");
   if (!exactKeys(value.animation, ["frame", "time", "fps", "scrubConsoleRunsAdded", "playConsoleRunsAdded", "serialized"])
-    || value.animation.frame !== 51 || value.animation.time !== 0.5 || value.animation.fps !== 24
+    || value.animation.frame !== 52 || value.animation.time !== 0.51 || value.animation.fps !== 24
     || value.animation.scrubConsoleRunsAdded !== 1 || value.animation.playConsoleRunsAdded !== 1 || value.animation.serialized !== true) throw new Error("Retained M4 animation evidence is invalid.");
   if (!exactKeys(value.thumbnails, ["documentPath", "renderIdentity", "pngSha256", "byteLength", "width", "height", "persistedAcrossRestart"])
     || value.thumbnails.documentPath !== "main.scad" || !validSha(value.thumbnails.renderIdentity) || !validSha(value.thumbnails.pngSha256)

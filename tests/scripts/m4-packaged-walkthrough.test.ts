@@ -216,15 +216,45 @@ describe("M4 packaged newcomer walkthrough", () => {
     expect(() => inspectM4Png(expansion, "expansion", 256 * 1024)).toThrow(/dimension|decoded size/u);
   });
 
+  it("binds animation and thumbnail oracles to current production timing", () => {
+    expect(M4_DOM_SCRIPTS.animationPlayFrameCompleted).toContain("Frame 52 of 100");
+    expect(M4_DOM_SCRIPTS.animationPlayFrameCompleted).not.toContain("Frame 51 of 100");
+    expect(M4_DOM_SCRIPTS.thumbnailDecodedSnapshot).toContain("notBeforeMs");
+    expect(M4_DOM_SCRIPTS.thumbnailDecodedSnapshot).toContain("Date.parse(record.capturedAt) >= notBeforeMs");
+    expect(M4_DOM_SCRIPTS.thumbnailDecodedSnapshot).toContain("}, 5000)");
+  });
+
   it("rejects any unconfigured-AI renderer network attempt", () => {
     expect(() => validateM4ZeroNetworkAttempts({
       rendererAttemptCount: 1,
+      rendererExternalAttemptCount: 1,
+      rendererInternalAttemptCount: 0,
+      rendererDroppedAttemptCount: 0,
+      rendererObservations: [{ command: null, kind: "fetch", method: "POST", origin: "https://provider.example", targetClass: "external-http" }],
       tauriInvokeAttemptCount: 0,
       tauriInvokeMonitoring: "installed",
-    })).toThrow("network access");
+    })).toThrow("external renderer network access");
     expect(M4_DOM_SCRIPTS.installNetworkAttemptMonitor).toContain("command === 'ai_http_request'");
     expect(M4_DOM_SCRIPTS.installNetworkAttemptMonitor).toContain("blocked an AI broker request");
     expect(M4_DOM_SCRIPTS.networkAttemptSnapshot).toContain("Object.defineProperty(monitor.tauriInternals, 'invoke', monitor.invokeDescriptor)");
+  });
+
+  it("rejects a protected-bridge AI broker command even when it uses local Tauri IPC", () => {
+    expect(() => validateM4ZeroNetworkAttempts({
+      rendererAttemptCount: 1,
+      rendererExternalAttemptCount: 0,
+      rendererInternalAttemptCount: 1,
+      rendererDroppedAttemptCount: 0,
+      rendererObservations: [{
+        command: "ai_http_request",
+        kind: "fetch",
+        method: "POST",
+        origin: "http://ipc.localhost",
+        targetClass: "tauri-ipc",
+      }],
+      tauriInvokeAttemptCount: null,
+      tauriInvokeMonitoring: "protected-nonwritable",
+    })).toThrow("AI broker");
   });
 
   it("recognizes the current unconfigured-AI security guidance without a send path", () => {
@@ -292,11 +322,19 @@ describe("M4 packaged newcomer walkthrough", () => {
       const snapshot = new Function(M4_DOM_SCRIPTS.networkAttemptSnapshot);
       expect(install()).toEqual({
         rendererAttemptCount: 0,
+        rendererExternalAttemptCount: 0,
+        rendererInternalAttemptCount: 0,
+        rendererDroppedAttemptCount: 0,
+        rendererObservations: [],
         tauriInvokeAttemptCount: null,
         tauriInvokeMonitoring: "protected-nonwritable",
       });
       expect(snapshot()).toEqual({
         rendererAttemptCount: 0,
+        rendererExternalAttemptCount: 0,
+        rendererInternalAttemptCount: 0,
+        rendererDroppedAttemptCount: 0,
+        rendererObservations: [],
         tauriInvokeAttemptCount: null,
         tauriInvokeMonitoring: "protected-nonwritable",
       });
@@ -307,6 +345,57 @@ describe("M4 packaged newcomer walkthrough", () => {
       delete target.__scadmillM4NetworkAttemptMonitor;
       if (priorInternals) Object.defineProperty(target, "__TAURI_INTERNALS__", priorInternals);
       else delete target.__TAURI_INTERNALS__;
+      if (priorXmlHttpRequest) Object.defineProperty(target, "XMLHttpRequest", priorXmlHttpRequest);
+      else Reflect.deleteProperty(target, "XMLHttpRequest");
+    }
+  });
+
+  it("classifies retained renderer transports without treating Tauri IPC as provider egress", async () => {
+    const target = globalThis as typeof globalThis & {
+      __scadmillM4NetworkAttemptMonitor?: unknown;
+      XMLHttpRequest?: { prototype: { open: (...args: unknown[]) => unknown } };
+    };
+    const priorLocation = Object.getOwnPropertyDescriptor(target, "location");
+    const priorXmlHttpRequest = Object.getOwnPropertyDescriptor(target, "XMLHttpRequest");
+    const priorFetch = target.fetch;
+    const XMLHttpRequestFixture = class { open(..._args: unknown[]) { return undefined; } };
+    Object.defineProperty(target, "location", {
+      configurable: true,
+      value: { href: "http://tauri.localhost/", origin: "http://tauri.localhost" },
+    });
+    Object.defineProperty(target, "XMLHttpRequest", {
+      configurable: true,
+      writable: true,
+      value: XMLHttpRequestFixture,
+    });
+    target.fetch = async () => new Response(null, { status: 204 });
+    try {
+      const install = new Function(M4_DOM_SCRIPTS.installNetworkAttemptMonitor);
+      const snapshot = new Function(M4_DOM_SCRIPTS.networkAttemptSnapshot);
+      expect(install()).toMatchObject({ rendererAttemptCount: 0, rendererExternalAttemptCount: 0 });
+      await target.fetch("http://ipc.localhost/update_native_menu_state", { method: "POST" });
+      await target.fetch("http://tauri.localhost/assets/lazy.js");
+      await target.fetch("https://provider.example/v1/chat", { method: "POST" });
+      await target.fetch("ftp://remote.example/exfiltrate");
+      expect(snapshot()).toEqual({
+        rendererAttemptCount: 4,
+        rendererExternalAttemptCount: 2,
+        rendererInternalAttemptCount: 2,
+        rendererDroppedAttemptCount: 0,
+        rendererObservations: [
+          { command: "update_native_menu_state", kind: "fetch", method: "POST", origin: "http://ipc.localhost", targetClass: "tauri-ipc" },
+          { command: null, kind: "fetch", method: "GET", origin: "http://tauri.localhost", targetClass: "same-origin" },
+          { command: null, kind: "fetch", method: "POST", origin: "https://provider.example", targetClass: "external-http" },
+          { command: null, kind: "fetch", method: "GET", origin: "ftp://remote.example", targetClass: "external-scheme" },
+        ],
+        tauriInvokeAttemptCount: null,
+        tauriInvokeMonitoring: "unavailable",
+      });
+    } finally {
+      target.fetch = priorFetch;
+      delete target.__scadmillM4NetworkAttemptMonitor;
+      if (priorLocation) Object.defineProperty(target, "location", priorLocation);
+      else Reflect.deleteProperty(target, "location");
       if (priorXmlHttpRequest) Object.defineProperty(target, "XMLHttpRequest", priorXmlHttpRequest);
       else Reflect.deleteProperty(target, "XMLHttpRequest");
     }
@@ -351,6 +440,10 @@ describe("M4 packaged newcomer walkthrough", () => {
     const scripts: string[] = [];
     const observation = {
       rendererAttemptCount: 0,
+      rendererExternalAttemptCount: 0,
+      rendererInternalAttemptCount: 0,
+      rendererDroppedAttemptCount: 0,
+      rendererObservations: [],
       tauriInvokeAttemptCount: null,
       tauriInvokeMonitoring: "protected-nonwritable",
     };
@@ -358,6 +451,7 @@ describe("M4 packaged newcomer walkthrough", () => {
       readSource: async () => source,
       replaceSource: async (next) => { source = next; },
       waitForSource: async () => undefined,
+      activateRail: async () => undefined,
       clickAria: async () => undefined,
       clickButton: async () => undefined,
       setControl: async () => undefined,
@@ -394,6 +488,10 @@ describe("M4 packaged newcomer walkthrough", () => {
     let snapshotCalls = 0;
     const observation = {
       rendererAttemptCount: 0,
+      rendererExternalAttemptCount: 0,
+      rendererInternalAttemptCount: 0,
+      rendererDroppedAttemptCount: 0,
+      rendererObservations: [],
       tauriInvokeAttemptCount: null,
       tauriInvokeMonitoring: "protected-nonwritable",
     };
@@ -401,6 +499,7 @@ describe("M4 packaged newcomer walkthrough", () => {
       readSource: async () => source,
       replaceSource: async (next) => { source = next; },
       waitForSource: async () => undefined,
+      activateRail: async () => undefined,
       clickAria: async () => undefined,
       clickButton: async () => undefined,
       setControl: async () => undefined,
@@ -564,6 +663,7 @@ describe("M4 packaged newcomer walkthrough", () => {
         calls.push(`wait-source:${expected.replaceAll("\n", "\\n")}`);
         expect(source).toBe(expected);
       },
+      activateRail: async (title: string) => { calls.push(`rail:${title}`); },
       clickAria: async (label: string) => {
         calls.push(`aria:${label}`);
         if (label === "Close welcome") thumbnailPhase = "file-tree";
@@ -590,6 +690,10 @@ describe("M4 packaged newcomer walkthrough", () => {
           || script === M4_DOM_SCRIPTS.networkAttemptSnapshot) {
           return {
             rendererAttemptCount: 0,
+            rendererExternalAttemptCount: 0,
+            rendererInternalAttemptCount: 0,
+            rendererDroppedAttemptCount: 0,
+            rendererObservations: [],
             tauriInvokeAttemptCount: null,
             tauriInvokeMonitoring: "protected-nonwritable",
           };
@@ -620,7 +724,7 @@ describe("M4 packaged newcomer walkthrough", () => {
             : { summary: "Geometry unchanged", detail: "Geometry unchanged" };
         }
         if (script === M4_DOM_SCRIPTS.animationSnapshot) {
-          return { frame: "Frame 51 of 100", time: "$t 0.50", fps: "24", playLabel: "Play animation", consoleRuns, overlapObserved: false };
+          return { frame: "Frame 52 of 100", time: "$t 0.51", fps: "24", playLabel: "Play animation", consoleRuns, overlapObserved: false };
         }
         if (script === M4_DOM_SCRIPTS.thumbnailSnapshot) {
           return {
@@ -726,7 +830,10 @@ describe("M4 packaged newcomer walkthrough", () => {
       order: ["c10-unconfigured", "c10-proposal", "c10-agent", "c10-agent-cap", "c11-default-deny", "c11-allow-session", "cache", "delta", "animation", "thumbnail", "restart", "source-restored"],
       ai: {
         unconfiguredRequestCount: 0,
-        unconfiguredRendererNetworkAttempts: 0,
+        unconfiguredRendererAttempts: 0,
+        unconfiguredRendererExternalAttempts: 0,
+        unconfiguredRendererInternalAttempts: 0,
+        unconfiguredRendererObservations: [],
         unconfiguredTauriInvokeAttempts: null,
         unconfiguredInvokeMonitoring: "protected-nonwritable",
         requestCount: 7,
@@ -744,7 +851,7 @@ describe("M4 packaged newcomer walkthrough", () => {
       mcp: { defaultDenyCode: -32001, mutationApproved: true },
       cache: { baselineConsoleRunsAdded: 1, elapsedMs: 42.25, consoleRunsAdded: 0, restoredAfterRestart: true },
       delta: { unchanged: true, volumeDeltaMm3: 200, boundsDeltaMm: [2, 0, 0] },
-      animation: { frame: 51, time: 0.5, scrubConsoleRunsAdded: 1, playConsoleRunsAdded: 1, serialized: true },
+      animation: { frame: 52, time: 0.51, scrubConsoleRunsAdded: 1, playConsoleRunsAdded: 1, serialized: true },
       thumbnails: { documentPath: "main.scad", width: 240, height: 160, persistedAcrossRestart: true },
       source: { restoredExactly: true },
     });
@@ -756,7 +863,7 @@ describe("M4 packaged newcomer walkthrough", () => {
       "04b-ai-proposal-applied.png",
       "04c-ai-agent-pending-diff.png",
       "04d-cache-geometry-delta.png",
-      "04e-animation-frame-51.png",
+      "04e-animation-frame-52.png",
       "04f-file-tree-thumbnail.png",
       "04g-welcome-recent-thumbnail.png",
       "04h-cold-cache-restored-thumbnail.png",
@@ -792,6 +899,10 @@ describe("M4 packaged newcomer walkthrough", () => {
     expect(calls).toContain("checked:Current file=false");
     expect(calls).toContain("checked:Diagnostics=false");
     expect(calls).toContain("checked:Parameters=false");
+    expect(calls.filter((call) => call === "rail:AI")).toHaveLength(3);
+    expect(calls).toContain("checked:Allow tool calls for this conversation=true");
+    expect(calls).not.toContain("aria:History");
+    expect(calls).not.toContain("aria:Files");
     expect(calls.indexOf("mcp:deny")).toBeLessThan(calls.indexOf("mcp:allow-session"));
     expect(calls.indexOf("mcp:allow-session")).toBeLessThan(calls.indexOf("async:cached-paint"));
     expect(calls).not.toContain("aria:Pause animation");

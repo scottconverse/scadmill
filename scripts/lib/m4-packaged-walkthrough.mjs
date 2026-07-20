@@ -61,7 +61,7 @@ export const M4_DOM_SCRIPTS = Object.freeze({
     if (globalThis.__scadmillM4NetworkAttemptMonitor) {
       throw new Error('M4 network-attempt monitor was installed more than once.');
     }
-    const attempts = [];
+    const rendererObservations = [];
     const originalFetch = globalThis.fetch.bind(globalThis);
     const originalFetchValue = globalThis.fetch;
     const originalOpen = XMLHttpRequest.prototype.open;
@@ -70,19 +70,56 @@ export const M4_DOM_SCRIPTS = Object.freeze({
     const invokeDescriptor = tauriInternals
       ? Object.getOwnPropertyDescriptor(tauriInternals, 'invoke') : undefined;
     const monitor = {
-      attempts, originalFetchValue, originalOpen, tauriInternals, originalInvoke, invokeDescriptor,
+      rendererObservations, rendererAttemptCount: 0, rendererExternalAttemptCount: 0,
+      rendererDroppedAttemptCount: 0,
+      tauriInvokeAttemptCount: 0,
+      originalFetchValue, originalOpen, tauriInternals, originalInvoke, invokeDescriptor,
       invokePatched: false,
       tauriInvokeMonitoring: typeof originalInvoke === 'function'
         ? 'protected-nonwritable' : 'unavailable',
     };
+    const observeRenderer = (kind, target, method) => {
+      let targetClass = 'unparseable';
+      let origin = 'unparseable';
+      let command = null;
+      try {
+        const parsed = new URL(String(target), globalThis.location?.href);
+        origin = parsed.origin === 'null' ? parsed.protocol : parsed.origin;
+        if (parsed.protocol === 'ipc:' || parsed.hostname === 'ipc.localhost') {
+          targetClass = 'tauri-ipc';
+          const candidate = decodeURIComponent(parsed.pathname.split('/').filter(Boolean)[0] ?? '');
+          command = /^[A-Za-z0-9:_-]{1,128}$/u.test(candidate) ? candidate : null;
+        } else if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+          targetClass = parsed.origin === globalThis.location?.origin
+            ? 'same-origin' : 'external-http';
+        } else if (['asset:', 'blob:', 'data:', 'file:', 'tauri:'].includes(parsed.protocol)) {
+          targetClass = 'local-scheme';
+        } else {
+          targetClass = 'external-scheme';
+        }
+      } catch { /* An unparseable target remains fail-closed external evidence. */ }
+      monitor.rendererAttemptCount += 1;
+      if (targetClass === 'external-http' || targetClass === 'external-scheme'
+        || targetClass === 'unparseable') {
+        monitor.rendererExternalAttemptCount += 1;
+      }
+      if (rendererObservations.length < 64) {
+        rendererObservations.push({
+          command, kind, method: String(method || 'GET').toUpperCase().slice(0, 16), origin, targetClass,
+        });
+      } else {
+        monitor.rendererDroppedAttemptCount += 1;
+      }
+    };
     globalThis.__scadmillM4NetworkAttemptMonitor = monitor;
     try {
       globalThis.fetch = (...args) => {
-        attempts.push({ kind: 'fetch', target: String(args[0] instanceof Request ? args[0].url : args[0]) });
+        const request = typeof Request !== 'undefined' && args[0] instanceof Request ? args[0] : null;
+        observeRenderer('fetch', request?.url ?? args[0], args[1]?.method ?? request?.method ?? 'GET');
         return originalFetch(...args);
       };
       XMLHttpRequest.prototype.open = function(method, url, ...rest) {
-        attempts.push({ kind: 'xhr', target: String(url), method: String(method) });
+        observeRenderer('xhr', url, method);
         return originalOpen.call(this, method, url, ...rest);
       };
       if (tauriInternals && typeof originalInvoke === 'function') {
@@ -91,7 +128,7 @@ export const M4_DOM_SCRIPTS = Object.freeze({
         if (invokePatchable) {
           const monitoredInvoke = function(command, ...args) {
             if (command === 'ai_http_request') {
-              attempts.push({ kind: 'tauri-ai-broker', target: command });
+              monitor.tauriInvokeAttemptCount += 1;
               return Promise.reject(new Error('M4 unconfigured-AI monitor blocked an AI broker request.'));
             }
             return originalInvoke.call(this, command, ...args);
@@ -114,9 +151,13 @@ export const M4_DOM_SCRIPTS = Object.freeze({
         }
       }
       return {
-        rendererAttemptCount: attempts.filter(({ kind }) => kind === 'fetch' || kind === 'xhr').length,
+        rendererAttemptCount: monitor.rendererAttemptCount,
+        rendererExternalAttemptCount: 0,
+        rendererInternalAttemptCount: 0,
+        rendererDroppedAttemptCount: monitor.rendererDroppedAttemptCount,
+        rendererObservations: rendererObservations.slice(),
         tauriInvokeAttemptCount: monitor.tauriInvokeMonitoring === 'installed'
-          ? attempts.filter(({ kind }) => kind === 'tauri-ai-broker').length : null,
+          ? monitor.tauriInvokeAttemptCount : null,
         tauriInvokeMonitoring: monitor.tauriInvokeMonitoring,
       };
     } catch (error) {
@@ -134,14 +175,21 @@ export const M4_DOM_SCRIPTS = Object.freeze({
     const monitor = globalThis.__scadmillM4NetworkAttemptMonitor;
     if (!monitor) return {
       rendererAttemptCount: -1,
+      rendererExternalAttemptCount: -1,
+      rendererInternalAttemptCount: -1,
+      rendererDroppedAttemptCount: -1,
+      rendererObservations: [],
       tauriInvokeAttemptCount: null,
       tauriInvokeMonitoring: 'unavailable',
     };
     const observation = {
-      rendererAttemptCount: monitor.attempts
-        .filter(({ kind }) => kind === 'fetch' || kind === 'xhr').length,
+      rendererAttemptCount: monitor.rendererAttemptCount,
+      rendererExternalAttemptCount: monitor.rendererExternalAttemptCount,
+      rendererInternalAttemptCount: monitor.rendererAttemptCount - monitor.rendererExternalAttemptCount,
+      rendererDroppedAttemptCount: monitor.rendererDroppedAttemptCount,
+      rendererObservations: monitor.rendererObservations.slice(),
       tauriInvokeAttemptCount: monitor.tauriInvokeMonitoring === 'installed'
-        ? monitor.attempts.filter(({ kind }) => kind === 'tauri-ai-broker').length : null,
+        ? monitor.tauriInvokeAttemptCount : null,
       tauriInvokeMonitoring: monitor.tauriInvokeMonitoring,
     };
     const restorationErrors = [];
@@ -304,7 +352,7 @@ export const M4_DOM_SCRIPTS = Object.freeze({
       const restoredPlay = document.querySelector('button[aria-label="Play animation"]');
       const frame = document.querySelector('[aria-label="Animation frame"]');
       if (!(restoredPlay instanceof HTMLButtonElement) || restoredPlay.disabled
-        || frame?.getAttribute('aria-valuetext') !== 'Frame 51 of 100') return false;
+        || frame?.getAttribute('aria-valuetext') !== 'Frame 52 of 100') return false;
       done({
         consoleRunsBefore,
         consoleRunsAfter,
@@ -370,33 +418,94 @@ export const M4_DOM_SCRIPTS = Object.freeze({
     };
   `,
   thumbnailDecodedSnapshot: `
+    const surface = arguments[0];
+    const expectedPath = arguments[1];
+    const notBeforeMs = arguments[2];
     const done = arguments[arguments.length - 1];
-    const storageEntries = [];
-    for (let index = 0; index < localStorage.length; index += 1) {
-      const key = localStorage.key(index);
-      if (key?.startsWith('scadmill.desktop-render-thumbnails.v1:desktop-project:')) {
-        storageEntries.push({ key, value: localStorage.getItem(key) });
-      }
+    if (!['fileTree', 'welcome'].includes(surface)
+      || typeof expectedPath !== 'string' || !Number.isFinite(notBeforeMs)) {
+      done({ error: 'Thumbnail wait arguments are invalid.' });
+      return;
     }
-    const visible = (selector) => [...document.querySelectorAll(selector)]
-      .filter((node) => node instanceof HTMLImageElement && node.getClientRects().length > 0);
-    const fileTree = visible('.project-file-thumbnail');
-    const welcome = visible('.welcome-recent-thumbnail');
-    const images = [...fileTree, ...welcome];
-    Promise.all(images.map(async (image) => {
-      await image.decode();
-      return image;
-    })).then(() => {
-      const evidence = (items) => ({
-        count: items.length,
-        src: items[0]?.src ?? null,
-        complete: items[0]?.complete ?? false,
-        naturalWidth: items[0]?.naturalWidth ?? 0,
-        naturalHeight: items[0]?.naturalHeight ?? 0,
-        decoded: items.length === 1,
+    const collect = () => {
+      const storageEntries = [];
+      for (let index = 0; index < localStorage.length; index += 1) {
+        const key = localStorage.key(index);
+        if (key?.startsWith('scadmill.desktop-render-thumbnails.v1:desktop-project:')) {
+          storageEntries.push({ key, value: localStorage.getItem(key) });
+        }
+      }
+      const visible = (selector) => [...document.querySelectorAll(selector)]
+        .filter((node) => node instanceof HTMLImageElement && node.getClientRects().length > 0);
+      return {
+        storageEntries,
+        fileTree: visible('.project-file-thumbnail'),
+        welcome: visible('.welcome-recent-thumbnail'),
+      };
+    };
+    const currentRecord = (storageEntries) => {
+      for (const entry of storageEntries) {
+        try {
+          const envelope = JSON.parse(entry.value);
+          const record = envelope?.records?.find((candidate) => candidate?.documentPath === expectedPath);
+          if (record && Date.parse(record.capturedAt) >= notBeforeMs) return record;
+        } catch { /* Keep polling until a complete bounded envelope exists. */ }
+      }
+      return null;
+    };
+    const evidence = (items) => ({
+      count: items.length,
+      src: items[0]?.src ?? null,
+      complete: items[0]?.complete ?? false,
+      naturalWidth: items[0]?.naturalWidth ?? 0,
+      naturalHeight: items[0]?.naturalHeight ?? 0,
+      decoded: items.length === 1,
+    });
+    let settled = false;
+    let probing = false;
+    let interval;
+    let timeout;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      if (interval !== undefined) window.clearInterval(interval);
+      if (timeout !== undefined) window.clearTimeout(timeout);
+      done(value);
+    };
+    const probe = async () => {
+      if (settled || probing) return;
+      probing = true;
+      try {
+        const snapshot = collect();
+        const selected = snapshot[surface];
+        if (snapshot.storageEntries.length !== 1 || selected.length !== 1
+          || !currentRecord(snapshot.storageEntries)) return;
+        await selected[0].decode();
+        const decoded = collect();
+        const decodedSelected = decoded[surface];
+        if (decoded.storageEntries.length !== 1 || decodedSelected.length !== 1
+          || !currentRecord(decoded.storageEntries)
+          || !decodedSelected[0].complete
+          || decodedSelected[0].naturalWidth !== 240
+          || decodedSelected[0].naturalHeight !== 160) return;
+        finish({
+          storageEntries: decoded.storageEntries,
+          fileTree: evidence(decoded.fileTree),
+          welcome: evidence(decoded.welcome),
+        });
+      } catch { /* A not-yet-decodable image remains inside the bounded poll. */ }
+      finally { probing = false; }
+    };
+    interval = window.setInterval(() => { void probe(); }, 25);
+    timeout = window.setTimeout(() => {
+      const snapshot = collect();
+      finish({
+        error: 'Timed out waiting for the current persisted thumbnail and visible decoded image.',
+        storageEntryCount: snapshot.storageEntries.length,
+        visibleCount: snapshot[surface].length,
       });
-      done({ storageEntries, fileTree: evidence(fileTree), welcome: evidence(welcome) });
-    }, (error) => done({ error: String(error) }));
+    }, 5000);
+    void probe();
   `,
   secretSurfaceSnapshot: `
     const storage = (area) => {
@@ -490,8 +599,31 @@ export const M4_DOM_SCRIPTS = Object.freeze({
 });
 
 export function validateM4ZeroNetworkAttempts(value) {
-  assert.ok(exactKeys(value, ["rendererAttemptCount", "tauriInvokeAttemptCount", "tauriInvokeMonitoring"]), "Unconfigured AI network observation has the wrong shape.");
-  assert.equal(value.rendererAttemptCount, 0, "Unconfigured AI attempted renderer network access.");
+  assert.ok(exactKeys(value, ["rendererAttemptCount", "rendererExternalAttemptCount", "rendererInternalAttemptCount", "rendererDroppedAttemptCount", "rendererObservations", "tauriInvokeAttemptCount", "tauriInvokeMonitoring"]), "Unconfigured AI network observation has the wrong shape.");
+  for (const count of [value.rendererAttemptCount, value.rendererExternalAttemptCount, value.rendererInternalAttemptCount, value.rendererDroppedAttemptCount]) {
+    assert.ok(Number.isSafeInteger(count) && count >= 0, "Unconfigured AI renderer transport count is invalid.");
+  }
+  assert.equal(value.rendererAttemptCount, value.rendererExternalAttemptCount + value.rendererInternalAttemptCount, "Unconfigured AI renderer transport counts are inconsistent.");
+  assert.equal(value.rendererDroppedAttemptCount, 0, "Unconfigured AI renderer transport observations exceeded their retention bound.");
+  assert.ok(Array.isArray(value.rendererObservations) && value.rendererObservations.length === value.rendererAttemptCount, "Unconfigured AI renderer transport observations are incomplete.");
+  for (const observation of value.rendererObservations) {
+    assert.ok(exactKeys(observation, ["command", "kind", "method", "origin", "targetClass"]), "Unconfigured AI renderer transport detail has the wrong shape.");
+    assert.ok(observation.kind === "fetch" || observation.kind === "xhr", "Unconfigured AI renderer transport kind is invalid.");
+    assert.ok(typeof observation.method === "string" && /^[A-Z]{1,16}$/u.test(observation.method), "Unconfigured AI renderer transport method is invalid.");
+    assert.ok(typeof observation.origin === "string" && observation.origin.length > 0 && observation.origin.length <= 256, "Unconfigured AI renderer transport origin is invalid.");
+    assert.ok(["tauri-ipc", "same-origin", "local-scheme", "external-http", "external-scheme", "unparseable"].includes(observation.targetClass), "Unconfigured AI renderer transport class is invalid.");
+    assert.ok(observation.command === null || (typeof observation.command === "string" && /^[A-Za-z0-9:_-]{1,128}$/u.test(observation.command)), "Unconfigured AI renderer transport command is invalid.");
+    assert.notEqual(
+      observation.targetClass === "tauri-ipc" ? observation.command : null,
+      "ai_http_request",
+      "Unconfigured AI attempted an AI broker request through renderer-observed Tauri IPC.",
+    );
+  }
+  assert.equal(
+    value.rendererExternalAttemptCount,
+    0,
+    `Unconfigured AI attempted external renderer network access: ${JSON.stringify(value.rendererObservations)}`,
+  );
   assert.ok(["installed", "protected-nonwritable", "patch-failed"].includes(value.tauriInvokeMonitoring), "Tauri invoke monitoring status is invalid.");
   assert.equal(
     value.tauriInvokeAttemptCount,
@@ -1028,7 +1160,7 @@ export async function runM4PackagedWalkthrough({
   cachePaintLimitMs = 100,
 }) {
   assert.ok(exactRecord(automation), "M4 walkthrough requires an automation adapter.");
-  for (const name of ["readSource", "replaceSource", "waitForSource", "clickAria", "clickButton", "setControl", "setChecked", "waitForText", "execute", "executeAsync", "captureScreenshot", "startAiMock", "stopAiMock", "probeMcpDefaultDeny", "runMcpAllowSessionJourney", "restartApplication"]) {
+  for (const name of ["readSource", "replaceSource", "waitForSource", "activateRail", "clickAria", "clickButton", "setControl", "setChecked", "waitForText", "execute", "executeAsync", "captureScreenshot", "startAiMock", "stopAiMock", "probeMcpDefaultDeny", "runMcpAllowSessionJourney", "restartApplication"]) {
     assert.equal(typeof automation[name], "function", `M4 automation adapter is missing ${name}.`);
   }
   for (const [name, value] of Object.entries({ initialSource, proposalSource, agentSource, projectPath })) {
@@ -1048,7 +1180,7 @@ export async function runM4PackagedWalkthrough({
     const initialNetworkObservationRaw = await automation.execute(M4_DOM_SCRIPTS.installNetworkAttemptMonitor);
     networkMonitorActive = true;
     const initialNetworkObservation = validateM4ZeroNetworkAttempts(initialNetworkObservationRaw);
-    await automation.clickAria("AI");
+    await automation.activateRail("AI");
     await automation.waitForText("AI is not configured.");
     const unconfigured = await automation.execute(M4_DOM_SCRIPTS.aiUnconfigured);
     assert.deepEqual(unconfigured, { guidanceVisible: true, sendCount: 0 }, "Unconfigured AI exposed a send path or lost its setup guidance.");
@@ -1077,7 +1209,7 @@ export async function runM4PackagedWalkthrough({
     await automation.clickButton("Save AI key");
     await automation.waitForText("AI key saved.");
     await automation.clickAria("Close settings");
-    await automation.clickAria("AI");
+    await automation.activateRail("AI");
     const conversationModel = await automation.execute(M4_DOM_SCRIPTS.conversationModelSnapshot);
     assert.ok(exactKeys(conversationModel, ["optionCount", "selectedLabel", "selectedValue"]), "Conversation-model observation has the wrong shape.");
     assert.equal(conversationModel.optionCount, 1, "The bounded M4 journey requires exactly one configured conversation model.");
@@ -1124,7 +1256,7 @@ export async function runM4PackagedWalkthrough({
     const agentConsoleRunsAfter = await automation.execute(M4_DOM_SCRIPTS.consoleRunCount);
     assert.ok(exactKeys(agentConsoleRunsAfter, ["count"])
       && Number.isSafeInteger(agentConsoleRunsAfter.count), "M4 agent console-run result is invalid.");
-    await automation.clickAria("History");
+    await automation.activateRail("History");
     await automation.waitForText("Pending review");
     await screenshot(automation, screenshots, "04c-ai-agent-pending-diff.png");
     await automation.clickButton("Approve change");
@@ -1132,7 +1264,8 @@ export async function runM4PackagedWalkthrough({
     assert.equal(await automation.readSource(), agentSource, "AI agent review did not apply exact source.");
     order.push("c10-agent");
 
-    await automation.clickAria("AI");
+    await automation.activateRail("AI");
+    await automation.setChecked("Allow tool calls for this conversation", true);
     await automation.setChecked("Current file", true);
     await automation.setChecked("Diagnostics", true);
     await automation.setChecked("Parameters", true);
@@ -1207,27 +1340,34 @@ export async function runM4PackagedWalkthrough({
       playLabel: animation.playLabel,
       overlapObserved: animation.overlapObserved,
     }, {
-      frame: "Frame 51 of 100",
-      time: "$t 0.50",
+      frame: "Frame 52 of 100",
+      time: "$t 0.51",
       fps: "24",
       playLabel: "Play animation",
       overlapObserved: false,
-    }, "Animation did not preserve frame 51, $t 0.50, 24 FPS, and serialized runs.");
+    }, "Animation did not advance to frame 52, $t 0.51, 24 FPS, and serialized runs.");
     assert.ok(animation.consoleRuns >= playedFrame.consoleRunsAfter, "Animation run count regressed after Pause.");
     order.push("animation");
-    await screenshot(automation, screenshots, "04e-animation-frame-51.png");
+    await screenshot(automation, screenshots, "04e-animation-frame-52.png");
 
     const thumbnailCacheSource = `${initialSource}\n// M4 thumbnail cold-cache`;
+    const thumbnailCaptureNotBeforeMs = Date.now();
     await automation.replaceSource(thumbnailCacheSource);
     await automation.executeAsync(M4_DOM_SCRIPTS.fullRenderCompleted, [projectPath]);
-    await automation.clickAria("Files");
+    await automation.activateRail("Files");
     assert.equal(await automation.execute(M4_DOM_SCRIPTS.focusFileTreeThumbnail, [projectPath]), true, "Active file could not be focused for thumbnail preview.");
-    const fileTreeThumbnail = validateThumbnailSnapshot(await automation.executeAsync(M4_DOM_SCRIPTS.thumbnailDecodedSnapshot), projectPath, "fileTree");
+    const fileTreeThumbnail = validateThumbnailSnapshot(await automation.executeAsync(
+      M4_DOM_SCRIPTS.thumbnailDecodedSnapshot,
+      ["fileTree", projectPath, thumbnailCaptureNotBeforeMs],
+    ), projectPath, "fileTree");
     order.push("thumbnail");
     await screenshot(automation, screenshots, "04f-file-tree-thumbnail.png");
     await automation.clickButton("Welcome");
     await automation.waitForText("Recent projects");
-    const welcomeThumbnail = validateThumbnailSnapshot(await automation.executeAsync(M4_DOM_SCRIPTS.thumbnailDecodedSnapshot), projectPath, "welcome");
+    const welcomeThumbnail = validateThumbnailSnapshot(await automation.executeAsync(
+      M4_DOM_SCRIPTS.thumbnailDecodedSnapshot,
+      ["welcome", projectPath, thumbnailCaptureNotBeforeMs],
+    ), projectPath, "welcome");
     assert.equal(welcomeThumbnail.sha256, fileTreeThumbnail.sha256, "Welcome and file tree thumbnails differ.");
     await screenshot(automation, screenshots, "04g-welcome-recent-thumbnail.png");
     await automation.clickAria("Close welcome");
@@ -1237,7 +1377,10 @@ export async function runM4PackagedWalkthrough({
     await automation.waitForText("ScadMill");
     await automation.clickButton("Welcome");
     await automation.waitForText("Recent projects");
-    const restoredThumbnail = validateThumbnailSnapshot(await automation.executeAsync(M4_DOM_SCRIPTS.thumbnailDecodedSnapshot), projectPath, "welcome");
+    const restoredThumbnail = validateThumbnailSnapshot(await automation.executeAsync(
+      M4_DOM_SCRIPTS.thumbnailDecodedSnapshot,
+      ["welcome", projectPath, thumbnailCaptureNotBeforeMs],
+    ), projectPath, "welcome");
     assert.equal(restoredThumbnail.sha256, fileTreeThumbnail.sha256, "Thumbnail bytes changed across restart.");
     await automation.clickAria("Close welcome");
     const coldCached = validateCachedPaint(await automation.executeAsync(M4_DOM_SCRIPTS.cachedPaint), cachePaintLimitMs);
@@ -1282,7 +1425,10 @@ export async function runM4PackagedWalkthrough({
       order,
       ai: {
         unconfiguredRequestCount: 0,
-        unconfiguredRendererNetworkAttempts: finalNetworkObservation.rendererAttemptCount,
+        unconfiguredRendererAttempts: finalNetworkObservation.rendererAttemptCount,
+        unconfiguredRendererExternalAttempts: finalNetworkObservation.rendererExternalAttemptCount,
+        unconfiguredRendererInternalAttempts: finalNetworkObservation.rendererInternalAttemptCount,
+        unconfiguredRendererObservations: finalNetworkObservation.rendererObservations,
         unconfiguredTauriInvokeAttempts: finalNetworkObservation.tauriInvokeAttemptCount,
         unconfiguredInvokeMonitoring: finalNetworkObservation.tauriInvokeMonitoring,
         requestCount: transcript.records.length,
@@ -1305,8 +1451,8 @@ export async function runM4PackagedWalkthrough({
       },
       delta: { unchanged: true, volumeDeltaMm3: 200, boundsDeltaMm: [2, 0, 0] },
       animation: {
-        frame: 51,
-        time: 0.5,
+        frame: 52,
+        time: 0.51,
         fps: 24,
         scrubConsoleRunsAdded: scrubFrame.consoleRunsAfter - scrubFrame.consoleRunsBefore,
         playConsoleRunsAdded: playedFrame.consoleRunsAfter - playedFrame.consoleRunsBefore,

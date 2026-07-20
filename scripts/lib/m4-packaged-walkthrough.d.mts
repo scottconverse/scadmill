@@ -65,10 +65,19 @@ export interface M4RestartEvidence {
   readonly freshWebViewProcesses: true;
 }
 
+export interface M4RendererTransportObservation {
+  readonly command: string | null;
+  readonly kind: "fetch" | "xhr";
+  readonly method: string;
+  readonly origin: string;
+  readonly targetClass: "tauri-ipc" | "same-origin" | "local-scheme" | "external-http" | "external-scheme" | "unparseable";
+}
+
 export interface M4PackagedAutomation {
   readSource(): Promise<string>;
   replaceSource(source: string): Promise<void>;
   waitForSource(source: string): Promise<unknown>;
+  activateRail(title: string): Promise<void>;
   clickAria(label: string): Promise<void>;
   clickButton(label: string): Promise<void>;
   setControl(label: string, value: string): Promise<void>;
@@ -112,7 +121,10 @@ export interface M4PackagedWalkthroughEvidence {
   ];
   readonly ai: {
     readonly unconfiguredRequestCount: 0;
-    readonly unconfiguredRendererNetworkAttempts: 0;
+    readonly unconfiguredRendererAttempts: number;
+    readonly unconfiguredRendererExternalAttempts: 0;
+    readonly unconfiguredRendererInternalAttempts: number;
+    readonly unconfiguredRendererObservations: readonly M4RendererTransportObservation[];
     readonly unconfiguredTauriInvokeAttempts: 0 | null;
     readonly unconfiguredInvokeMonitoring: "installed" | "protected-nonwritable" | "patch-failed";
     readonly requestCount: 7;
@@ -154,8 +166,8 @@ export interface M4PackagedWalkthroughEvidence {
   };
   readonly delta: { readonly unchanged: true; readonly volumeDeltaMm3: 200; readonly boundsDeltaMm: readonly [2, 0, 0] };
   readonly animation: {
-    readonly frame: 51;
-    readonly time: 0.5;
+    readonly frame: 52;
+    readonly time: 0.51;
     readonly fps: 24;
     readonly scrubConsoleRunsAdded: 1;
     readonly playConsoleRunsAdded: number;
@@ -196,7 +208,11 @@ export function inspectM4Png(
 ): { readonly byteLength: number; readonly width: number; readonly height: number; readonly sha256: string };
 
 export function validateM4ZeroNetworkAttempts(value: unknown): {
-  readonly rendererAttemptCount: 0;
+  readonly rendererAttemptCount: number;
+  readonly rendererExternalAttemptCount: 0;
+  readonly rendererInternalAttemptCount: number;
+  readonly rendererDroppedAttemptCount: 0;
+  readonly rendererObservations: readonly M4RendererTransportObservation[];
   readonly tauriInvokeAttemptCount: 0 | null;
   readonly tauriInvokeMonitoring: "installed" | "protected-nonwritable" | "patch-failed";
 };
