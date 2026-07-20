@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-m4-webdriver-textarea-entry",
+  "createdAt": "2026-07-20T08:05:00-06:00",
+  "summary": "Replace synthetic packaged textarea mutation with real W3C WebDriver keyboard entry after the exact clean 87fd8f4 Sandbox run proved React did not retain the Message value.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "M4 release candidate", "N-7 evidence honesty"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-m4-webdriver-textarea-entry.json", "status": "added" },
+    { "path": "scripts/lib/packaged-desktop-evidence.d.mts", "status": "modified" },
+    { "path": "scripts/lib/packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "scripts/run-packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0446",
+      "topic": "Real packaged textarea entry",
+      "decision": "Resolve exactly one visible enabled textarea through its aria-label or exact native wrapping label, click its WebDriver element, send Ctrl+A followed by the WebDriver NULL modifier release and the requested text, then require two consecutive exact value observations on separate UI tasks. Return to the existing setter only when no eligible textarea exists; reject textarea ambiguity without a synthetic fallback.",
+      "rationale": "The clean packaged WebView2 run proved the native textarea value setter plus synthetic input/change events returned the requested value immediately but React restored the controlled Message state before two later reads. Real WebDriver keyboard entry crosses the same user-input boundary as a newcomer. Limiting the change to textareas preserves the clean run's already-proven Settings input/select behavior and avoids applying text-entry semantics to range and select controls.",
+      "specBasis": ["M4 C10 AI assist", "Section 2.7 delivery protocol", "N-7 evidence honesty"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "A unique eligible packaged textarea must route through exact W3C click and keyboard calls, reject ambiguity, and require two committed reads without mutating on invalid wait options.",
+      "test": "Execute the real textarea selector against visible, hidden, disabled, and ambiguous fixtures; record the exact fake-WebDriver click/key calls and read sequence; and prove invalid wait options cause zero UI calls.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts -t \"wrapping-label textarea|through WebDriver\"",
+        "observedAt": "2026-07-20T08:02:15-06:00",
+        "outcome": "RED: both new harness regressions failed before the WebDriver textarea path existed. The causal clean packaged failure remains separately referenced as a near miss, not as greenable unit evidence."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts -t \"wrapping-label textarea|through WebDriver|survive a UI commit|limits packaged actions|before any UI mutation\"",
+        "observedAt": "2026-07-20T08:11:12-06:00",
+        "outcome": "GREEN: all 5 focused helper/wiring regressions passed; 38 unrelated tests were filtered out. This proves adapter behavior only; clean WebView2/React retention remains unproven pending the next permitted clean Sandbox run."
+      }
+    },
+    {
+      "criterion": "The affected packaged walkthrough and transport harnesses must remain green without broadening the fix.",
+      "test": "Run the three affected harness/transport suites.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts -t \"wrapping-label textarea|through WebDriver\"",
+        "observedAt": "2026-07-20T08:02:15-06:00",
+        "outcome": "RED: both new harness regressions failed before the WebDriver textarea path existed."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts tests/scripts/m4-packaged-walkthrough.test.ts tests/platform-desktop/tauri-ai-http-fetch.test.ts",
+        "observedAt": "2026-07-20T08:11:45-06:00",
+        "outcome": "GREEN: affected harness/transport suites passed 70/70; the separately executed product AI conversation suite also passed 17/17 but is not presented as clean packaged retention evidence."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-87fd8f4-sandbox-m4-native-stream-20260720/evidence.json",
+      "sought": "Exact clean packaged M4 walkthrough on candidate 87fd8f4",
+      "confirmation": "The source-bound clean build and all pre-AI-message phases passed. The run failed before Send because React did not retain the synthetic Message value; the local mock received zero requests. Exact cleanup left no matching Sandbox session and removed staging. This artifact remains failed and is not packaged-pass evidence."
+    }
+  ],
+  "questions": ["No owner decision is required. Clean WebView2/React textarea retention remains explicitly unproven. Focused static gates and dual independent strict-zero review passed; one exact clean M4-only Sandbox validation is now permitted."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

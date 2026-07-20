@@ -33,6 +33,7 @@ import {
   sanitizeMcpTranscript,
   scanFileForBytes,
   setVisibleEnabledControl,
+  setVisibleEnabledTextArea,
   unwrapWebDriverValue,
   validateCredentialProbe,
   validateHarnessManifest,
@@ -511,6 +512,7 @@ async function dismissWelcome(client) {
 }
 
 async function setControl(client, label, value) {
+  if (await setVisibleEnabledTextArea(client, label, value)) return;
   await setVisibleEnabledControl(client, label, value);
 }
 

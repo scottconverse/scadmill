@@ -60,21 +60,50 @@ export const READ_PACKAGED_CONTROL_VALUE_SCRIPT = `
   return eligible.length === 1 ? eligible[0].value : null;
 `;
 
-export async function setVisibleEnabledControl(
-  client,
-  label,
-  value,
-  { timeoutMs = 10_000, intervalMs = 50, delayImpl = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)) } = {},
-) {
-  if (!client || typeof client.execute !== "function" || typeof label !== "string" || label.length === 0) {
-    throw new Error("Packaged control automation requires a client and non-empty label.");
+export const FIND_PACKAGED_TEXTAREA_CONTROL_SCRIPT = `
+  const wanted = arguments[0];
+  const visible = (element) => element.getClientRects().length > 0
+    && getComputedStyle(element).visibility !== 'hidden'
+    && getComputedStyle(element).display !== 'none';
+  const candidates = new Set(
+    [...document.querySelectorAll('[aria-label="' + CSS.escape(wanted) + '"]')],
+  );
+  for (const label of document.querySelectorAll('label')) {
+    if (!visible(label) || label.textContent.trim() !== wanted) continue;
+    if (label.control instanceof HTMLTextAreaElement) candidates.add(label.control);
+    for (const descendant of label.querySelectorAll('textarea')) candidates.add(descendant);
   }
+  const eligible = [...candidates].filter((candidate) => candidate instanceof HTMLTextAreaElement
+    && visible(candidate) && !candidate.disabled);
+  if (eligible.length === 0) return { kind: 'absent' };
+  if (eligible.length > 1) return { kind: 'ambiguous', count: eligible.length };
+  return eligible[0];
+`;
+
+function controlWaitOptions(options) {
+  if (options !== undefined && !record(options)) throw new Error("Packaged control wait options are invalid.");
+  const {
+    timeoutMs = 10_000,
+    intervalMs = 50,
+    delayImpl = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
+  } = options ?? {};
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0
     || !Number.isSafeInteger(intervalMs) || intervalMs <= 0 || intervalMs > timeoutMs
     || typeof delayImpl !== "function") throw new Error("Packaged control wait options are invalid.");
+  return { timeoutMs, intervalMs, delayImpl };
+}
+
+export async function waitForVisibleEnabledControlValue(
+  client,
+  label,
+  value,
+  options,
+) {
+  if (!client || typeof client.execute !== "function" || typeof label !== "string" || label.length === 0) {
+    throw new Error("Packaged control verification requires a client and non-empty label.");
+  }
+  const { timeoutMs, intervalMs, delayImpl } = controlWaitOptions(options);
   const expected = String(value);
-  const selected = await client.execute(SET_PACKAGED_CONTROL_VALUE_SCRIPT, [label, expected]);
-  if (selected !== expected) throw new Error(`Could not set ${JSON.stringify(label)} to the requested value.`);
   const deadline = Date.now() + timeoutMs;
   let consecutiveCommittedReads = 0;
   do {
@@ -87,6 +116,44 @@ export async function setVisibleEnabledControl(
     }
   } while (Date.now() < deadline);
   throw new Error(`Control ${JSON.stringify(label)} did not retain the requested value after its UI commit.`);
+}
+
+export async function setVisibleEnabledControl(
+  client,
+  label,
+  value,
+  options,
+) {
+  if (!client || typeof client.execute !== "function" || typeof label !== "string" || label.length === 0) {
+    throw new Error("Packaged control automation requires a client and non-empty label.");
+  }
+  const validatedOptions = controlWaitOptions(options);
+  const expected = String(value);
+  const selected = await client.execute(SET_PACKAGED_CONTROL_VALUE_SCRIPT, [label, expected]);
+  if (selected !== expected) throw new Error(`Could not set ${JSON.stringify(label)} to the requested value.`);
+  await waitForVisibleEnabledControlValue(client, label, expected, validatedOptions);
+}
+
+export async function setVisibleEnabledTextArea(client, label, value, options) {
+  if (!client || typeof client.execute !== "function" || typeof client.clickElement !== "function"
+    || typeof client.sendKeys !== "function" || typeof label !== "string" || label.length === 0) {
+    throw new Error("Packaged textarea automation requires a WebDriver client and non-empty label.");
+  }
+  const validatedOptions = controlWaitOptions(options);
+  const reference = await client.execute(FIND_PACKAGED_TEXTAREA_CONTROL_SCRIPT, [label]);
+  if (reference?.kind === "absent") return false;
+  if (reference?.kind === "ambiguous") {
+    throw new Error(`Packaged textarea ${JSON.stringify(label)} is ambiguous.`);
+  }
+  const elementId = reference?.["element-6066-11e4-a52e-4f735466cecf"];
+  if (typeof elementId !== "string" || elementId.length === 0) {
+    throw new Error(`WebDriver did not return an element reference for ${JSON.stringify(label)}.`);
+  }
+  const expected = String(value);
+  await client.clickElement(elementId);
+  await client.sendKeys(elementId, `\uE009a\uE000${expected}`);
+  await waitForVisibleEnabledControlValue(client, label, expected, validatedOptions);
+  return true;
 }
 
 export const CLICK_PACKAGED_BUTTON_SCRIPT = `

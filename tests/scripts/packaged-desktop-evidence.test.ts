@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   CLICK_PACKAGED_BUTTON_SCRIPT,
   clickVisibleEnabledButton,
+  FIND_PACKAGED_TEXTAREA_CONTROL_SCRIPT,
   mcpEndpointManifestPath,
   mirrorWebViewDevToolsPort,
   parseBinaryStl,
@@ -21,6 +22,7 @@ import {
   sanitizeMcpTranscript,
   scanFileForBytes,
   setVisibleEnabledControl,
+  setVisibleEnabledTextArea,
   unwrapWebDriverValue,
   validateCredentialProbe,
   validateHarnessManifest,
@@ -941,6 +943,7 @@ describe("packaged desktop evidence helpers", () => {
     expect(helpers).toContain("async function activateRail");
     expect(helpers).toContain("button.getAttribute('aria-pressed') !== 'true'");
     expect(helpers).toContain("visible activity rail");
+    expect(runner).toContain("if (await setVisibleEnabledTextArea(client, label, value)) return");
     expect(runner).toContain("await setVisibleEnabledControl(client, label, value)");
     expect(runner).toContain("await clickVisibleEnabledButton(client, text)");
     expect(helpers.match(/getClientRects\(\)\.length > 0/gu)?.length).toBeGreaterThanOrEqual(5);
@@ -1007,6 +1010,76 @@ describe("packaged desktop evidence helpers", () => {
     expect(run("Message", "ambiguous")).toBeNull();
 
     window.close();
+  });
+
+  it("resolves exactly one visible enabled wrapping-label textarea", () => {
+    const window = new Window();
+    const find = window.eval(`(function(label) {${FIND_PACKAGED_TEXTAREA_CONTROL_SCRIPT}})`) as (
+      label: string,
+    ) => unknown;
+    const visible = (element: object) => Object.defineProperty(element, "getClientRects", {
+      configurable: true,
+      value: () => [{ width: 10, height: 10 }],
+    });
+    window.document.body.innerHTML = "<label>Message<textarea></textarea></label>";
+    for (const element of window.document.querySelectorAll("label, textarea")) visible(element);
+    expect(find("Message")).toBe(window.document.querySelector("textarea"));
+
+    window.document.body.insertAdjacentHTML("beforeend", `
+      <label>Message<textarea disabled></textarea></label>
+      <label>Message<textarea style="display:none"></textarea></label>
+    `);
+    for (const element of window.document.querySelectorAll("label, textarea")) visible(element);
+    expect(find("Message")).toBe(window.document.querySelector("textarea:not([disabled]):not([style])"));
+
+    window.document.body.insertAdjacentHTML("beforeend", "<label>Message<textarea></textarea></label>");
+    for (const element of window.document.querySelectorAll("label, textarea")) visible(element);
+    expect(find("Message")).toEqual({ kind: "ambiguous", count: 2 });
+    window.close();
+  });
+
+  it("enters controlled textarea content through WebDriver before proving committed reads", async () => {
+    const elementKey = "element-6066-11e4-a52e-4f735466cecf";
+    const calls: string[] = [];
+    let reads = 0;
+    const client = {
+      execute: async (script: string, args: readonly unknown[]) => {
+        if (script === FIND_PACKAGED_TEXTAREA_CONTROL_SCRIPT) return { [elementKey]: "message-1" };
+        expect(script).toBe(READ_PACKAGED_CONTROL_VALUE_SCRIPT);
+        expect(args).toEqual(["Message"]);
+        reads += 1;
+        return "Change the cube.";
+      },
+      clickElement: async (id: string) => { calls.push(`click:${id}`); },
+      sendKeys: async (id: string, text: string) => { calls.push(`keys:${id}:${JSON.stringify(text)}`); },
+    };
+
+    await expect(setVisibleEnabledTextArea(client, "Message", "Change the cube.", {
+      timeoutMs: 1_000,
+      intervalMs: 25,
+      delayImpl: async () => undefined,
+    })).resolves.toBe(true);
+    expect(reads).toBe(2);
+    expect(calls).toEqual([
+      "click:message-1",
+      `keys:message-1:${JSON.stringify("\uE009a\uE000Change the cube.")}`,
+    ]);
+  });
+
+  it("rejects invalid control wait options before any UI mutation", async () => {
+    let genericCalls = 0;
+    await expect(setVisibleEnabledControl({
+      execute: async () => { genericCalls += 1; return "value"; },
+    }, "AI model", "value", { timeoutMs: 0 })).rejects.toThrow("wait options");
+    expect(genericCalls).toBe(0);
+
+    let textareaCalls = 0;
+    await expect(setVisibleEnabledTextArea({
+      execute: async () => { textareaCalls += 1; return { kind: "absent" }; },
+      clickElement: async () => { textareaCalls += 1; },
+      sendKeys: async () => { textareaCalls += 1; },
+    }, "Message", "value", { intervalMs: 10_001 })).rejects.toThrow("wait options");
+    expect(textareaCalls).toBe(0);
   });
 
   it("waits for the controlled value to survive a UI commit before continuing", async () => {
