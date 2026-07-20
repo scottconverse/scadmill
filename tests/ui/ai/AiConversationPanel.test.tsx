@@ -10,6 +10,28 @@ async function* stream() {
 }
 
 describe("AiConversationPanel", () => {
+  it("commits native textarea input events before sending", async () => {
+    const requests: Array<readonly { role: string; content: string }[]> = [];
+    async function* reply() { yield "ready"; }
+    render(<AiConversationPanel
+      configured
+      currentSource="cube(1);"
+      documentId="d1"
+      requestStream={(messages) => {
+        requests.push(messages);
+        return reply();
+      }}
+    />);
+
+    fireEvent.input(screen.getByLabelText("Message"), { target: { value: "native editing input" } });
+    const send = screen.getByRole("button", { name: "Send" });
+    expect(send).toBeEnabled();
+    fireEvent.click(send);
+
+    expect(await screen.findByText("ready")).toBeVisible();
+    expect(requests[0].at(-1)).toEqual({ role: "user", content: "native editing input" });
+  });
+
   it("uses the settled context-toggle values for the next request", async () => {
     const requests: Array<readonly { role: string; content: string }[]> = [];
     async function* reply() { yield "ready"; }

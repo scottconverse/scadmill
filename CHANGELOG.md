@@ -12,6 +12,8 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Added
 
+- The controlled AI Message textarea now consumes the native `input` event in addition to React's compatibility `change` path. Exact clean WebView2 evidence proved Chromium's editing command changed the focused DOM value but React restored it before commit; the direct input handler preserves ordinary keyboard behavior while allowing the packaged browser editing pipeline to commit state.
+
 - Replaced the clean-Sandbox-proven ineffective `Input.insertText` call with one bounded `Runtime.evaluate` editing command against the same exact loopback CDP page target. The command requires the already-proven focused textarea, uses Chromium's `insertText` editing operation, validates immediate target/value evidence without retaining message content, and preserves the independent two-read React commit oracle.
 
 - Added a public security policy and enabled GitHub private vulnerability reporting so sensitive reports use a confidential repository advisory instead of public issues; the policy promises neither a bounty nor a response deadline.

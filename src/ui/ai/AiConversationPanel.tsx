@@ -204,7 +204,11 @@ export function AiConversationPanel({ configured, contextInputs, currentSource, 
           <label><input checked={contextToggles.parameters} onChange={(event) => { const checked = event.currentTarget.checked; setContextToggles((current) => ({ ...current, parameters: checked })); }} type="checkbox" />{messages.aiContextParameters}</label>
           <label><input checked={contextToggles.screenshot} onChange={(event) => { const checked = event.currentTarget.checked; setContextToggles((current) => ({ ...current, screenshot: checked })); }} type="checkbox" />{messages.aiContextScreenshot}</label>
         </fieldset>}
-        <label>{messages.aiMessageLabel}<textarea onChange={(event) => setInput(event.currentTarget.value)} value={input} /></label>
+        <label>{messages.aiMessageLabel}<textarea
+          onChange={(event) => setInput(event.currentTarget.value)}
+          onInput={(event) => setInput(event.currentTarget.value)}
+          value={input}
+        /></label>
         <button disabled={!requestStream || !input.trim() || Boolean(state.activeRequestId) || secretStatus !== "ready" || (agentMode && (!requestAgentTurn || !agentToolHandler))} type="submit">{messages.aiSend}</button>
         {state.activeRequestId && <button onClick={cancelActive} type="button">{messages.cancelFileAction}</button>}
       </form>
