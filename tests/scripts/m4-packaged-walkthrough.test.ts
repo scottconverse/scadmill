@@ -233,12 +233,16 @@ describe("M4 packaged newcomer walkthrough", () => {
     Object.defineProperty(target, "document", {
       configurable: true,
       value: {
-        querySelector: (selector: string) => selector === '[aria-label="AI"]'
-          ? {
+        querySelector: (selector: string) => {
+          if (selector === '[aria-label="AI"]') {
+            return { textContent: "AI", querySelectorAll: () => [] };
+          }
+          return selector === 'section[aria-label="AI"]' ? {
               textContent: `${messages.aiNotConfigured} ${messages.aiSetupGuidance}`,
               querySelectorAll: () => [],
             }
-          : null,
+            : null;
+        },
       },
     });
     try {

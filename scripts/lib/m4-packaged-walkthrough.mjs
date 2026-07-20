@@ -164,7 +164,7 @@ export const M4_DOM_SCRIPTS = Object.freeze({
   `,
   consoleRunCount: `return { count: document.querySelectorAll('.console-run').length };`,
   aiUnconfigured: `
-    const ai = document.querySelector('[aria-label="AI"]');
+    const ai = document.querySelector('section[aria-label="AI"]');
     const text = ai?.textContent ?? '';
     return {
       guidanceVisible: text.includes('AI is not configured.')

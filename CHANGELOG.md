@@ -119,6 +119,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 - Accelerated, explicitly non-release N-2 diagnostics now use a duration-scaled memory sampling interval and baseline window that real packaged render cycles can satisfy, including bounded post-cycle sampling overhead during independent artifact verification; the literal one-hour release profile remains unchanged.
 - The packaged M4 unconfigured-AI probe now handles protected and configurable-accessor Tauri invoke bridges transactionally, always cleans up after mid-probe failures, and records unavailable native-invoke coverage instead of claiming an unobserved zero.
 - The same packaged probe now binds its visible-guidance assertion to the current no-network-before-send security copy instead of an obsolete setup sentence.
+- Its DOM oracle now targets the semantic AI panel section specifically, avoiding an earlier activity-bar control that shares the `AI` accessible label.
 - Windows Sandbox evidence startup now retries only transient `EBUSY` reads of WebView2's newly created `DevToolsActivePort` within the existing timeout, while permanent filesystem failures still fail immediately.
 
 - Repeated 3D renders now reuse one lifecycle-owned STL parser worker instead of constructing and terminating a new worker for every mesh, and automatic thumbnails no longer resize the live WebGL drawing buffer twice per render. Thumbnails render the stable viewport once and downsample into a bounded 240x160 2D canvas; explicit sized screenshots remain unchanged.
