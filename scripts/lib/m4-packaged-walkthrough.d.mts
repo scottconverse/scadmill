@@ -112,7 +112,9 @@ export interface M4PackagedWalkthroughEvidence {
   ];
   readonly ai: {
     readonly unconfiguredRequestCount: 0;
-    readonly unconfiguredNetworkAttempts: 0;
+    readonly unconfiguredRendererNetworkAttempts: 0;
+    readonly unconfiguredTauriInvokeAttempts: 0 | null;
+    readonly unconfiguredInvokeMonitoring: "installed" | "protected-nonwritable" | "patch-failed";
     readonly requestCount: 7;
     readonly proposalAccepted: true;
     readonly agentStatus: "completed";
@@ -193,7 +195,11 @@ export function inspectM4Png(
   },
 ): { readonly byteLength: number; readonly width: number; readonly height: number; readonly sha256: string };
 
-export function validateM4ZeroNetworkAttempts(value: unknown): { readonly attemptCount: 0 };
+export function validateM4ZeroNetworkAttempts(value: unknown): {
+  readonly rendererAttemptCount: 0;
+  readonly tauriInvokeAttemptCount: 0 | null;
+  readonly tauriInvokeMonitoring: "installed" | "protected-nonwritable" | "patch-failed";
+};
 
 export function validateM4RawTranscriptSemantics(
   records: readonly M4RawAiTranscriptRecord[],

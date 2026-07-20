@@ -69,45 +69,98 @@ export const M4_DOM_SCRIPTS = Object.freeze({
     const originalInvoke = tauriInternals?.invoke;
     const invokeDescriptor = tauriInternals
       ? Object.getOwnPropertyDescriptor(tauriInternals, 'invoke') : undefined;
-    globalThis.fetch = (...args) => {
-      attempts.push({ kind: 'fetch', target: String(args[0] instanceof Request ? args[0].url : args[0]) });
-      return originalFetch(...args);
-    };
-    XMLHttpRequest.prototype.open = function(method, url, ...rest) {
-      attempts.push({ kind: 'xhr', target: String(url), method: String(method) });
-      return originalOpen.call(this, method, url, ...rest);
-    };
-    if (tauriInternals && typeof originalInvoke === 'function') {
-      const monitoredInvoke = function(command, ...args) {
-        if (command === 'ai_http_request') {
-          attempts.push({ kind: 'tauri-ai-broker', target: command });
-          return Promise.reject(new Error('M4 unconfigured-AI monitor blocked an AI broker request.'));
-        }
-        return originalInvoke.call(this, command, ...args);
-      };
-      Object.defineProperty(tauriInternals, 'invoke', invokeDescriptor
-        ? { ...invokeDescriptor, value: monitoredInvoke }
-        : { configurable: true, enumerable: true, writable: true, value: monitoredInvoke });
-    }
-    globalThis.__scadmillM4NetworkAttemptMonitor = {
+    const monitor = {
       attempts, originalFetchValue, originalOpen, tauriInternals, originalInvoke, invokeDescriptor,
+      invokePatched: false,
+      tauriInvokeMonitoring: typeof originalInvoke === 'function'
+        ? 'protected-nonwritable' : 'unavailable',
     };
-    return { attemptCount: attempts.length };
+    globalThis.__scadmillM4NetworkAttemptMonitor = monitor;
+    try {
+      globalThis.fetch = (...args) => {
+        attempts.push({ kind: 'fetch', target: String(args[0] instanceof Request ? args[0].url : args[0]) });
+        return originalFetch(...args);
+      };
+      XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+        attempts.push({ kind: 'xhr', target: String(url), method: String(method) });
+        return originalOpen.call(this, method, url, ...rest);
+      };
+      if (tauriInternals && typeof originalInvoke === 'function') {
+        const invokePatchable = !invokeDescriptor || invokeDescriptor.configurable
+          || ('writable' in invokeDescriptor && invokeDescriptor.writable);
+        if (invokePatchable) {
+          const monitoredInvoke = function(command, ...args) {
+            if (command === 'ai_http_request') {
+              attempts.push({ kind: 'tauri-ai-broker', target: command });
+              return Promise.reject(new Error('M4 unconfigured-AI monitor blocked an AI broker request.'));
+            }
+            return originalInvoke.call(this, command, ...args);
+          };
+          const monitoredDescriptor = invokeDescriptor && 'value' in invokeDescriptor
+            ? { ...invokeDescriptor, value: monitoredInvoke }
+            : {
+                configurable: invokeDescriptor?.configurable ?? true,
+                enumerable: invokeDescriptor?.enumerable ?? true,
+                writable: true,
+                value: monitoredInvoke,
+              };
+          try {
+            Object.defineProperty(tauriInternals, 'invoke', monitoredDescriptor);
+            monitor.invokePatched = true;
+            monitor.tauriInvokeMonitoring = 'installed';
+          } catch {
+            monitor.tauriInvokeMonitoring = 'patch-failed';
+          }
+        }
+      }
+      return {
+        rendererAttemptCount: attempts.filter(({ kind }) => kind === 'fetch' || kind === 'xhr').length,
+        tauriInvokeAttemptCount: monitor.tauriInvokeMonitoring === 'installed'
+          ? attempts.filter(({ kind }) => kind === 'tauri-ai-broker').length : null,
+        tauriInvokeMonitoring: monitor.tauriInvokeMonitoring,
+      };
+    } catch (error) {
+      globalThis.fetch = originalFetchValue;
+      XMLHttpRequest.prototype.open = originalOpen;
+      if (monitor.invokePatched && tauriInternals) {
+        if (invokeDescriptor) Object.defineProperty(tauriInternals, 'invoke', invokeDescriptor);
+        else delete tauriInternals.invoke;
+      }
+      delete globalThis.__scadmillM4NetworkAttemptMonitor;
+      throw error;
+    }
   `,
   networkAttemptSnapshot: `
     const monitor = globalThis.__scadmillM4NetworkAttemptMonitor;
-    if (!monitor) return { attemptCount: -1 };
-    globalThis.fetch = monitor.originalFetchValue;
-    XMLHttpRequest.prototype.open = monitor.originalOpen;
-    if (monitor.tauriInternals && typeof monitor.originalInvoke === 'function') {
-      if (monitor.invokeDescriptor) {
-        Object.defineProperty(monitor.tauriInternals, 'invoke', monitor.invokeDescriptor);
-      } else {
-        delete monitor.tauriInternals.invoke;
-      }
+    if (!monitor) return {
+      rendererAttemptCount: -1,
+      tauriInvokeAttemptCount: null,
+      tauriInvokeMonitoring: 'unavailable',
+    };
+    const observation = {
+      rendererAttemptCount: monitor.attempts
+        .filter(({ kind }) => kind === 'fetch' || kind === 'xhr').length,
+      tauriInvokeAttemptCount: monitor.tauriInvokeMonitoring === 'installed'
+        ? monitor.attempts.filter(({ kind }) => kind === 'tauri-ai-broker').length : null,
+      tauriInvokeMonitoring: monitor.tauriInvokeMonitoring,
+    };
+    const restorationErrors = [];
+    try { globalThis.fetch = monitor.originalFetchValue; } catch (error) { restorationErrors.push(error); }
+    try { XMLHttpRequest.prototype.open = monitor.originalOpen; } catch (error) { restorationErrors.push(error); }
+    if (monitor.invokePatched && monitor.tauriInternals && typeof monitor.originalInvoke === 'function') {
+      try {
+        if (monitor.invokeDescriptor) {
+          Object.defineProperty(monitor.tauriInternals, 'invoke', monitor.invokeDescriptor);
+        } else {
+          delete monitor.tauriInternals.invoke;
+        }
+      } catch (error) { restorationErrors.push(error); }
     }
     delete globalThis.__scadmillM4NetworkAttemptMonitor;
-    return { attemptCount: monitor.attempts.length };
+    if (restorationErrors.length > 0) {
+      throw new AggregateError(restorationErrors, 'M4 network-attempt monitor restoration failed.');
+    }
+    return observation;
   `,
   consoleRunCount: `return { count: document.querySelectorAll('.console-run').length };`,
   aiUnconfigured: `
@@ -437,7 +490,14 @@ export const M4_DOM_SCRIPTS = Object.freeze({
 });
 
 export function validateM4ZeroNetworkAttempts(value) {
-  assert.deepEqual(value, { attemptCount: 0 }, "Unconfigured AI attempted renderer network access.");
+  assert.ok(exactKeys(value, ["rendererAttemptCount", "tauriInvokeAttemptCount", "tauriInvokeMonitoring"]), "Unconfigured AI network observation has the wrong shape.");
+  assert.equal(value.rendererAttemptCount, 0, "Unconfigured AI attempted renderer network access.");
+  assert.ok(["installed", "protected-nonwritable", "patch-failed"].includes(value.tauriInvokeMonitoring), "Tauri invoke monitoring status is invalid.");
+  assert.equal(
+    value.tauriInvokeAttemptCount,
+    value.tauriInvokeMonitoring === "installed" ? 0 : null,
+    "Unconfigured AI Tauri invoke observation is inconsistent with its monitoring status.",
+  );
   return value;
 }
 
@@ -981,15 +1041,25 @@ export async function runM4PackagedWalkthrough({
   const screenshots = [];
   let mock;
   let mockStopped = false;
+  let networkMonitorActive = false;
   let result;
   let failure;
   try {
-    validateM4ZeroNetworkAttempts(await automation.execute(M4_DOM_SCRIPTS.installNetworkAttemptMonitor));
+    const initialNetworkObservationRaw = await automation.execute(M4_DOM_SCRIPTS.installNetworkAttemptMonitor);
+    networkMonitorActive = true;
+    const initialNetworkObservation = validateM4ZeroNetworkAttempts(initialNetworkObservationRaw);
     await automation.clickAria("AI");
     await automation.waitForText("AI is not configured.");
     const unconfigured = await automation.execute(M4_DOM_SCRIPTS.aiUnconfigured);
     assert.deepEqual(unconfigured, { guidanceVisible: true, sendCount: 0 }, "Unconfigured AI exposed a send path or lost its setup guidance.");
-    validateM4ZeroNetworkAttempts(await automation.execute(M4_DOM_SCRIPTS.networkAttemptSnapshot));
+    const finalNetworkObservationRaw = await automation.execute(M4_DOM_SCRIPTS.networkAttemptSnapshot);
+    networkMonitorActive = false;
+    const finalNetworkObservation = validateM4ZeroNetworkAttempts(finalNetworkObservationRaw);
+    assert.equal(
+      finalNetworkObservation.tauriInvokeMonitoring,
+      initialNetworkObservation.tauriInvokeMonitoring,
+      "Tauri invoke monitoring status changed during the unconfigured-AI probe.",
+    );
     order.push("c10-unconfigured");
     await screenshot(automation, screenshots, "04a-ai-unconfigured.png");
 
@@ -1212,7 +1282,9 @@ export async function runM4PackagedWalkthrough({
       order,
       ai: {
         unconfiguredRequestCount: 0,
-        unconfiguredNetworkAttempts: 0,
+        unconfiguredRendererNetworkAttempts: finalNetworkObservation.rendererAttemptCount,
+        unconfiguredTauriInvokeAttempts: finalNetworkObservation.tauriInvokeAttemptCount,
+        unconfiguredInvokeMonitoring: finalNetworkObservation.tauriInvokeMonitoring,
         requestCount: transcript.records.length,
         proposalAccepted: true,
         agentStatus: "completed",
@@ -1260,6 +1332,16 @@ export async function runM4PackagedWalkthrough({
   } catch (error) {
     failure = error;
   } finally {
+    if (networkMonitorActive) {
+      try {
+        await automation.execute(M4_DOM_SCRIPTS.networkAttemptSnapshot);
+        networkMonitorActive = false;
+      } catch (cleanupError) {
+        failure = failure
+          ? new AggregateError([failure, cleanupError], "M4 journey and network-monitor cleanup failed.")
+          : cleanupError;
+      }
+    }
     if (mock && !mockStopped) {
       try { await automation.stopAiMock(); } catch (stopError) {
         failure = failure ? new AggregateError([failure, stopError], "M4 journey and AI mock shutdown failed.") : stopError;

@@ -428,6 +428,26 @@ describe("N-2 soak evidence", () => {
     await expect(verifyN2SoakArtifacts(input)).rejects.toThrow("configuration");
   });
 
+  it("allows bounded accelerated post-cycle memory-sampling overhead", async () => {
+    const root = await mkdtemp(join(tmpdir(), "scadmill-n2-boundary-"));
+    roots.push(root);
+    const fixture = await retainedAcceleratedFixture(root);
+    fixture.summary.durationSeconds = 121;
+    fixture.summary.completedAt = new Date(121_000).toISOString();
+    const soakEvent = fixture.events.find(({ name }) => name === "n2-accelerated-non-release-soak-passed");
+    if (!soakEvent) throw new Error("Synthetic soak event is missing.");
+    soakEvent.durationSeconds = fixture.summary.durationSeconds;
+    await rebindRetainedRecords(fixture);
+
+    await expect(verifyN2SoakArtifacts({
+      configurationPath: fixture.configPath,
+      summaryPath: fixture.summaryPath,
+      samplePath: fixture.samplePath,
+      expectedConfigurationSha256: sha256(fixture.configText),
+      events: fixture.events,
+    })).resolves.toMatchObject({ status: "passed", mode: "accelerated" });
+  });
+
   it("requires exactly one disabled event and rejects stray disabled artifacts", async () => {
     const root = await mkdtemp(join(tmpdir(), "scadmill-n2-disabled-"));
     roots.push(root);

@@ -216,10 +216,197 @@ describe("M4 packaged newcomer walkthrough", () => {
   });
 
   it("rejects any unconfigured-AI renderer network attempt", () => {
-    expect(() => validateM4ZeroNetworkAttempts({ attemptCount: 1 })).toThrow("network access");
+    expect(() => validateM4ZeroNetworkAttempts({
+      rendererAttemptCount: 1,
+      tauriInvokeAttemptCount: 0,
+      tauriInvokeMonitoring: "installed",
+    })).toThrow("network access");
     expect(M4_DOM_SCRIPTS.installNetworkAttemptMonitor).toContain("command === 'ai_http_request'");
     expect(M4_DOM_SCRIPTS.installNetworkAttemptMonitor).toContain("blocked an AI broker request");
     expect(M4_DOM_SCRIPTS.networkAttemptSnapshot).toContain("Object.defineProperty(monitor.tauriInternals, 'invoke', monitor.invokeDescriptor)");
+  });
+
+  it("keeps renderer monitoring usable when Tauri protects its invoke bridge", () => {
+    const target = globalThis as typeof globalThis & {
+      __TAURI_INTERNALS__?: { invoke: (...args: unknown[]) => Promise<unknown> };
+      __scadmillM4NetworkAttemptMonitor?: unknown;
+      XMLHttpRequest?: { prototype: { open: (...args: unknown[]) => unknown } };
+    };
+    const priorInternals = Object.getOwnPropertyDescriptor(target, "__TAURI_INTERNALS__");
+    const priorXmlHttpRequest = Object.getOwnPropertyDescriptor(target, "XMLHttpRequest");
+    const priorFetch = target.fetch;
+    const XMLHttpRequestFixture = class {
+      open(..._args: unknown[]) { return undefined; }
+    };
+    Object.defineProperty(target, "XMLHttpRequest", {
+      configurable: true,
+      writable: true,
+      value: XMLHttpRequestFixture,
+    });
+    const priorOpen = XMLHttpRequestFixture.prototype.open;
+    const invoke = async () => undefined;
+    const internals = {} as { invoke: (...args: unknown[]) => Promise<unknown> };
+    Object.defineProperty(internals, "invoke", {
+      configurable: false,
+      enumerable: true,
+      writable: false,
+      value: invoke,
+    });
+    Object.defineProperty(target, "__TAURI_INTERNALS__", {
+      configurable: true,
+      writable: true,
+      value: internals,
+    });
+    try {
+      const install = new Function(M4_DOM_SCRIPTS.installNetworkAttemptMonitor);
+      const snapshot = new Function(M4_DOM_SCRIPTS.networkAttemptSnapshot);
+      expect(install()).toEqual({
+        rendererAttemptCount: 0,
+        tauriInvokeAttemptCount: null,
+        tauriInvokeMonitoring: "protected-nonwritable",
+      });
+      expect(snapshot()).toEqual({
+        rendererAttemptCount: 0,
+        tauriInvokeAttemptCount: null,
+        tauriInvokeMonitoring: "protected-nonwritable",
+      });
+      expect(internals.invoke).toBe(invoke);
+    } finally {
+      target.fetch = priorFetch;
+      XMLHttpRequestFixture.prototype.open = priorOpen;
+      delete target.__scadmillM4NetworkAttemptMonitor;
+      if (priorInternals) Object.defineProperty(target, "__TAURI_INTERNALS__", priorInternals);
+      else delete target.__TAURI_INTERNALS__;
+      if (priorXmlHttpRequest) Object.defineProperty(target, "XMLHttpRequest", priorXmlHttpRequest);
+      else Reflect.deleteProperty(target, "XMLHttpRequest");
+    }
+  });
+
+  it("restores a configurable Tauri invoke accessor exactly after monitoring", () => {
+    const target = globalThis as typeof globalThis & {
+      __TAURI_INTERNALS__?: { readonly invoke: (...args: unknown[]) => Promise<unknown> };
+      __scadmillM4NetworkAttemptMonitor?: unknown;
+      XMLHttpRequest?: { prototype: { open: (...args: unknown[]) => unknown } };
+    };
+    const priorInternals = Object.getOwnPropertyDescriptor(target, "__TAURI_INTERNALS__");
+    const priorXmlHttpRequest = Object.getOwnPropertyDescriptor(target, "XMLHttpRequest");
+    const priorFetch = target.fetch;
+    const XMLHttpRequestFixture = class { open(..._args: unknown[]) { return undefined; } };
+    Object.defineProperty(target, "XMLHttpRequest", { configurable: true, writable: true, value: XMLHttpRequestFixture });
+    const invoke = async () => undefined;
+    const getter = () => invoke;
+    const internals = {} as { readonly invoke: (...args: unknown[]) => Promise<unknown> };
+    Object.defineProperty(internals, "invoke", { configurable: true, enumerable: true, get: getter });
+    const originalDescriptor = Object.getOwnPropertyDescriptor(internals, "invoke");
+    Object.defineProperty(target, "__TAURI_INTERNALS__", { configurable: true, writable: true, value: internals });
+    try {
+      const install = new Function(M4_DOM_SCRIPTS.installNetworkAttemptMonitor);
+      const snapshot = new Function(M4_DOM_SCRIPTS.networkAttemptSnapshot);
+      expect(install()).toMatchObject({ tauriInvokeMonitoring: "installed", tauriInvokeAttemptCount: 0 });
+      expect(snapshot()).toMatchObject({ tauriInvokeMonitoring: "installed", tauriInvokeAttemptCount: 0 });
+      expect(Object.getOwnPropertyDescriptor(internals, "invoke")).toEqual(originalDescriptor);
+    } finally {
+      target.fetch = priorFetch;
+      delete target.__scadmillM4NetworkAttemptMonitor;
+      if (priorInternals) Object.defineProperty(target, "__TAURI_INTERNALS__", priorInternals);
+      else delete target.__TAURI_INTERNALS__;
+      if (priorXmlHttpRequest) Object.defineProperty(target, "XMLHttpRequest", priorXmlHttpRequest);
+      else Reflect.deleteProperty(target, "XMLHttpRequest");
+    }
+  });
+
+  it("removes an installed network monitor after a mid-probe walkthrough failure", async () => {
+    const initialSource = "cube([10, 10, 10]);";
+    let source = initialSource;
+    const scripts: string[] = [];
+    const observation = {
+      rendererAttemptCount: 0,
+      tauriInvokeAttemptCount: null,
+      tauriInvokeMonitoring: "protected-nonwritable",
+    };
+    const automation: M4PackagedAutomation = {
+      readSource: async () => source,
+      replaceSource: async (next) => { source = next; },
+      waitForSource: async () => undefined,
+      clickAria: async () => undefined,
+      clickButton: async () => undefined,
+      setControl: async () => undefined,
+      setChecked: async () => undefined,
+      waitForText: async () => { throw new Error("forced mid-probe failure"); },
+      execute: async (script) => { scripts.push(script); return observation; },
+      executeAsync: async () => undefined,
+      captureScreenshot: async () => PNG,
+      startAiMock: async () => ({ endpoint: "http://127.0.0.1:1", model: "unused", secret: "unused" }),
+      stopAiMock: async () => [],
+      probeMcpDefaultDeny: async () => ({ error: { code: -32001, message: "MCP mutation denied by the current permission gate." }, writeOccurred: false }),
+      runMcpAllowSessionJourney: async () => ({
+        protocolVersion: "2025-11-25", toolNames: [], preview: { kind: "3d", triangles: 12 },
+        diagnostics: { quality: "preview", count: 0 }, pendingReview: { status: "pending_review" }, mutationApproved: true,
+      }),
+      restartApplication: async () => ({ beforePid: 1, afterPid: 2, freshWebViewProcesses: true }),
+    };
+
+    await expect(runM4PackagedWalkthrough({
+      automation,
+      initialSource,
+      proposalSource: "cube([12, 10, 10]);\n",
+      agentSource: "cube([14, 10, 10]);\n",
+      projectPath: "main.scad",
+    })).rejects.toThrow("forced mid-probe failure");
+    expect(scripts.filter((script) => script === M4_DOM_SCRIPTS.installNetworkAttemptMonitor)).toHaveLength(1);
+    expect(scripts.filter((script) => script === M4_DOM_SCRIPTS.networkAttemptSnapshot)).toHaveLength(1);
+    expect(source).toBe(initialSource);
+  });
+
+  it("retries cleanup when the first network snapshot transport call rejects", async () => {
+    const initialSource = "cube([10, 10, 10]);";
+    let source = initialSource;
+    let snapshotCalls = 0;
+    const observation = {
+      rendererAttemptCount: 0,
+      tauriInvokeAttemptCount: null,
+      tauriInvokeMonitoring: "protected-nonwritable",
+    };
+    const automation: M4PackagedAutomation = {
+      readSource: async () => source,
+      replaceSource: async (next) => { source = next; },
+      waitForSource: async () => undefined,
+      clickAria: async () => undefined,
+      clickButton: async () => undefined,
+      setControl: async () => undefined,
+      setChecked: async () => undefined,
+      waitForText: async () => undefined,
+      execute: async (script) => {
+        if (script === M4_DOM_SCRIPTS.installNetworkAttemptMonitor) return observation;
+        if (script === M4_DOM_SCRIPTS.aiUnconfigured) return { guidanceVisible: true, sendCount: 0 };
+        if (script === M4_DOM_SCRIPTS.networkAttemptSnapshot) {
+          snapshotCalls += 1;
+          if (snapshotCalls === 1) throw new Error("first snapshot transport failure");
+          return observation;
+        }
+        return undefined;
+      },
+      executeAsync: async () => undefined,
+      captureScreenshot: async () => PNG,
+      startAiMock: async () => ({ endpoint: "http://127.0.0.1:1", model: "unused", secret: "unused" }),
+      stopAiMock: async () => [],
+      probeMcpDefaultDeny: async () => ({ error: { code: -32001, message: "MCP mutation denied by the current permission gate." }, writeOccurred: false }),
+      runMcpAllowSessionJourney: async () => ({
+        protocolVersion: "2025-11-25", toolNames: [], preview: { kind: "3d", triangles: 12 },
+        diagnostics: { quality: "preview", count: 0 }, pendingReview: { status: "pending_review" }, mutationApproved: true,
+      }),
+      restartApplication: async () => ({ beforePid: 1, afterPid: 2, freshWebViewProcesses: true }),
+    };
+
+    await expect(runM4PackagedWalkthrough({
+      automation,
+      initialSource,
+      proposalSource: "cube([12, 10, 10]);\n",
+      agentSource: "cube([14, 10, 10]);\n",
+      projectPath: "main.scad",
+    })).rejects.toThrow("first snapshot transport failure");
+    expect(snapshotCalls).toBe(2);
+    expect(source).toBe(initialSource);
   });
 
   it("proves the ordered C10/C11/cache/delta/animation/thumbnail/restart journey without retaining secrets", async () => {
@@ -370,7 +557,13 @@ describe("M4 packaged newcomer walkthrough", () => {
       waitForText: async (text: string) => { calls.push(`wait:${text}`); },
       execute: async (script: string) => {
         if (script === M4_DOM_SCRIPTS.installNetworkAttemptMonitor
-          || script === M4_DOM_SCRIPTS.networkAttemptSnapshot) return { attemptCount: 0 };
+          || script === M4_DOM_SCRIPTS.networkAttemptSnapshot) {
+          return {
+            rendererAttemptCount: 0,
+            tauriInvokeAttemptCount: null,
+            tauriInvokeMonitoring: "protected-nonwritable",
+          };
+        }
         if (script === M4_DOM_SCRIPTS.consoleRunCount) return { count: consoleRuns };
         if (script === M4_DOM_SCRIPTS.installAnimationMonitor) return { consoleRuns };
         if (script === M4_DOM_SCRIPTS.focusFileTreeThumbnail) return true;
@@ -503,6 +696,9 @@ describe("M4 packaged newcomer walkthrough", () => {
       order: ["c10-unconfigured", "c10-proposal", "c10-agent", "c10-agent-cap", "c11-default-deny", "c11-allow-session", "cache", "delta", "animation", "thumbnail", "restart", "source-restored"],
       ai: {
         unconfiguredRequestCount: 0,
+        unconfiguredRendererNetworkAttempts: 0,
+        unconfiguredTauriInvokeAttempts: null,
+        unconfiguredInvokeMonitoring: "protected-nonwritable",
         requestCount: 7,
         proposalAccepted: true,
         agentStatus: "completed",

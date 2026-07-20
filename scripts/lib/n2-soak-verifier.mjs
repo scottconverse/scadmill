@@ -191,10 +191,13 @@ function auditedCycles(records, summary, configuration) {
   ) throw new Error("Retained N-2 cycle continuity differs from the summary.");
   const firstStartOffsetMs = Date.parse(cycles[0]?.startedAt) - soakStartMs;
   const finalElapsedSeconds = cycles.at(-1)?.elapsedSeconds;
+  const finalCycleToleranceSeconds = configuration.mode === "accelerated"
+    ? Math.max(configuration.cadenceMilliseconds / 1_000, configuration.memorySampleIntervalSeconds)
+    : configuration.cadenceMilliseconds / 1_000;
   if (
     firstStartOffsetMs < 0
     || firstStartOffsetMs > configuration.cadenceMilliseconds
-    || finalElapsedSeconds < summary.durationSeconds - configuration.cadenceMilliseconds / 1_000
+    || finalElapsedSeconds < summary.durationSeconds - finalCycleToleranceSeconds
     || finalElapsedSeconds > summary.durationSeconds + 90
   ) throw new Error("Retained N-2 cycle boundary coverage does not span the soak.");
   return cycles;

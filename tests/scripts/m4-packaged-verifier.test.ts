@@ -92,7 +92,9 @@ async function fixture() {
     status: "passed",
     order: ORDER,
     ai: {
-      unconfiguredRequestCount: 0, unconfiguredNetworkAttempts: 0, requestCount: 7,
+      unconfiguredRequestCount: 0, unconfiguredRendererNetworkAttempts: 0,
+      unconfiguredTauriInvokeAttempts: null, unconfiguredInvokeMonitoring: "protected-nonwritable",
+      requestCount: 7,
       proposalAccepted: true, agentStatus: "completed", capStatus: "capped", capToolRounds: 2,
       selectedResponseToolSequence: [null, "render_preview", "get_diagnostics", "write_file", null, "render_preview", "render_preview"],
       contextPatterns: Array.from({ length: 7 }, (_, index) => ({ source: index === 0 || index >= 5, diagnostics: index === 0, parameters: index === 0, screenshot: index === 0 })),

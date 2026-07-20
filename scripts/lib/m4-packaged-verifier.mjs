@@ -59,8 +59,11 @@ function requireWalkthroughShape(value) {
     ...Array.from({ length: 4 }, () => ({ source: false, diagnostics: false, parameters: false, screenshot: false })),
     ...Array.from({ length: 2 }, () => ({ source: true, diagnostics: false, parameters: false, screenshot: false })),
   ];
-  if (!exactKeys(ai, ["unconfiguredRequestCount", "unconfiguredNetworkAttempts", "requestCount", "proposalAccepted", "agentStatus", "capStatus", "capToolRounds", "selectedResponseToolSequence", "contextPatterns", "semanticTranscript", "transcript"])
-    || ai.unconfiguredRequestCount !== 0 || ai.unconfiguredNetworkAttempts !== 0 || ai.requestCount !== 7
+  if (!exactKeys(ai, ["unconfiguredRequestCount", "unconfiguredRendererNetworkAttempts", "unconfiguredTauriInvokeAttempts", "unconfiguredInvokeMonitoring", "requestCount", "proposalAccepted", "agentStatus", "capStatus", "capToolRounds", "selectedResponseToolSequence", "contextPatterns", "semanticTranscript", "transcript"])
+    || ai.unconfiguredRequestCount !== 0 || ai.unconfiguredRendererNetworkAttempts !== 0
+    || !["installed", "protected-nonwritable", "patch-failed"].includes(ai.unconfiguredInvokeMonitoring)
+    || ai.unconfiguredTauriInvokeAttempts !== (ai.unconfiguredInvokeMonitoring === "installed" ? 0 : null)
+    || ai.requestCount !== 7
     || ai.proposalAccepted !== true || ai.agentStatus !== "completed" || ai.capStatus !== "capped" || ai.capToolRounds !== 2
     || JSON.stringify(ai.selectedResponseToolSequence) !== JSON.stringify([null, "render_preview", "get_diagnostics", "write_file", null, "render_preview", "render_preview"])
     || JSON.stringify(ai.contextPatterns) !== JSON.stringify(expectedContexts)
