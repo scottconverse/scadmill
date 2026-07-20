@@ -5,6 +5,32 @@ import { describe, expect, it, vi } from "vitest";
 import { McpReviewPanel } from "../../../src/ui/mcp/McpReviewPanel";
 
 describe("McpReviewPanel", () => {
+  it("keeps the mounted history DOM bounded while older session commands remain reachable", () => {
+    const history = Array.from({ length: 405 }, (_, index) => ({
+      commandId: `history-${index}`,
+      timestamp: `2026-07-17T00:${String(index % 60).padStart(2, "0")}:00Z`,
+      origin: "user" as const,
+      kind: "edit-document" as const,
+      summary: `Edit ${index}`,
+      undoable: true,
+    }));
+    const view = render(
+      <McpReviewPanel
+        history={history} historyDetails={new Map()} pendingReviews={[]}
+        sourceForPath={() => ""} onApprove={vi.fn()} onDeny={vi.fn()}
+      />,
+    );
+
+    expect(view.getAllByRole("button", { name: /^View command detail:/u })).toHaveLength(200);
+    fireEvent.click(view.getByRole("button", { name: "Show 200 older commands" }));
+    expect(view.getAllByRole("button", { name: /^View command detail:/u })).toHaveLength(200);
+    fireEvent.click(view.getByRole("button", { name: "Show 5 older commands" }));
+    expect(view.getAllByRole("button", { name: /^View command detail:/u })).toHaveLength(5);
+    expect(view.queryByRole("button", { name: /older commands/u })).not.toBeInTheDocument();
+    fireEvent.click(view.getByRole("button", { name: "Show 200 newer commands" }));
+    expect(view.getAllByRole("button", { name: /^View command detail:/u })).toHaveLength(200);
+  });
+
   it("reviews pending MCP changes and selects newest-first command details with every origin badge", async () => {
     const approve = vi.fn().mockResolvedValue(undefined);
     const deny = vi.fn();

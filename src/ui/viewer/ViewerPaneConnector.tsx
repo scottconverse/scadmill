@@ -190,7 +190,7 @@ export function ViewerPaneConnector({
       onMcpScreenshotCaptureAvailable={onMcpScreenshotCaptureAvailable}
       onPresentationFailed={onPresentationFailed}
       onPresentationReady={onPresentationReady}
-      onThumbnail={runtime.renderThumbnails
+      onThumbnail={runtime.renderThumbnails && project.mode === "project"
         ? (bytes) => {
             const result = viewer.presentation?.result;
             const renderIdentity = result?.kind === "2d"

@@ -68,8 +68,8 @@ async function runExpectedEngineCrash(input, samplePath, elapsedSeconds) {
   );
   automation.killProcess(engine.pid);
   await requireEngineGone(input);
-  const alerts = await automation.waitForRenderFailure(priorRun);
-  assert.ok(Array.isArray(alerts) && alerts.length > 0, "N-2 engine crash did not surface a visible failure.");
+  const visibleFailure = await automation.waitForRenderFailure(priorRun);
+  assert.ok(visibleFailure && typeof visibleFailure === "object", "N-2 engine crash did not surface a visible failure.");
   const memory = await requirePhaseMemory(input);
   assert.ok(sameProcessIdentity(memory.application[0], guiIdentity), "N-2 engine crash replaced the GUI process.");
   const evidence = {
@@ -82,7 +82,7 @@ async function runExpectedEngineCrash(input, samplePath, elapsedSeconds) {
       startedAt: engine.startedAt,
       executableSha256: hashes.engine.toUpperCase(),
     },
-    visibleAlerts: alerts,
+    visibleFailure,
     guiIdentityPreserved: true,
     engineCleared: true,
   };

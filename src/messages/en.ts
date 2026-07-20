@@ -647,6 +647,8 @@ export const messages = {
   historyEntryDetail: "Command detail",
   historyViewDetail: (summary: string, origin: string, timestamp: string) =>
     `View command detail: ${summary} — ${origin} — ${timestamp}`,
+  historyShowOlder: (count: number) => `Show ${count} older commands`,
+  historyShowNewer: (count: number) => `Show ${count} newer commands`,
   historyKind: "Command",
   historyOrigin: "Origin",
   historyTime: "Time",

@@ -109,7 +109,14 @@ describe("N-2 packaged soak runner", () => {
           expect(consoleRunCount).toBe(prior.count + 1);
           failureVisible = true;
           concurrentRenders -= 1;
-          return ["Render failed after the engine exited."];
+          return {
+            consoleRun: { count: consoleRunCount, label: "Untitled · full · 0.1 s · engine error" },
+            status: { text: "Render failed for Untitled" },
+            viewerBadge: {
+              text: "Render failed; last successful model shown",
+              ariaLabel: "Show render error in console",
+            },
+          };
         },
         visibleAlerts: async () => failureVisible ? ["Render failed after the engine exited."] : [],
         exactExecutableProcesses: async (path: string) => {
@@ -214,6 +221,9 @@ describe("N-2 packaged soak runner", () => {
     expect(verifier).toContain('"n2-literal-one-hour-soak-passed"');
     expect(verifier).not.toContain('"n2-literal-eight-hour-soak-passed"');
     expect(runner).toContain(".diagnostic-console .console-run");
+    expect(runner).toContain(".viewer-error-badge");
+    expect(runner).toContain(".status-render");
+    expect(runner).toContain("visible N-2 render failure proof");
     expect(runner).toContain("snapshot.count === priorRun.count + 1");
     expect(runner).toContain("one new successful N-2 Console run");
     const mcpOff = runner.indexOf('record("mcp-toggle-off-process-inspection-passed"');

@@ -857,6 +857,23 @@ async function visibleAlerts(client) {
   return Array.isArray(alerts) ? alerts : [];
 }
 
+async function visibleRenderFailure(client) {
+  const observation = await client.execute(`
+    const status = document.querySelector('.status-render');
+    const badge = document.querySelector('.viewer-error-badge');
+    if (!(status instanceof HTMLElement && status.getClientRects().length > 0)
+      || !(badge instanceof HTMLButtonElement && badge.getClientRects().length > 0)) return null;
+    return {
+      status: { text: status.textContent.trim() },
+      viewerBadge: {
+        text: badge.textContent.trim(),
+        ariaLabel: badge.getAttribute('aria-label') ?? '',
+      },
+    };
+  `);
+  return observation;
+}
+
 async function openDesktopProject(client, projectDirectory, expectedSource) {
   const projectLocatorVisible = async () => (await client.execute(`
     const form = document.querySelector('.project-locator-form');
@@ -1274,14 +1291,17 @@ try {
         if (snapshot.count > priorRun.count + 1) {
           throw new Error("N-2 observed more than one new Console run for the crash request.");
         }
-        const alerts = await visibleAlerts(client);
+        const failure = await visibleRenderFailure(client);
         return snapshot.count === priorRun.count + 1
+          && snapshot.label.startsWith('Untitled · full · ')
           && !snapshot.label.includes('running')
           && !snapshot.label.includes('exit 0')
-          && alerts.length > 0
-          ? alerts
+          && failure?.status?.text === 'Render failed for Untitled'
+          && failure?.viewerBadge?.text === 'Render failed; last successful model shown'
+          && failure?.viewerBadge?.ariaLabel === 'Show render error in console'
+          ? { consoleRun: snapshot, ...failure }
           : false;
-      }, "visible N-2 engine failure", 60_000, 50),
+      }, "visible N-2 render failure proof", 60_000, 50),
       visibleAlerts: () => visibleAlerts(client),
       exactExecutableProcesses,
       fileSha256,

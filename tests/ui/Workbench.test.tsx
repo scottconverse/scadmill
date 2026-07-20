@@ -1079,6 +1079,9 @@ describe("Workbench", () => {
     })).toBeVisible();
     expect(within(consoleRegion).getByText(/raw compiler footer/u)).toBeVisible();
     expect(within(consoleRegion).queryByText("No diagnostics from this session.")).not.toBeInTheDocument();
+    expect(status.getByText("Render failed for main.scad")).toBeVisible();
+    expect(within(view.container).getByRole("button", { name: "Show render error in console" })).toBeVisible();
+    expect(within(consoleRegion).getByLabelText(/main\.scad · preview · .* · engine error/u)).toBeVisible();
   });
 
   it("activates an open diagnostic file and moves the editor cursor to its reported line", async () => {

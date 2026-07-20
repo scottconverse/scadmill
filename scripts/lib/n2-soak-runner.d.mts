@@ -14,7 +14,11 @@ interface N2Automation {
   startPreview(): Promise<unknown>;
   startCrashRender(): Promise<unknown>;
   waitForRenderSuccess(boundsText: string, priorRun: { count: number }): Promise<unknown>;
-  waitForRenderFailure(priorRun: { count: number }): Promise<unknown[]>;
+  waitForRenderFailure(priorRun: { count: number }): Promise<{
+    consoleRun: { count: number; label: string };
+    status: { text: string };
+    viewerBadge: { text: string; ariaLabel: string };
+  }>;
   visibleAlerts(): Promise<unknown[]>;
   exactExecutableProcesses(path: string): Promise<N2ProcessMemoryRow[]>;
   fileSha256(path: string): Promise<string>;

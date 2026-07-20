@@ -61,7 +61,11 @@ interface TestCrashRecord {
   elapsedSeconds: number;
   sourceSha256: string;
   engine: { pid: number; path: string; startedAt: string; executableSha256: string };
-  visibleAlerts: string[];
+  visibleFailure: {
+    consoleRun: { count: number; label: string };
+    status: { text: string };
+    viewerBadge: { text: string; ariaLabel: string };
+  };
   guiIdentityPreserved: boolean;
   engineCleared: boolean;
 }
@@ -141,7 +145,14 @@ async function retainedAcceleratedFixture(root: string) {
       startedAt: new Date(60_000).toISOString(),
       executableSha256: "de".repeat(32),
     },
-    visibleAlerts: ["Render failed after the engine exited."],
+    visibleFailure: {
+      consoleRun: { count: 61, label: "Untitled · full · 0.1 s · engine error" },
+      status: { text: "Render failed for Untitled" },
+      viewerBadge: {
+        text: "Render failed; last successful model shown",
+        ariaLabel: "Show render error in console",
+      },
+    },
     guiIdentityPreserved: true,
     engineCleared: true,
   };
@@ -597,6 +608,27 @@ describe("N-2 soak evidence", () => {
     const crash = fixture.records.find((record) => record.kind === "expected-engine-crash");
     if (!crash || !("engine" in crash)) throw new Error("Synthetic crash is missing.");
     crash.engine.path = "C:\\replacement\\openscad.exe";
+    await rebindRetainedRecords(fixture);
+    await expect(verify()).rejects.toThrow("crash proof");
+
+    fixture = await retainedAcceleratedFixture(root);
+    const nonFailureStatus = fixture.records.find((record) => record.kind === "expected-engine-crash");
+    if (!nonFailureStatus || !("visibleFailure" in nonFailureStatus)) throw new Error("Synthetic visible failure is missing.");
+    nonFailureStatus.visibleFailure.status.text = "Rendering Untitled";
+    await rebindRetainedRecords(fixture);
+    await expect(verify()).rejects.toThrow("crash proof");
+
+    fixture = await retainedAcceleratedFixture(root);
+    const runningFailure = fixture.records.find((record) => record.kind === "expected-engine-crash");
+    if (!runningFailure || !("visibleFailure" in runningFailure)) throw new Error("Synthetic visible failure is missing.");
+    runningFailure.visibleFailure.consoleRun.label = "Untitled · full · 0.1 s · running";
+    await rebindRetainedRecords(fixture);
+    await expect(verify()).rejects.toThrow("crash proof");
+
+    fixture = await retainedAcceleratedFixture(root);
+    const missingBadge = fixture.records.find((record) => record.kind === "expected-engine-crash");
+    if (!missingBadge || !("visibleFailure" in missingBadge)) throw new Error("Synthetic visible failure is missing.");
+    delete (missingBadge.visibleFailure as Partial<TestCrashRecord["visibleFailure"]>).viewerBadge;
     await rebindRetainedRecords(fixture);
     await expect(verify()).rejects.toThrow("crash proof");
 

@@ -85,6 +85,48 @@ function presentation(renderIdentity: string, geometryIdentity: string): ViewerD
   };
 }
 
+function thumbnailProject(identity: string) {
+  return {
+    initialProject: createProjectSnapshot(
+      `project-${identity}`,
+      new Map([["main.scad", "cube(10);"]]),
+      `workspace-${identity}`,
+    ),
+    initialScratchPath: "main.scad",
+    initialScratchSource: "cube(10);",
+  };
+}
+
+it("does not capture an automatic thumbnail for an unsaved scratch document", async () => {
+  captureThumbnailPng.mockReset().mockResolvedValue(Uint8Array.of(9));
+  const save = vi.fn();
+  const runtime = createWorkbenchRuntime({
+    render: vi.fn(), export: vi.fn(), version: vi.fn(), cancel: vi.fn(),
+  }, {
+    renderThumbnailPersistence: { load: () => [], save, clear: vi.fn() },
+  });
+  const identity = `sha256:${"9".repeat(64)}`;
+  const viewer = presentation(identity, identity);
+  const view = render(
+    <ViewerPaneConnector
+      colors={colors} dimmed={false} documentId="document-main" maximized={false}
+      narrow={false} onLayoutAction={vi.fn()} onShowConsole={vi.fn()}
+      renderStatus="success" result={viewer.presentation?.result} runtime={runtime}
+      viewer={viewer}
+    />,
+  );
+  await view.findByTestId("model-viewer");
+  await waitFor(() => expect(reportFrameRendered).toBeDefined());
+
+  act(() => reportFrameRendered?.());
+  await act(() => delay(300));
+
+  expect(captureThumbnailPng).not.toHaveBeenCalled();
+  expect(save).not.toHaveBeenCalled();
+  view.unmount();
+  runtime.dispose();
+});
+
 it("persists the newest 3D thumbnail when its frame arrives during an older capture", async () => {
   const firstCapture = deferred<Uint8Array>();
   const secondCapture = deferred<Uint8Array>();
@@ -104,7 +146,10 @@ it("persists the newest 3D thumbnail when its frame arrives during an older capt
     version: vi.fn(),
     cancel: vi.fn(),
   };
-  const runtime = createWorkbenchRuntime(engine, { renderThumbnailPersistence: renderThumbnails });
+  const runtime = createWorkbenchRuntime(engine, {
+    ...thumbnailProject("newest"),
+    renderThumbnailPersistence: renderThumbnails,
+  });
   const firstIdentity = `sha256:${"1".repeat(64)}`;
   const newestIdentity = `sha256:${"2".repeat(64)}`;
   const common = {
@@ -237,6 +282,7 @@ it("cancels a scheduled automatic thumbnail when the viewer unmounts", async () 
   const runtime = createWorkbenchRuntime({
     render: vi.fn(), export: vi.fn(), version: vi.fn(), cancel: vi.fn(),
   }, {
+    ...thumbnailProject("unmount"),
     renderThumbnailPersistence: { load: () => [], save: vi.fn(), clear: vi.fn() },
   });
   const identity = `sha256:${"4".repeat(64)}`;
@@ -266,6 +312,7 @@ it("drops a scheduled old frame until the new identity actually renders", async 
   const runtime = createWorkbenchRuntime({
     render: vi.fn(), export: vi.fn(), version: vi.fn(), cancel: vi.fn(),
   }, {
+    ...thumbnailProject("superseded"),
     renderThumbnailPersistence: { load: () => [], save, clear: vi.fn() },
   });
   const firstIdentity = `sha256:${"5".repeat(64)}`;
@@ -307,6 +354,7 @@ it("bounds thumbnail delay while rendered frames keep arriving", async () => {
   const runtime = createWorkbenchRuntime({
     render: vi.fn(), export: vi.fn(), version: vi.fn(), cancel: vi.fn(),
   }, {
+    ...thumbnailProject("bounded"),
     renderThumbnailPersistence: { load: () => [], save: vi.fn(), clear: vi.fn() },
   });
   const identity = `sha256:${"7".repeat(64)}`;

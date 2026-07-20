@@ -238,7 +238,7 @@ function auditedCrash(records, configuration, summary, events) {
     crashes.length !== 1
     || artifactEvents.length !== 1
     || !exactKeys(crash, [
-      "elapsedSeconds", "engine", "engineCleared", "guiIdentityPreserved", "kind", "sourceSha256", "visibleAlerts",
+      "elapsedSeconds", "engine", "engineCleared", "guiIdentityPreserved", "kind", "sourceSha256", "visibleFailure",
     ])
     || priorCycle?.sequence + 1 !== nextCycle?.sequence
     || crash.elapsedSeconds < priorCycle?.elapsedSeconds
@@ -252,9 +252,20 @@ function auditedCrash(records, configuration, summary, events) {
     || !validSha(crash.engine.executableSha256)
     || crash.engine.path !== artifactEngine?.path
     || crash.engine.executableSha256.toLowerCase() !== artifactEngine?.sha256?.toLowerCase()
-    || !Array.isArray(crash.visibleAlerts)
-    || crash.visibleAlerts.length === 0
-    || crash.visibleAlerts.some((alert) => typeof alert !== "string" || alert.length === 0)
+    || !exactKeys(crash.visibleFailure, ["consoleRun", "status", "viewerBadge"])
+    || !exactKeys(crash.visibleFailure.consoleRun, ["count", "label"])
+    || !Number.isSafeInteger(crash.visibleFailure.consoleRun.count)
+    || crash.visibleFailure.consoleRun.count !== priorCycle?.consoleRun?.count + 1
+    || nextCycle?.consoleRun?.count !== crash.visibleFailure.consoleRun.count + 1
+    || typeof crash.visibleFailure.consoleRun.label !== "string"
+    || !crash.visibleFailure.consoleRun.label.startsWith("Untitled · full · ")
+    || crash.visibleFailure.consoleRun.label.includes("running")
+    || crash.visibleFailure.consoleRun.label.includes("exit 0")
+    || !exactKeys(crash.visibleFailure.status, ["text"])
+    || crash.visibleFailure.status.text !== "Render failed for Untitled"
+    || !exactKeys(crash.visibleFailure.viewerBadge, ["ariaLabel", "text"])
+    || crash.visibleFailure.viewerBadge.text !== "Render failed; last successful model shown"
+    || crash.visibleFailure.viewerBadge.ariaLabel !== "Show render error in console"
     || crash.guiIdentityPreserved !== true
     || crash.engineCleared !== true
     || summary.crashProbe?.attempted !== true

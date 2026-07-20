@@ -9,6 +9,8 @@ import { messages } from "../../messages/en";
 import { ExternalChangeDiff } from "../files/ExternalChangeDiff";
 import "./history-panel.css";
 
+const HISTORY_PAGE_SIZE = 200;
+
 export interface McpReviewPanelProps {
   readonly history: readonly HistoryEntry[];
   readonly historyDetails: ReadonlyMap<string, HistoryDetail>;
@@ -94,14 +96,20 @@ export function McpReviewPanel({
   onDeny,
 }: McpReviewPanelProps) {
   const [selectedId, setSelectedId] = useState<string>();
+  const [historyPage, setHistoryPage] = useState(0);
   const selected = history.find(({ commandId }) => commandId === selectedId);
   const detail = selected ? historyDetails.get(selected.commandId) : undefined;
+  const newestHistory = [...history].reverse();
+  const historyPageStart = historyPage * HISTORY_PAGE_SIZE;
+  const visibleHistory = newestHistory.slice(historyPageStart, historyPageStart + HISTORY_PAGE_SIZE);
+  const olderHistoryCount = Math.max(0, newestHistory.length - historyPageStart - visibleHistory.length);
+  const newerHistoryCount = Math.min(HISTORY_PAGE_SIZE, historyPageStart);
   return (
     <section aria-label={messages.workspaceHistory} className="mcp-review-panel">
       <h2>{messages.workspaceHistory}</h2>
       {history.length === 0 ? <p>{messages.noHistoryYet}</p> : (
         <ol className="workspace-history-list">
-          {[...history].reverse().map((entry) => (
+          {visibleHistory.map((entry) => (
             <li key={entry.commandId}>
               <button
                 aria-label={messages.historyViewDetail(
@@ -122,6 +130,16 @@ export function McpReviewPanel({
             </li>
           ))}
         </ol>
+      )}
+      {newerHistoryCount > 0 && (
+        <button onClick={() => setHistoryPage((current) => current - 1)} type="button">
+          {messages.historyShowNewer(newerHistoryCount)}
+        </button>
+      )}
+      {olderHistoryCount > 0 && (
+        <button onClick={() => setHistoryPage((current) => current + 1)} type="button">
+          {messages.historyShowOlder(Math.min(HISTORY_PAGE_SIZE, olderHistoryCount))}
+        </button>
       )}
       {selected && (
         <article aria-label={messages.historyEntryDetail} className="history-entry-detail">
