@@ -236,7 +236,11 @@ describe("M4 packaged newcomer walkthrough", () => {
     });
     const nativeSetTimeout = window.setTimeout.bind(window);
     window.setTimeout = ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => (
-      nativeSetTimeout(handler, timeout === 15000 ? 5 : timeout, ...args)
+      nativeSetTimeout(
+        handler as (...handlerArguments: unknown[]) => void,
+        timeout === 15000 ? 5 : timeout,
+        ...args,
+      )
     )) as typeof window.setTimeout;
     const execute = window.eval(`(function() {${M4_DOM_SCRIPTS.cachedPaint}})`) as (
       waitForPreview: boolean,

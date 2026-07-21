@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-m4-timeout-timer-type-boundary",
+  "createdAt": "2026-07-20T21:16:59-06:00",
+  "summary": "Make the bounded cached-paint timeout fixture pass the clean TypeScript prebuild boundary.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "V-5 release gate", "V-6 honesty rule"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-m4-timeout-timer-type-boundary.json", "status": "added" },
+    { "path": "tests/scripts/m4-packaged-walkthrough.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0469",
+      "topic": "Happy DOM timer callback type boundary",
+      "decision": "Narrow the timeout fixture's TimerHandler to the function callback that the production cached-paint script actually supplies when delegating to Happy DOM's bound setTimeout implementation.",
+      "rationale": "The exact clean prebuild rejected the test shim because the DOM TimerHandler type also permits strings while Happy DOM's bound method accepts a function. The production oracle supplies a function, so the explicit boundary preserves runtime behavior without weakening the test.",
+      "specBasis": ["V-5 release gate", "V-6 honesty rule"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The timeout diagnostic regression must compile in the same prebuild used by exact clean evidence.",
+      "test": "Run the repository TypeScript no-emit check and the focused M4 packaged-walkthrough suite once after narrowing the callback at the test-only boundary.",
+      "red": {
+        "command": "scripts/windows/run-packaged-desktop-evidence.ps1 (exact source a1a558a prebuild)",
+        "observedAt": "2026-07-20T21:16:24-06:00",
+        "outcome": "RED: clean prebuild stopped before Sandbox launch with TS2345 at the test-only TimerHandler delegation."
+      },
+      "green": {
+        "command": "pnpm.cmd run typecheck && pnpm.cmd exec vitest run tests/scripts/m4-packaged-walkthrough.test.ts --reporter=dot",
+        "observedAt": "2026-07-20T21:16:49-06:00",
+        "outcome": "GREEN: TypeScript no-emit passed and 21/21 focused tests passed."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-a1a558a-sandbox-m4-native-split-20260720/desktop-release-build.log",
+      "sought": "Exact clean packaged native M4 evidence",
+      "confirmation": "The release prebuild correctly stopped on TS2345 before any Sandbox session or product walkthrough began."
+    }
+  ],
+  "questions": ["No owner decision is required; this is a test-only compile-boundary correction."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
