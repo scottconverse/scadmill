@@ -140,9 +140,10 @@ describe("M4 packaged newcomer walkthrough", () => {
       <div class="viewer-pane"><canvas></canvas></div>
       <div class="console-run">preview run</div>
     `;
-    const button = window.document.querySelector("button") as HTMLButtonElement;
-    const canvas = window.document.querySelector("canvas") as HTMLCanvasElement;
-    const status = window.document.querySelector(".status-render") as HTMLElement;
+    const button = window.document.querySelector("button");
+    const canvas = window.document.querySelector("canvas");
+    const status = window.document.querySelector(".status-render");
+    if (!button || !canvas || !status) throw new Error("Full-render DOM fixture is incomplete.");
     Object.defineProperties(canvas, {
       clientWidth: { value: 640 },
       clientHeight: { value: 480 },

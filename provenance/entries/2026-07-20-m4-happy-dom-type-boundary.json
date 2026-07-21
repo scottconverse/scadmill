@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-m4-happy-dom-type-boundary",
+  "createdAt": "2026-07-20T19:44:36-06:00",
+  "summary": "Narrow the full-render DOM fixture without cross-casting happy-dom elements to browser globals.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "V-5 release gate", "V-6 honesty rule"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-20-m4-happy-dom-type-boundary.json", "status": "added" },
+    { "path": "tests/scripts/m4-packaged-walkthrough.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0460",
+      "topic": "DOM fixture type narrowing",
+      "decision": "Use explicit null guards on happy-dom query results and retain their native inferred element types instead of asserting browser-global DOM types.",
+      "rationale": "The exact clean build runs tsc before packaging and correctly rejected structurally incompatible casts that Vitest and Biome do not reject. Null guards prove fixture completeness and preserve the actual test-environment types.",
+      "specBasis": ["V-5 release gate", "V-6 honesty rule"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The full-render readiness regression must pass the exact desktop prebuild typecheck.",
+      "test": "Run the same notice check, TypeScript compiler, and desktop Vite build invoked by the Tauri beforeBuildCommand, then rerun the focused regression and repository lint.",
+      "red": {
+        "command": "Exact clean packaged gate prebuild bound to commit 9606dd3",
+        "observedAt": "2026-07-20T19:40:00-06:00",
+        "outcome": "BUILD RED: tsc rejected three casts from happy-dom query results to browser-global DOM types; Sandbox runtime did not launch."
+      },
+      "green": {
+        "command": "pnpm.cmd build:desktop:tauri-prebuild; npm.cmd test -- --run tests/scripts/m4-packaged-walkthrough.test.ts -t \"waits for an automatic preview to release Full render before taking its run baseline\"; npm.cmd run lint",
+        "observedAt": "2026-07-20T19:44:15-06:00",
+        "outcome": "GREEN: notices current, tsc passed, desktop Vite build passed, focused test 1/1 passed with 18 skipped, and Biome checked 529 files with no findings. Vite retained its existing chunk-size advisory."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": ["No owner decision is required; this changes only the test fixture's type narrowing."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
