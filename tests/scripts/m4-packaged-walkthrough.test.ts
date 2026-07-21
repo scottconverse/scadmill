@@ -132,6 +132,44 @@ describe("M4 packaged newcomer walkthrough", () => {
     window.close();
   });
 
+  it("waits for an automatic preview to release Full render before taking its run baseline", async () => {
+    const window = new Window();
+    window.document.body.innerHTML = `
+      <span class="status-render">Rendering main.scad (preview)</span>
+      <button disabled type="button">Full render</button>
+      <div class="viewer-pane"><canvas></canvas></div>
+      <div class="console-run">preview run</div>
+    `;
+    const button = window.document.querySelector("button") as HTMLButtonElement;
+    const canvas = window.document.querySelector("canvas") as HTMLCanvasElement;
+    const status = window.document.querySelector(".status-render") as HTMLElement;
+    Object.defineProperties(canvas, {
+      clientWidth: { value: 640 },
+      clientHeight: { value: 480 },
+      getClientRects: { value: () => [{ width: 640, height: 480 }] },
+    });
+    button.addEventListener("click", () => {
+      status.textContent = "Rendered main.scad (3d)";
+      const run = window.document.createElement("div");
+      run.className = "console-run";
+      window.document.body.append(run);
+    });
+    const execute = window.eval(`(function() {${M4_DOM_SCRIPTS.fullRenderCompleted}})`) as (
+      expectedPath: string,
+      done: (value: unknown) => void,
+    ) => void;
+    const result = new Promise<unknown>((resolve) => { execute("main.scad", resolve); });
+    window.setTimeout(() => { button.disabled = false; }, 5);
+
+    await expect(result).resolves.toEqual({
+      consoleRunsBefore: 1,
+      consoleRunsAfter: 2,
+      status: "Rendered main.scad (3d)",
+      canvasVisible: true,
+    });
+    window.close();
+  });
+
   it("waits for one semantic proposal and fails immediately on an AI alert", async () => {
     const pending = {
       aiVisible: true, proposalCount: 0, pendingProposalCount: 0,

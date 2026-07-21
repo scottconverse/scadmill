@@ -566,41 +566,58 @@ export const M4_DOM_SCRIPTS = Object.freeze({
   fullRenderCompleted: `
     const expectedPath = arguments[0];
     const done = arguments[arguments.length - 1];
-    const status = document.querySelector('.status-render');
-    const render = [...document.querySelectorAll('button')]
-      .find((button) => button.textContent?.trim() === 'Full render');
-    const canvas = document.querySelector('.viewer-pane canvas, .model-viewer canvas, canvas');
-    if (!(status instanceof HTMLElement) || !(render instanceof HTMLButtonElement)
-      || render.disabled || !(canvas instanceof HTMLCanvasElement)) {
-      done({ error: 'Full-render completion controls are unavailable.' });
-      return;
-    }
-    const consoleRunsBefore = document.querySelectorAll('.console-run').length;
-    const expectedStatus = 'Rendered ' + expectedPath + ' (3d)';
-    const probe = () => {
-      const consoleRunsAfter = document.querySelectorAll('.console-run').length;
-      if (consoleRunsAfter !== consoleRunsBefore + 1
-        || status.textContent?.trim() !== expectedStatus) return false;
-      done({
-        consoleRunsBefore,
-        consoleRunsAfter,
-        status: expectedStatus,
-        canvasVisible: canvas.getClientRects().length > 0
-          && canvas.clientWidth > 0 && canvas.clientHeight > 0,
-      });
-      return true;
+    let settled = false;
+    let readinessInterval;
+    let readinessTimeout;
+    let completionTimeout;
+    let observer;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      if (readinessInterval !== undefined) window.clearInterval(readinessInterval);
+      if (readinessTimeout !== undefined) window.clearTimeout(readinessTimeout);
+      if (completionTimeout !== undefined) window.clearTimeout(completionTimeout);
+      observer?.disconnect();
+      done(value);
     };
-    const timeout = window.setTimeout(() => {
-      observer.disconnect();
-      done({ error: 'Full render did not complete exactly one new engine run.' });
-    }, 60000);
-    const observer = new MutationObserver(() => {
-      if (!probe()) return;
-      observer.disconnect();
-      window.clearTimeout(timeout);
-    });
-    observer.observe(document.body, { childList: true, characterData: true, subtree: true });
-    render.click();
+    const begin = () => {
+      if (settled) return;
+      const status = document.querySelector('.status-render');
+      const render = [...document.querySelectorAll('button')]
+        .find((button) => button.textContent?.trim() === 'Full render');
+      const canvas = document.querySelector('.viewer-pane canvas, .model-viewer canvas, canvas');
+      if (!(status instanceof HTMLElement) || !(render instanceof HTMLButtonElement)
+        || render.disabled || !(canvas instanceof HTMLCanvasElement)) return;
+      const consoleRunsBefore = document.querySelectorAll('.console-run').length;
+      const expectedStatus = 'Rendered ' + expectedPath + ' (3d)';
+      const probe = () => {
+        const consoleRunsAfter = document.querySelectorAll('.console-run').length;
+        if (consoleRunsAfter !== consoleRunsBefore + 1
+          || status.textContent?.trim() !== expectedStatus) return false;
+        finish({
+          consoleRunsBefore,
+          consoleRunsAfter,
+          status: expectedStatus,
+          canvasVisible: canvas.getClientRects().length > 0
+            && canvas.clientWidth > 0 && canvas.clientHeight > 0,
+        });
+        return true;
+      };
+      if (readinessInterval !== undefined) window.clearInterval(readinessInterval);
+      if (readinessTimeout !== undefined) window.clearTimeout(readinessTimeout);
+      completionTimeout = window.setTimeout(() => {
+        finish({ error: 'Full render did not complete exactly one new engine run.' });
+      }, 60000);
+      observer = new MutationObserver(() => { probe(); });
+      observer.observe(document.body, { childList: true, characterData: true, subtree: true });
+      render.click();
+      probe();
+    };
+    readinessInterval = window.setInterval(begin, 25);
+    readinessTimeout = window.setTimeout(() => {
+      finish({ error: 'Full-render completion controls did not become available.' });
+    }, 15000);
+    begin();
   `,
   cachedPaint: `
     const done = arguments[arguments.length - 1];
