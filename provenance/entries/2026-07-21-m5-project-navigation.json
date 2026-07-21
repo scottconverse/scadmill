@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-21-m5-project-navigation",
+  "createdAt": "2026-07-21T14:05:19-06:00",
+  "summary": "Implement M5 ignore-aware project search and confirmed replace, structural current-file outline, find references, and exact cross-file F12 definition navigation.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "FR-15.6", "AC-15.f", "M5"],
+  "filesTouched": [
+    { "path": "ARCHITECTURE.md", "status": "modified" },
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "docs/USER-GUIDE.md", "status": "modified" },
+    { "path": "spec/QUESTIONS.md", "status": "modified" },
+    { "path": "src/application/navigation/project-text-search.ts", "status": "added" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/editor/CodeEditor.tsx", "status": "modified" },
+    { "path": "src/ui/editor/code-editor-minimap.ts", "status": "added" },
+    { "path": "src/ui/editor/editor-command-execution.ts", "status": "modified" },
+    { "path": "src/ui/editor/openscad-navigation.ts", "status": "added" },
+    { "path": "src/ui/editor/use-project-navigation.ts", "status": "added" },
+    { "path": "src/ui/layout/use-layout-keybindings.ts", "status": "modified" },
+    { "path": "src/ui/search/SearchActivity.tsx", "status": "added" },
+    { "path": "src/ui/search/search.css", "status": "added" },
+    { "path": "tests/application/navigation/project-text-search.test.ts", "status": "added" },
+    { "path": "tests/ui/editor/CodeEditor.language.test.tsx", "status": "modified" },
+    { "path": "tests/ui/editor/openscad-navigation.test.ts", "status": "added" },
+    { "path": "tests/ui/editor/use-project-navigation.test.tsx", "status": "added" },
+    { "path": "tests/ui/layout/use-layout-keybindings.test.tsx", "status": "modified" },
+    { "path": "tests/ui/search/SearchActivity.test.tsx", "status": "added" },
+    { "path": "website/app/architecture/page.tsx", "status": "modified" },
+    { "path": "website/app/page.tsx", "status": "modified" },
+    { "path": "provenance/entries/2026-07-21-m5-project-navigation.json", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [
+    { "label": "Owner-provided ScadMill functional specification v0.6", "destination": "spec/scadmill-spec-v0.6.md", "sha256": "A2D12C68E23590DF061BF3E222F481C3FFC40ECA6541D6F3DF49FDA87C1DE15A" }
+  ],
+  "decisions": [
+    {
+      "id": "D-0492",
+      "topic": "Project search ignore policy",
+      "decision": "Read root .gitignore followed by .scadmillignore with later matching rules winning; support bounded familiar glob, directory, rooted, comment, and negation forms; skip binary files; disclose ignored counts. Park only alternate normative semantics in Q-0041.",
+      "rationale": "FR-15.6 requires ignore patterns without naming their source or grammar. This conservative behavior is familiar, visible, reversible, and does not invent permanent hidden exclusions.",
+      "specBasis": ["FR-15.6", "Section 2.7"]
+    },
+    {
+      "id": "D-0493",
+      "topic": "Structural navigation authority",
+      "decision": "Use the existing independently authored Lezer grammar as the single source for outline, callable/variable occurrence locations, include/use dependency traversal, exact definition selection, and reference discovery.",
+      "rationale": "Parser locations distinguish code from comments and strings, reuse the existing clean-room grammar, and satisfy AC-15.f without a second parser or textual-definition guesswork.",
+      "specBasis": ["FR-15.6", "AC-15.f", "Section 6 one-formatter authority"]
+    },
+    {
+      "id": "D-0494",
+      "topic": "Project replace mutation order",
+      "decision": "Search the full stored text snapshot overlaid by open buffers, calculate all replacement offsets before mutation, write closed files first, then edit open buffers, and compensate completed writes/edits from original sources if a later operation fails.",
+      "rationale": "Unsaved work remains authoritative, replacement is deterministic, and the existing non-transactional storage port receives best-effort all-or-revert behavior without silently saving dirty editors.",
+      "specBasis": ["FR-15.6", "N-5"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "FR-15.6 project search must find literal text across project files, respect ignore patterns, bound results, and generate deterministic replacements.",
+      "test": "Search a synthetic project with .gitignore and .scadmillignore, case and whole-word variants, literal regex characters, deterministic replacement plans, invalid queries, and a result cap.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/navigation/project-text-search.test.ts",
+        "observedAt": "2026-07-21T13:40:04-06:00",
+        "outcome": "RED: the new search module did not exist; after implementation the only mismatch was a corrected test column expectation (22 rather than 24)."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/navigation/project-text-search.test.ts",
+        "observedAt": "2026-07-21T13:40:32-06:00",
+        "outcome": "GREEN: 4 tests passed."
+      }
+    },
+    {
+      "criterion": "AC-15.f requires F12 on a module used in a.scad through use to open b.scad at the exact definition.",
+      "test": "Parse exact source locations, exclude comments and strings, resolve a use edge, open and activate the unloaded definition file, then issue a line/column/range editor navigation request.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-navigation.test.ts",
+        "observedAt": "2026-07-21T13:41:38-06:00",
+        "outcome": "RED: the structural navigation module did not exist."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/navigation/project-text-search.test.ts tests/ui/editor/openscad-navigation.test.ts tests/ui/editor/use-project-navigation.test.tsx tests/ui/editor/CodeEditor.language.test.tsx tests/ui/editor/CodeEditor.settings.test.tsx tests/ui/layout/use-layout-keybindings.test.tsx tests/ui/search/SearchActivity.test.tsx",
+        "observedAt": "2026-07-21T14:03:23-06:00",
+        "outcome": "GREEN: 7 files and 43 tests passed across search UI, outline, references, F12 orchestration, exact editor selection, shortcuts, and preserved minimap behavior."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": ["Q-0041"],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

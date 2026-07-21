@@ -210,6 +210,28 @@ describe("CodeEditor OpenSCAD language support", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it("selects an exact navigation range and delegates F12 at the cursor offset", async () => {
+    const onGoToDefinition = vi.fn();
+    const rendered = render(
+      <CodeEditor
+        navigation={{ requestId: 1, line: 2, column: 1, length: 6 }}
+        value={"cube(10);\nsphere(4);"}
+        onChange={vi.fn()}
+        onGoToDefinition={onGoToDefinition}
+        label="Editor"
+      />,
+    );
+    const content = rendered.container.querySelector<HTMLElement>(".cm-content");
+    if (!content) throw new Error("CodeMirror content did not mount.");
+    const editor = EditorView.findFromDOM(content);
+    if (!editor) throw new Error("CodeMirror view could not be recovered from its DOM.");
+
+    await waitFor(() => expect(editor.state.selection.main.from).toBe(10));
+    expect(editor.state.selection.main.to).toBe(16);
+    fireEvent.keyDown(content, { key: "F12" });
+    expect(onGoToDefinition).toHaveBeenCalledWith(16);
+  });
+
   it("revalidates diagnostic lines when a controlled document value is replaced", async () => {
     const diagnostics: Diagnostic[] = [
       { severity: "error", message: "Second-line error", line: 2 },

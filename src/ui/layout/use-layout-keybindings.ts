@@ -52,6 +52,9 @@ export function mapLayoutKeybinding(
   if (event.repeat) return null;
   const keybindings = context.keybindings ?? DEFAULT_KEYBINDINGS;
   const matches = (binding: string) => matchesKeybinding(event, binding, context.modifier);
+  if (matches(keybindings.findInProject)) {
+    return { kind: "activate-rail", panel: "search", narrow: context.narrow };
+  }
   if (matches(keybindings.toggleConsole)) {
     return context.narrow
       ? {

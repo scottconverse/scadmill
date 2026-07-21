@@ -46,13 +46,19 @@ Full-quality export supports 3MF, STL, OFF, AMF, SVG, DXF, and PNG where appropr
 
 ### Understand what is not included
 
-The public beta is Windows-only. It does not publish a browser app, Mac/Linux installers, or OpenSCAD WebAssembly engine. OpenSCAD is a separate required download. The development branch now contains model history, batch parameter-set export, and the project library manager; they are not part of the published beta. Broader navigation/refactoring, split editing, section views, manufacturing estimates, and the headless CLI remain later M5/M6 work.
+The public beta is Windows-only. It does not publish a browser app, Mac/Linux installers, or OpenSCAD WebAssembly engine. OpenSCAD is a separate required download. The development branch now contains model history, batch parameter-set export, the project library manager, and structural project navigation; they are not part of the published beta. Split editing, section views, manufacturing estimates, and the headless CLI remain later M5/M6 work.
 
 ## Part II — Technical reference
 
 ### Editor and language features
 
 The CodeMirror workbench provides a fresh OpenSCAD grammar, highlighting, parse-gated formatting, built-in and visible-symbol completions, project dependency indexing, diagnostics, search, tabs, configurable keybindings, themes, and format-on-save. Structural project indexing runs away from the UI thread when available and remains bounded.
+
+### Project search and navigation (development builds)
+
+Open **Search** or press `Ctrl+Shift+F` (`Cmd+Shift+F` on macOS) to search every text file in the project. Literal, case-sensitive, and whole-word modes are available. Search reads `.gitignore` and `.scadmillignore`; the displayed ignored-file count makes that boundary visible. Replacement is a two-step operation: preview the exact match count, then confirm. Open unsaved buffers remain editor changes, while closed project files are written through the project storage port with compensation if a later write fails.
+
+The same panel lists top-level modules, functions, and variables in the current OpenSCAD file. Select a symbol or reference to open the correct file and select its exact source range. Press `F12` on a module/function/variable use to follow its structurally parsed definition through `include`/`use`; use each outline row's **refs** action to list project references. Comments and strings are not treated as code references.
 
 ### Render lifecycle
 
@@ -118,7 +124,7 @@ The release pipeline checks provenance and licenses, builds from a clean pinned 
 
 Development builds expose **Libraries** on the activity rail. Choose BOSL2, MCAD, or dotSCAD, download the pinned package, read the license shown from that package, and confirm installation. ScadMill copies only bounded runtime files plus the license into the current project and records ownership in `scadmill.libraries.json`; it never updates a pin silently. A custom pinned HTTPS ZIP can be reviewed through the same flow. Once a project source imports a vendored file with `include` or `use`, its module/function signatures participate in completion and native/WASM renders receive the same file map. Removing a library removes only manifest-owned files and leaves ordinary project source intact.
 
-The architecture includes seams for a separately qualified web distribution, navigation/refactoring, split editing, section views, a headless CLI, and manufacturing estimates. These remain future M5/M6 work and are not beta claims.
+The architecture includes seams for a separately qualified web distribution, split editing, section views, a headless CLI, and manufacturing estimates. These remain future M5/M6 work and are not beta claims.
 
 ## Troubleshooting and support
 

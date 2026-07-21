@@ -38,7 +38,7 @@ OpenSCAD makes models reproducible because the design is code. ScadMill builds a
 ### Write and organize
 
 - Work in folder-backed, multi-file OpenSCAD projects with tabs, binary assets, `include`/`use` resolution, and ZIP portability.
-- Use a purpose-built OpenSCAD grammar, syntax highlighting, completions, parse-gated formatting, diagnostics, in-file search, configurable shortcuts, and light, dark, or high-contrast themes.
+- Use a purpose-built OpenSCAD grammar, syntax highlighting, completions, parse-gated formatting, diagnostics, in-file and ignore-aware project search/replace, structural outline, cross-file definition/reference navigation, configurable shortcuts, and light, dark, or high-contrast themes.
 - Recover unsaved buffers after interruption and resolve disk changes with inline or side-by-side differences.
 
 ### Render and inspect
@@ -131,8 +131,8 @@ Report suspected vulnerabilities through [GitHub private vulnerability reporting
 | Optional AI and local MCP | **Beta** | Provider configuration and MCP permissions are explicit; there is no ScadMill AI proxy. |
 | Browser-source composition and OpenSCAD WASM path | **Implemented, not distributed** | No public browser application or WASM engine package is offered by this release. |
 | macOS and Linux installers | **Not released** | Windows desktop is the approved first public target. |
-| M5 history, batch export, libraries, library intelligence | **Implemented on `main`, not in this beta** | Development builds add bounded model history, sequential parameter-set export, and a per-project pinned library manager with imported signatures in completion. |
-| Remaining M5: project navigation, split editor, section view and camera bookmarks | **Planned** | Required by the complete product specification; not present in this beta. |
+| M5 history, batch export, libraries, library intelligence, project navigation | **Implemented on `main`, not in this beta** | Development builds add bounded model history, sequential parameter-set export, pinned project libraries with imported signatures, ignore-aware project search/replace, outline, references, and F12 definition jumps. |
+| Remaining M5: split editor, section view and camera bookmarks | **Planned** | Required by the complete product specification; not present in this beta. |
 | M6: printability, slicer handoff, engine manager, headless CLI, color/parts, colored 3MF, manufacturing estimates | **Planned** | Required by the complete product specification; not present in this beta. |
 
 > [!NOTE]

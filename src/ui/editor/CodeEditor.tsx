@@ -12,7 +12,7 @@ import {
   StateEffect,
   Transaction,
 } from "@codemirror/state";
-import { EditorView, ViewPlugin, type ViewUpdate } from "@codemirror/view";
+import { EditorView } from "@codemirror/view";
 import { basicSetup } from "codemirror";
 import { useEffect, useRef } from "react";
 import {
@@ -29,6 +29,7 @@ import {
 } from "../../application/runtime/render-settings";
 import { defaultPersistedSettings, type FormatterPreferences } from "../../application/settings/settings-schema";
 import { codeEditorTheme } from "./code-editor-theme";
+import { minimapExtension } from "./code-editor-minimap";
 import {
   type EditorCommandRequest,
   editorCommandExtension,
@@ -43,42 +44,7 @@ import { runtimeHistoryExtension } from "./runtime-history-extension";
 
 const controlledDocumentUpdate = Annotation.define<boolean>();
 const EMPTY_DIAGNOSTICS: readonly Diagnostic[] = [];
-const MAX_MINIMAP_ROWS = 240;
 const DEFAULT_FORMATTER_SETTINGS: Readonly<FormatterPreferences> = Object.freeze(defaultPersistedSettings().formatter);
-
-function renderMinimap(editor: EditorView, minimap: HTMLElement): void {
-  const fragment = document.createDocumentFragment();
-  const lineCount = editor.state.doc.lines;
-  const step = Math.max(1, Math.ceil(lineCount / MAX_MINIMAP_ROWS));
-  for (let lineNumber = 1; lineNumber <= lineCount; lineNumber += step) {
-    const line = editor.state.doc.line(lineNumber);
-    const row = document.createElement("span");
-    row.className = "cm-minimap-line";
-    row.style.inlineSize = `${Math.min(100, Math.max(8, line.length * 2))}%`;
-    fragment.append(row);
-  }
-  minimap.replaceChildren(fragment);
-}
-
-const minimapExtension = ViewPlugin.fromClass(class {
-  readonly dom: HTMLDivElement;
-
-  constructor(editor: EditorView) {
-    this.dom = document.createElement("div");
-    this.dom.className = "cm-minimap";
-    this.dom.setAttribute("aria-hidden", "true");
-    editor.dom.append(this.dom);
-    renderMinimap(editor, this.dom);
-  }
-
-  update(update: ViewUpdate): void {
-    if (update.docChanged) renderMinimap(update.view, this.dom);
-  }
-
-  destroy(): void {
-    this.dom.remove();
-  }
-});
 
 function editorSettingExtensions(settings: Readonly<EditorSettings>): Extension[] {
   return [
@@ -104,6 +70,8 @@ function editorSettingExtensions(settings: Readonly<EditorSettings>): Extension[
 export interface EditorNavigationRequest {
   requestId: number;
   line: number;
+  column?: number;
+  length?: number;
 }
 
 export interface CodeEditorProps {
@@ -114,6 +82,7 @@ export interface CodeEditorProps {
   diagnostics?: readonly Diagnostic[];
   navigation?: EditorNavigationRequest;
   onNavigationHandled?(requestId: number): void;
+  onGoToDefinition?(position: number): void;
   onCursorChange?(position: CursorPosition): void;
   initialSession?: CodeEditorSession;
   onSessionChange?(session: CodeEditorSession): void;
@@ -180,6 +149,7 @@ export function CodeEditor({
   diagnostics = EMPTY_DIAGNOSTICS,
   navigation,
   onNavigationHandled,
+  onGoToDefinition,
   onCursorChange,
   initialSession,
   onSessionChange,
@@ -215,6 +185,7 @@ export function CodeEditor({
   const onChangeRef = useRef(onChange);
   const onCursorChangeRef = useRef(onCursorChange);
   const onNavigationHandledRef = useRef(onNavigationHandled);
+  const onGoToDefinitionRef = useRef(onGoToDefinition);
   const onSessionChangeRef = useRef(onSessionChange);
   const onCommandRef = useRef(onCommand);
   const handledCommandRequest = useRef<number | null>(null);
@@ -222,6 +193,7 @@ export function CodeEditor({
   onChangeRef.current = onChange;
   onCursorChangeRef.current = onCursorChange;
   onNavigationHandledRef.current = onNavigationHandled;
+  onGoToDefinitionRef.current = onGoToDefinition;
   onSessionChangeRef.current = onSessionChange;
   onCommandRef.current = onCommand;
 
@@ -247,6 +219,12 @@ export function CodeEditor({
         (command) => onCommandRef.current?.(command),
         initialKeybindingsRef.current,
         initialFormatterSettingsRef.current,
+        (position) => {
+          const handler = onGoToDefinitionRef.current;
+          if (!handler) return false;
+          handler(position);
+          return true;
+        },
       )),
       settingsCompartment.of(editorSettingExtensions(initialEditorSettingsRef.current)),
       EditorView.contentAttributes.of({ "aria-label": label }),
@@ -321,6 +299,12 @@ export function CodeEditor({
           (command) => onCommandRef.current?.(command),
           keybindings,
           formatterSettings,
+          (position) => {
+            const handler = onGoToDefinitionRef.current;
+            if (!handler) return false;
+            handler(position);
+            return true;
+          },
         )),
       });
     }
@@ -378,9 +362,18 @@ export function CodeEditor({
       return;
     }
     const line = editor.state.doc.line(navigation.line);
+    const requestedColumn = navigation.column ?? 1;
+    const column = Number.isInteger(requestedColumn)
+      ? Math.max(1, Math.min(requestedColumn, line.length + 1))
+      : 1;
+    const from = line.from + column - 1;
+    const requestedLength = navigation.length ?? 0;
+    const to = Number.isInteger(requestedLength) && requestedLength > 0
+      ? Math.min(line.to, from + requestedLength)
+      : from;
     editor.dispatch({
-      selection: { anchor: line.from },
-      effects: EditorView.scrollIntoView(line.from, { y: "center" }),
+      selection: { anchor: from, head: to },
+      effects: EditorView.scrollIntoView(from, { y: "center" }),
     });
     editor.focus();
     onNavigationHandledRef.current?.(navigation.requestId);

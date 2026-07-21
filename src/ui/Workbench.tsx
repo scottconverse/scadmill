@@ -14,6 +14,7 @@ import { DocumentTabBar, documentTabId } from "./editor/DocumentTabBar";
 import { useDocumentKeybindings } from "./editor/use-document-keybindings";
 import { useEditorCommandCoordinator } from "./editor/use-editor-command-coordinator";
 import { useProjectCompletionContext } from "./editor/use-project-completion-context";
+import { useProjectNavigation } from "./editor/use-project-navigation";
 import { FilesActivity } from "./files/FilesActivity";
 import { ProjectSessionHost } from "./files/ProjectSessionHost";
 import { useFileCommands } from "./files/use-file-commands";
@@ -24,6 +25,7 @@ import { HistoryActivityConnector, useMcpReviewApproval, useMcpStdio, useMcpView
 import { ParameterPanelConnector } from "./parameters/ParameterPanelConnector";
 import { activePresentationToken, presentationHiddenByMode, RenderControls, RenderStatusText, sameRenderStateExceptCached, useWorkbenchRenderCommands } from "./render";
 import { SettingsLauncher } from "./settings/SettingsLauncher";
+import { SearchActivity } from "./search/SearchActivity";
 import { useReadonlyStore } from "./use-readonly-store";
 import { resolveActiveViewerPresentation } from "./viewer/active-viewer-presentation";
 import { usePresentationReadiness } from "./viewer/use-presentation-readiness";
@@ -83,12 +85,11 @@ export function Workbench({
   const presentationStatus = render.status === "success" && (render.result?.kind === "2d" || render.result?.kind === "3d") && !presentationToken ? "withheld" : presentationReadiness.presentationStatus;
   const aiDiagnostics = (presentation.currentResult?.diagnostics ?? []).map((diagnostic) => `${diagnostic.severity}: ${diagnostic.message}`);
   const aiParameters = currentParameters.parameters.map((parameter) => `${parameter.name} = ${String(parameter.defaultValue)}`);
-  const diagnosticNavigation = useDiagnosticNavigation({
-    diagnostics: presentation.currentResult?.diagnostics,
-    entryFile: render.entryFile,
-    runtime,
-    workspace: documents,
-  });
+  const diagnosticNavigation = useDiagnosticNavigation({ diagnostics: presentation.currentResult?.diagnostics,
+    entryFile: render.entryFile, runtime, workspace: documents });
+  const projectNavigation = useProjectNavigation({
+    runtime, project: projectState, workspace: documents, activePath: document.path,
+    activeSource: document.source, storage: projectStorage });
   const workbenchRoot = useRef<HTMLElement>(null);
   const editorSessions = useRef(new Map<string, CodeEditorSession>());
   const statusConsoleButton = useRef<HTMLButtonElement>(null);
@@ -129,19 +130,13 @@ export function Workbench({
     [runtime],
   );
   const editorCommands = useEditorCommandCoordinator(runtime, layout, narrow, dispatchLayout);
-  const { renderPreview, renderFull } = useWorkbenchRenderCommands(
-    runtime,
-    engineAvailable,
-    render.status,
-    keybindings,
-  );
+  const { renderPreview, renderFull } = useWorkbenchRenderCommands(runtime, engineAvailable,
+    render.status, keybindings);
   const fileCommands = useFileCommands({
     runtime, workspace: documents, layout, projectMode: projectState.mode,
     scratchPersistence: scratchAutosavePersistence,
     narrow, onLayoutAction: dispatchLayout, directoryPicker,
-    formatter: formatterSettings,
-    onProjectSelected: enqueueProject,
-  });
+    formatter: formatterSettings, onProjectSelected: enqueueProject });
   const nativeMenuState = useNativeMenuState({ activeDocumentId: document.id, documents, engineAvailable, keybindings, layout, narrow, rendering: render.status === "rendering", saveAllDisabled: fileCommands.saveAllDisabled, saveDisabled: fileCommands.saveDisabled });
   const focusConsole = useCallback(() => {
     if (!consoleVisible) {
@@ -260,11 +255,15 @@ export function Workbench({
             key={document.id}
             value={document.source}
             label={messages.editorRegion}
-            navigation={diagnosticNavigation.navigation}
+            navigation={projectNavigation.navigation ?? diagnosticNavigation.navigation}
             projectCompletion={editorProjectCompletion}
             onCommand={editorCommands.handleOutcome}
             onCursorChange={setCursor}
-            onNavigationHandled={diagnosticNavigation.completeNavigation}
+            onGoToDefinition={projectNavigation.goToDefinition}
+            onNavigationHandled={(requestId) => {
+              projectNavigation.completeNavigation(requestId);
+              diagnosticNavigation.completeNavigation(requestId);
+            }}
             onSessionChange={(session) => editorSessions.current.set(document.id, session)}
             onChange={(source) =>
               void runtime.dispatch({
@@ -376,6 +375,7 @@ export function Workbench({
           files: <FilesActivity canReveal={canRevealProjectFiles} canTrash={canTrashProjectFiles} directoryPicker={directoryPicker} engine={engineAvailable ? engine : undefined} portability={projectPortability} recoveryPersistence={recoveryPersistence} projectTransitionsBlocked={recoveryPending} requestedExport={fileCommands.requestedExport} requestedNewFile={fileCommands.requestedNewFile} runtime={runtime} storage={projectStorage} workspaceDirectory={workspaceDirectory} />,
           history: <HistoryActivityConnector runtime={runtime} pendingReviews={pendingReviews} sourceForPath={sourceForMcpPath} onApprove={approveMcpReview} onDeny={dismissReview} />,
           libraries: <LibrariesActivity key={projectState.snapshot.workspaceIdentity} project={projectState} storage={projectStorage} onProjectFilesChanged={() => runtime.dispatch({ kind: "refresh-project", origin: "user" }).then(() => undefined)} />,
+          search: <SearchActivity activePath={document.path} outline={projectNavigation.outline} references={projectNavigation.references} loadSources={projectNavigation.loadSources} onApplyReplacements={projectNavigation.applyReplacements} onFindReferences={projectNavigation.findReferences} onNavigate={projectNavigation.navigate} />,
         }}
         activityBadges={{ history: pendingReviews.length > 0 }}
         layout={layout}

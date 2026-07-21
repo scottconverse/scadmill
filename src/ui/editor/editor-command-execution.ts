@@ -117,6 +117,7 @@ export function editorCommandExtension(
   onCommand: (outcome: EditorCommandOutcome) => void,
   keybindings: KeybindingSettings,
   formatter: Readonly<FormatterPreferences>,
+  onGoToDefinition?: (position: number) => boolean,
 ): Extension {
   const primaryModifier = primaryModifierForPlatform();
   const commands: readonly EditorCommandBinding[] = [
@@ -142,6 +143,13 @@ export function editorCommandExtension(
         );
         if (!match) return false;
         event.preventDefault();
+        if (
+          match.command === "go-to-definition"
+          && onGoToDefinition?.(view.state.selection.main.head)
+        ) {
+          onCommand({ command: match.command, status: "handled" });
+          return true;
+        }
         onCommand("unavailableReason" in match
           ? {
               command: match.command,

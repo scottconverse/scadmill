@@ -39,6 +39,11 @@ describe("mapLayoutKeybinding", () => {
     expected: WorkspaceLayoutAction;
   }>([
     {
+      name: "Mod+Shift+F opens project search",
+      event: { key: "F", shiftKey: true },
+      expected: { kind: "activate-rail", panel: "search", narrow: false },
+    },
+    {
       name: "Mod+J toggles the console",
       event: { key: "j" },
       expected: { kind: "toggle-panel", panel: "console" },
