@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type {
   Quality,
@@ -14,6 +14,12 @@ import type {
   ViewerAction,
   ViewerDocumentState,
 } from "../../application/viewer/viewer-state";
+import {
+  type CameraBookmark,
+  parseCameraBookmarks,
+  serializeCameraBookmarks,
+} from "../../application/viewer/camera-bookmarks";
+import { messages } from "../../messages/en";
 import { AnimationBar } from "../animation/AnimationBar";
 import { useReadonlyStore } from "../use-readonly-store";
 import { ViewerPane } from "./ViewerPane";
@@ -86,6 +92,37 @@ export function ViewerPaneConnector({
     (state) => state,
   );
   const project = useReadonlyStore(runtime.project, (state) => state);
+  const workspaceIdentity = project.snapshot.workspaceIdentity;
+  const [bookmarkState, setBookmarkState] = useState<{
+    readonly workspaceIdentity: string;
+    readonly bookmarks: readonly CameraBookmark[];
+  }>({ workspaceIdentity, bookmarks: [] });
+  const [bookmarkNotice, setBookmarkNotice] = useState<string | null>(null);
+  useEffect(() => {
+    try {
+      const serialized = runtime.cameraBookmarks.load(workspaceIdentity);
+      setBookmarkState({
+        workspaceIdentity,
+        bookmarks: serialized ? parseCameraBookmarks(serialized) : [],
+      });
+      setBookmarkNotice(null);
+    } catch {
+      setBookmarkState({ workspaceIdentity, bookmarks: [] });
+      setBookmarkNotice(messages.cameraBookmarksCouldNotBeLoaded);
+    }
+  }, [runtime.cameraBookmarks, workspaceIdentity]);
+  const cameraBookmarks = bookmarkState.workspaceIdentity === workspaceIdentity
+    ? bookmarkState.bookmarks
+    : [];
+  const persistCameraBookmarks = useCallback((bookmarks: readonly CameraBookmark[]) => {
+    try {
+      runtime.cameraBookmarks.save(workspaceIdentity, serializeCameraBookmarks(bookmarks));
+      setBookmarkState({ workspaceIdentity, bookmarks });
+      setBookmarkNotice(null);
+    } catch {
+      setBookmarkNotice(messages.cameraBookmarksCouldNotBeSaved);
+    }
+  }, [runtime.cameraBookmarks, workspaceIdentity]);
   const thumbnailWorkspaceSupported = runtime.renderThumbnails.supportsWorkspace(
     project.snapshot.workspaceIdentity,
   );
@@ -176,6 +213,25 @@ export function ViewerPaneConnector({
       thumbnailPersistenceDestination={thumbnailPersistenceDestination}
       viewer={effectiveViewer}
       annotationPersistence={annotationPersistence}
+      cameraBookmarks={cameraBookmarks}
+      cameraBookmarkNotice={bookmarkNotice}
+      onSaveCameraBookmark={(name, camera) => {
+        const matching = cameraBookmarks.find(
+          (bookmark) => bookmark.name.trim().toLocaleLowerCase() === name.trim().toLocaleLowerCase(),
+        );
+        const next = [
+          ...cameraBookmarks.filter(({ id }) => id !== matching?.id),
+          {
+            id: matching?.id ?? (globalThis.crypto?.randomUUID?.() ?? `camera-${Date.now()}`),
+            name: name.trim(),
+            camera,
+          },
+        ];
+        persistCameraBookmarks(next);
+      }}
+      onDeleteCameraBookmark={(bookmarkId) => persistCameraBookmarks(
+        cameraBookmarks.filter(({ id }) => id !== bookmarkId),
+      )}
       onRetryAnnotationPersistence={retryAnnotationPersistence}
       onExportAnnotationMetadata={runtime.artifacts.available
         ? exportAnnotationMetadata

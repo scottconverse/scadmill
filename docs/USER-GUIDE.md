@@ -46,7 +46,7 @@ Full-quality export supports 3MF, STL, OFF, AMF, SVG, DXF, and PNG where appropr
 
 ### Understand what is not included
 
-The public beta is Windows-only. It does not publish a browser app, Mac/Linux installers, or OpenSCAD WebAssembly engine. OpenSCAD is a separate required download. The development branch now contains model history, batch parameter-set export, the project library manager, structural project navigation, and split editing; they are not part of the published beta. Section views, manufacturing estimates, and the headless CLI remain later M5/M6 work.
+The public beta is Windows-only. It does not publish a browser app, Mac/Linux installers, or OpenSCAD WebAssembly engine. OpenSCAD is a separate required download. The development branch now contains the complete M5 scope: model history, batch parameter-set export, the project library manager, structural project navigation, split editing, section view, and per-project camera bookmarks. These are not part of the published beta. Manufacturing estimates and the headless CLI remain M6 work.
 
 ## Part II — Technical reference
 
@@ -128,7 +128,9 @@ The release pipeline checks provenance and licenses, builds from a clean pinned 
 
 Development builds expose **Libraries** on the activity rail. Choose BOSL2, MCAD, or dotSCAD, download the pinned package, read the license shown from that package, and confirm installation. ScadMill copies only bounded runtime files plus the license into the current project and records ownership in `scadmill.libraries.json`; it never updates a pin silently. A custom pinned HTTPS ZIP can be reviewed through the same flow. Once a project source imports a vendored file with `include` or `use`, its module/function signatures participate in completion and native/WASM renders receive the same file map. Removing a library removes only manifest-owned files and leaves ordinary project source intact.
 
-The architecture includes seams for a separately qualified web distribution, section views, a headless CLI, and manufacturing estimates. These remain future M5/M6 work and are not beta claims.
+For interior inspection in a development build, enable **Section** in the 3D viewer, select X, Y, or Z, and drag **Section position** through the model. The control applies a real local clipping plane to the rendered mesh; it does not alter source or export geometry. Enter a name under **Camera bookmarks** to save the current position, target, up vector, projection, and zoom. Selecting the name recalls it; **Delete** removes it. Names are unique without regard to case, and saving the same name replaces that project bookmark.
+
+The architecture includes seams for a separately qualified web distribution, a headless CLI, and manufacturing estimates. These remain M6 or distribution work and are not beta claims.
 
 ## Troubleshooting and support
 

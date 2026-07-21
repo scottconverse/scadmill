@@ -12,6 +12,8 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Added
 
+- Completed the M5 product scope with a toggleable axis-aligned section plane that moves through real Three.js-rendered geometry and named camera bookmarks that can be saved, recalled, replaced, and deleted per project through bounded platform-owned persistence.
+
 - Added M5 split editing with two independent tab groups, side-by-side or stacked orientation, cross-group tab drag, per-group/document CodeMirror sessions, merge-back behavior, and command-bus activation that makes the focused group's document the render/export target. Diagnostic jumps and chronological undo synchronize into the owning group without a stale-editor frame.
 
 - Added M5 project-wide text search and confirmed replace with literal/case/whole-word modes, `.gitignore` plus `.scadmillignore` handling, full stored-project inventory with unsaved buffer overlays, bounded results, and compensating closed-file writes. The Search rail now also exposes a parser-backed current-file outline, exact cross-file references, `Ctrl/Cmd+Shift+F`, and F12 definition jumps through `include`/`use`. Q-0041 records the still-open normative ignore-grammar choice without blocking the conservative behavior.

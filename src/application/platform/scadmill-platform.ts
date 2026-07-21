@@ -17,6 +17,7 @@ import type { WorkspaceLayoutPersistence } from "../runtime/layout-persistence";
 import type { SecretStore } from "../settings/secret-store";
 import type { SettingsPersistence } from "../settings/settings-persistence";
 import type { WorkspaceMetadataPersistence } from "../viewer/annotation-persistence";
+import type { CameraBookmarkPersistence } from "../viewer/camera-bookmarks";
 import type { WelcomePreferencePersistence } from "../welcome/welcome-preference";
 
 export type PlatformFeature<T> =
@@ -160,6 +161,7 @@ export interface ScadMillPlatform {
     readonly renderCachePreferences: RenderDiskCachePreferencePersistence;
     readonly renderThumbnails: RenderThumbnailPersistence;
     readonly modelHistory: ModelHistoryPersistence;
+    readonly cameraBookmarks: CameraBookmarkPersistence;
   };
   readonly artifacts: ArtifactDestination;
   readonly enginePathConfiguration: PlatformFeature<EnginePathConfiguration>;

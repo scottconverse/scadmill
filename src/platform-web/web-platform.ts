@@ -5,6 +5,7 @@ import { createBrowserRenderThumbnailPersistence } from "../platform-desktop/des
 import { createBrowserModelHistoryPersistence } from "../platform-desktop/model-history-persistence";
 import { createBrowserArtifactDestination } from "./browser-artifact-destination";
 import { createBrowserLayoutPersistence } from "./browser-layout-persistence";
+import { createBrowserCameraBookmarkPersistence } from "./browser-camera-bookmark-persistence";
 import {
   createBrowserRecentProjectsPersistence,
   createBrowserRecoveryPersistence,
@@ -69,6 +70,7 @@ export function createWebPlatform(): ScadMillPlatform {
       renderCachePreferences: EPHEMERAL_RENDER_DISK_CACHE_PREFERENCES,
       renderThumbnails: createBrowserRenderThumbnailPersistence(),
       modelHistory: createBrowserModelHistoryPersistence(),
+      cameraBookmarks: createBrowserCameraBookmarkPersistence(),
     },
     artifacts: createBrowserArtifactDestination(),
     enginePathConfiguration: unavailable(),

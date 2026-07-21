@@ -7,11 +7,11 @@
 .search-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .search-activity button { min-height: 30px; border: 1px solid var(--chrome-border); border-radius: 4px; background: var(--chrome-surface); color: var(--chrome-text); cursor: pointer; }
 .search-activity button:disabled { cursor: not-allowed; color: var(--chrome-text-disabled); }
-.search-error { color: var(--status-error); }
+.search-error { color: var(--chrome-badge-error); }
 .search-summary, .search-muted { margin: 0; color: var(--chrome-text-muted); font-size: 0.8rem; }
 .search-results, .symbol-outline ul, .symbol-references ul { display: grid; gap: 3px; margin: 0; padding: 0; list-style: none; }
 .search-results button { display: grid; width: 100%; gap: 3px; padding: 6px; text-align: left; }
-.search-results span { overflow: hidden; color: var(--chrome-text-muted); font-family: var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
+.search-results span { overflow: hidden; color: var(--chrome-text-muted); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; text-overflow: ellipsis; white-space: nowrap; }
 .symbol-outline, .symbol-references { display: grid; gap: 6px; border-top: 1px solid var(--chrome-border); padding-top: 10px; }
 .symbol-outline h3, .symbol-references h3 { margin: 0; font-size: 0.82rem; }
 .symbol-outline li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px; }

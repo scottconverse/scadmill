@@ -422,6 +422,7 @@ describe("ViewerPane result routing", () => {
           },
           mode: "auto",
           furniture: { grid: true, axes: true, edges: false, shadow: false },
+          clipping: { enabled: false, axis: "x", offset: 0 },
           measurements: [],
           annotations: [],
         }}
@@ -461,6 +462,7 @@ describe("ViewerPane result routing", () => {
         mode: "auto" as const,
         modelIdentity: "shared-model-identity",
         furniture: { grid: true, axes: true, edges: false, shadow: false },
+        clipping: { enabled: false, axis: "x" as const, offset: 0 },
         measurements: [],
         annotations: [],
       },
@@ -507,6 +509,7 @@ describe("ViewerPane result routing", () => {
           },
           mode: "auto",
           furniture: { grid: true, axes: true, edges: false, shadow: false },
+          clipping: { enabled: false, axis: "x", offset: 0 },
           measurements: [],
           annotations: [],
         }}
@@ -534,7 +537,7 @@ describe("ViewerPane result routing", () => {
         narrow={false}
         renderStatus="success"
         result={threeD}
-        viewer={{ camera: { position: [0, 0, 10], target: [0, 0, 0], up: [0, 1, 0], zoom: 1, projection: "perspective" }, mode: "auto", furniture: { grid: true, axes: true, edges: false, shadow: false }, measurements: [], annotations: [] }}
+        viewer={{ camera: { position: [0, 0, 10], target: [0, 0, 0], up: [0, 1, 0], zoom: 1, projection: "perspective" }, mode: "auto", furniture: { grid: true, axes: true, edges: false, shadow: false }, clipping: { enabled: false, axis: "x", offset: 0 }, measurements: [], annotations: [] }}
         onLayoutAction={vi.fn()}
         onMcpScreenshotCaptureAvailable={(next) => { capture = next; }}
       />,
@@ -567,6 +570,7 @@ describe("ViewerPane result routing", () => {
           },
           mode: "auto",
           furniture: { grid: true, axes: true, edges: false, shadow: false },
+          clipping: { enabled: false, axis: "x", offset: 0 },
           measurements: [],
           annotations: [],
         }}

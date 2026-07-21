@@ -74,6 +74,7 @@ import {
   EPHEMERAL_WORKSPACE_METADATA_PERSISTENCE,
   WorkspaceAnnotationRepository,
 } from "../viewer/annotation-persistence";
+import { EPHEMERAL_CAMERA_BOOKMARK_PERSISTENCE } from "../viewer/camera-bookmarks";
 import {
   createViewerState,
   reduceViewerState,
@@ -141,6 +142,8 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     ?? EPHEMERAL_RENDER_THUMBNAIL_PERSISTENCE;
   const modelHistoryPersistenceService = options.modelHistoryPersistence
     ?? EPHEMERAL_MODEL_HISTORY_PERSISTENCE;
+  const cameraBookmarks = options.cameraBookmarkPersistence
+    ?? EPHEMERAL_CAMERA_BOOKMARK_PERSISTENCE;
   let showWelcomeOnLaunch = false;
   try {
     showWelcomeOnLaunch = options.welcomePreferencePersistence?.load() ?? false;
@@ -2078,6 +2081,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     modelHistoryPersistence: readonlyStore(modelHistoryPersistence),
     controls: readonlyStore(controls),
     renderThumbnails,
+    cameraBookmarks,
     dispatch,
     dispose() {
       if (disposed) return;

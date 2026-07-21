@@ -35,6 +35,12 @@ export interface ViewerFurnitureState {
   readonly shadow: boolean;
 }
 
+export interface ViewerClippingState {
+  readonly enabled: boolean;
+  readonly axis: "x" | "y" | "z";
+  readonly offset: number;
+}
+
 export interface ViewerPresentation {
   readonly modelIdentity: string;
   readonly renderIdentity: string;
@@ -48,6 +54,7 @@ export interface ViewerDocumentState {
   readonly mode: ViewerMode;
   readonly modelIdentity?: string;
   readonly furniture: ViewerFurnitureState;
+  readonly clipping: ViewerClippingState;
   readonly presentation?: ViewerPresentation;
   readonly measurements: readonly PointMeasurement[];
   readonly annotations: readonly ViewerAnnotation[];
@@ -60,6 +67,7 @@ export interface ViewerState {
 export type ViewerAction =
   | { readonly kind: "set-camera"; readonly documentId: string; readonly camera: ViewerCameraState }
   | { readonly kind: "set-mode"; readonly documentId: string; readonly mode: ViewerMode }
+  | { readonly kind: "set-clipping"; readonly documentId: string; readonly clipping: ViewerClippingState }
   | {
       readonly kind: "set-furniture";
       readonly documentId: string;
@@ -128,6 +136,7 @@ function emptyDocument(): ViewerDocumentState {
     camera: createDefaultViewerCamera(),
     mode: "auto",
     furniture: { grid: true, axes: true, edges: false, shadow: false },
+    clipping: { enabled: false, axis: "x", offset: 0 },
     measurements: [],
     annotations: [],
   };
@@ -199,6 +208,15 @@ export function reduceViewerState(state: ViewerState, action: ViewerAction): Vie
       return setDocument(state, action.documentId, { ...current, camera: cloneCamera(action.camera) });
     case "set-mode":
       return setDocument(state, action.documentId, { ...current, mode: action.mode });
+    case "set-clipping": {
+      if (!Number.isFinite(action.clipping.offset)) {
+        throw new Error("Viewer clipping offset must be finite.");
+      }
+      return setDocument(state, action.documentId, {
+        ...current,
+        clipping: { ...action.clipping },
+      });
+    }
     case "set-furniture":
       return setDocument(state, action.documentId, {
         ...current,

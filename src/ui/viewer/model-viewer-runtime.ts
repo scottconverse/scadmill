@@ -5,6 +5,7 @@ import {
   type MeshStandardMaterial,
   MOUSE,
   OrthographicCamera,
+  Plane,
   PerspectiveCamera,
   type Scene,
   Vector3,
@@ -14,7 +15,7 @@ import type { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js
 
 import type { ParsedBinaryStl } from "../../application/geometry/stl";
 import type { Point3 } from "../../application/viewer/measurements";
-import type { ViewerCameraState } from "../../application/viewer/viewer-state";
+import type { ViewerCameraState, ViewerClippingState } from "../../application/viewer/viewer-state";
 import { clearFurniture, type FurnitureResources } from "./viewer-furniture";
 
 export type ViewerCamera = PerspectiveCamera | OrthographicCamera;
@@ -110,6 +111,26 @@ export function removeModel(resources: ViewerResources): void {
   resources.mesh.material.dispose();
   resources.mesh = undefined;
   resources.parsed = undefined;
+}
+
+export function applyClipping(
+  material: MeshStandardMaterial,
+  clipping: ViewerClippingState,
+): void {
+  if (!clipping.enabled) {
+    material.clippingPlanes = [];
+    material.clipShadows = false;
+    material.needsUpdate = true;
+    return;
+  }
+  const normal = clipping.axis === "x"
+    ? new Vector3(1, 0, 0)
+    : clipping.axis === "y"
+      ? new Vector3(0, 1, 0)
+      : new Vector3(0, 0, 1);
+  material.clippingPlanes = [new Plane(normal, -clipping.offset)];
+  material.clipShadows = true;
+  material.needsUpdate = true;
 }
 
 export function projectPoint(

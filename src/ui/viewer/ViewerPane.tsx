@@ -12,14 +12,10 @@ import type {
 import type { WorkspaceLayoutAction } from "../../application/layout/workspace-layout";
 import type { ThemeTokens } from "../../application/theme/theme-schema";
 import type { WorkspaceAnnotationPersistenceState } from "../../application/viewer/annotation-persistence";
+import type { CameraBookmark } from "../../application/viewer/camera-bookmarks";
 import { cameraForAxis, cameraToFit, toggleProjection } from "../../application/viewer/camera";
 import type { Bounds3, Point3 } from "../../application/viewer/measurements";
-import {
-  createDefaultViewerCamera,
-  type ViewerAction,
-  type ViewerDocumentState,
-  type ViewerMode,
-} from "../../application/viewer/viewer-state";
+import type { ViewerAction, ViewerDocumentState, ViewerMode } from "../../application/viewer/viewer-state";
 import { messages } from "../../messages/en";
 import type { ModelViewerHandle } from "./ModelViewer";
 import { RenderProgressOverlay } from "./RenderProgressOverlay";
@@ -27,22 +23,15 @@ import { useModelFrameReport } from "./use-model-frame-report";
 import { useViewerThumbnail } from "./use-viewer-thumbnail";
 import { useMcpScreenshotCapture } from "./use-mcp-screenshot-capture";
 import { ViewerDetailsPanel } from "./ViewerDetailsPanel";
+import { ViewerCameraBookmarks } from "./ViewerCameraBookmarks";
 import { type ViewerTool, ViewerToolbar } from "./ViewerToolbar";
 import { boundsLabel } from "./viewer-bounds-label";
 import type { ViewerDegradation } from "./viewer-furniture";
-const ModelViewer = lazy(() =>
-  import("./ModelViewer").then((module) => ({ default: module.ModelViewer })),
-);
-const SvgViewer = lazy(() =>
-  import("./SvgViewer").then((module) => ({ default: module.SvgViewer })),
-);
-const EMPTY_VIEWER: ViewerDocumentState = {
-  camera: createDefaultViewerCamera(),
-  mode: "auto",
-  furniture: { grid: true, axes: true, edges: false, shadow: false },
-  measurements: [],
-  annotations: [],
-};
+import { EMPTY_VIEWER } from "./viewer-pane-defaults";
+const ModelViewer = lazy(() => import("./ModelViewer")
+  .then((module) => ({ default: module.ModelViewer })));
+const SvgViewer = lazy(() => import("./SvgViewer")
+  .then((module) => ({ default: module.SvgViewer })));
 let fallbackId = 0;
 function nextItemId(prefix: string): string {
   return globalThis.crypto?.randomUUID?.() ?? `${prefix}-${++fallbackId}`;
@@ -72,6 +61,8 @@ export interface ViewerPaneProps {
     readonly pan: "left" | "middle" | "right";
   };
   readonly onCancel?: () => void; readonly annotationPersistence?: WorkspaceAnnotationPersistenceState;
+  readonly cameraBookmarks?: readonly CameraBookmark[]; readonly cameraBookmarkNotice?: string | null;
+  readonly onSaveCameraBookmark?: (name: string, camera: ViewerDocumentState["camera"]) => void; readonly onDeleteCameraBookmark?: (bookmarkId: string) => void;
   readonly onRetryAnnotationPersistence?: () => void | Promise<void>;
   readonly onExportAnnotationMetadata?: () => void | Promise<void>;
   readonly onLayoutAction: (action: WorkspaceLayoutAction) => void;
@@ -107,6 +98,8 @@ export function ViewerPane({
   keybindings,
   mouseMapping,
   annotationPersistence = { status: "saved" },
+  cameraBookmarks = [], cameraBookmarkNotice = null,
+  onSaveCameraBookmark, onDeleteCameraBookmark,
   onCancel,
   onRetryAnnotationPersistence,
   onExportAnnotationMetadata,
@@ -291,14 +284,19 @@ export function ViewerPane({
         <ViewerToolbar
           bounds={bounds}
           camera={viewer.camera}
+          clipping={viewer.clipping}
           furniture={viewer.furniture}
           settingsDisabled={settingsDisabled}
           tool={tool}
           onCameraChange={(camera) => dispatchViewer({ kind: "set-camera", documentId, camera })}
+          onClippingChange={(clipping) => dispatchViewer({ kind: "set-clipping", documentId, clipping })}
           onFurnitureChange={(furniture, enabled) => dispatchViewer({ kind: "set-furniture", documentId, furniture, enabled })}
           onScreenshot={() => void captureScreenshot()}
           onToolChange={chooseTool}
         />
+      )}
+      {visibleGeometry?.kind === "3d" && onSaveCameraBookmark && onDeleteCameraBookmark && (
+        <ViewerCameraBookmarks bookmarks={cameraBookmarks} camera={viewer.camera} onDelete={onDeleteCameraBookmark} onRecall={(camera) => dispatchViewer({ kind: "set-camera", documentId, camera })} onSave={onSaveCameraBookmark} />
       )}
       <div className="viewer-content">
         <Suspense fallback={<div className="surface-loading" role="status">{messages.loadingViewer}</div>}>
@@ -308,6 +306,7 @@ export function ViewerPane({
             <ModelViewer
               annotations={viewer.annotations}
               camera={viewer.camera}
+              clipping={viewer.clipping}
               colors={colors}
               dimmed={dimmed}
               furniture={viewer.furniture}
@@ -395,6 +394,7 @@ export function ViewerPane({
         </div>
       )}
       {notice && <p className="viewer-notice" role="status">{notice}</p>}
+      {cameraBookmarkNotice && <p className="viewer-notice" role="status">{cameraBookmarkNotice}</p>}
     </section>
   );
 }

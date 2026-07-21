@@ -73,6 +73,7 @@ function presentation(renderIdentity: string, geometryIdentity: string): ViewerD
     camera: createDefaultViewerCamera(),
     mode: "auto",
     furniture: { grid: true, axes: true, edges: false, shadow: false },
+    clipping: { enabled: false, axis: "x", offset: 0 },
     measurements: [],
     annotations: [],
     presentation: {

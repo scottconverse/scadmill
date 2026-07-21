@@ -5,6 +5,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 import type { EngineService } from "../../../src/application/engine/contracts";
 import { createWorkbenchRuntime } from "../../../src/application/runtime/workbench-runtime";
 import { createViewerState, viewerDocument } from "../../../src/application/viewer/viewer-state";
+import { parseCameraBookmarks, serializeCameraBookmarks } from "../../../src/application/viewer/camera-bookmarks";
 import { ViewerPaneConnector } from "../../../src/ui/viewer/ViewerPaneConnector";
 
 let paneProps: Record<string, unknown> = {};
@@ -60,6 +61,51 @@ it("forwards engine availability to the dependency-aware empty viewer", () => {
   render(<ViewerPaneConnector {...props} />);
 
   expect(paneProps.engineAvailable).toBe(false);
+});
+
+it("loads, saves, updates, and deletes camera bookmarks in the active project namespace", async () => {
+  const camera = viewerDocument(createViewerState(), "doc").camera;
+  let serialized = serializeCameraBookmarks([{ id: "existing", name: "Front", camera }]);
+  const save = vi.fn((_workspaceIdentity: string, next: string) => { serialized = next; });
+  const runtime = createWorkbenchRuntime({
+    render: vi.fn(), export: vi.fn(), version: vi.fn(), cancel: vi.fn(),
+  }, {
+    cameraBookmarkPersistence: { load: () => serialized, save },
+  });
+
+  render(
+    <ViewerPaneConnector
+      colors={colors}
+      dimmed={false}
+      documentId="doc"
+      maximized={false}
+      narrow={false}
+      renderStatus="idle"
+      runtime={runtime}
+      viewer={viewerDocument(createViewerState(), "doc")}
+      onLayoutAction={vi.fn()}
+      onShowConsole={vi.fn()}
+    />,
+  );
+
+  await waitFor(() => expect(paneProps.cameraBookmarks).toEqual([
+    expect.objectContaining({ id: "existing", name: "Front" }),
+  ]));
+  await act(async () => {
+    (paneProps.onSaveCameraBookmark as (name: string, value: typeof camera) => void)(
+      "front",
+      { ...camera, position: [1, 2, 3] },
+    );
+  });
+  expect(save).toHaveBeenLastCalledWith("scratch", expect.any(String));
+  expect(parseCameraBookmarks(serialized)).toEqual([
+    expect.objectContaining({ id: "existing", name: "front", camera: expect.objectContaining({ position: [1, 2, 3] }) }),
+  ]);
+
+  await act(async () => {
+    (paneProps.onDeleteCameraBookmark as (bookmarkId: string) => void)("existing");
+  });
+  expect(parseCameraBookmarks(serialized)).toEqual([]);
 });
 
 it("places source-driven animation controls with the viewer surface", () => {

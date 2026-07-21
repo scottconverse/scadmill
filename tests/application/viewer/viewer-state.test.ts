@@ -20,6 +20,33 @@ const GEOMETRY_A = `sha256:${"a".repeat(64)}`;
 const GEOMETRY_B = `sha256:${"b".repeat(64)}`;
 
 describe("per-document viewer state", () => {
+  it("stores a bounded axis-aligned clipping plane per document", () => {
+    let state = createViewerState();
+    expect(viewerDocument(state, "doc-a").clipping).toEqual({
+      enabled: false,
+      axis: "x",
+      offset: 0,
+    });
+
+    state = reduceViewerState(state, {
+      kind: "set-clipping",
+      documentId: "doc-a",
+      clipping: { enabled: true, axis: "z", offset: 4.5 },
+    });
+
+    expect(viewerDocument(state, "doc-a").clipping).toEqual({
+      enabled: true,
+      axis: "z",
+      offset: 4.5,
+    });
+    expect(viewerDocument(state, "doc-b").clipping.enabled).toBe(false);
+    expect(() => reduceViewerState(state, {
+      kind: "set-clipping",
+      documentId: "doc-a",
+      clipping: { enabled: true, axis: "z", offset: Number.NaN },
+    })).toThrow(/clipping/iu);
+  });
+
   it("defaults each document to automatic mode and isolates pinned modes", () => {
     let state = createViewerState();
 

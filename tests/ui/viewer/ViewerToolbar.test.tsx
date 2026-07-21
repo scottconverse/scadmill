@@ -9,6 +9,7 @@ describe("ViewerToolbar", () => {
   it("routes axis, fit, projection, reset, furniture, tools, and screenshot controls", () => {
     const onCameraChange = vi.fn();
     const onFurnitureChange = vi.fn();
+    const onClippingChange = vi.fn();
     const onToolChange = vi.fn();
     const onScreenshot = vi.fn();
     const camera = createDefaultViewerCamera();
@@ -16,9 +17,11 @@ describe("ViewerToolbar", () => {
       <ViewerToolbar
         bounds={{ min: [0, 0, 0], max: [10, 10, 10] }}
         camera={camera}
+        clipping={{ enabled: false, axis: "x", offset: 0 }}
         furniture={{ grid: true, axes: true, edges: false, shadow: false }}
         tool="navigate"
         onCameraChange={onCameraChange}
+        onClippingChange={onClippingChange}
         onFurnitureChange={onFurnitureChange}
         onScreenshot={onScreenshot}
         onToolChange={onToolChange}
@@ -41,15 +44,24 @@ describe("ViewerToolbar", () => {
     expect(onToolChange).toHaveBeenCalledWith("measure");
     fireEvent.click(view.getByRole("button", { name: "Capture viewport as PNG" }));
     expect(onScreenshot).toHaveBeenCalledOnce();
+
+    fireEvent.click(view.getByRole("checkbox", { name: "Enable section view" }));
+    expect(onClippingChange).toHaveBeenLastCalledWith({ enabled: true, axis: "x", offset: 0 });
+    fireEvent.change(view.getByRole("combobox", { name: "Section axis" }), { target: { value: "z" } });
+    expect(onClippingChange).toHaveBeenLastCalledWith({ enabled: false, axis: "z", offset: 5 });
+    fireEvent.change(view.getByRole("slider", { name: "Section position" }), { target: { value: "7.5" } });
+    expect(onClippingChange).toHaveBeenLastCalledWith({ enabled: false, axis: "x", offset: 7.5 });
   });
 
   it("disables geometry-dependent views until model bounds are available", () => {
     const view = render(
       <ViewerToolbar
         camera={createDefaultViewerCamera()}
+        clipping={{ enabled: false, axis: "x", offset: 0 }}
         furniture={{ grid: true, axes: true, edges: false, shadow: false }}
         tool="navigate"
         onCameraChange={vi.fn()}
+        onClippingChange={vi.fn()}
         onFurnitureChange={vi.fn()}
         onScreenshot={vi.fn()}
         onToolChange={vi.fn()}
@@ -57,6 +69,7 @@ describe("ViewerToolbar", () => {
     );
     expect(view.getByRole("button", { name: "Top view" })).toBeDisabled();
     expect(view.getByRole("button", { name: "Fit model" })).toBeDisabled();
+    expect(view.getByRole("checkbox", { name: "Enable section view" })).toBeDisabled();
   });
 
   it("resets position without overriding the settings-owned projection", () => {
@@ -65,9 +78,11 @@ describe("ViewerToolbar", () => {
     const view = render(
       <ViewerToolbar
         camera={camera}
+        clipping={{ enabled: false, axis: "x", offset: 0 }}
         furniture={{ grid: true, axes: true, edges: false, shadow: false }}
         tool="navigate"
         onCameraChange={onCameraChange}
+        onClippingChange={vi.fn()}
         onFurnitureChange={vi.fn()}
         onScreenshot={vi.fn()}
         onToolChange={vi.fn()}
@@ -89,10 +104,12 @@ describe("ViewerToolbar", () => {
       <ViewerToolbar
         bounds={{ min: [0, 0, 0], max: [10, 10, 10] }}
         camera={createDefaultViewerCamera()}
+        clipping={{ enabled: false, axis: "x", offset: 0 }}
         furniture={{ grid: true, axes: true, edges: false, shadow: false }}
         settingsDisabled
         tool="navigate"
         onCameraChange={onCameraChange}
+        onClippingChange={vi.fn()}
         onFurnitureChange={onFurnitureChange}
         onScreenshot={vi.fn()}
         onToolChange={vi.fn()}

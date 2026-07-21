@@ -1,0 +1,8 @@
+.viewer-section-control { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 4px; font-size: 11px; white-space: nowrap; }
+.viewer-section-control select, .viewer-section-control input { min-height: 28px; accent-color: var(--chrome-accent); }
+.camera-bookmarks { position: absolute; z-index: 5; top: 78px; left: 10px; display: grid; max-width: min(320px, calc(100% - 20px)); gap: 6px; padding: 8px; border: 1px solid var(--chrome-border); border-radius: 5px; background: var(--chrome-surface); color: var(--chrome-text); font-size: 11px; }
+.camera-bookmarks form, .camera-bookmarks label, .camera-bookmarks li { display: flex; align-items: center; gap: 5px; }
+.camera-bookmarks label span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.camera-bookmarks input { min-width: 0; border: 1px solid var(--chrome-border); border-radius: 4px; background: var(--chrome-surface-raised); color: var(--chrome-text); }
+.camera-bookmarks ol { display: grid; max-height: 120px; gap: 3px; padding: 0; margin: 0; overflow: auto; list-style: none; }
+.camera-bookmarks li > :first-child { min-width: 0; flex: 1; overflow: hidden; text-align: left; text-overflow: ellipsis; white-space: nowrap; }

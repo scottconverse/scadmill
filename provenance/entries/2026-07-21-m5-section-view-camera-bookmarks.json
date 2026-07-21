@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-21-m5-section-view-camera-bookmarks",
+  "createdAt": "2026-07-21T14:38:42-06:00",
+  "summary": "Complete M5 with a real axis-aligned section plane and bounded per-project named camera bookmarks.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "FR-15.8", "M5"],
+  "filesTouched": [
+    { "path": "ARCHITECTURE.md", "status": "modified" },
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "docs/FAQ.md", "status": "modified" },
+    { "path": "docs/USER-GUIDE.md", "status": "modified" },
+    { "path": "docs/WINDOWS-BETA.md", "status": "modified" },
+    { "path": "src/app/App.tsx", "status": "modified" },
+    { "path": "src/application/platform/scadmill-platform.ts", "status": "modified" },
+    { "path": "src/application/runtime/workbench-runtime-contracts.ts", "status": "modified" },
+    { "path": "src/application/runtime/workbench-runtime.ts", "status": "modified" },
+    { "path": "src/application/viewer/camera-bookmarks.ts", "status": "added" },
+    { "path": "src/application/viewer/viewer-state.ts", "status": "modified" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/platform-desktop/desktop-platform.ts", "status": "modified" },
+    { "path": "src/platform-web/browser-camera-bookmark-persistence.ts", "status": "added" },
+    { "path": "src/platform-web/web-platform.ts", "status": "modified" },
+    { "path": "src/ui/viewer/CameraBookmarks.tsx", "status": "added" },
+    { "path": "src/ui/viewer/ModelViewer.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/ViewerCameraBookmarks.tsx", "status": "added" },
+    { "path": "src/ui/viewer/ViewerPane.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/ViewerPaneConnector.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/ViewerToolbar.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/model-viewer-props.ts", "status": "added" },
+    { "path": "src/ui/viewer/model-viewer-runtime.ts", "status": "modified" },
+    { "path": "src/ui/viewer/viewer-pane-defaults.ts", "status": "added" },
+    { "path": "src/ui/viewer/viewer-section.css", "status": "added" },
+    { "path": "src/ui/search/search.css", "status": "modified" },
+    { "path": "src/ui/workbench.css", "status": "modified" },
+    { "path": "tests/application/viewer/camera-bookmarks.test.ts", "status": "added" },
+    { "path": "tests/application/viewer/viewer-state.test.ts", "status": "modified" },
+    { "path": "tests/helpers/test-platform.ts", "status": "modified" },
+    { "path": "tests/platform-web/browser-camera-bookmark-persistence.test.ts", "status": "added" },
+    { "path": "tests/ui/viewer/CameraBookmarks.test.tsx", "status": "added" },
+    { "path": "tests/ui/viewer/ViewerPane.test.tsx", "status": "modified" },
+    { "path": "tests/ui/viewer/ViewerPaneConnector.test.tsx", "status": "modified" },
+    { "path": "tests/ui/viewer/ViewerPaneThumbnail.test.tsx", "status": "modified" },
+    { "path": "tests/ui/viewer/ViewerToolbar.test.tsx", "status": "modified" },
+    { "path": "tests/ui/viewer/model-viewer-runtime-clipping.test.ts", "status": "added" },
+    { "path": "tests/ui/Workbench.editor-settings.test.tsx", "status": "modified" },
+    { "path": "website/app/architecture/page.tsx", "status": "modified" },
+    { "path": "website/app/page.tsx", "status": "modified" },
+    { "path": "provenance/entries/2026-07-21-m5-section-view-camera-bookmarks.json", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [
+    { "label": "Owner-provided ScadMill functional specification v0.6", "destination": "spec/scadmill-spec-v0.6.md", "sha256": "A2D12C68E23590DF061BF3E222F481C3FFC40ECA6541D6F3DF49FDA87C1DE15A" }
+  ],
+  "decisions": [
+    {
+      "id": "D-0497",
+      "topic": "Section-view geometry boundary",
+      "decision": "Apply the axis-aligned section plane as Three.js local clipping on the currently presented mesh, with its offset bounded by the rendered mesh bounds and no mutation of source or export geometry.",
+      "rationale": "FR-15.8 requires a visual interior inspection tool. Keeping it inside the presentation boundary makes the cut real in the viewer while preserving the full-render export authority required by FR-4.3.",
+      "specBasis": ["FR-15.8", "FR-4.3", "C2 viewer"]
+    },
+    {
+      "id": "D-0498",
+      "topic": "Camera-bookmark ownership and persistence",
+      "decision": "Serialize validated complete camera states through a project-keyed platform persistence port, capped at 64 bookmarks and 64 KiB, without writing bookmark metadata into user project files.",
+      "rationale": "Bookmarks are per-project UI state. A typed profile-storage port keeps desktop and browser composition symmetric, prevents path leakage into keys, and avoids silently modifying OpenSCAD projects.",
+      "specBasis": ["FR-15.8", "C9 settings", "Section 5 security and privacy"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "FR-15.8 requires an axis-aligned, toggleable plane draggable along its normal and named camera bookmark save/recall/delete behavior.",
+      "test": "Exercise the section controls, exact Three.js material plane, bookmark serializer, platform namespace, bookmark UI, and connector persistence path.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/viewer/ViewerToolbar.test.tsx tests/ui/viewer/model-viewer-runtime-clipping.test.ts tests/platform-web/browser-camera-bookmark-persistence.test.ts tests/ui/viewer/CameraBookmarks.test.tsx",
+        "observedAt": "2026-07-21T14:27:36-06:00",
+        "outcome": "RED: clipping controls and material behavior were absent, and the bookmark UI and persistence adapter did not exist. Four suites failed as intended."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/viewer/viewer-state.test.ts tests/application/viewer/camera-bookmarks.test.ts tests/ui/viewer/ViewerToolbar.test.tsx tests/ui/viewer/model-viewer-runtime-clipping.test.ts tests/platform-web/browser-camera-bookmark-persistence.test.ts tests/ui/viewer/CameraBookmarks.test.tsx",
+        "observedAt": "2026-07-21T14:31:35-06:00",
+        "outcome": "GREEN: 6 files and 25 tests passed."
+      }
+    },
+    {
+      "criterion": "The completed viewer feature must preserve existing viewer, presentation, thumbnail, web-platform, and desktop-platform behavior.",
+      "test": "Run all application viewer and UI viewer suites plus both platform compositions after the line-budget refactor.",
+      "red": {
+        "command": "pnpm.cmd run lint",
+        "observedAt": "2026-07-21T14:34:00-06:00",
+        "outcome": "RED: the integrated behavior compiled, but the additions crossed the enforced 400-line UI-file policy in three existing files."
+      },
+      "green": {
+        "command": "pnpm.cmd run typecheck; pnpm.cmd exec vitest run tests/application/viewer tests/ui/viewer tests/platform-web/browser-camera-bookmark-persistence.test.ts tests/platform-web/web-platform.test.ts tests/platform-desktop/desktop-platform.test.ts",
+        "observedAt": "2026-07-21T14:36:50-06:00",
+        "outcome": "GREEN: TypeScript passed; 23 files and 133 tests passed. A separate lint run passed with all UI files within 400 lines and platform boundaries intact."
+      }
+    },
+    {
+      "criterion": "The M5 candidate must pass the repository-wide automated and real-browser gates without a blind aggregate rerun.",
+      "test": "Run the full unit suite once, repair only its two concrete residual failures, continue the remaining generated/policy/provenance/license/notices/public/build/site gates, and run Playwright once.",
+      "red": {
+        "command": "pnpm.cmd test",
+        "observedAt": "2026-07-21T14:40:35-06:00",
+        "outcome": "RED: 1,632 of 1,634 tests passed. The two failures were a stale pre-FR-15.6 F12 expectation and two non-contract CSS variables introduced by the M5 Search stylesheet."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/Workbench.editor-settings.test.tsx tests/application/theme/theme-css-variable-usage.test.ts; pnpm.cmd run check:generated; pnpm.cmd run lint; pnpm.cmd run check:provenance; pnpm.cmd run check:licenses all; pnpm.cmd run check:notices; pnpm.cmd run check:public-surfaces; pnpm.cmd run build; npm.cmd test --prefix website; pnpm.cmd run test:e2e",
+        "observedAt": "2026-07-21T14:45:00-06:00",
+        "outcome": "GREEN: both affected suites passed (8 tests); generated source, source policy, provenance, 120 npm plus 507 Rust licenses, notices, public surfaces, production build, and all 3 rendered website routes passed; Playwright passed 24 of 24 tests. The already-green 1,632 unit tests were not rerun."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

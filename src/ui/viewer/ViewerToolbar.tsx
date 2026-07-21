@@ -8,20 +8,24 @@ import {
 import {
   createDefaultViewerCamera,
   type ViewerCameraState,
+  type ViewerClippingState,
   type ViewerFurniture,
   type ViewerFurnitureState,
 } from "../../application/viewer/viewer-state";
 import { messages } from "../../messages/en";
+import "./viewer-section.css";
 
 export type ViewerTool = "navigate" | "measure" | "annotate";
 
 export interface ViewerToolbarProps {
   readonly bounds?: Bounds3;
   readonly camera: ViewerCameraState;
+  readonly clipping: ViewerClippingState;
   readonly furniture: ViewerFurnitureState;
   readonly settingsDisabled?: boolean;
   readonly tool: ViewerTool;
   readonly onCameraChange: (camera: ViewerCameraState) => void;
+  readonly onClippingChange: (clipping: ViewerClippingState) => void;
   readonly onFurnitureChange: (furniture: ViewerFurniture, enabled: boolean) => void;
   readonly onScreenshot: () => void;
   readonly onToolChange: (tool: ViewerTool) => void;
@@ -46,14 +50,20 @@ const FURNITURE: readonly { key: ViewerFurniture; label: string }[] = [
 export function ViewerToolbar({
   bounds,
   camera,
+  clipping,
   furniture,
   settingsDisabled = false,
   tool,
   onCameraChange,
+  onClippingChange,
   onFurnitureChange,
   onScreenshot,
   onToolChange,
 }: ViewerToolbarProps) {
+  const axisIndex = clipping.axis === "x" ? 0 : clipping.axis === "y" ? 1 : 2;
+  const axisMinimum = bounds?.min[axisIndex] ?? 0;
+  const axisMaximum = bounds?.max[axisIndex] ?? 0;
+  const axisStep = Math.max((axisMaximum - axisMinimum) / 200, 0.001);
   return (
     <div aria-label={messages.viewerControls} className="viewer-toolbar" role="toolbar">
       <button
@@ -80,6 +90,45 @@ export function ViewerToolbar({
           <span>{label}</span>
         </label>
       ))}
+      <label className="viewer-toggle">
+        <input
+          aria-label={messages.enableSectionView}
+          checked={clipping.enabled}
+          disabled={!bounds}
+          onChange={(event) => onClippingChange({ ...clipping, enabled: event.currentTarget.checked })}
+          type="checkbox"
+        />
+        <span>{messages.sectionView}</span>
+      </label>
+      <label className="viewer-section-control">
+        <span>{messages.sectionAxis}</span>
+        <select
+          aria-label={messages.sectionAxis}
+          disabled={!bounds}
+          onChange={(event) => {
+            const axis = event.currentTarget.value as ViewerClippingState["axis"];
+            const index = axis === "x" ? 0 : axis === "y" ? 1 : 2;
+            const offset = bounds ? (bounds.min[index] + bounds.max[index]) / 2 : 0;
+            onClippingChange({ ...clipping, axis, offset });
+          }}
+          value={clipping.axis}
+        >
+          <option value="x">X</option><option value="y">Y</option><option value="z">Z</option>
+        </select>
+      </label>
+      <label className="viewer-section-control">
+        <span>{messages.sectionPosition}</span>
+        <input
+          aria-label={messages.sectionPosition}
+          disabled={!bounds}
+          max={axisMaximum}
+          min={axisMinimum}
+          onChange={(event) => onClippingChange({ ...clipping, offset: event.currentTarget.valueAsNumber })}
+          step={axisStep}
+          type="range"
+          value={Math.min(axisMaximum, Math.max(axisMinimum, clipping.offset))}
+        />
+      </label>
       <button aria-label={messages.navigateModel} aria-pressed={tool === "navigate"} onClick={() => onToolChange("navigate")} type="button">{messages.viewerNavigateShort}</button>
       <button aria-label={messages.measurePoints} aria-pressed={tool === "measure"} onClick={() => onToolChange("measure")} type="button">{messages.viewerMeasureShort}</button>
       <button aria-label={messages.addAnnotation} aria-pressed={tool === "annotate"} onClick={() => onToolChange("annotate")} type="button">{messages.viewerAnnotationShort}</button>

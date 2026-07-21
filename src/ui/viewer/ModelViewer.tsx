@@ -19,22 +19,14 @@ import {
   WebGLRenderer,
 } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import type { RenderSuccess3D } from "../../application/engine/contracts";
-import type { Point3 } from "../../application/viewer/measurements";
-import type {
-  PointMeasurement,
-  ViewerAnnotation,
-  ViewerCameraState,
-  ViewerFurnitureState,
-} from "../../application/viewer/viewer-state";
 import { messages } from "../../messages/en";
-import { DEFAULT_CAMERA, DEFAULT_FURNITURE, DEFAULT_MOUSE_MAPPING, type ModelMeshParser, ParsedMeshReuse } from "./model-viewer-defaults";
+import { DEFAULT_CAMERA, DEFAULT_FURNITURE, DEFAULT_MOUSE_MAPPING, ParsedMeshReuse } from "./model-viewer-defaults";
 import { ModelViewerOverlays, type SpatialOverlays } from "./model-viewer-overlays";
 import {
   captureViewportPng,
+  applyClipping,
   configureMouse,
   controlsCameraState,
-  type MouseButton,
   makeCamera,
   type OverlayPosition,
   projectionOf,
@@ -44,28 +36,19 @@ import {
   updateProjection,
   type ViewerResources,
 } from "./model-viewer-runtime";
-import type { ViewerTool } from "./ViewerToolbar";
-import { rebuildFurniture, type ViewerDegradation } from "./viewer-furniture";
-import { applyViewerTheme, type ViewerThemeColors } from "./viewer-theme";
+import { rebuildFurniture } from "./viewer-furniture";
+import { applyViewerTheme } from "./viewer-theme";
 import { useMeshParser } from "./use-mesh-parser";
+import type { ModelViewerProps } from "./model-viewer-props";
 export interface ModelViewerHandle { capturePng(width?: number, height?: number): Promise<Uint8Array>; captureThumbnailPng(): Promise<Uint8Array>; }
 export type { ModelMeshParser } from "./model-viewer-defaults";
-export interface ModelViewerProps {
-  readonly result?: RenderSuccess3D; readonly emptyMessage?: string;
-  readonly colors: ViewerThemeColors; readonly camera?: ViewerCameraState;
-  readonly furniture?: ViewerFurnitureState; readonly measurements?: readonly PointMeasurement[];
-  readonly annotations?: readonly ViewerAnnotation[]; readonly tool?: ViewerTool;
-  readonly dimmed?: boolean; readonly meshColor?: string | null;
-  readonly mouseMapping?: { readonly orbit: MouseButton; readonly pan: MouseButton }; readonly meshParser?: ModelMeshParser;
-  readonly presentationToken?: string; readonly onCameraChange?: (camera: ViewerCameraState) => void;
-  readonly onPointPick?: (point: Point3) => void; readonly onDegradationChange?: (degradation: ViewerDegradation) => void;
-  readonly onFrameRendered?: (durationMs: number, presentationToken?: string) => void; readonly onPresentationFailed?: (presentationToken: string) => void;
-}
+export type { ModelViewerProps } from "./model-viewer-props";
 export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(function ModelViewer({
   result,
   emptyMessage = messages.modelAwaitingRender,
   colors,
   camera = DEFAULT_CAMERA,
+  clipping = { enabled: false, axis: "x", offset: 0 },
   furniture = DEFAULT_FURNITURE,
   measurements = [],
   annotations = [],
@@ -85,6 +68,7 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
   const resources = useRef<ViewerResources | null>(null); const rendererFailed = useRef(false);
   const parsedMeshReuse = useRef(new ParsedMeshReuse()); const activeMeshParser = useMeshParser(meshParser);
   const cameraRef = useRef(camera); const colorsRef = useRef(colors);
+  const clippingRef = useRef(clipping);
   const furnitureRef = useRef(furniture); const measurementsRef = useRef(measurements);
   const annotationsRef = useRef(annotations); const toolRef = useRef(tool);
   const dimmedRef = useRef(dimmed); const meshColorRef = useRef(meshColor);
@@ -96,6 +80,7 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
   const [geometryError, setGeometryError] = useState<string | null>(null);
   const [viewerError, setViewerError] = useState<string | null>(null);
   cameraRef.current = camera;
+  clippingRef.current = clipping;
   colorsRef.current = colors;
   furnitureRef.current = furniture;
   measurementsRef.current = measurements;
@@ -142,6 +127,7 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
     let renderer: WebGLRenderer | null = null;
     try {
       renderer = new WebGLRenderer({ canvas: canvas.current, antialias: true });
+      renderer.localClippingEnabled = true;
       renderer.setPixelRatio(Math.min(globalThis.devicePixelRatio || 1, 2));
       rendererFailed.current = false;
     } catch {
@@ -231,6 +217,7 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
       };
       applyViewerTheme(viewer, themedColors);
       if (viewer.mesh) {
+        applyClipping(viewer.mesh.material, clippingRef.current);
         viewer.mesh.material.transparent = dimmedRef.current;
         viewer.mesh.material.opacity = dimmedRef.current ? 0.35 : 1;
         viewer.mesh.material.depthWrite = !dimmedRef.current;
@@ -284,6 +271,12 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
     };
   }, []);
   useEffect(() => resources.current?.applyCamera(camera), [camera]);
+  useEffect(() => {
+    const viewer = resources.current;
+    if (!viewer?.mesh) return;
+    applyClipping(viewer.mesh.material, clipping);
+    viewer.invalidate();
+  }, [clipping]);
   useEffect(() => {
     const viewer = resources.current;
     if (!viewer) {

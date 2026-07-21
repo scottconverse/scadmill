@@ -31,6 +31,7 @@ import type {
   WorkspaceMetadataPersistence,
 } from "../viewer/annotation-persistence";
 import type { ViewerAction, ViewerState } from "../viewer/viewer-state";
+import type { CameraBookmarkPersistence } from "../viewer/camera-bookmarks";
 import type { WorkspaceLayoutPersistence } from "./layout-persistence";
 import type { RenderingSettings, SettingsState } from "./render-settings";
 import type { WorkbenchControlState } from "./workbench-controls";
@@ -163,6 +164,7 @@ export interface WorkbenchRuntime {
   modelHistoryPersistence: ReadonlyStore<ModelHistoryPersistenceState>;
   controls: ReadonlyStore<WorkbenchControlState>;
   readonly renderThumbnails: RenderThumbnailPersistence;
+  readonly cameraBookmarks: CameraBookmarkPersistence;
   dispatch(command: WorkbenchCommand): Promise<void>;
   dispose(): void;
 }
@@ -187,5 +189,6 @@ export interface RuntimeOptions {
   renderDiskCachePreferencePersistence?: RenderDiskCachePreferencePersistence;
   renderThumbnailPersistence?: RenderThumbnailPersistence;
   modelHistoryPersistence?: ModelHistoryPersistence;
+  cameraBookmarkPersistence?: CameraBookmarkPersistence;
   welcomePreferencePersistence?: WelcomePreferencePersistence;
 }

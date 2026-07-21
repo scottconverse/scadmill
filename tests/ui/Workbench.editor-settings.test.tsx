@@ -62,7 +62,7 @@ it("applies editor options owned by the runtime settings store", async () => {
   });
 });
 
-it("surfaces an unavailable go-to-definition outcome instead of claiming success", async () => {
+it("routes go-to-definition through the installed project-navigation handler", async () => {
   const engine: EngineService = {
     render: vi.fn(),
     export: vi.fn(),
@@ -87,14 +87,10 @@ it("surfaces an unavailable go-to-definition outcome instead of claiming success
 
   fireEvent.keyDown(content, { key: "F12", bubbles: true, cancelable: true });
 
-  const unavailable = await rendered.findByText(
-    "Go to definition is unavailable until project symbol navigation is implemented.",
-  );
-  expect(unavailable).toHaveAttribute("role", "status");
-  expect(runtime.history.getState().at(-1)).toMatchObject({
-    kind: "editor-command",
-    summary: "Editor command unavailable: go-to-definition",
-  });
+  await waitFor(() => expect(runtime.history.getState().at(-1)).toMatchObject({
+    kind: "editor-command", summary: "Editor command: go-to-definition",
+  }));
+  expect(rendered.queryByText(/project symbol navigation is implemented/i)).not.toBeInTheDocument();
 });
 
 it("lets an editor-scoped override consume a global shortcut without double-dispatch", async () => {

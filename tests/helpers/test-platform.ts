@@ -17,6 +17,7 @@ import { EPHEMERAL_SETTINGS_PERSISTENCE, type SettingsPersistence } from "../../
 import { EPHEMERAL_WORKSPACE_METADATA_PERSISTENCE, type WorkspaceMetadataPersistence } from "../../src/application/viewer/annotation-persistence";
 import { HIDDEN_WELCOME_PREFERENCE, type WelcomePreferencePersistence } from "../../src/application/welcome/welcome-preference";
 import { EPHEMERAL_MODEL_HISTORY_PERSISTENCE, type ModelHistoryPersistence } from "../../src/application/model-history/model-history";
+import { EPHEMERAL_CAMERA_BOOKMARK_PERSISTENCE, type CameraBookmarkPersistence } from "../../src/application/viewer/camera-bookmarks";
 
 const EMPTY_RECOVERY: RecoveryPersistence = {
   load: () => null,
@@ -54,6 +55,7 @@ export interface TestPlatformOverrides {
   readonly renderDiskCachePreferencePersistence?: RenderDiskCachePreferencePersistence;
   readonly renderThumbnailPersistence?: RenderThumbnailPersistence;
   readonly modelHistoryPersistence?: ModelHistoryPersistence;
+  readonly cameraBookmarkPersistence?: CameraBookmarkPersistence;
 }
 
 export function createTestPlatform(
@@ -109,6 +111,7 @@ export function createTestPlatform(
       renderCachePreferences: overrides.renderDiskCachePreferencePersistence ?? EPHEMERAL_RENDER_DISK_CACHE_PREFERENCES,
       renderThumbnails: overrides.renderThumbnailPersistence ?? EPHEMERAL_RENDER_THUMBNAIL_PERSISTENCE,
       modelHistory: overrides.modelHistoryPersistence ?? EPHEMERAL_MODEL_HISTORY_PERSISTENCE,
+      cameraBookmarks: overrides.cameraBookmarkPersistence ?? EPHEMERAL_CAMERA_BOOKMARK_PERSISTENCE,
     },
     artifacts: overrides.artifactDestination ?? UNAVAILABLE_ARTIFACT_DESTINATION,
     enginePathConfiguration: overrides.enginePathConfiguration
