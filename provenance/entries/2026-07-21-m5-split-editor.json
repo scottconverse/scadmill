@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-21-m5-split-editor",
+  "createdAt": "2026-07-21T14:18:47-06:00",
+  "summary": "Implement M5 two-group split editing, orientation switching, cross-group tab movement, independent editor sessions, and focused-group render targeting.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "FR-15.7", "M5"],
+  "filesTouched": [
+    { "path": "ARCHITECTURE.md", "status": "modified" },
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "docs/USER-GUIDE.md", "status": "modified" },
+    { "path": "src/application/layout/editor-groups.ts", "status": "added" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/editor/DocumentTabBar.tsx", "status": "modified" },
+    { "path": "src/ui/editor/EditorGroupsPane.tsx", "status": "added" },
+    { "path": "src/ui/editor/editor-groups.css", "status": "added" },
+    { "path": "tests/application/layout/editor-groups.test.ts", "status": "added" },
+    { "path": "tests/ui/Workbench.split-editor.test.tsx", "status": "added" },
+    { "path": "tests/ui/editor/EditorGroupsPane.test.tsx", "status": "added" },
+    { "path": "website/app/architecture/page.tsx", "status": "modified" },
+    { "path": "website/app/page.tsx", "status": "modified" },
+    { "path": "provenance/entries/2026-07-21-m5-split-editor.json", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [
+    { "label": "Owner-provided ScadMill functional specification v0.6", "destination": "spec/scadmill-spec-v0.6.md", "sha256": "A2D12C68E23590DF061BF3E222F481C3FFC40ECA6541D6F3DF49FDA87C1DE15A" }
+  ],
+  "decisions": [
+    {
+      "id": "D-0495",
+      "topic": "Editor-group state boundary",
+      "decision": "Keep group membership, tab order, orientation, focus, and per-group CodeMirror sessions in bounded UI state while retaining the existing document workspace as the single buffer/dirty-history authority.",
+      "rationale": "FR-15.7 is a presentation and focus capability; duplicating document content or command history into a second application store would create conflicting save and undo ownership.",
+      "specBasis": ["FR-15.7", "C1 editor", "C11 command bus"]
+    },
+    {
+      "id": "D-0496",
+      "topic": "Focused-group render ownership",
+      "decision": "Every group focus or tab activation dispatches the ordinary activate-document command. Render, export, diagnostics, history, and external navigation continue to consume the one active document, while group reconciliation updates synchronously from that runtime state.",
+      "rationale": "This makes the render target follow focus without a parallel engine path and prevents a stale editor from receiving commands during diagnostic/history activations.",
+      "specBasis": ["FR-15.7", "FR-4.1", "C11 command bus"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "FR-15.7 requires two editor groups, side-by-side or stacked, with independent tabs and cross-group drag.",
+      "test": "Exercise pure group split/orientation/move/reconcile/merge state and the rendered two-group tab UI with a synthetic cross-group drag.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/layout/editor-groups.test.ts",
+        "observedAt": "2026-07-21T14:08:31-06:00",
+        "outcome": "RED: the editor-group state module did not exist."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/layout/editor-groups.test.ts tests/ui/editor/EditorGroupsPane.test.tsx tests/ui/editor/DocumentTabBar.test.tsx tests/ui/Workbench.test.tsx",
+        "observedAt": "2026-07-21T14:16:09-06:00",
+        "outcome": "GREEN: 4 files and 33 tests passed, including the legacy tab/session/diagnostic behaviors."
+      }
+    },
+    {
+      "criterion": "FR-15.7 requires the render target to follow the focused group.",
+      "test": "Disable auto-render, focus each group in turn, invoke preview, and inspect the actual EngineService request entry file.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/Workbench.split-editor.test.tsx",
+        "observedAt": "2026-07-21T14:17:20-06:00",
+        "outcome": "RED was established by the pre-feature Workbench, which exposed only one editor panel and had no Split editor control."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/Workbench.split-editor.test.tsx",
+        "observedAt": "2026-07-21T14:17:33-06:00",
+        "outcome": "GREEN: the focused primary request used parts/wheel.scad and the focused secondary request used main.scad."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

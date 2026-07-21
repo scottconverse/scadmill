@@ -10,7 +10,7 @@ import { AiWorkbenchPanel } from "./ai";
 import { DiagnosticConsole } from "./diagnostics/DiagnosticConsole";
 import { useDiagnosticNavigation } from "./diagnostics/use-diagnostic-navigation";
 import type { CodeEditorSession, CursorPosition } from "./editor/CodeEditor";
-import { DocumentTabBar, documentTabId } from "./editor/DocumentTabBar";
+import { EditorGroupsPane } from "./editor/EditorGroupsPane";
 import { useDocumentKeybindings } from "./editor/use-document-keybindings";
 import { useEditorCommandCoordinator } from "./editor/use-editor-command-coordinator";
 import { useProjectCompletionContext } from "./editor/use-project-completion-context";
@@ -203,89 +203,31 @@ export function Workbench({
     saveAll: fileCommands.saveAll,
     showHelp: () => setNativeHelpVisible((visible) => !visible),
   }, nativeMenuState);
-  const cachedEditorSession = editorSessions.current.get(document.id);
-  const initialEditorSession = cachedEditorSession?.state.doc.toString() === document.source
-    ? cachedEditorSession
-    : undefined;
   const editor = (
-    <section className="editor-panel" aria-label={messages.editorRegion}>
-      <div className="panel-heading editor-tab-heading">
-        <DocumentTabBar
-          workspace={documents}
-          onActivate={activateDocument}
-          onClose={closeDocument}
-          onMove={moveDocument}
-        />
-        {!narrow && <div className="panel-heading-actions">
-          <button
-            aria-label={messages.collapseEditor}
-            className="panel-action"
-            onClick={() => dispatchLayout({ kind: "toggle-panel", panel: "editor" })}
-            type="button"
-          >
-            <span aria-hidden="true">−</span>
-          </button>
-          <button
-            aria-label={layout.maximized === "editor" ? messages.restoreEditor : messages.maximizeEditor}
-            className="panel-action"
-            onClick={() => dispatchLayout({ kind: "toggle-maximize", region: "editor" })}
-            type="button"
-          >
-            <span aria-hidden="true">{layout.maximized === "editor" ? "↙" : "↗"}</span>
-          </button>
-        </div>}
-      </div>
-      <div
-        aria-labelledby={documentTabId(document.id)}
-        className="editor-document-panel"
-        id="active-document-editor"
-        role="tabpanel"
-      >
-        <Suspense fallback={<div className="surface-loading" role="status">{messages.loadingEditor}</div>}>
-          <CodeEditor
-            commandRequest={editorCommands.request}
-            diagnostics={diagnosticNavigation.editorDiagnostics}
-            editorSettings={editorSettings}
-            formatterSettings={formatterSettings}
-            keybindings={keybindings}
-            language={projectState.mode === "scratch" || document.path.toLowerCase().endsWith(".scad")
-              ? "openscad"
-              : "plain"}
-            initialSession={initialEditorSession}
-            key={document.id}
-            value={document.source}
-            label={messages.editorRegion}
-            navigation={projectNavigation.navigation ?? diagnosticNavigation.navigation}
-            projectCompletion={editorProjectCompletion}
-            onCommand={editorCommands.handleOutcome}
-            onCursorChange={setCursor}
-            onGoToDefinition={projectNavigation.goToDefinition}
-            onNavigationHandled={(requestId) => {
-              projectNavigation.completeNavigation(requestId);
-              diagnosticNavigation.completeNavigation(requestId);
-            }}
-            onSessionChange={(session) => editorSessions.current.set(document.id, session)}
-            onChange={(source) =>
-              void runtime.dispatch({
-                kind: "edit-document",
-                origin: "user",
-                documentId: document.id,
-                source,
-              })
-            }
-          />
-        </Suspense>
-        {editorCommands.notice && (
-          <p
-            className="editor-command-notice"
-            key={editorCommands.notice.sequence}
-            role="status"
-          >
-            {editorCommands.notice.message}
-          </p>
-        )}
-      </div>
-    </section>
+    <EditorGroupsPane workspace={documents} maximized={layout.maximized === "editor"} narrow={narrow}
+      onActivate={activateDocument} onClose={closeDocument} onMoveDocument={moveDocument}
+      onTogglePanel={() => dispatchLayout({ kind: "toggle-panel", panel: "editor" })}
+      onToggleMaximize={() => dispatchLayout({ kind: "toggle-maximize", region: "editor" })}
+      renderEditor={(groupDocument, groupId, focused) => {
+        const sessionKey = `${groupId}:${groupDocument.id}`;
+        const cachedSession = editorSessions.current.get(sessionKey);
+        const initialSession = cachedSession?.state.doc.toString() === groupDocument.source ? cachedSession : undefined;
+        return <><Suspense fallback={<div className="surface-loading" role="status">{messages.loadingEditor}</div>}>
+          <CodeEditor commandRequest={focused ? editorCommands.request : undefined}
+            diagnostics={focused ? diagnosticNavigation.editorDiagnostics : []} editorSettings={editorSettings}
+            formatterSettings={formatterSettings} keybindings={keybindings}
+            language={projectState.mode === "scratch" || groupDocument.path.toLowerCase().endsWith(".scad") ? "openscad" : "plain"}
+            initialSession={initialSession} key={sessionKey} value={groupDocument.source} label={`${groupDocument.path} editor`}
+            navigation={focused ? projectNavigation.navigation ?? diagnosticNavigation.navigation : undefined}
+            projectCompletion={focused ? editorProjectCompletion : undefined}
+            onCommand={focused ? editorCommands.handleOutcome : undefined}
+            onCursorChange={focused ? setCursor : undefined}
+            onGoToDefinition={focused ? projectNavigation.goToDefinition : undefined}
+            onNavigationHandled={focused ? (requestId) => { projectNavigation.completeNavigation(requestId); diagnosticNavigation.completeNavigation(requestId); } : undefined}
+            onSessionChange={(session) => editorSessions.current.set(sessionKey, session)}
+            onChange={(source) => void runtime.dispatch({ kind: "edit-document", origin: "user", documentId: groupDocument.id, source })} />
+        </Suspense>{focused && editorCommands.notice && <p className="editor-command-notice" key={editorCommands.notice.sequence} role="status">{editorCommands.notice.message}</p>}</>;
+      }} />
   );
   const viewer = (
     <ViewerPaneConnector

@@ -10,9 +10,14 @@ import { messages } from "../../messages/en";
 
 export interface DocumentTabBarProps {
   workspace: DocumentWorkspaceState;
+  documentIds?: readonly string[];
+  activeDocumentId?: string;
+  controlsId?: string;
+  tabIdPrefix?: string;
   onActivate(documentId: string): void;
   onClose(documentId: string): void;
   onMove(documentId: string, toIndex: number): void;
+  onDropDocument?(documentId: string, toIndex: number): void;
 }
 
 interface TabDescriptor {
@@ -24,22 +29,29 @@ interface TabDescriptor {
   filename: string;
 }
 
-export function documentTabId(documentId: string): string {
-  return `document-tab-${encodeURIComponent(documentId)}`;
+export function documentTabId(documentId: string, prefix = "document-tab"): string {
+  return `${prefix}-${encodeURIComponent(documentId)}`;
 }
 
 function filename(path: string): string {
   return path.split(/[\\/]/u).at(-1) ?? path;
 }
 
-function describeTabs(workspace: DocumentWorkspaceState): readonly TabDescriptor[] {
+function describeTabs(
+  workspace: DocumentWorkspaceState,
+  documentIds?: readonly string[],
+): readonly TabDescriptor[] {
+  const allowed = documentIds ? new Set(documentIds) : undefined;
+  const documents = allowed
+    ? workspace.documents.filter(({ id }) => allowed.has(id))
+    : workspace.documents;
   const basenameCounts = new Map<string, number>();
-  for (const document of workspace.documents) {
+  for (const document of documents) {
     const name = filename(document.path);
     basenameCounts.set(name, (basenameCounts.get(name) ?? 0) + 1);
   }
 
-  return workspace.documents.map((document) => {
+  return documents.map((document) => {
     const name = filename(document.path);
     const accessibleLabel = basenameCounts.get(name) === 1 ? name : document.path;
     const dirty = isDocumentDirty(document);
@@ -62,42 +74,62 @@ function describeTabs(workspace: DocumentWorkspaceState): readonly TabDescriptor
 
 export function DocumentTabBar({
   workspace,
+  documentIds,
+  activeDocumentId = workspace.activeDocumentId,
+  controlsId = "active-document-editor",
+  tabIdPrefix,
   onActivate,
   onClose,
   onMove,
+  onDropDocument,
 }: DocumentTabBarProps) {
-  const tabs = useMemo(() => describeTabs(workspace), [workspace]);
+  const tabs = useMemo(() => describeTabs(workspace, documentIds), [documentIds, workspace]);
   const tabElements = useRef(new Map<string, HTMLButtonElement>());
   const draggedDocumentId = useRef<string | null>(null);
-  const previousDocumentIds = useRef(workspace.documents.map(({ id }) => id));
+  const visibleDocumentIds = tabs.map(({ document }) => document.id);
+  const previousDocumentIds = useRef(visibleDocumentIds);
 
   useEffect(() => {
-    const currentIds = workspace.documents.map(({ id }) => id);
+    const currentIds = visibleDocumentIds;
     const currentIdSet = new Set(currentIds);
     const removed = previousDocumentIds.current.some((id) => !currentIdSet.has(id));
     previousDocumentIds.current = currentIds;
     const focused = globalThis.document?.activeElement;
     if (removed && (!focused || focused === globalThis.document.body || !focused.isConnected)) {
-      tabElements.current.get(workspace.activeDocumentId)?.focus();
+      tabElements.current.get(activeDocumentId)?.focus();
     }
-  }, [workspace.activeDocumentId, workspace.documents]);
+  }, [activeDocumentId, visibleDocumentIds]);
 
   const activateAt = (index: number) => {
-    const target = workspace.documents[index];
+    const target = tabs[index]?.document;
     if (!target) return;
     onActivate(target.id);
     tabElements.current.get(target.id)?.focus();
   };
 
   return (
-    <div aria-label={messages.openDocuments} className="document-tabs" role="tablist">
+    <div
+      aria-label={messages.openDocuments}
+      className="document-tabs"
+      onDragOver={(event) => {
+        if (!onDropDocument) return;
+        event.preventDefault();
+      }}
+      onDrop={(event) => {
+        if (!onDropDocument) return;
+        event.preventDefault();
+        const dragged = event.dataTransfer?.getData("text/plain");
+        if (dragged) onDropDocument(dragged, tabs.length);
+      }}
+      role="tablist"
+    >
       {tabs.map((tab, index) => {
         const { document } = tab;
-        const active = document.id === workspace.activeDocumentId;
+        const active = document.id === activeDocumentId;
         return (
           <div className="document-tab-shell" key={document.id} role="presentation">
             <button
-              aria-controls="active-document-editor"
+              aria-controls={controlsId}
               aria-label={tab.dirty
                 ? messages.documentTabUnsaved(tab.accessibleLabel)
                 : tab.accessibleLabel}
@@ -105,7 +137,7 @@ export function DocumentTabBar({
               className="document-tab"
               data-document-id={document.id}
               draggable
-              id={documentTabId(document.id)}
+              id={documentTabId(document.id, tabIdPrefix)}
               onAuxClick={(event) => {
                 if (event.button !== 1) return;
                 event.preventDefault();
@@ -128,11 +160,12 @@ export function DocumentTabBar({
               }}
               onDrop={(event) => {
                 event.preventDefault();
+                event.stopPropagation();
                 const dragged = draggedDocumentId.current
                   ?? event.dataTransfer?.getData("text/plain")
                   ?? null;
                 draggedDocumentId.current = null;
-                if (dragged) onMove(dragged, index);
+                if (dragged) (onDropDocument ?? onMove)(dragged, index);
               }}
               onKeyDown={(event) => {
                 if (
@@ -144,7 +177,7 @@ export function DocumentTabBar({
                   const offset = event.key === "ArrowLeft" ? -1 : 1;
                   const target = Math.max(
                     0,
-                    Math.min(index + offset, workspace.documents.length - 1),
+                    Math.min(index + offset, tabs.length - 1),
                   );
                   if (target !== index) onMove(document.id, target);
                   return;
@@ -152,13 +185,13 @@ export function DocumentTabBar({
 
                 let target: number | null = null;
                 if (event.key === "ArrowLeft") {
-                  target = (index - 1 + workspace.documents.length) % workspace.documents.length;
+                  target = (index - 1 + tabs.length) % tabs.length;
                 } else if (event.key === "ArrowRight") {
-                  target = (index + 1) % workspace.documents.length;
+                  target = (index + 1) % tabs.length;
                 } else if (event.key === "Home") {
                   target = 0;
                 } else if (event.key === "End") {
-                  target = workspace.documents.length - 1;
+                  target = tabs.length - 1;
                 }
                 if (target !== null) {
                   event.preventDefault();

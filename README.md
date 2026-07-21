@@ -131,8 +131,8 @@ Report suspected vulnerabilities through [GitHub private vulnerability reporting
 | Optional AI and local MCP | **Beta** | Provider configuration and MCP permissions are explicit; there is no ScadMill AI proxy. |
 | Browser-source composition and OpenSCAD WASM path | **Implemented, not distributed** | No public browser application or WASM engine package is offered by this release. |
 | macOS and Linux installers | **Not released** | Windows desktop is the approved first public target. |
-| M5 history, batch export, libraries, library intelligence, project navigation | **Implemented on `main`, not in this beta** | Development builds add bounded model history, sequential parameter-set export, pinned project libraries with imported signatures, ignore-aware project search/replace, outline, references, and F12 definition jumps. |
-| Remaining M5: split editor, section view and camera bookmarks | **Planned** | Required by the complete product specification; not present in this beta. |
+| M5 history, batch export, libraries, intelligence, navigation, split editor | **Implemented on `main`, not in this beta** | Development builds add bounded history, batch export, pinned libraries, project search/navigation, and two tab-owning editor groups whose focused document is the render target. |
+| Remaining M5: section view and camera bookmarks | **Planned** | Required by the complete product specification; not present in this beta. |
 | M6: printability, slicer handoff, engine manager, headless CLI, color/parts, colored 3MF, manufacturing estimates | **Planned** | Required by the complete product specification; not present in this beta. |
 
 > [!NOTE]
