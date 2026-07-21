@@ -173,34 +173,48 @@ describe("M4 packaged newcomer walkthrough", () => {
     window.close();
   });
 
-  it("observes a cached full render when only the preview-quality badge changes", async () => {
+  it("waits for the deferred cached preview before observing its full-quality transition", async () => {
     const window = new Window();
     window.document.body.innerHTML = `
-      <span class="status-render">Rendered main.scad (3d, cached)</span>
-      <span class="quality-badge">Preview quality</span>
+      <span class="status-render">Rendered main.scad (3d)</span>
       <button type="button">Full render</button>
       <div class="viewer-pane"><canvas></canvas></div>
       <div class="console-run">initial preview</div>
     `;
     const button = window.document.querySelector("button");
     const canvas = window.document.querySelector("canvas");
-    if (!button || !canvas) throw new Error("Cached full-render DOM fixture is incomplete.");
+    const status = window.document.querySelector(".status-render");
+    if (!button || !canvas || !status) throw new Error("Cached full-render DOM fixture is incomplete.");
     Object.defineProperties(canvas, {
       clientWidth: { value: 640 },
       clientHeight: { value: 480 },
       getClientRects: { value: () => [{ width: 640, height: 480 }] },
     });
-    button.addEventListener("click", () => window.document.querySelector(".quality-badge")?.remove());
+    let clickedBeforePreview = false;
+    button.addEventListener("click", () => {
+      clickedBeforePreview = window.document.querySelector(".quality-badge") === null;
+      window.document.querySelector(".quality-badge")?.remove();
+    });
     const execute = window.eval(`(function() {${M4_DOM_SCRIPTS.cachedPaint}})`) as (
+      waitForPreview: boolean,
       done: (value: unknown) => void,
     ) => void;
 
-    await expect(new Promise<unknown>((resolve) => { execute(resolve); })).resolves.toMatchObject({
+    const result = new Promise<unknown>((resolve) => { execute(true, resolve); });
+    window.setTimeout(() => {
+      status.textContent = "Rendered main.scad (3d, cached)";
+      const badge = window.document.createElement("span");
+      badge.className = "quality-badge";
+      badge.textContent = "Preview quality";
+      window.document.body.append(badge);
+    }, 5);
+    await expect(result).resolves.toMatchObject({
       status: "Rendered main.scad (3d, cached)",
       consoleRunsBefore: 1,
       consoleRunsAfter: 1,
       canvasVisible: true,
     });
+    expect(clickedBeforePreview).toBe(false);
     window.close();
   });
 
@@ -414,7 +428,9 @@ describe("M4 packaged newcomer walkthrough", () => {
     expect(M4_DOM_SCRIPTS.thumbnailDecodedSnapshot).toContain("}, 5000)");
     expect(M4_DOM_SCRIPTS.cachedPaint).toContain("document.querySelector('.quality-badge')");
     expect(M4_DOM_SCRIPTS.cachedPaint).toContain("observer.observe(document.body");
-    expect(M4_DOM_SCRIPTS.cachedPaint).toContain("render.click();\n    probe();");
+    expect(M4_DOM_SCRIPTS.cachedPaint).toContain("const waitForPreview = arguments[0]");
+    expect(M4_DOM_SCRIPTS.cachedPaint).toContain("waitForPreview");
+    expect(M4_DOM_SCRIPTS.cachedPaint).toContain("render.click();");
   });
 
   it("rejects any unconfigured-AI renderer network attempt", () => {
@@ -834,6 +850,7 @@ describe("M4 packaged newcomer walkthrough", () => {
     let sendCount = 0;
     let thumbnailPhase = "file-tree";
     const calls: string[] = [];
+    const cachedPaintModes: unknown[] = [];
     const contextFixtureSource = "width = 10; // [1:1:20]\necho(m4_missing_context_value);\ncube([width, 10, 10]);";
     const enabledContext = [
       `<current-file>\n${contextFixtureSource}\n</current-file>`,
@@ -1072,6 +1089,7 @@ describe("M4 packaged newcomer walkthrough", () => {
           return { consoleRunsBefore: before, consoleRunsAfter: consoleRuns, status: "Rendered main.scad (3d)", paused: true, playLabel: "Play animation" };
         }
         expect(script).toBe(M4_DOM_SCRIPTS.cachedPaint);
+        cachedPaintModes.push(args?.[0]);
         calls.push("async:cached-paint");
         return { elapsedMs: 42.25, status: "Rendered main.scad (3d, cached)", consoleRunsBefore: consoleRuns, consoleRunsAfter: consoleRuns, canvasVisible: true };
       },
@@ -1222,6 +1240,7 @@ describe("M4 packaged newcomer walkthrough", () => {
     expect(calls).not.toContain("aria:Files");
     expect(calls.indexOf("mcp:deny")).toBeLessThan(calls.indexOf("mcp:allow-session"));
     expect(calls.indexOf("mcp:allow-session")).toBeLessThan(calls.indexOf("async:cached-paint"));
+    expect(cachedPaintModes).toEqual([false, true]);
     expect(calls).not.toContain("aria:Pause animation");
     expect(calls.at(-2)).toBe("ai-mock:stop");
     expect(calls.at(-1)).toBe(`source:${initialSource}`);

@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-m4-cold-cache-preview-ordering",
+  "createdAt": "2026-07-20T21:04:58-06:00",
+  "summary": "Wait for the deferred cached preview before measuring the cold full-cache transition.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "FR-4.3", "FR-15.1", "AC-15.a", "V-5 release gate", "V-6 honesty rule"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-m4-cold-cache-preview-ordering.json", "status": "added" },
+    { "path": "scripts/lib/m4-packaged-walkthrough.mjs", "status": "modified" },
+    { "path": "tests/scripts/m4-packaged-walkthrough.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0467",
+      "topic": "Cold-cache preview/full ordering",
+      "decision": "Parameterize the cached-paint oracle with whether it must first observe a completed cached preview. Use false for the same-process full-cache proof and true after process restart. In cold mode, wait for cached status, a visible Preview-quality badge, and an enabled Full render control; only then capture the Console baseline and performance start, click Full render, and require cached status with the preview badge absent.",
+      "rationale": "Opening a project schedules an automatic preview after the persisted thumbnail can already be displayed. Clicking Full render before that deferred preview starts allows the later preview to overwrite the full transition and leaves the quality badge visible. Explicit two-phase ordering proves both levels, measures only the required full-cache paint, and avoids sleeps or retries.",
+      "specBasis": ["FR-4.3", "FR-15.1", "AC-15.a", "V-5 release gate", "V-6 honesty rule"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The cold full-cache click must occur only after the deferred cached preview becomes visible.",
+      "test": "Execute the real cachedPaint DOM script with no initial Preview-quality badge, add the cached preview after a bounded delay, and fail if Full render is clicked before that badge exists.",
+      "red": {
+        "command": "npm.cmd test -- --run tests/scripts/m4-packaged-walkthrough.test.ts -t \"waits for the deferred cached preview before observing its full-quality transition\"",
+        "observedAt": "2026-07-20T21:03:29-06:00",
+        "outcome": "RED: 1 failed by the five-second test bound because Full render was clicked before the deferred preview and the later badge remained visible."
+      },
+      "green": {
+        "command": "npm.cmd test -- --run tests/scripts/m4-packaged-walkthrough.test.ts -t \"waits for the deferred cached preview before observing its full-quality transition\"",
+        "observedAt": "2026-07-20T21:04:07-06:00",
+        "outcome": "GREEN: 1/1 passed in 34 ms; the click occurred after preview readiness."
+      }
+    },
+    {
+      "criterion": "The full M4 harness and restarted-runtime cache guard remain green with explicit warm/cold oracle modes.",
+      "test": "Run the three M4 harness suites and the workbench runtime suite once, requiring cachedPaint modes [false, true].",
+      "red": {
+        "command": "Not applicable: this is the combined verification gate following the recorded behavioral RED/GREEN cycle.",
+        "observedAt": "2026-07-20T21:04:49-06:00",
+        "outcome": "No synthetic aggregate failure was created."
+      },
+      "green": {
+        "command": "npm.cmd test -- --run tests/scripts/m4-packaged-walkthrough.test.ts tests/scripts/m4-packaged-verifier.test.ts tests/scripts/packaged-desktop-evidence.test.ts tests/application/runtime/workbench-runtime.test.ts",
+        "observedAt": "2026-07-20T21:04:49-06:00",
+        "outcome": "GREEN: 108/108 tests passed."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-3528fe8-sandbox-m4-native-split-20260720/evidence.json",
+      "sought": "Exact clean packaged native M4 cold-start cache evidence",
+      "confirmation": "The run again passed build, target thumbnail, and restart persistence, then showed that observing badge removal was insufficient when Full render was requested before the deferred automatic preview began; host cleanup passed."
+    }
+  ],
+  "questions": ["No owner decision is required; this serializes the two existing quality levels at their real product boundary."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

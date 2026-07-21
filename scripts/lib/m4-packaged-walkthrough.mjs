@@ -623,7 +623,12 @@ export const M4_DOM_SCRIPTS = Object.freeze({
     begin();
   `,
   cachedPaint: `
+    const waitForPreview = arguments[0];
     const done = arguments[arguments.length - 1];
+    if (typeof waitForPreview !== 'boolean') {
+      done({ error: 'Cached paint preview-ordering argument is invalid.' });
+      return;
+    }
     const status = document.querySelector('.status-render');
     const render = [...document.querySelectorAll('button')]
       .find((button) => button.textContent?.trim() === 'Full render');
@@ -633,15 +638,26 @@ export const M4_DOM_SCRIPTS = Object.freeze({
       done({ error: 'Cached paint controls are unavailable.' });
       return;
     }
-    const consoleRunsBefore = document.querySelectorAll('.console-run').length;
     const timeout = window.setTimeout(() => {
       observer.disconnect();
       done({ error: 'Cached full render did not reach the visible status area.' });
-    }, 10000);
-    const startedAt = performance.now();
+    }, 15000);
+    let consoleRunsBefore;
+    let startedAt;
+    let clickStarted = false;
     let finishing = false;
     const probe = () => {
-      if (finishing || !/\\bcached\\b/iu.test(status.textContent ?? '')
+      if (finishing) return;
+      const previewBadge = document.querySelector('.quality-badge');
+      if (!clickStarted) {
+        if (render.disabled || (waitForPreview
+          && (!/\\bcached\\b/iu.test(status.textContent ?? '') || !previewBadge))) return;
+        consoleRunsBefore = document.querySelectorAll('.console-run').length;
+        startedAt = performance.now();
+        clickStarted = true;
+        render.click();
+      }
+      if (!/\\bcached\\b/iu.test(status.textContent ?? '')
         || document.querySelector('.quality-badge')) return;
       finishing = true;
       observer.disconnect();
@@ -657,7 +673,6 @@ export const M4_DOM_SCRIPTS = Object.freeze({
     };
     const observer = new MutationObserver(probe);
     observer.observe(document.body, { childList: true, characterData: true, subtree: true });
-    render.click();
     probe();
   `,
 });
@@ -1428,7 +1443,7 @@ export async function runM4PackagedWalkthrough({
     const baseline = await automation.execute(M4_DOM_SCRIPTS.renderSnapshot);
     assert.equal(baseline.canvasVisible, true, "Baseline full render did not paint a viewer canvas.");
     assert.equal(baseline.consoleRuns, baselineRun.consoleRunsAfter, "Baseline DOM run count differs from its completion observation.");
-    const cached = validateCachedPaint(await automation.executeAsync(M4_DOM_SCRIPTS.cachedPaint), cachePaintLimitMs);
+    const cached = validateCachedPaint(await automation.executeAsync(M4_DOM_SCRIPTS.cachedPaint, [false]), cachePaintLimitMs);
     order.push("cache");
 
     await automation.replaceSource(`// cosmetic-only\n${initialSource}\n// M4 cache baseline`);
@@ -1519,7 +1534,7 @@ export async function runM4PackagedWalkthrough({
     ), projectPath, "welcome");
     await automation.clickAria("Close welcome");
     assert.equal(restoredThumbnail.renderIdentity, expectedThumbnailRenderIdentity, "Thumbnail geometry identity changed across restart.");
-    const coldCached = validateCachedPaint(await automation.executeAsync(M4_DOM_SCRIPTS.cachedPaint), cachePaintLimitMs);
+    const coldCached = validateCachedPaint(await automation.executeAsync(M4_DOM_SCRIPTS.cachedPaint, [true]), cachePaintLimitMs);
     order.push("restart");
     await screenshot(automation, screenshots, "04h-cold-cache-restored-thumbnail.png");
 

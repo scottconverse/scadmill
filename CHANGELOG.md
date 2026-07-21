@@ -124,6 +124,8 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Fixed
 
+- The packaged M4 cold-start cache proof now waits for the deferred automatic cached preview to finish before clicking Full render. This prevents a pending preview from overwriting the full-quality cache transition; the measured <100 ms interval starts at the full-render click and still requires zero additional Console runs.
+
 - The packaged M4 cold-cache oracle now observes the whole viewer/status surface and requires the Preview-quality badge to disappear, so a cached preview followed by a cached full render is detected even when both operations share the same visible cached-status text. A restarted-runtime regression now also proves the disk result is retrieved without an engine invocation.
 
 - The packaged M4 thumbnail wait now requires the exact canonical geometry identity derived from the already-verified cube STL, not merely a recent capture timestamp. This prevents a delayed thumbnail from the prior animation frame from satisfying the Files/Welcome oracle, and the retained restart evidence now binds both persisted PNG bytes and geometry identity across process exit.
