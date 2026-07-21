@@ -29,6 +29,7 @@ const ACTIVITY_COPY: Readonly<Record<ActivityPanel, { label: string; empty: stri
   history: { label: messages.activityHistory, empty: messages.noHistoryYet },
   ai: { label: messages.activityAi, empty: messages.aiNotConfigured },
   libraries: { label: messages.activityLibraries, empty: messages.noLibrariesInstalled },
+  manufacturing: { label: messages.activityManufacturing, empty: messages.manufacturingUnavailable },
 };
 
 export function WorkspaceFrame({

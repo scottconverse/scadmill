@@ -1,4 +1,4 @@
-export const ACTIVITY_PANELS = ["files", "search", "history", "ai", "libraries"] as const;
+export const ACTIVITY_PANELS = ["files", "search", "history", "ai", "libraries", "manufacturing"] as const;
 
 export type ActivityPanel = (typeof ACTIVITY_PANELS)[number];
 export type CollapsiblePanel = "dock" | "editor" | "viewer" | "parameter" | "console";

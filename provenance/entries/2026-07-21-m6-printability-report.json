@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-21-m6-printability-report",
+  "createdAt": "2026-07-21T14:57:11-06:00",
+  "summary": "Start M6 with an honest on-demand printability report for the last full binary-STL render, isolated behind a bounded worker client.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "FR-15.9", "AC-15.g", "M6"],
+  "filesTouched": [
+    { "path": "ARCHITECTURE.md", "status": "modified" },
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "docs/USER-GUIDE.md", "status": "modified" },
+    { "path": "src/application/layout/workspace-layout.ts", "status": "modified" },
+    { "path": "src/application/manufacturing/printability-worker-client.ts", "status": "added" },
+    { "path": "src/application/manufacturing/printability.ts", "status": "added" },
+    { "path": "src/application/manufacturing/printability.worker.ts", "status": "added" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/layout/WorkspaceFrame.tsx", "status": "modified" },
+    { "path": "src/ui/manufacturing/ManufacturingActivity.tsx", "status": "added" },
+    { "path": "src/ui/manufacturing/manufacturing.css", "status": "added" },
+    { "path": "tests/application/manufacturing/printability-worker-client.test.ts", "status": "added" },
+    { "path": "tests/application/manufacturing/printability.test.ts", "status": "added" },
+    { "path": "tests/ui/Workbench.manufacturing.test.tsx", "status": "added" },
+    { "path": "tests/ui/manufacturing/ManufacturingActivity.test.tsx", "status": "added" },
+    { "path": "website/app/architecture/page.tsx", "status": "modified" },
+    { "path": "provenance/entries/2026-07-21-m6-printability-report.json", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [
+    { "label": "Owner-provided ScadMill functional specification v0.6", "destination": "spec/scadmill-spec-v0.6.md", "sha256": "A2D12C68E23590DF061BF3E222F481C3FFC40ECA6541D6F3DF49FDA87C1DE15A" }
+  ],
+  "decisions": [
+    {
+      "id": "D-0499",
+      "topic": "Printability truth boundary",
+      "decision": "Report topology edge counts and exact model bounds, and label the minimum-feature result as a sampled non-adjacent surface-separation heuristic. Report overhangs and any bounded-out heuristic as NOT CHECKED, with no aggregate print-ready state.",
+      "rationale": "FR-15.9 requires useful design feedback while forbidding a UI that makes uncomputed manufacturing claims look proven.",
+      "specBasis": ["FR-15.9", "AC-15.g", "V-6 honesty rule"]
+    },
+    {
+      "id": "D-0500",
+      "topic": "Printability execution boundary",
+      "decision": "Analyze a defensive copy of the last full binary-STL presentation in a dedicated worker with strict response decoding, cancellation, a 100000-vertex heuristic cap, and refusal of a main-thread fallback above 1 MiB.",
+      "rationale": "The check is explicit and potentially expensive; bounding both data and fallback behavior keeps it responsive without accepting preview geometry or transferring away the viewer's owned bytes.",
+      "specBasis": ["FR-15.9", "N-1 responsiveness", "C2 viewer"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "FR-15.9 and AC-15.g require exact honest results for a deliberately non-manifold fixture and no aggregate readiness claim.",
+      "test": "Exercise a closed mesh, the exact non-manifold report, build-volume failure, minimum-feature warning, invalid input, and the user-facing Manufacturing activity.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/manufacturing/printability.test.ts tests/ui/manufacturing/ManufacturingActivity.test.tsx",
+        "observedAt": "2026-07-21T14:47:00-06:00",
+        "outcome": "RED: the printability analysis module and Manufacturing activity did not exist."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/manufacturing tests/ui/manufacturing tests/application/layout/workspace-layout.test.ts tests/ui/layout/WorkspaceFrame.test.tsx",
+        "observedAt": "2026-07-21T14:55:19-06:00",
+        "outcome": "GREEN: 5 files and 29 tests passed."
+      }
+    },
+    {
+      "criterion": "Only the last full render may feed printability, and analysis must not detach viewer-owned bytes or block the main thread for large meshes.",
+      "test": "Exercise worker transfer ownership, strict response validation, abort, bounded fallback, and a Workbench transition from preview to full render.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/manufacturing/printability-worker-client.test.ts",
+        "observedAt": "2026-07-21T14:50:00-06:00",
+        "outcome": "RED: no off-main-thread printability client existed."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/Workbench.manufacturing.test.tsx",
+        "observedAt": "2026-07-21T14:56:33-06:00",
+        "outcome": "GREEN: the real Workbench kept the action disabled after preview, enabled it after full render, and dispatched exactly preview then full quality."
+      }
+    },
+    {
+      "criterion": "The integrated feature must preserve repository source policy and static correctness.",
+      "test": "Run the one bounded lint/source-policy and TypeScript checks after the implementation corrections.",
+      "red": {
+        "command": "pnpm.cmd run lint",
+        "observedAt": "2026-07-21T14:53:00-06:00",
+        "outcome": "RED: three mechanical callback/dependency lint findings were reported."
+      },
+      "green": {
+        "command": "pnpm.cmd run lint; pnpm.cmd run typecheck",
+        "observedAt": "2026-07-21T14:55:28-06:00",
+        "outcome": "GREEN: lint checked 580 files, source policy passed, and TypeScript completed without errors."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

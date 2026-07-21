@@ -41,6 +41,7 @@ The web-source adapter uses a module worker, verifies the exact JavaScript/WASM 
 - M5 project navigation builds a bounded structural index from the independently authored Lezer OpenSCAD grammar. Search operates on the complete stored text snapshot with unsaved editor overlays, applies root `.gitignore` and `.scadmillignore` rules, and plans replacement offsets before mutation. Closed-file writes happen before open-buffer edits and compensate from the pre-operation sources on failure. Outline, F12 definition resolution, and reference discovery share exact parser locations, avoiding comment/string text matches.
 - M5 split editing keeps editor-group membership, order, orientation, and focus as UI state while the existing document workspace remains the single source of buffer content and dirty history. Focusing a group activates its document through the command bus; render/export therefore continue to use the ordinary active-document path. Each group/document pair owns a distinct CodeMirror session, and external activations such as diagnostics or chronological undo reconcile synchronously into the correct group.
 - M5 section view remains presentation-only: a bounded axis/offset state drives Three.js local clipping on the current mesh and never changes source or exported geometry. Named camera bookmarks serialize the complete validated camera state through a project-keyed platform persistence port; they do not enter user project files.
+- M6 printability analysis consumes only the last full binary-STL presentation. A bounded worker receives a defensive byte copy and returns a strictly decoded report covering topology, model bounds versus configured build volume, and sampled non-adjacent surface separation. Unsupported heuristics are explicit `NOT CHECKED` results; large meshes fail closed instead of running an unbounded UI-thread fallback.
 - Uninstall removes the app and association, not user projects or necessarily every profile/credential record.
 
 ## Network and privacy boundaries
@@ -49,7 +50,7 @@ ScadMill has no telemetry and operates no ScadMill cloud service. Optional AI re
 
 ## Workers and responsiveness
 
-Native rendering runs outside the UI process. OpenSCAD WASM execution, project indexing, STL decoding, and browser archive work cross validated worker boundaries. Automatic renders are debounced, superseded work is cancelled, and animation is sequential/backpressured. Workerless fallbacks yield cooperatively where required.
+Native rendering runs outside the UI process. OpenSCAD WASM execution, project indexing, STL decoding, printability analysis, and browser archive work cross validated worker boundaries. Automatic renders are debounced, superseded work is cancelled, and animation is sequential/backpressured. Workerless fallbacks yield cooperatively where required; large printability inputs refuse a main-thread fallback.
 
 ## Desktop shell and installer
 
@@ -61,4 +62,4 @@ Non-trivial changes have append-only records under `provenance/entries`. npm and
 
 ## Extension seams through M6
 
-The ports and worker boundaries support later public web distribution, headless CLI behavior, color/3MF work, and manufacturing estimates. M5 navigation/refactoring, split editing, section view, and camera bookmarks are implemented on the development branch but are not claims about the current beta. Platform behavior belongs in adapters; reusable behavior belongs in application services; UI consumes declared capabilities.
+The ports and worker boundaries support later public web distribution, headless CLI behavior, color/3MF work, and manufacturing estimates. M5 is complete on the development branch, and M6 printability reporting is implemented there; neither is a claim about the current beta. Platform behavior belongs in adapters; reusable behavior belongs in application services; UI consumes declared capabilities.

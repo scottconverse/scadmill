@@ -46,7 +46,7 @@ Full-quality export supports 3MF, STL, OFF, AMF, SVG, DXF, and PNG where appropr
 
 ### Understand what is not included
 
-The public beta is Windows-only. It does not publish a browser app, Mac/Linux installers, or OpenSCAD WebAssembly engine. OpenSCAD is a separate required download. The development branch now contains the complete M5 scope: model history, batch parameter-set export, the project library manager, structural project navigation, split editing, section view, and per-project camera bookmarks. These are not part of the published beta. Manufacturing estimates and the headless CLI remain M6 work.
+The public beta is Windows-only. It does not publish a browser app, Mac/Linux installers, or OpenSCAD WebAssembly engine. OpenSCAD is a separate required download. The development branch now contains the complete M5 scope plus the first M6 capability, the printability report. These are not part of the published beta. Slicer handoff, engine management, the headless CLI, color-preserving 3MF, and manufacturing estimates remain M6 work.
 
 ## Part II — Technical reference
 
@@ -75,6 +75,10 @@ STL output drives a demand-rendered 3D viewer with camera controls, axis views, 
 ### Animation
 
 An executable `$t` reference enables a 100-frame loop from 0.00 through 0.99. Each frame uses the ordinary preview path. The target FPS is not a promise: ScadMill waits for real geometry, so slow models reduce playback rate rather than creating an unbounded queue. Pause cancels the in-flight animation request.
+
+### Printability report (development builds)
+
+After a full 3D render, open **Manufacturing**, enter the intended build-volume dimensions and nozzle diameter, then choose **Run printability check**. ScadMill reports the mesh-topology result, the rendered bounding box against that configured volume, and a bounded sampled minimum-feature heuristic. It explicitly labels overhang analysis and any skipped heuristic as `NOT CHECKED`. This is design feedback, not a print-readiness certification, and preview geometry is never accepted as its input.
 
 ### AI assistance
 
@@ -120,7 +124,7 @@ User files, engine execution, OS services, and optional provider traffic are dis
 
 ### Responsiveness and failure behavior
 
-Native engine work is out of process. Mesh parsing, project indexing, archive work, and the browser-source engine adapter cross bounded worker boundaries. Automatic rendering is debounced, animation is backpressured, and cancellation is explicit. The workbench preserves the last good result while presenting engine failure, load failure, or stale state.
+Native engine work is out of process. Mesh parsing, printability analysis, project indexing, archive work, and the browser-source engine adapter cross bounded worker boundaries. Automatic rendering is debounced, animation is backpressured, and cancellation is explicit. The workbench preserves the last good result while presenting engine failure, load failure, or stale state.
 
 ### Release and extension architecture
 
@@ -130,7 +134,7 @@ Development builds expose **Libraries** on the activity rail. Choose BOSL2, MCAD
 
 For interior inspection in a development build, enable **Section** in the 3D viewer, select X, Y, or Z, and drag **Section position** through the model. The control applies a real local clipping plane to the rendered mesh; it does not alter source or export geometry. Enter a name under **Camera bookmarks** to save the current position, target, up vector, projection, and zoom. Selecting the name recalls it; **Delete** removes it. Names are unique without regard to case, and saving the same name replaces that project bookmark.
 
-The architecture includes seams for a separately qualified web distribution, a headless CLI, and manufacturing estimates. These remain M6 or distribution work and are not beta claims.
+The development branch now includes the M6 printability report described above. The architecture also includes seams for a separately qualified web distribution, the remaining headless CLI, slicer, color/3MF, engine-manager, and manufacturing-estimate work. None is a claim about the currently published beta.
 
 ## Troubleshooting and support
 

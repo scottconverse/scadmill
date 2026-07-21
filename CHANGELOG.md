@@ -12,6 +12,8 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Added
 
+- Started M6 with an on-demand printability report for the last full 3D render. The Manufacturing activity checks mesh topology, compares exact model bounds with a user-configured build volume, and runs a bounded sampled minimum-feature heuristic away from the UI thread. Every result states its method or says `NOT CHECKED`; the product makes no aggregate print-ready claim.
+
 - Completed the M5 product scope with a toggleable axis-aligned section plane that moves through real Three.js-rendered geometry and named camera bookmarks that can be saved, recalled, replaced, and deleted per project through bounded platform-owned persistence.
 
 - Added M5 split editing with two independent tab groups, side-by-side or stacked orientation, cross-group tab drag, per-group/document CodeMirror sessions, merge-back behavior, and command-bus activation that makes the focused group's document the render/export target. Diagnostic jumps and chronological undo synchronize into the owning group without a stale-editor frame.

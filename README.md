@@ -132,7 +132,7 @@ Report suspected vulnerabilities through [GitHub private vulnerability reporting
 | Browser-source composition and OpenSCAD WASM path | **Implemented, not distributed** | No public browser application or WASM engine package is offered by this release. |
 | macOS and Linux installers | **Not released** | Windows desktop is the approved first public target. |
 | M5 history, batch export, libraries, intelligence, navigation, split editor, section view, camera bookmarks | **Implemented on `main`, not in this beta** | Development builds add the complete M5 scope, including a real axis-aligned clipping plane and per-project named camera views. |
-| M6: printability, slicer handoff, engine manager, headless CLI, color/parts, colored 3MF, manufacturing estimates | **Planned** | Required by the complete product specification; not present in this beta. |
+| M6: printability, slicer handoff, engine manager, headless CLI, color/parts, colored 3MF, manufacturing estimates | **In progress on `main`, not in this beta** | The honest on-demand printability report is implemented; the remaining M6 capabilities are required before the complete-product milestone closes. |
 
 > [!NOTE]
 > The Radeon 780M was the release performance-evidence host. It is **not** a minimum GPU requirement.

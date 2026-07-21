@@ -21,6 +21,7 @@ import { useFileCommands } from "./files/use-file-commands";
 import { useProjectOpenQueue } from "./files/use-project-open-queue";
 import { useLayoutKeybindings, useNarrowLayout, useNativeMenuState, usePlatformMenuCommands, WebMenuBar, WorkbenchStatusBar, WorkspaceFrame } from "./layout";
 import { LibrariesActivity } from "./libraries/LibrariesActivity";
+import { ManufacturingActivity } from "./manufacturing/ManufacturingActivity";
 import { HistoryActivityConnector, useMcpReviewApproval, useMcpStdio, useMcpViewportCapture } from "./mcp";
 import { ParameterPanelConnector } from "./parameters/ParameterPanelConnector";
 import { activePresentationToken, presentationHiddenByMode, RenderControls, RenderStatusText, sameRenderStateExceptCached, useWorkbenchRenderCommands } from "./render";
@@ -317,6 +318,7 @@ export function Workbench({
           files: <FilesActivity canReveal={canRevealProjectFiles} canTrash={canTrashProjectFiles} directoryPicker={directoryPicker} engine={engineAvailable ? engine : undefined} portability={projectPortability} recoveryPersistence={recoveryPersistence} projectTransitionsBlocked={recoveryPending} requestedExport={fileCommands.requestedExport} requestedNewFile={fileCommands.requestedNewFile} runtime={runtime} storage={projectStorage} workspaceDirectory={workspaceDirectory} />,
           history: <HistoryActivityConnector runtime={runtime} pendingReviews={pendingReviews} sourceForPath={sourceForMcpPath} onApprove={approveMcpReview} onDeny={dismissReview} />,
           libraries: <LibrariesActivity key={projectState.snapshot.workspaceIdentity} project={projectState} storage={projectStorage} onProjectFilesChanged={() => runtime.dispatch({ kind: "refresh-project", origin: "user" }).then(() => undefined)} />,
+          manufacturing: <ManufacturingActivity key={activeViewer.presentation?.renderIdentity ?? "no-full-render"} quality={activeViewer.presentation?.quality} result={activeViewer.presentation?.result.kind === "3d" ? activeViewer.presentation.result : undefined} />,
           search: <SearchActivity activePath={document.path} outline={projectNavigation.outline} references={projectNavigation.references} loadSources={projectNavigation.loadSources} onApplyReplacements={projectNavigation.applyReplacements} onFindReferences={projectNavigation.findReferences} onNavigate={projectNavigation.navigate} />,
         }}
         activityBadges={{ history: pendingReviews.length > 0 }}
