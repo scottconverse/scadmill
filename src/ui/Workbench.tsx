@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { activeDocument, canCloseDocument, canReopenDocument } from "../application/documents/document-workspace";
 import { createProjectSnapshot } from "../application/files/project-snapshot";
+import { inspectProjectEnginePin } from "../application/engine/project-engine-pin";
 import type { WorkspaceLayoutAction } from "../application/layout/workspace-layout";
 import { startSlicerHandoff } from "../application/manufacturing/slicer-handoff";
 import { parameterDocument } from "../application/parameters/parameter-state";
@@ -28,6 +29,7 @@ import { HistoryActivityConnector, useMcpReviewApproval, useMcpStdio, useMcpView
 import { ParameterPanelConnector } from "./parameters/ParameterPanelConnector";
 import { activePresentationToken, presentationHiddenByMode, RenderControls, RenderStatusText, sameRenderStateExceptCached, useWorkbenchRenderCommands } from "./render";
 import { SettingsLauncher } from "./settings/SettingsLauncher";
+import { EnginePinMismatchBanner } from "./engine/EnginePinMismatchBanner";
 import { SearchActivity } from "./search/SearchActivity";
 import { useReadonlyStore } from "./use-readonly-store";
 import { resolveActiveViewerPresentation } from "./viewer/active-viewer-presentation";
@@ -41,7 +43,7 @@ import type { WorkbenchProps } from "./workbench-props";
 import { diagnosticStatusLabel, geometryDeltaStatus } from "./workbench-status";
 import "./workbench.css"; const CodeEditor = lazy(() => import("./editor/CodeEditor").then((module) => ({ default: module.CodeEditor })));
 export function Workbench({
-  runtime, aiFetch = () => globalThis.fetch.bind(globalThis), engine, secretStore = EPHEMERAL_SECRET_STORE,
+  runtime, aiFetch = () => globalThis.fetch.bind(globalThis), engine, engineVersionManager, onEngineInventoryChanged, secretStore = EPHEMERAL_SECRET_STORE,
   engineLabel, engineAvailable = true, engineChecking = false, engineRecovery,
   wasmEngineProgress, wasmEngineFailureMessage,
   activeTheme,
@@ -71,6 +73,11 @@ export function Workbench({
   const { connected: mcpConnected, enabled: mcpEnabled, setEnabled: setMcpEnabled, permissions: mcpPermissions, setPermission: setMcpPermission, pendingReviews, pendingReview, approveReview, restoreReview, dismissReview, agentHandler } = useMcpStdio(runtime, engine, mcpPort, captureMcpScreenshot);
   useEffect(() => { if (document.id) setViewerScreenshotDataUrl(undefined); }, [document.id]);
   const projectState = useReadonlyStore(runtime.project, (state) => state);
+  const pinInspection = inspectProjectEnginePin(projectState.snapshot);
+  const pinnedEngineVersion = pinInspection.kind === "pinned" ? pinInspection.version : undefined;
+  const activeEngineLabel = pinnedEngineVersion
+    ? `OpenSCAD ${pinnedEngineVersion} (project pin)`
+    : engineLabel;
   const animationFiles = buildRuntimeRenderFileMap(projectState, documents);
   const controls = useReadonlyStore(runtime.controls, (state) => state);
   const { sourceForPath: sourceForMcpPath, approve: approveMcpReview } = useMcpReviewApproval(
@@ -102,6 +109,7 @@ export function Workbench({
     error: associatedFileOpenError, request: requestedProject, settle: settleProjectRequest } = useProjectOpenQueue(associatedFileOpenSource);
   const [recoveryPending, setRecoveryPending] = useState(false);
   const [nativeHelpVisible, setNativeHelpVisible] = useState(false);
+  const [engineInventoryRevision, setEngineInventoryRevision] = useState(0);
   const diagnosticStatus = diagnosticStatusLabel(presentation.failure ?? presentation.result, document.path);
   const geometryStatus = geometryDeltaStatus(presentation.geometryDelta);
   const consoleVisible = narrow
@@ -292,7 +300,10 @@ export function Workbench({
           <h1>{messages.appName}</h1>
         </div>
         <WelcomeLauncher documents={documents} project={projectState} runtime={runtime} showOnLaunch={controls.showWelcomeOnLaunch} onNewFile={fileCommands.newFile} onOpenProject={fileCommands.openProject} onOpenRecentProject={(projectId, displayName) => enqueueProject({ projectId, displayName })} onShowOnLaunchChange={(enabled) => runtime.dispatch({ kind: "set-welcome-on-launch", origin: "user", enabled })} />
-        <SettingsLauncher engineLabel={engineLabel} runtime={runtime} secretStore={secretStore} renderDiskCacheAvailable={renderDiskCacheAvailable} mcpPort={mcpPort} mcpEnabled={mcpEnabled} onMcpEnabledChange={setMcpEnabled} mcpPermissions={mcpPermissions} onMcpPermissionChange={setMcpPermission} />
+        <SettingsLauncher engineLabel={activeEngineLabel} engineVersionManager={engineVersionManager} runtime={runtime} secretStore={secretStore} renderDiskCacheAvailable={renderDiskCacheAvailable} mcpPort={mcpPort} mcpEnabled={mcpEnabled} onMcpEnabledChange={setMcpEnabled} mcpPermissions={mcpPermissions} onMcpPermissionChange={setMcpPermission} onEngineInventoryChanged={() => {
+          setEngineInventoryRevision((revision) => revision + 1);
+          onEngineInventoryChanged?.();
+        }} />
         <RenderControls
           autoRender={autoRender}
           autoRenderDisabled={settingsPersistenceStatus.status === "load-error"}
@@ -321,6 +332,13 @@ export function Workbench({
           : onConfigureEnginePath}
         onRetryWasmEngine={onRetryWasmEngine}
       >
+        <EnginePinMismatchBanner
+          invalidManifest={pinInspection.kind === "invalid"}
+          key={engineInventoryRevision}
+          manager={engineVersionManager}
+          onFix={() => workbenchRoot.current?.querySelector<HTMLButtonElement>(".settings-launcher")?.click()}
+          projectPin={pinnedEngineVersion}
+        />
         {associatedFileOpenError && <DismissibleNotice message={associatedFileOpenError} onDismiss={dismissAssociatedFileOpenError} />}
         {fileCommands.notice && (
           <p className="file-command-notice" role="alert">{fileCommands.notice}</p>
@@ -352,7 +370,7 @@ export function Workbench({
       />
       <WorkbenchStatusBar
         customThemes={customThemes} cursor={cursor}
-        diagnosticStatus={diagnosticStatus} engineLabel={engineLabel}
+        diagnosticStatus={diagnosticStatus} engineLabel={activeEngineLabel}
         geometryStatus={geometryStatus} renderStatus={<RenderStatusText documentPath={document.path} presentationStatus={presentationStatus} renderStore={runtime.render} stale={presentation.stale} />} mcpConnected={mcpConnected}
         consoleVisible={consoleVisible} consoleButtonRef={statusConsoleButton}
         themePreference={themePreference} onFocusConsole={focusConsole}

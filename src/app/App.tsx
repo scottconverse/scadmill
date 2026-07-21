@@ -7,6 +7,7 @@ import {
   PINNED_OPENSCAD_VERSION,
 } from "../application/engine/engine-pin";
 import { cachedEngineVersion, invalidateCachedEngineVersion } from "../application/engine/engine-version-cache";
+import { inspectProjectEnginePin } from "../application/engine/project-engine-pin";
 import {
   createWorkbenchProjectPortabilityController,
 } from "../application/files/workbench-portability";
@@ -120,6 +121,11 @@ export function App({
     runtime.settings,
     (settings) => settings.profile.engine.executablePath,
   ).trim();
+  const projectState = useReadonlyStore(runtime.project, (state) => state);
+  const projectPinInspection = inspectProjectEnginePin(projectState.snapshot);
+  const requiredProjectEngineVersion = projectPinInspection.kind === "pinned"
+    ? projectPinInspection.version
+    : undefined;
   const activeTheme = useThemeSelection(themePreference, customThemes, themeHost);
   const legacyEnginePath = useRef(enginePathConfiguration?.load().trim() ?? "");
   const migrationPending = useRef(Boolean(!configuredEnginePath && legacyEnginePath.current));
@@ -136,6 +142,7 @@ export function App({
     engine: EngineService;
     revision: number;
     configuredPath: string;
+    requiredVersion?: string;
     result: Promise<EngineInfo | null>;
   } | null>(null);
 
@@ -167,12 +174,18 @@ export function App({
     if (
       versionProbe.current?.engine !== engine
       || versionProbe.current.revision !== engineProbeRevision
+      || versionProbe.current.requiredVersion !== requiredProjectEngineVersion
     ) {
-      const result = cachedEngineVersion(engine, configuredPathForProbe.current);
+      const result = cachedEngineVersion(
+        engine,
+        configuredPathForProbe.current,
+        requiredProjectEngineVersion,
+      );
       versionProbe.current = {
         engine,
         revision: engineProbeRevision,
         configuredPath: configuredPathForProbe.current,
+        requiredVersion: requiredProjectEngineVersion,
         result,
       };
     }
@@ -182,7 +195,9 @@ export function App({
       .then((info) => {
         if (!active) return;
         wasmRetryPending.current = false;
-        if (info && acceptsPinnedEngineVersion(info.version)) {
+        if (info && (requiredProjectEngineVersion
+          ? info.version === requiredProjectEngineVersion
+          : acceptsPinnedEngineVersion(info.version))) {
           setEngineHealth({ kind: "ready", info });
         } else if (info) {
           setEngineHealth({
@@ -204,7 +219,7 @@ export function App({
           : { kind: "unavailable" });
       });
     return () => { active = false; };
-  }, [engine, engineProbeRevision]);
+  }, [engine, engineProbeRevision, requiredProjectEngineVersion]);
 
   useEffect(() => {
     if (engineHealth.kind === "checking") return;
@@ -290,6 +305,14 @@ export function App({
     <Workbench
       aiFetch={platform.aiFetch}
       engine={engine}
+      engineVersionManager={platform.engineVersionManager.available
+        ? platform.engineVersionManager.service
+        : undefined}
+      onEngineInventoryChanged={() => {
+        invalidateCachedEngineVersion(engine, configuredPathForProbe.current);
+        setEngineHealth({ kind: "checking", configuredPath: configuredPathForProbe.current });
+        setEngineProbeRevision((revision) => revision + 1);
+      }}
       runtime={runtime}
       secretStore={secretStore}
       engineLabel={engineLabel}

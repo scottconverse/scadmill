@@ -55,7 +55,7 @@ describe("desktop platform composition", () => {
     expect(platform.dialogs.message.available).toBe(true);
     expect(platform.mcp.available).toBe(true);
     expect(platform.windowControls.available).toBe(true);
-    expect(platform.engineVersionManager.available).toBe(false);
+    expect(platform.engineVersionManager.available).toBe(true);
 
     if (!platform.dialogs.openDirectory.available || !platform.dialogs.saveFile.available
       || !platform.dialogs.message.available || !platform.windowControls.available) {

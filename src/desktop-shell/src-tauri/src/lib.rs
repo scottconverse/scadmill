@@ -18,6 +18,7 @@ mod ai_http_broker;
 mod artifact_storage;
 mod associated_files;
 mod desktop_settings;
+mod engine_version_manager;
 mod keychain;
 mod mcp_stdio;
 mod native_menu;
@@ -234,10 +235,45 @@ fn bundled_engine_candidate(app: &AppHandle) -> Option<PathBuf> {
 fn find_native_engine(
     app: &AppHandle,
     configured_engine_path: Option<&str>,
+    required_engine_version: Option<&str>,
 ) -> Result<PathBuf, EngineError> {
     let bundled = bundled_engine_candidate(app);
     let configured = configured_engine_path.map(Path::new);
-    find_engine_with_bundled(bundled.as_deref(), configured)
+    let required = required_engine_version
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let managed = required.and_then(|version| {
+        let safe = version.len() <= 64
+            && version.chars().enumerate().all(|(index, character)| {
+                character.is_ascii_alphanumeric()
+                    || (index > 0 && matches!(character, '.' | '_' | '+' | '-'))
+            });
+        if !safe {
+            return None;
+        }
+        let executable = if cfg!(target_os = "windows") {
+            "openscad.exe"
+        } else {
+            "openscad"
+        };
+        app.path()
+            .app_data_dir()
+            .ok()
+            .map(|root| root.join("engines").join(version).join(executable))
+    });
+    let engine = managed
+        .filter(|path| path.is_file())
+        .map(Ok)
+        .unwrap_or_else(|| find_engine_with_bundled(bundled.as_deref(), configured))?;
+    if let Some(required) = required {
+        let found = engine_version(&engine)?;
+        if found != required {
+            return Err(EngineError::InvalidVersion(format!(
+                "OpenSCAD version {found} is available, but this project requires {required}."
+            )));
+        }
+    }
+    Ok(engine)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -254,6 +290,7 @@ async fn render_native(
     timeout_ms: u64,
     on_output: Channel<EngineOutputEvent>,
     configured_engine_path: Option<String>,
+    required_engine_version: Option<String>,
 ) -> Result<NativeRenderResponse, String> {
     let files = decode_project_files(&entry_file, files)?;
     let quality = match quality.as_str() {
@@ -261,7 +298,11 @@ async fn render_native(
         "full" => RenderQuality::Full,
         other => return Err(format!("Unsupported render quality: {other}")),
     };
-    let engine = match find_native_engine(&app, configured_engine_path.as_deref()) {
+    let engine = match find_native_engine(
+        &app,
+        configured_engine_path.as_deref(),
+        required_engine_version.as_deref(),
+    ) {
         Ok(engine) => engine,
         Err(error) => return map_render_error(error),
     };
@@ -335,9 +376,14 @@ async fn export_native(
     timeout_ms: u64,
     on_output: Channel<EngineOutputEvent>,
     configured_engine_path: Option<String>,
+    required_engine_version: Option<String>,
 ) -> Result<NativeExportResponse, String> {
     let files = decode_project_files(&entry_file, files)?;
-    let engine = match find_native_engine(&app, configured_engine_path.as_deref()) {
+    let engine = match find_native_engine(
+        &app,
+        configured_engine_path.as_deref(),
+        required_engine_version.as_deref(),
+    ) {
         Ok(engine) => engine,
         Err(error) => {
             return Ok(NativeExportResponse {
@@ -401,9 +447,14 @@ fn cancel_native(jobs: State<'_, NativeJobs>, job_id: String) {
 async fn native_engine_version(
     app: AppHandle,
     configured_engine_path: Option<String>,
+    required_engine_version: Option<String>,
 ) -> Result<Option<NativeEngineVersionWire>, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        let engine = match find_native_engine(&app, configured_engine_path.as_deref()) {
+        let engine = match find_native_engine(
+            &app,
+            configured_engine_path.as_deref(),
+            required_engine_version.as_deref(),
+        ) {
             Ok(engine) => engine,
             Err(EngineError::Missing) => return Ok(None),
             Err(error) => return Err(error.to_string()),
@@ -461,6 +512,9 @@ pub fn run() {
             ai_http_broker::cancel_ai_http_request,
             desktop_settings::load_settings,
             desktop_settings::save_settings,
+            engine_version_manager::engine_manager_list,
+            engine_version_manager::engine_manager_official_releases,
+            engine_version_manager::engine_manager_install_official,
             keychain::load_ai_secret,
             keychain::save_ai_secret,
             keychain::clear_ai_secret,

@@ -12,6 +12,7 @@ export interface RenderRequest {
   quality: Quality;
   timeoutMs: number;
   previewFacetLimit?: number;
+  engineVersion?: string;
 }
 
 export interface Diagnostic {
@@ -99,6 +100,6 @@ export interface RenderJob<T> {
 export interface EngineService {
   render(request: RenderRequest): RenderJob<RenderResult>;
   export(request: ExportRequest): RenderJob<ExportResult>;
-  version(): Promise<EngineInfo | null>;
+  version(requiredVersion?: string): Promise<EngineInfo | null>;
   cancel(jobId: string): void;
 }

@@ -1,4 +1,5 @@
 import type { EngineService } from "../application/engine/contracts";
+import type { EngineVersionManagerPort } from "../application/engine/engine-version-manager";
 import type { AiFetchFactory } from "../application/ai/ai-client";
 import type { EngineLoadProgressStore } from "../application/engine/engine-load-progress";
 import type { ProjectStorage } from "../application/files/project-file-service";
@@ -26,6 +27,8 @@ export interface WorkbenchProps {
   runtime: WorkbenchRuntime;
   aiFetch?: AiFetchFactory;
   engine?: EngineService;
+  engineVersionManager?: EngineVersionManagerPort;
+  onEngineInventoryChanged?(): void;
   secretStore?: SecretStore;
   engineLabel: string;
   engineAvailable?: boolean;

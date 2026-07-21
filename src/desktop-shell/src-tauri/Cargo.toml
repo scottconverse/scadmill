@@ -19,6 +19,7 @@ tauri-build = { version = "=2.6.3", features = [] }
 
 [dependencies]
 base64 = "=0.22.1"
+futures-util = "=0.3.32"
 keyring = "=4.1.4"
 reqwest = { version = "=0.13.4", default-features = false, features = ["native-tls", "stream"] }
 scadmill-native-engine = { path = "../../native-engine" }

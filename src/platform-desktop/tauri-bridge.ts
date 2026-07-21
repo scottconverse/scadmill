@@ -120,6 +120,7 @@ function renderArguments(
     timeoutMs: request.timeoutMs,
     onOutput,
     ...(configuredPath ? { configuredEnginePath: configuredPath } : {}),
+    ...(request.engineVersion ? { requiredEngineVersion: request.engineVersion } : {}),
   };
 }
 
@@ -198,11 +199,12 @@ export function createTauriBridge(
         rawLog: response.rawLog,
       };
     },
-    version: async () => {
+    version: async (requiredVersion) => {
       const configuredPath = configuredEnginePath()?.trim();
-      const response = configuredPath
+      const response = configuredPath || requiredVersion
         ? await invokeCommand<NativeEngineVersionWireResponse | string | null>("native_engine_version", {
-            configuredEnginePath: configuredPath,
+            ...(configuredPath ? { configuredEnginePath: configuredPath } : {}),
+            ...(requiredVersion ? { requiredEngineVersion: requiredVersion } : {}),
           })
         : await invokeCommand<NativeEngineVersionWireResponse | string | null>("native_engine_version");
       if (!response) return null;

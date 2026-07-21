@@ -46,7 +46,7 @@ Full-quality export supports 3MF, STL, OFF, AMF, SVG, DXF, and PNG where appropr
 
 ### Understand what is not included
 
-The public beta is Windows-only. It does not publish a browser app, Mac/Linux installers, or OpenSCAD WebAssembly engine. OpenSCAD is a separate required download. The development branch now contains the complete M5 scope plus M6 printability reporting and desktop slicer handoff. These are not part of the published beta. Engine management, the headless CLI, color-preserving 3MF, and manufacturing estimates remain M6 work.
+The public beta is Windows-only. It does not publish a browser app, Mac/Linux installers, or OpenSCAD WebAssembly engine. OpenSCAD is a separate required download. The development branch now contains the complete M5 scope plus M6 printability reporting, desktop slicer handoff, and engine version management. These are not part of the published beta. The headless CLI, color-preserving multi-object 3MF workflow, and manufacturing estimates remain M6 work.
 
 ## Part II — Technical reference
 
@@ -83,6 +83,12 @@ After a full 3D render, open **Manufacturing**, enter the intended build-volume 
 ### Open in slicer (development desktop builds)
 
 Open **Manufacturing** and choose **Open in slicer**. ScadMill performs a fresh full-quality 3MF export, writes it to a unique temporary location, and opens it in a detected PrusaSlicer, OrcaSlicer, Cura, or Bambu Studio installation. If detection does not match the installation, enter an absolute executable path in **Optional slicer executable**. A failed export never launches the slicer. Multi-object color export does not promise automatic filament mapping; when that export is available, assign filaments per object in the slicer.
+
+### Engine versions and project pins (development desktop builds)
+
+Open **Settings → Engine** to see each detected or ScadMill-managed OpenSCAD executable, its source, and its exact executable SHA-256. The official-download section shows the archive SHA-256 before you choose **Download official OpenSCAD 2026.06.12**; downloads never start automatically. The native manager accepts only the recorded official URL and hashes, refuses redirects, caps the archive at 512 MiB, verifies both the archive and extracted executable, and then installs it under ScadMill's application-data directory.
+
+With a folder-backed project open, select an installed version and choose **Pin version to project**. ScadMill writes `scadmill.project.json`, sends that version on native render and export requests, and identifies the project pin in the status bar. If the pinned version is unavailable or the manifest is invalid, a fix-it banner opens Settings. Scratch documents cannot create a project pin. The web composition exposes no engine-manager controls.
 
 ### AI assistance
 

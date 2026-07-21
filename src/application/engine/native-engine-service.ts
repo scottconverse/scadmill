@@ -20,7 +20,7 @@ export interface NativeEngineBridge {
     request: ExportRequest,
     onOutput: (event: EngineOutputEvent) => void,
   ): Promise<ExportResult>;
-  version(): Promise<EngineInfo | null>;
+  version(requiredVersion?: string): Promise<EngineInfo | null>;
   cancel(jobId: string): void;
 }
 
@@ -85,8 +85,8 @@ export class NativeEngineService implements EngineService {
     };
   }
 
-  version(): Promise<EngineInfo | null> {
-    return this.bridge.version();
+  version(requiredVersion?: string): Promise<EngineInfo | null> {
+    return this.bridge.version(requiredVersion);
   }
 
   cancel(jobId: string): void {

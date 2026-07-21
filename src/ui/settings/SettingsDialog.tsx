@@ -1,15 +1,4 @@
-import {
-  cloneElement,
-  isValidElement,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-  type ReactElement,
-  type KeyboardEvent as ReactKeyboardEvent,
-  type ReactNode,
-} from "react";
+import { cloneElement, isValidElement, useEffect, useId, useMemo, useRef, useState, type ReactElement, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { createKeybindingSettings, type KeybindingCommand } from "../../application/commands/default-keybindings";
 import { parsePersistedSettings, serializePersistedSettings, SETTINGS_SIZE_LIMIT_BYTES } from "../../application/settings/settings-codec";
 import type { PersistedSettings, SettingsSection } from "../../application/settings/settings-schema";
@@ -21,6 +10,8 @@ import { CustomThemeSettings } from "./CustomThemeSettings";
 import { KeybindingSettingsFields } from "./KeybindingSettingsFields";
 import { AiProviderConfigurations } from "./AiProviderConfigurations";
 import { type SettingsUpdater, useAiSecretController } from "./use-ai-secret";
+import type { EngineVersionManagerPort } from "../../application/engine/engine-version-manager";
+import { EngineVersionSettings } from "./EngineVersionSettings";
 export interface SettingsDialogProps {
   readonly engineLabel: string;
   readonly secretStore: SecretStore;
@@ -42,6 +33,11 @@ export interface SettingsDialogProps {
   readonly onMcpEnabledChange?: (enabled: boolean) => void;
   readonly mcpPermissions?: McpToolPermissionState;
   readonly onMcpPermissionChange?: (tool: "write_file" | "set_parameters", permission: McpPermission) => void;
+  readonly engineVersionManager?: EngineVersionManagerPort;
+  readonly projectMode?: boolean;
+  readonly projectEnginePin?: string;
+  readonly onPinProjectEngine?: (version: string) => Promise<void>;
+  readonly onEngineInventoryChanged?: () => void;
 }
 const SECTION_TITLES: Readonly<Record<SettingsSection, string>> = {
   editor: messages.settingsEditor,
@@ -113,6 +109,11 @@ export function SettingsDialog({
   onMcpEnabledChange,
   mcpPermissions,
   onMcpPermissionChange,
+  engineVersionManager,
+  projectMode = false,
+  projectEnginePin,
+  onPinProjectEngine = async () => undefined,
+  onEngineInventoryChanged,
 }: SettingsDialogProps) {
   const [query, setQuery] = useState("");
   const searchInput = useRef<HTMLInputElement>(null);
@@ -319,6 +320,7 @@ export function SettingsDialog({
               <input aria-label={messages.enginePath} onChange={(event) => onChange({ ...settings, engine: { executablePath: event.currentTarget.value } })} type="text" value={settings.engine.executablePath} />
             </Setting>
             <output aria-label={messages.engineVersion}>{engineLabel}</output>
+            <EngineVersionSettings manager={engineVersionManager} project={projectMode} projectPin={projectEnginePin} onPin={onPinProjectEngine} onInventoryChanged={onEngineInventoryChanged} />
           </Section>
         )}
         {show("viewer") && (

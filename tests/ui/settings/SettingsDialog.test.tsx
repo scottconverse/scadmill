@@ -382,9 +382,9 @@ describe("SettingsDialog", () => {
     );
 
     expect(view.getByLabelText("Persist AI key in this browser")).not.toBeChecked();
-    expect(view.getByRole("note")).toHaveTextContent(
+    expect(view.getByText(
       "Persisting an AI key writes it to browser local storage on this device.",
-    );
+    )).toHaveAttribute("role", "note");
   });
 
   it("reports a failed secret write without promising that stored data was unchanged", async () => {

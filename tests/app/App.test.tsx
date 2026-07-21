@@ -7,6 +7,8 @@ import { describe, expect, it, vi } from "vitest";
 import { App as ProductionApp } from "../../src/app/App";
 import type { EngineService, RenderFailure, RenderSuccess3D } from "../../src/application/engine/contracts";
 import { PINNED_OPENSCAD_VERSION } from "../../src/application/engine/engine-pin";
+import type { ProjectStorage } from "../../src/application/files/project-file-service";
+import { createProjectSnapshot } from "../../src/application/files/project-snapshot";
 import type { WorkspaceLayoutPersistence } from "../../src/application/runtime/layout-persistence";
 import {
   createDefaultPersistedSettings,
@@ -458,6 +460,46 @@ describe("App", () => {
     });
     expect(engine.version).toHaveBeenCalledTimes(1);
     expect(engine.render).not.toHaveBeenCalled();
+  });
+
+  it("reprobes a project pin and enables its managed version when no default engine exists", async () => {
+    const version = vi.fn(async (requiredVersion?: string) => requiredVersion === "X"
+      ? { version: "X", path: "native" as const, features: [], buildIdentity: `native:sha256:${"A".repeat(64)}` }
+      : null);
+    const engine: EngineService = {
+      render: vi.fn(() => ({
+        jobId: "project-pin-render",
+        done: Promise.resolve<RenderFailure>({ kind: "failure", reason: "engine-error", diagnostics: [], rawLog: "fixture" }),
+        subscribeOutput: () => () => undefined,
+      })),
+      export: vi.fn(), version, cancel: vi.fn(),
+    };
+    const snapshot = createProjectSnapshot("project-x", new Map([
+      ["main.scad", "cube(10);"],
+      ["scadmill.project.json", '{"schemaVersion":1,"engineVersion":"X"}\n'],
+    ]));
+    const projectStorage: ProjectStorage = {
+      snapshot: vi.fn(async () => snapshot),
+      write: vi.fn(), move: vi.fn(), trash: vi.fn(), reveal: vi.fn(),
+    };
+    const view = render(<App
+      directoryPicker={{ chooseDirectory: async () => ({ projectId: "project-x", displayName: "Project X" }) }}
+      engine={engine}
+      kind="desktop"
+      projectStorage={projectStorage}
+    />);
+    const app = within(view.container);
+    await waitFor(() => expect(app.getByRole("button", { name: messages.renderPreview })).toBeDisabled());
+
+    fireEvent.click(app.getByRole("button", { name: messages.fileMenu }));
+    fireEvent.click(within(app.getByRole("group", { name: messages.fileMenu }))
+      .getByRole("button", { name: messages.openProject }));
+    const confirm = await app.findByRole("button", { name: messages.confirmProjectReplacement }).catch(() => null);
+    if (confirm) fireEvent.click(confirm);
+
+    await waitFor(() => expect(version).toHaveBeenCalledWith("X"));
+    expect(app.getByRole("button", { name: messages.renderPreview })).toBeEnabled();
+    expect(app.getByText("OpenSCAD X (project pin)")).toBeVisible();
   });
 
   it("saves a configured engine path from the missing-engine fix-it and retries discovery", async () => {

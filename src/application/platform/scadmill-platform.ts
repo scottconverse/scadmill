@@ -2,6 +2,7 @@ import type { EngineService } from "../engine/contracts";
 import type { AiFetchFactory } from "../ai/ai-client";
 import type { EngineLoadProgressStore } from "../engine/engine-load-progress";
 import type { EnginePathConfiguration } from "../engine/engine-path-configuration";
+import type { EngineVersionManagerPort } from "../engine/engine-version-manager";
 import type { ArtifactDestination } from "../files/artifact-destination";
 import type { ProjectStorage } from "../files/project-file-service";
 import type { RecentProjectsPersistence } from "../files/recent-projects";
@@ -172,7 +173,7 @@ export interface ScadMillPlatform {
   }>;
   readonly mcp: PlatformFeature<McpServerPort>;
   readonly windowControls: PlatformFeature<WindowControlsPort>;
-  readonly engineVersionManager: PlatformFeature<true>;
+  readonly engineVersionManager: PlatformFeature<EngineVersionManagerPort>;
   readonly forceNarrowLayout: boolean;
 }
 

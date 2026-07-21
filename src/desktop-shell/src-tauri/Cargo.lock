@@ -3013,6 +3013,7 @@ name = "scadmill-desktop"
 version = "0.1.0-beta.1"
 dependencies = [
  "base64 0.22.1",
+ "futures-util",
  "keyring",
  "reqwest",
  "scadmill-native-engine",

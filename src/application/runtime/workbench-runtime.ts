@@ -16,6 +16,7 @@ import {
 } from "../documents/document-workspace";
 import type { EngineInfo, EngineService, ParamValue, Quality, RenderRequest } from "../engine/contracts";
 import { cachedEngineVersion } from "../engine/engine-version-cache";
+import { projectEnginePin } from "../engine/project-engine-pin";
 import { UNAVAILABLE_ARTIFACT_DESTINATION } from "../files/artifact-destination";
 import { parseProjectPath } from "../files/project-path";
 import {
@@ -316,8 +317,8 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
               && project.getState().diskRenderCacheEnabled,
           )
         : new RenderMemoryCache());
-  let engineInfoPromise: Promise<EngineInfo | null> | undefined;
-  let resolvedEngineInfo: EngineInfo | null | undefined;
+  const engineInfoPromises = new Map<string, Promise<EngineInfo | null>>();
+  const resolvedEngineInfos = new Map<string, EngineInfo | null>();
   const knownCacheKeys = new RenderCacheKeyIndex();
   const presentedCacheKeys = new WeakMap<CacheableRenderResult, string>();
   let renderAttemptGeneration = 0;
@@ -342,14 +343,27 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     if (active.status === "rendering" && active.jobId) engine.cancel(active.jobId);
   }
 
-  function engineInfoForCache(): Promise<EngineInfo | null> {
-    engineInfoPromise ??= cachedEngineVersion(engine, settings.getState().profile.engine.executablePath)
+  function engineInfoKey(requiredVersion?: string): string {
+    return `${settings.getState().profile.engine.executablePath}\u0000${requiredVersion ?? ""}`;
+  }
+
+  function engineInfoForCache(requiredVersion?: string): Promise<EngineInfo | null> {
+    const key = engineInfoKey(requiredVersion);
+    const existing = engineInfoPromises.get(key);
+    if (existing) return existing;
+    const promise = cachedEngineVersion(
+      engine,
+      settings.getState().profile.engine.executablePath,
+      requiredVersion,
+    )
       .then((info) => {
-        resolvedEngineInfo = info ?? null;
-        return resolvedEngineInfo;
+        const resolved = info ?? null;
+        resolvedEngineInfos.set(key, resolved);
+        return resolved;
       })
       .catch(() => null);
-    return engineInfoPromise;
+    engineInfoPromises.set(key, promise);
+    return promise;
   }
 
   // Warm the engine identity as soon as a desktop disk tier exists so a
@@ -440,8 +454,8 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     try {
       await save;
       if (enginePathChanged) {
-        engineInfoPromise = undefined;
-        resolvedEngineInfo = undefined;
+        engineInfoPromises.clear();
+        resolvedEngineInfos.clear();
       }
     } catch (error) {
       const latest = settings.getState();
@@ -1404,8 +1418,8 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     }
 
     if (command.kind === "engine-availability-changed") {
-      engineInfoPromise = undefined;
-      resolvedEngineInfo = undefined;
+      engineInfoPromises.clear();
+      resolvedEngineInfos.clear();
       settings.setState({ engineAvailable: command.available });
       if (!command.available) {
         autoRenderTimer.clear();
@@ -1739,6 +1753,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     pendingAutoRenders.delete(document.id);
     const projectState = project.getState();
     const projectRevision = projectState.revision;
+    const engineVersion = projectEnginePin(projectState.snapshot);
     const sourceFiles = buildRuntimeRenderFileMap(projectState, workspace);
     const parameterValues = engineParameterSnapshot(document.id);
     const requestParameterValues = command.animationTime === undefined
@@ -1756,6 +1771,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       ...(command.quality === "preview"
         ? { previewFacetLimit: rendering.previewFacetLimit }
       : {}),
+      ...(engineVersion ? { engineVersion } : {}),
     };
     const snapshotIsCurrent = () => {
       const currentWorkspace = documents.getState();
@@ -1773,7 +1789,8 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       );
     };
     const requiresColdLookup = renderCache?.requiresColdLookup === true;
-    if (renderCache && !requiresColdLookup) void engineInfoForCache();
+    if (renderCache && !requiresColdLookup) void engineInfoForCache(engineVersion);
+    const resolvedEngineInfo = resolvedEngineInfos.get(engineInfoKey(engineVersion));
     let memoKey = renderCache && resolvedEngineInfo
       ? renderMemoKey(
           workspace,
@@ -1787,7 +1804,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       : undefined;
     let knownKey = memoKey ? knownCacheKeys.get(memoKey) : undefined;
     if (renderCache && requiresColdLookup && !knownKey) {
-      const engineInfo = await engineInfoForCache();
+      const engineInfo = await engineInfoForCache(engineVersion);
       if (engineInfo && renderAttempt === renderAttemptGeneration && snapshotIsCurrent()) {
         knownKey = await createRenderCacheKey(
           request,
@@ -2015,7 +2032,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     }
     successfulPresentationToken = modelHistorySnapshotId;
 
-    const engineInfo = renderCache ? await engineInfoForCache() : null;
+    const engineInfo = renderCache ? await engineInfoForCache(engineVersion) : null;
     const cacheKey = engineInfo
       ? await createRenderCacheKey(request, engineInfo, rendering.profile.engine.executablePath)
       : undefined;

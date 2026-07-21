@@ -9,6 +9,8 @@ import type { WorkbenchRuntime } from "../../application/runtime/workbench-runti
 import type { McpServerPort } from "../../application/platform/scadmill-platform";
 import type { McpPermission, McpToolPermissionState } from "../../application/mcp/mcp-tools";
 import type { SecretStore } from "../../application/settings/secret-store";
+import type { EngineVersionManagerPort } from "../../application/engine/engine-version-manager";
+import { inspectProjectEnginePin } from "../../application/engine/project-engine-pin";
 import { messages } from "../../messages/en";
 import { useReadonlyStore } from "../use-readonly-store";
 import { SettingsDialog } from "./SettingsDialog";
@@ -23,9 +25,11 @@ export interface SettingsLauncherProps {
   readonly onMcpEnabledChange?: (enabled: boolean) => void;
   readonly mcpPermissions?: McpToolPermissionState;
   readonly onMcpPermissionChange?: (tool: "write_file" | "set_parameters", permission: McpPermission) => void;
+  readonly engineVersionManager?: EngineVersionManagerPort;
+  readonly onEngineInventoryChanged?: () => void;
 }
 
-export function SettingsLauncher({ engineLabel, runtime, secretStore, renderDiskCacheAvailable = false, mcpPort, mcpEnabled = false, onMcpEnabledChange, mcpPermissions, onMcpPermissionChange }: SettingsLauncherProps) {
+export function SettingsLauncher({ engineLabel, runtime, secretStore, renderDiskCacheAvailable = false, mcpPort, mcpEnabled = false, onMcpEnabledChange, mcpPermissions, onMcpPermissionChange, engineVersionManager, onEngineInventoryChanged }: SettingsLauncherProps) {
   const [open, setOpen] = useState(false);
   const [persistenceError, setPersistenceError] = useState<string | undefined>();
   const [persistenceInFlight, setPersistenceInFlight] = useState(0);
@@ -38,6 +42,7 @@ export function SettingsLauncher({ engineLabel, runtime, secretStore, renderDisk
     (state) => state.persistenceStatus,
   );
   const project = useReadonlyStore(runtime.project, (state) => state);
+  const pinInspection = inspectProjectEnginePin(project.snapshot);
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!matchesKeybinding(event, profile.keybindings.settings, primaryModifierForPlatform())) {
@@ -87,6 +92,11 @@ export function SettingsLauncher({ engineLabel, runtime, secretStore, renderDisk
       {open && createPortal(
         <SettingsDialog
           engineLabel={engineLabel}
+          engineVersionManager={engineVersionManager}
+          projectMode={project.mode === "project"}
+          projectEnginePin={pinInspection.kind === "pinned" ? pinInspection.version : undefined}
+          onPinProjectEngine={(engineVersion) => persist({ kind: "pin-project-engine", origin: "user", engineVersion })}
+          onEngineInventoryChanged={onEngineInventoryChanged}
           persistenceError={persistenceStatus.status === "load-error"
             ? messages.settingsLoadFailed
             : persistenceError}

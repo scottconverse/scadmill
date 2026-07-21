@@ -6,6 +6,7 @@ import type {
 import { parseBinaryStl } from "../geometry/stl";
 import { parseProjectPath } from "./project-path";
 import type { ProjectSnapshot } from "./project-snapshot";
+import { projectEnginePin } from "../engine/project-engine-pin";
 
 export interface ExportRequestInput {
   readonly snapshot: ProjectSnapshot;
@@ -34,12 +35,14 @@ export function createExportRequest(input: ExportRequestInput): ExportRequest {
   if (!Number.isSafeInteger(input.timeoutMs) || input.timeoutMs <= 0) {
     throw new Error("Export timeout must be a positive integer.");
   }
+  const engineVersion = projectEnginePin(input.snapshot);
   return {
     entryFile,
     files: input.snapshot.files,
     parameters: input.parameters,
     format: input.format,
     timeoutMs: input.timeoutMs,
+    ...(engineVersion ? { engineVersion } : {}),
     ...(input.image ? { image: input.image } : {}),
   };
 }

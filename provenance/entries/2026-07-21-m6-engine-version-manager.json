@@ -1,0 +1,143 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-21-m6-engine-version-manager",
+  "createdAt": "2026-07-21T15:41:23-06:00",
+  "summary": "Implement the M6 desktop engine version manager with strict per-project routing, checksum-visible official installation, and missing-pin recovery.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 6 dependency policy", "FR-15.11", "AC-15.j", "M6"],
+  "filesTouched": [
+    { "path": "ARCHITECTURE.md", "status": "modified" },
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "THIRD-PARTY-NOTICES.txt", "status": "modified" },
+    { "path": "docs/USER-GUIDE.md", "status": "modified" },
+    { "path": "src/app/App.tsx", "status": "modified" },
+    { "path": "src/application/engine/contracts.ts", "status": "modified" },
+    { "path": "src/application/engine/engine-version-cache.ts", "status": "modified" },
+    { "path": "src/application/engine/engine-version-manager.ts", "status": "added" },
+    { "path": "src/application/engine/native-engine-service.ts", "status": "modified" },
+    { "path": "src/application/engine/project-engine-pin.ts", "status": "added" },
+    { "path": "src/application/files/export-flow.ts", "status": "modified" },
+    { "path": "src/application/files/project-session.ts", "status": "modified" },
+    { "path": "src/application/platform/scadmill-platform.ts", "status": "modified" },
+    { "path": "src/application/runtime/workbench-runtime.ts", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/Cargo.lock", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/Cargo.toml", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/src/engine_version_manager.rs", "status": "added" },
+    { "path": "src/desktop-shell/src-tauri/src/lib.rs", "status": "modified" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/platform-desktop/desktop-platform.ts", "status": "modified" },
+    { "path": "src/platform-desktop/tauri-bridge.ts", "status": "modified" },
+    { "path": "src/platform-desktop/tauri-engine-version-manager.ts", "status": "added" },
+    { "path": "src/ui/engine/EnginePinMismatchBanner.tsx", "status": "added" },
+    { "path": "src/ui/settings/EngineVersionSettings.tsx", "status": "added" },
+    { "path": "src/ui/settings/SettingsDialog.tsx", "status": "modified" },
+    { "path": "src/ui/settings/SettingsLauncher.tsx", "status": "modified" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/workbench-props.ts", "status": "modified" },
+    { "path": "tests/application/engine/project-engine-pin.test.ts", "status": "added" },
+    { "path": "tests/app/App.test.tsx", "status": "modified" },
+    { "path": "tests/platform-desktop/desktop-platform.test.ts", "status": "modified" },
+    { "path": "tests/platform-desktop/tauri-bridge.test.ts", "status": "modified" },
+    { "path": "tests/platform-desktop/tauri-engine-version-manager.test.ts", "status": "added" },
+    { "path": "tests/ui/engine/EnginePinMismatchBanner.test.tsx", "status": "added" },
+    { "path": "tests/ui/settings/EngineVersionSettings.test.tsx", "status": "added" },
+    { "path": "tests/ui/settings/SettingsDialog.test.tsx", "status": "modified" },
+    { "path": "website/app/architecture/page.tsx", "status": "modified" },
+    { "path": "provenance/entries/2026-07-21-m6-engine-version-manager.json", "status": "added" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://files.openscad.org/snapshots/OpenSCAD-2026.06.12-x86-64.zip",
+      "accessedOn": "2026-07-21",
+      "purpose": "Confirm with an HTTP HEAD request that the exact owner-specified official artifact remains directly available without a redirect and is within the manager's 512 MiB bound; no source code was consulted."
+    }
+  ],
+  "providedInputs": [
+    { "label": "Owner-provided ScadMill functional specification v0.6", "destination": "spec/scadmill-spec-v0.6.md", "sha256": "A2D12C68E23590DF061BF3E222F481C3FFC40ECA6541D6F3DF49FDA87C1DE15A" }
+  ],
+  "decisions": [
+    {
+      "id": "D-0503",
+      "topic": "Project engine-pin format and routing",
+      "decision": "Store one strict versioned manifest at scadmill.project.json and automatically attach its exact engineVersion to every native render and export request. Resolve app-managed engines/<version>/openscad.exe before the ordinary default path and reject the executable if its reported version differs.",
+      "rationale": "A single project-owned pin makes AC-15.j apply uniformly to interactive renders, ordinary exports, batch exports, and slicer handoff without parallel engine-selection paths or silent fallback to a different version.",
+      "specBasis": ["FR-15.11", "AC-15.j", "Appendix A EngineService"]
+    },
+    {
+      "id": "D-0504",
+      "topic": "Official Windows engine installation trust boundary",
+      "decision": "Expose only the exact official 2026.06.12 Windows artifact already recorded in ENGINE_VERSION. Begin download only after an explicit UI action; show the archive SHA-256 beforehand; refuse redirects; stream under a 512 MiB cap; verify archive and executable SHA-256 plus the executable-reported version; then move the complete extracted runtime into the app-data managed-engine namespace.",
+      "rationale": "The engine is a separately distributed unmodified program. A narrow allow-list and complete verification provide useful version management without turning ScadMill into a general downloader or accepting a plausible but different binary.",
+      "specBasis": ["FR-15.11", "A-5 network boundary", "ENGINE_VERSION"]
+    },
+    {
+      "id": "D-0505",
+      "topic": "Bounded response streaming dependency",
+      "decision": "Declare futures-util 0.3.32 directly in the desktop crate to consume reqwest's existing byte stream with an enforced incremental limit. The package was already present transitively and listed in THIRD-PARTY-NOTICES under its permissive MIT OR Apache-2.0 license.",
+      "rationale": "A post-download length check can allocate an unbounded response when Content-Length is absent. Incremental streaming enforces the limit while adding no new package version to the resolved dependency graph.",
+      "specBasis": ["Section 6 dependency policy", "A-6 modularity and bounded operations"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "AC-15.j requires a project pinned to X to render with X even when Y is the default, and all export paths must preserve the same selection.",
+      "test": "Create strict project manifests, exercise the real runtime with a version spy, inspect the native Tauri payload, and assert ordinary export requests inherit the project pin.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/engine/project-engine-pin.test.ts tests/platform-desktop/tauri-bridge.test.ts",
+        "observedAt": "2026-07-21T14:20:00-06:00",
+        "outcome": "RED: the project-pin module did not exist and native render/version payloads carried no required engine version."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/engine/project-engine-pin.test.ts tests/platform-desktop/tauri-bridge.test.ts",
+        "observedAt": "2026-07-21T14:42:00-06:00",
+        "outcome": "GREEN: strict manifest parsing, command persistence, X-over-Y runtime routing, export propagation, and native payload assertions passed."
+      }
+    },
+    {
+      "criterion": "FR-15.11 requires installed inventory, a checksum-visible user-initiated official download, status visibility, and a fix-it state when the project pin is unavailable.",
+      "test": "Drive the settings and Tauri adapters with strict fixtures, assert that installation is absent before the click, then assert the exact release id, refreshed executable checksum, and mismatch fix action.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/settings/EngineVersionSettings.test.tsx tests/platform-desktop/tauri-engine-version-manager.test.ts tests/ui/engine/EnginePinMismatchBanner.test.tsx --reporter=dot",
+        "observedAt": "2026-07-21T15:31:35-06:00",
+        "outcome": "RED: the banner module and official list/install port were absent, and Settings displayed neither the official archive checksum nor a download action."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/settings/EngineVersionSettings.test.tsx tests/platform-desktop/tauri-engine-version-manager.test.ts tests/ui/engine/EnginePinMismatchBanner.test.tsx --reporter=dot",
+        "observedAt": "2026-07-21T15:34:10-06:00",
+        "outcome": "GREEN: 3 files and 8 tests passed, including no download before click, exact release selection, refreshed inventory, checksum display, and missing/present pin states."
+      }
+    },
+    {
+      "criterion": "The integrated capability must compile on both sides of the Tauri boundary and remain within source-policy limits.",
+      "test": "Run the affected TypeScript slice, full static typecheck, native engine-manager tests, Rust formatting, and repository lint/source policy after one targeted correction per reported failure.",
+      "red": {
+        "command": "pnpm.cmd run typecheck; pnpm.cmd run lint; cargo fmt --all -- --check",
+        "observedAt": "2026-07-21T15:36:00-06:00",
+        "outcome": "RED: two widened test literals, one stale role query, Rust formatting, one hook dependency, and the 400-line SettingsDialog cap were reported in bounded checks."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run <8 affected suites> --reporter=dot; pnpm.cmd run typecheck; pnpm.cmd run lint; cargo test --lib engine_version_manager -- --nocapture",
+        "observedAt": "2026-07-21T15:38:30-06:00",
+        "outcome": "GREEN: 8 TypeScript files and 73 tests passed; TypeScript passed; lint checked 595 files and source policy passed; both native engine-manager tests passed."
+      }
+    },
+    {
+      "criterion": "A downloaded managed engine must become usable for its pinned project even when the machine has no configured default engine.",
+      "test": "Start the complete App with no default engine, open a project pinned to X, and require a fresh version(X) probe, enabled render controls, the pinned status label, and an ordinary auto-render job.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/app/App.test.tsx -t \"reprobes a project pin\" --reporter=dot",
+        "observedAt": "2026-07-21T15:48:32-06:00",
+        "outcome": "RED: App probed only version(undefined), retained editor-only mode, and never made the newly available managed project engine usable."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/app/App.test.tsx tests/application/engine/project-engine-pin.test.ts tests/ui/engine/EnginePinMismatchBanner.test.tsx tests/ui/settings/EngineVersionSettings.test.tsx --reporter=dot; pnpm.cmd run typecheck; pnpm.cmd run lint",
+        "observedAt": "2026-07-21T15:50:31-06:00",
+        "outcome": "GREEN: all 29 affected application, pin, banner, and settings tests passed; TypeScript, Biome, the 400-line UI cap, and platform-boundary policy passed."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

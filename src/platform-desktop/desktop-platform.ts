@@ -13,6 +13,7 @@ import { createDesktopModelHistoryPersistence } from "./model-history-persistenc
 import { createBrowserCameraBookmarkPersistence } from "../platform-web/browser-camera-bookmark-persistence";
 import { createDesktopWelcomePreferencePersistence } from "./desktop-welcome-preference";
 import { createEnginePathConfiguration } from "./engine-path-configuration";
+import { createTauriEngineVersionManager } from "./tauri-engine-version-manager";
 import { createTauriArtifactDestination } from "./tauri-artifact-destination";
 import { createTauriAssociatedFileSource } from "./tauri-associated-file-source";
 import { createTauriAiFetchFactory } from "./tauri-ai-http-fetch";
@@ -97,7 +98,7 @@ export async function createDesktopPlatform(): Promise<ScadMillPlatform> {
     wasm: unavailable(),
     mcp: available(createTauriMcpPort()),
     windowControls: available(createTauriWindowControls()),
-    engineVersionManager: unavailable(),
+    engineVersionManager: available(createTauriEngineVersionManager(() => enginePathConfiguration.load())),
     forceNarrowLayout: false,
   };
 }

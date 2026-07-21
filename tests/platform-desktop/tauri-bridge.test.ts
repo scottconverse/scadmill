@@ -75,6 +75,25 @@ describe("createTauriBridge", () => {
     ]);
   });
 
+  it("passes the project engine pin to render and version probes", async () => {
+    const invoke = vi.fn().mockResolvedValueOnce({
+      kind: "failure", reason: "engine-missing", rawLog: "missing",
+    }).mockResolvedValueOnce({
+      version: "X", buildIdentity: "native:X",
+    });
+    const bridge = createTauriBridge(invoke);
+
+    await bridge.render("pinned", { ...request, engineVersion: "X" }, vi.fn());
+    await expect(bridge.version("X")).resolves.toMatchObject({ version: "X" });
+
+    expect(invoke).toHaveBeenNthCalledWith(1, "render_native", expect.objectContaining({
+      requiredEngineVersion: "X",
+    }));
+    expect(invoke).toHaveBeenNthCalledWith(2, "native_engine_version", {
+      requiredEngineVersion: "X",
+    });
+  });
+
   it("decodes native mesh bytes and maps geometry statistics", async () => {
     const invoke = vi.fn().mockResolvedValue({
       kind: "3d",

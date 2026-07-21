@@ -1,4 +1,5 @@
 import { messages } from "../../messages/en";
+import { PROJECT_MANIFEST_PATH, serializeProjectEnginePin } from "../engine/project-engine-pin";
 import type {
   DocumentWorkspaceAction,
   DocumentWorkspaceState,
@@ -46,7 +47,8 @@ export type ProjectCommand =
   | { readonly kind: "move-project-file"; readonly path: string; readonly destinationPath: string }
   | { readonly kind: "delete-project-file"; readonly path: string }
   | { readonly kind: "reveal-project-file"; readonly path: string }
-  | { readonly kind: "refresh-project" };
+  | { readonly kind: "refresh-project" }
+  | { readonly kind: "pin-project-engine"; readonly engineVersion: string };
 
 const PROJECT_COMMAND_KINDS = new Set<ProjectCommand["kind"]>([
   "new-scratch-document",
@@ -62,6 +64,7 @@ const PROJECT_COMMAND_KINDS = new Set<ProjectCommand["kind"]>([
   "delete-project-file",
   "reveal-project-file",
   "refresh-project",
+  "pin-project-engine",
 ]);
 
 export function isProjectCommand<T extends { readonly kind: string }>(
@@ -356,6 +359,16 @@ export async function executeProjectCommand(
     case "reveal-project-file":
       await service().revealFile(command.path);
       return transition(state, `Reveal ${command.path}`);
+    case "pin-project-engine": {
+      if (state.mode !== "project") throw new Error("Engine versions can be pinned only for projects.");
+      await storage().write(
+        state.snapshot.projectId,
+        PROJECT_MANIFEST_PATH,
+        serializeProjectEnginePin(command.engineVersion),
+      );
+      const snapshot = await refresh();
+      return transition(updatedProject(snapshot), `Pin project engine ${command.engineVersion.trim()}`);
+    }
     case "refresh-project": {
       const snapshot = await refresh();
       return snapshot === state.snapshot
