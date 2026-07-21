@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-packaged-windows-sandbox-pass",
+  "createdAt": "2026-07-20T22:10:55-06:00",
+  "summary": "Pass the exact-head clean packaged Windows Sandbox evidence gate.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "FR-15.1", "AC-15.a", "V-5 release gate", "V-6 honesty rule"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-packaged-windows-sandbox-pass.json", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0476",
+      "topic": "Exact-head packaged Windows Sandbox gate",
+      "decision": "Accept candidate 474a514 as the first complete passing packaged Windows Sandbox evidence run for the current M4 stack and retain its 28-event evidence, exact application hash, screenshots, M4 walkthrough, export, process, recovery, layout, credential, and cleanup artifacts.",
+      "rationale": "The clean runner built from a clean exact source tree, selected the fixed WebView2 and pinned OpenSCAD engine, passed the full newcomer and lifecycle journey, exited zero, removed staging, and left no exact Sandbox session. Its warm and cold cached full paints both added zero engine runs and remained under AC-15.a.",
+      "specBasis": ["FR-15.1", "AC-15.a", "V-5 release gate", "V-6 honesty rule"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The exact source candidate must pass the complete isolated packaged desktop evidence journey and clean up its host-owned state.",
+      "test": "Build 474a514 from a clean tree, stage the exact pinned engine and fixed WebView2 into networking-disabled Windows Sandbox, execute the packaged lifecycle once, and verify the retained output.",
+      "red": {
+        "command": "Exact clean Sandbox run 644aedd",
+        "observedAt": "2026-07-20T22:02:18-06:00",
+        "outcome": "RED after M4 passed: the later layout oracle rejected the valid prior-project layout retained in the shared profile."
+      },
+      "green": {
+        "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\windows\\run-packaged-desktop-evidence.ps1 -TimeoutSeconds 600 -N2SoakMode disabled -OutputDirectory C:\\Users\\Scott\\Documents\\Codex\\2026-07-09\\read\\outputs\\scadmill-beta-474a514-sandbox-packaged-full-20260720",
+        "observedAt": "2026-07-20T22:09:56-06:00",
+        "outcome": "GREEN: evidence status passed with 28 checks, Sandbox exit 0, exact source commit 474a5141901d9a0cb278a6530fb305e2b2af0dba, application SHA-256 7587A2B761F7F4231A65ADFC556738F9763E78582012C64F07FB64152143DED3, clean pre/post build tree, zero remaining exact Sandbox sessions, and removed staging. Warm cache paint was 38.3 ms; cold post-restart cache paint was 65.8 ms; both added zero engine runs."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": ["No owner decision is required; this closes the current exact packaged Windows Sandbox evidence blocker."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

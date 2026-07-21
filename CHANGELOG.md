@@ -12,6 +12,8 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Added
 
+- Passed the complete exact-head packaged Windows Sandbox gate on candidate `474a514`: 28 retained checks, clean build and cleanup, fixed WebView2 and pinned OpenSCAD verification, export/MCP/M4/layout/recovery/credential lifecycle coverage, warm cache paint at 38.3 ms, and cold post-restart cache paint at 65.8 ms with zero new engine runs in both cache hits.
+
 - Passed the exact clean native M4 packaged newcomer journey on candidate `644aedd`: warm full-cache paint completed in 37.9 ms and cold post-restart full-cache paint in 56.4 ms, both with zero new engine runs. The enclosing packaged gate then exposed a separate later layout-oracle issue.
 
 - Updated the packaged layout proof to select the one fully validated opaque project layout matching the visible current width while allowing other valid prior-project layouts in the same durable profile; malformed, path-bearing, scratch, and ambiguous current layouts still fail closed.
