@@ -170,6 +170,9 @@ describe("installer lifecycle contract", () => {
     expect(lifecycle).toContain("Size deltas:");
     expect(lifecycle).toContain("function Format-WindowSize");
     expect(lifecycle).toContain("The observed off-monitor probe rectangle remained visible.");
+    expect(lifecycle).toContain(
+      "$offscreenExpected = Wait-WindowRect $second $secondHandle $offscreenRequested $tolerance",
+    );
     expect(lifecycle).toContain("$offscreenExpected.Right -gt $virtualLeft");
     expect(lifecycle).toContain("Last actual:");
     expect(lifecycle).toContain("Deltas:");
@@ -182,6 +185,8 @@ describe("installer lifecycle contract", () => {
     const secondLaunch = lifecycle.indexOf("$second = Start-Process");
     const secondReady = lifecycle.indexOf("Wait-WebViewReady $debugPort", secondLaunch);
     const secondRestore = lifecycle.indexOf("$restored = Wait-WindowRect", secondReady);
+    const offscreenSettle = lifecycle.indexOf("$offscreenExpected = Wait-WindowRect", secondRestore);
+    const secondClose = lifecycle.indexOf("Close-Normally $second", offscreenSettle);
     const thirdLaunch = lifecycle.indexOf("$third = Start-Process");
     const thirdReady = lifecycle.indexOf("Wait-WebViewReady $debugPort", thirdLaunch);
     const thirdRestore = lifecycle.indexOf("[void](Wait-VisibleWindowRect", thirdReady);
@@ -192,6 +197,8 @@ describe("installer lifecycle contract", () => {
     expect(secondLaunch).toBeGreaterThan(-1);
     expect(secondReady).toBeGreaterThan(secondLaunch);
     expect(secondRestore).toBeGreaterThan(secondReady);
+    expect(offscreenSettle).toBeGreaterThan(secondRestore);
+    expect(secondClose).toBeGreaterThan(offscreenSettle);
     expect(thirdLaunch).toBeGreaterThan(-1);
     expect(thirdReady).toBeGreaterThan(thirdLaunch);
     expect(thirdRestore).toBeGreaterThan(thirdReady);

@@ -460,8 +460,8 @@ $offscreenHeight = [Math]::Max(600, $restoredHeight - 67)
 if (-not [ScadMillWindowProbe]::MoveWindow($secondHandle, 40000, 40000, $offscreenWidth, $offscreenHeight, $true)) {
   throw "Could not set the off-monitor window-state probe rectangle."
 }
-Start-Sleep -Milliseconds 250
-$offscreenExpected = Read-WindowRect $secondHandle
+$offscreenRequested = Read-WindowRect $secondHandle
+$offscreenExpected = Wait-WindowRect $second $secondHandle $offscreenRequested $tolerance
 if (
   $offscreenExpected.Right -gt $virtualLeft -and
   $offscreenExpected.Left -lt $virtualRight -and
