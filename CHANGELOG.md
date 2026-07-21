@@ -12,6 +12,8 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Added
 
+- Corrected two stale historical README sentences immediately after publication so the live public front door reflects the merged M2–M4 branch and completed Windows installer gates.
+
 - Published the signed `ScadMill_0.1.0-beta.1_x64-setup.exe` Windows beta candidate: 208,699,552 bytes, SHA-256 `D196878A49804F852C49A81ACBB4AC5C232A88DA737F2D756F9B6376E435A588`, valid Windows signer `CN=Scott Converse, O=Scott Converse, L=Longmont, S=co, C=US`. The exact product commit is `dbee183`; subsequent release-documentation changes do not alter the packaged runtime.
 
 - Passed the complete exact-head packaged Windows Sandbox gate on candidate `474a514`: 28 retained checks, clean build and cleanup, fixed WebView2 and pinned OpenSCAD verification, export/MCP/M4/layout/recovery/credential lifecycle coverage, warm cache paint at 38.3 ms, and cold post-restart cache paint at 65.8 ms with zero new engine runs in both cache hits.

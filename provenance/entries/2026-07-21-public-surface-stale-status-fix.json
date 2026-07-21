@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-21-public-surface-stale-status-fix",
+  "createdAt": "2026-07-21T00:10:00-06:00",
+  "summary": "Remove two stale pre-merge and pre-qualification claims from the live public README.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "V-6 honesty rule"],
+  "filesTouched": [
+    { "path": "README.md", "status": "modified" },
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-21-public-surface-stale-status-fix.json", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0478",
+      "topic": "Post-publication status consistency",
+      "decision": "Treat current-state sentences embedded in historical milestone tables as public release claims and update them when the release lands.",
+      "rationale": "The live visitor audit showed that the README simultaneously called the beta public and said its branch and installer gates were still pending. Historical context does not justify a present-tense contradiction on the public front door.",
+      "specBasis": ["V-6 honesty rule"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The live README must not retain current-state pre-merge or pre-qualification claims after publication.",
+      "test": "Search the release-facing documents and inspect the rendered GitHub repository page after deployment.",
+      "red": {
+        "command": "Live GitHub repository visitor audit after publishing v0.1.0-beta.1",
+        "observedAt": "2026-07-21T00:08:00-06:00",
+        "outcome": "RED: rendered README said the milestone branch still awaited landing and the current Windows candidate still required exact-head installer gates."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/security-policy.test.ts tests/scripts/m2-boundary-docs.test.ts && pnpm.cmd check:provenance",
+        "observedAt": "2026-07-21T00:10:00-06:00",
+        "outcome": "GREEN: focused release-document tests and provenance validation passed; the stale strings are absent."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": ["No owner decision is required; this is a public-surface honesty correction."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
