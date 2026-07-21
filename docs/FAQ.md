@@ -2,7 +2,7 @@
 
 ## Where can I download the Windows beta?
 
-There is no public ScadMill download yet. `0.1.0-beta.1` is an unpublished 64-bit Windows desktop candidate. GitHub Actions artifacts are verification inputs, not supported installers. When the beta is published, the public release must provide the exact signed setup, byte length, SHA-256, and signer identity. See the [Windows beta guide](WINDOWS-BETA.md).
+Download `0.1.0-beta.1` from the [official GitHub release](https://github.com/scottconverse/scadmill/releases/tag/v0.1.0-beta.1). It is a 64-bit Windows desktop beta. Verify the exact byte length, SHA-256, and Windows signer in the [Windows beta guide](WINDOWS-BETA.md); GitHub Actions artifacts are not supported installers.
 
 ## Why can I edit in the browser but not render?
 
@@ -40,7 +40,7 @@ IndexedDB cannot provide real OS-trash semantics. The browser omits the action i
 
 ## Can I recover after a crash?
 
-ScadMill records recoverable unsaved buffers and presents them on restart. Historical packaged evidence exercises normal restart and forced-process recovery. The unpublished `0.1.0-beta.1` candidate must still pass its own exact-head packaged Windows Sandbox and release gates before publication.
+ScadMill records recoverable unsaved buffers and presents them on restart. The published `0.1.0-beta.1` package passed normal restart and forced-process recovery in its isolated installer lifecycle evidence.
 
 ## How is native/browser SVG parity checked?
 
@@ -51,10 +51,10 @@ STL parity remains exact byte-for-byte. Q-0034 permits SVG comparison to convert
 MCP is a desktop-only, local beta feature and is off by default. Keep the ScadMill GUI open, open **Settings**, search for **AI**, configure the mutation permissions, and enable **local MCP server (stdio)**. Configure your MCP client to launch the exact installed executable:
 
 ```text
-"C:\\Program Files\\ScadMill\\scadmill.exe" --mcp-stdio
+C:\Users\YOUR_USER\AppData\Local\ScadMill\scadmill.exe --mcp-stdio
 ```
 
-Use the actual installed path if you chose a different location. The status bar reports when an external agent is connected. Read tools run directly; `write_file` and `set_parameters` are denied by default and require **Allow once** or **Allow for this session**. Even then, each proposed mutation appears in History for explicit approval or denial before it changes the project. Turning the MCP toggle off closes the relay, removes its session endpoint, and exits the client process.
+Replace `YOUR_USER` with the current Windows profile name, or select the exact installed path if you chose another location. The status bar reports when an external agent is connected. Read tools run directly; `write_file` and `set_parameters` are denied by default and require **Allow once** or **Allow for this session**. Even then, each proposed mutation appears in History for explicit approval or denial before it changes the project. Turning the MCP toggle off closes the relay, removes its session endpoint, and exits the client process.
 
 If a client cannot connect, confirm the GUI is running, the toggle is on, the command points to that same installed executable, and no older relay process remains.
 

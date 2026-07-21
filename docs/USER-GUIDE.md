@@ -1,6 +1,6 @@
 # ScadMill user guide
 
-This guide describes the unpublished `0.1.0-beta.1` Windows desktop candidate, including completed M3 behavior and the M4 surfaces already present. There is no public installer yet. Start with the [Windows beta guide](WINDOWS-BETA.md) for release status, signed-setup verification, the required OpenSCAD download, installation, and uninstall guidance. Later M5/M6 work is identified explicitly.
+This guide describes the public `0.1.0-beta.1` Windows desktop beta, including completed M3 and M4 behavior. Start with the [Windows beta guide](WINDOWS-BETA.md) for the supported download, signed-setup verification, required OpenSCAD download, installation, and uninstall guidance. Later M5/M6 work is identified explicitly.
 
 ## Start a model
 
@@ -51,10 +51,10 @@ Browser editing and project features work without an engine in the implemented s
 The MCP bridge is desktop-only and off by default. Keep the ScadMill GUI open. In **Settings**, search for **AI**, choose the `write_file` and `set_parameters` permissions you want, then enable **local MCP server (stdio)**. Configure the client to run the exact same installed executable with one argument:
 
 ```text
-"C:\\Program Files\\ScadMill\\scadmill.exe" --mcp-stdio
+C:\Users\YOUR_USER\AppData\Local\ScadMill\scadmill.exe --mcp-stdio
 ```
 
-Replace the path if ScadMill is installed elsewhere. A connected client appears in the status bar. Read-only tools operate immediately. Mutation tools are denied by default; **Allow once** grants exactly one request and **Allow for this session** lasts only until the GUI session ends or you change it. Accepted mutation requests still enter the History review surface and do not alter the project until you approve the displayed file diff or parameter values. Denial leaves project state unchanged.
+Replace `YOUR_USER` with the current Windows profile name, or select the exact path if ScadMill is installed elsewhere. A connected client appears in the status bar. Read-only tools operate immediately. Mutation tools are denied by default; **Allow once** grants exactly one request and **Allow for this session** lasts only until the GUI session ends or you change it. Accepted mutation requests still enter the History review surface and do not alter the project until you approve the displayed file diff or parameter values. Denial leaves project state unchanged.
 
 The History rail also records ordinary workspace commands. Entries are newest first and identify whether a command came from you, the AI panel, an external agent, or ScadMill itself. Select an entry to inspect its time, kind, undoability, and exact before/after source when the command edited a document. Use the shared Edit menu or shortcuts to undo and redo applicable commands in chronological order.
 
@@ -76,4 +76,4 @@ Desktop AI secrets use the OS credential store and remain isolated per named pro
 
 ## Current milestone limits
 
-Q-0033 and Q-0034 are resolved, and their historical M3 compliance-package and parity execution evidence passed. Public web distribution remains a separate future release action and is not part of the Windows-first beta. The Windows candidate includes the current animation, AI, MCP, and complete command-history surfaces, but it is not public or release-qualified until the exact-candidate gates in the [Windows beta guide](WINDOWS-BETA.md#release-qualification-still-in-progress) pass. Installed libraries, navigation and refactoring expansion, batch features, printability and slicing estimates, color-preserving 3MF, and the headless CLI remain release-gated M5-M6 work unless their milestone evidence is recorded.
+Q-0033 and Q-0034 are resolved, and their historical M3 compliance-package and parity execution evidence passed. Public web distribution remains a separate future release action and is not part of the Windows-first beta. The Windows beta includes the current animation, AI, MCP, and complete command-history surfaces. Installed libraries, navigation and refactoring expansion, batch features, printability and slicing estimates, color-preserving 3MF, and the headless CLI remain release-gated M5-M6 work unless their milestone evidence is recorded.

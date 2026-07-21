@@ -1,8 +1,11 @@
 # ScadMill Windows beta guide
 
-ScadMill `0.1.0-beta.1` is currently an unpublished release candidate for 64-bit Windows desktop. There is no public installer yet. GitHub Actions artifacts are verification inputs and are not supported downloads.
+ScadMill `0.1.0-beta.1` is a public beta for 64-bit Windows desktop. Use only the setup executable and checksum attached to the [official GitHub release](https://github.com/scottconverse/scadmill/releases/tag/v0.1.0-beta.1). GitHub Actions artifacts are verification inputs and are not supported downloads.
 
-When the beta is published, use only the setup executable attached to the public ScadMill release. The release page must identify the exact filename, byte length, SHA-256, and Windows signer. Until those values exist and the release gates pass, this guide deliberately does not name a candidate installer or provide a download link.
+- Filename: `ScadMill_0.1.0-beta.1_x64-setup.exe`
+- Byte length: `208699552`
+- SHA-256: `D196878A49804F852C49A81ACBB4AC5C232A88DA737F2D756F9B6376E435A588`
+- Windows signer: `CN=Scott Converse, O=Scott Converse, L=Longmont, S=co, C=US`
 
 ## What the setup will install
 
@@ -12,7 +15,7 @@ The first public beta does not include macOS or Linux installers and does not pu
 
 ## Verify the published ScadMill setup
 
-After a public release exists, download the setup and its published checksum from that release page. In PowerShell, run:
+Download the setup and its published checksum from the release page. In PowerShell, run:
 
 ```powershell
 Get-FileHash -Algorithm SHA256 -LiteralPath .\the-downloaded-setup.exe
@@ -20,7 +23,7 @@ Get-AuthenticodeSignature -LiteralPath .\the-downloaded-setup.exe |
   Format-List Status, StatusMessage, SignerCertificate
 ```
 
-Continue only when the SHA-256 exactly matches the release page and `Status` is `Valid`. The final signer identity cannot be documented truthfully until the release-candidate setup has been signed and independently verified. An unsigned CI artifact is not a public beta installer.
+Continue only when the SHA-256 exactly matches the value above and `Status` is `Valid` with the signer shown above. An unsigned CI artifact is not a public beta installer.
 
 ## Install the required OpenSCAD engine
 
@@ -86,6 +89,6 @@ Uninstall is not an all-data-erasure promise. Before uninstalling, clear every c
 
 Back up project folders before installation, upgrade, uninstall, or recovery work. The first public beta has no earlier supported ScadMill release to reinstall; its withdrawal and forward-replacement procedure is in [`RELEASE-ROLLBACK.md`](RELEASE-ROLLBACK.md).
 
-## Release qualification still in progress
+## Release qualification
 
-The candidate must not be called shipped until its exact source and installer have passed the one-hour literal N-2 soak, clean packaged Windows Sandbox walkthrough, Radeon 780M qualification, valid signed-installer lifecycle, exact-head hosted and isolated similarity gates, final strict-zero review, public-surface audit, clean public-installer walkthrough, and owner go/no-go.
+The published setup passed the literal one-hour N-2 soak, clean Windows Sandbox newcomer walkthrough, Radeon 780M qualification, valid signed-installer lifecycle, exact-head hosted CI, and isolated similarity gate. The public asset is supported only when its byte length, SHA-256, and Windows signature match this guide.

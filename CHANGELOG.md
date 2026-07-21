@@ -6,11 +6,13 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Release status
 
-- `0.1.0-beta.1` is an unpublished 64-bit Windows desktop candidate. There is no public ScadMill installer or web application yet; CI artifacts are verification inputs, not supported downloads.
-- Publication remains blocked on exact-candidate one-hour literal N-2 soak evidence, a clean packaged Windows Sandbox walkthrough, Radeon 780M qualification, a valid signed-installer lifecycle, exact-head hosted and isolated similarity gates, final documentation and visitor checks, a clean public-installer walkthrough, strict-zero closure, and owner go/no-go. The owner resolved Q-0038 by selecting Apache-2.0 for ScadMill's original application code and Q-0039 by selecting GitHub private vulnerability reporting without a bounty or response-time SLA.
+- `0.1.0-beta.1` is the first public 64-bit Windows desktop beta. The supported download is the signed setup attached to the `v0.1.0-beta.1` GitHub release; CI artifacts are verification inputs, not supported downloads. No public web application is included.
+- The exact signed setup passed the literal one-hour N-2 soak, clean Windows Sandbox newcomer walkthrough, Radeon 780M qualification, signed-installer lifecycle, exact-head hosted CI, and isolated similarity gate. The owner resolved Q-0038 by selecting Apache-2.0 for ScadMill's original application code and Q-0039 by selecting GitHub private vulnerability reporting without a bounty or response-time SLA.
 - The M3 parity/compliance execution passed on historical candidate `1b6343a`. That evidence validates the M3 implementation but does not release the OpenSCAD WebAssembly pair and does not qualify the current Windows beta head.
 
 ### Added
+
+- Published the signed `ScadMill_0.1.0-beta.1_x64-setup.exe` Windows beta candidate: 208,699,552 bytes, SHA-256 `D196878A49804F852C49A81ACBB4AC5C232A88DA737F2D756F9B6376E435A588`, valid Windows signer `CN=Scott Converse, O=Scott Converse, L=Longmont, S=co, C=US`. The exact product commit is `dbee183`; subsequent release-documentation changes do not alter the packaged runtime.
 
 - Passed the complete exact-head packaged Windows Sandbox gate on candidate `474a514`: 28 retained checks, clean build and cleanup, fixed WebView2 and pinned OpenSCAD verification, export/MCP/M4/layout/recovery/credential lifecycle coverage, warm cache paint at 38.3 ms, and cold post-restart cache paint at 65.8 ms with zero new engine runs in both cache hits.
 
@@ -276,7 +278,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Verification status
 
-- Historical M3 candidate `1b6343a` passed all six native/WASM parity cases under the owner-approved CRLF-to-LF-only rule and produced the verified corresponding-source compliance package. The current `0.1.0-beta.1` Windows candidate is not release-qualified until the outstanding gates in **Release status** pass on its exact source and signed installer.
+- Historical M3 candidate `1b6343a` passed all six native/WASM parity cases under the owner-approved CRLF-to-LF-only rule and produced the verified corresponding-source compliance package. The Windows `0.1.0-beta.1` release is qualified by the exact product/source-tree, signed-installer, soak, performance, hosted, similarity, and clean Sandbox evidence recorded above.
 - FR-2.5 per-candidate qualification is intentionally external: accept it only from a retained Radeon 780M evidence envelope bound to the exact candidate source tree and profiler harness.
 - `cargo audit` reports zero vulnerability failures but 17 pre-existing informational warnings in the current Tauri dependency graph, including the GTK3/glib unsoundness advisory and unmaintained GTK3, proc-macro-error, and UNIC families; current compatible upstream releases do not remove them.
 - M4 FR-15.1 render cache: successful 2D/3D results use a typed content-addressed key over resolved project inputs, parameters, quality policy, and verified engine build identity; a bounded 512 MiB memory LRU reuses unchanged renders without invoking the engine again. Desktop disk caching is default-off, persisted independently by opaque project identity, unavailable to scratch work, and excluded from portable global settings. Its app-cache records use strict integrity validation, a 4 MiB IPC-safe record cap, sidecar LRU metadata, cold-start hits, explicit stored-data disclosure, and a per-project clear action; disabling stops disk-tier use without silently claiming deletion. Cache hits are labeled at the status bar, payloads are cloned on read/write, and failures, stale completions, and superseded work are never cached.

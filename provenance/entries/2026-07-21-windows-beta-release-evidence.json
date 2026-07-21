@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-21-windows-beta-release-evidence",
+  "createdAt": "2026-07-20T23:50:00-06:00",
+  "summary": "Bind the first public Windows beta documentation to the exact signed candidate and completed release evidence.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "FR-13.4", "FR-15.1", "AC-15.a", "V-5 release gate", "V-6 honesty rule"],
+  "filesTouched": [
+    { "path": "README.md", "status": "modified" },
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "PRIVACY.md", "status": "modified" },
+    { "path": "SECURITY.md", "status": "modified" },
+    { "path": "docs/FAQ.md", "status": "modified" },
+    { "path": "docs/RELEASE-NOTES-0.1.0-beta.1.md", "status": "added" },
+    { "path": "docs/USER-GUIDE.md", "status": "modified" },
+    { "path": "docs/WINDOWS-BETA.md", "status": "modified" },
+    { "path": "tests/scripts/security-policy.test.ts", "status": "modified" },
+    { "path": "provenance/entries/2026-07-21-windows-beta-release-evidence.json", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0477",
+      "topic": "Windows beta publication evidence",
+      "decision": "Publish only the exact signed Windows setup produced from product commit dbee183, with byte length 208699552, SHA-256 D196878A49804F852C49A81ACBB4AC5C232A88DA737F2D756F9B6376E435A588, and a valid Scott Converse Windows signature. Treat the release-documentation delta after dbee183 as non-runtime-only.",
+      "rationale": "The product commit passed hosted CI and the isolated similarity gate, the signed installer passed its lifecycle, the literal one-hour soak passed, Radeon 780M performance passed, and the same signed bytes completed the clean Windows Sandbox newcomer render-and-export walkthrough.",
+      "specBasis": ["FR-13.4", "FR-15.1", "AC-15.a", "V-5 release gate", "V-6 honesty rule"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The exact beta runtime must pass all release-critical automated, reliability, performance, installer, provenance, similarity, and clean newcomer gates.",
+      "test": "Review the retained literal soak, Radeon 780M profile, signed installer lifecycle, exact-head hosted CI, isolated similarity run, and clean Windows Sandbox walkthrough bound to dbee183.",
+      "red": {
+        "command": "GitHub Actions workflow_dispatch run concurrent with the required dbee183 pull-request run",
+        "observedAt": "2026-07-20T23:19:00-06:00",
+        "outcome": "RED: the redundant run exposed a 250 ms off-monitor lifecycle race even though the required run passed. The harness was corrected to wait for three stable probes for at least 600 ms; no product runtime code changed."
+      },
+      "green": {
+        "command": "One bounded evidence review of dbee183 retained outputs and hosted runs 29803652701 and 29803696193",
+        "observedAt": "2026-07-20T23:45:00-06:00",
+        "outcome": "GREEN: literal soak completed 3600.008 seconds with 120 successful cycles, one expected crash and zero unexpected failures; Radeon 780M rendered 2,000,000 triangles at 59.9401 average FPS with 16.8 ms p95 frame time; signed setup lifecycle and clean Sandbox install/render/export passed; all eight hosted CI jobs and the isolated similarity gate passed."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": ["No owner decision remains: the owner explicitly directed the implementer to finish and ship the Windows beta."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
