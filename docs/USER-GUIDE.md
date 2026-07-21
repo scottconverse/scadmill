@@ -46,7 +46,7 @@ Full-quality export supports 3MF, STL, OFF, AMF, SVG, DXF, and PNG where appropr
 
 ### Understand what is not included
 
-The public beta is Windows-only. It does not publish a browser app, Mac/Linux installers, or OpenSCAD WebAssembly engine. OpenSCAD is a separate required download. The development branch now contains the complete M5 scope plus M6 printability reporting, desktop slicer handoff, and engine version management. These are not part of the published beta. The headless CLI, color-preserving multi-object 3MF workflow, and manufacturing estimates remain M6 work.
+The public beta is Windows-only. It does not publish a browser app, Mac/Linux installers, or OpenSCAD WebAssembly engine. OpenSCAD is a separate required download. The development branch now contains the complete M5 scope plus M6 printability reporting, desktop slicer handoff, engine version management, and headless automation. These are not part of the published beta. Color-preserving preview/export and manufacturing estimates remain M6 work.
 
 ## Part II — Technical reference
 
@@ -89,6 +89,22 @@ Open **Manufacturing** and choose **Open in slicer**. ScadMill performs a fresh 
 Open **Settings → Engine** to see each detected or ScadMill-managed OpenSCAD executable, its source, and its exact executable SHA-256. The official-download section shows the archive SHA-256 before you choose **Download official OpenSCAD 2026.06.12**; downloads never start automatically. The native manager accepts only the recorded official URL and hashes, refuses redirects, caps the archive at 512 MiB, verifies both the archive and extracted executable, and then installs it under ScadMill's application-data directory.
 
 With a folder-backed project open, select an installed version and choose **Pin version to project**. ScadMill writes `scadmill.project.json`, sends that version on native render and export requests, and identifies the project pin in the status bar. If the pinned version is unavailable or the manifest is invalid, a fix-it banner opens Settings. Scratch documents cannot create a project pin. The web composition exposes no engine-manager controls.
+
+### Headless command line (development desktop builds)
+
+The desktop executable can render, export, inspect parameters, or run the printability check without opening a window. Invoke the installed executable by its full path when it is not on `PATH`:
+
+```powershell
+$scadmill = "$env:LOCALAPPDATA\ScadMill\scadmill.exe"
+& $scadmill params .\fixture.scad
+& $scadmill render --set thick .\fixture.scad
+& $scadmill export --set thick .\fixture.scad -o .\out\
+& $scadmill check .\fixture.scad --build-volume 220x220x250 --nozzle 0.4
+```
+
+`params` prints the extracted top-level literal parameter schema and does not require an engine. `render`, `export`, and `check` require the exact engine version from the adjacent `scadmill.project.json`, or OpenSCAD `2026.06.12` when no project pin exists. `--set NAME` reads the adjacent same-stem JSON parameter file by default; use `--param-file FILE` to select another stock OpenSCAD parameter-set JSON v1 file. Export defaults to 3MF, accepts `--format`, always uses full quality, and treats an extensionless `-o` path as a destination directory.
+
+Successful commands write one JSON object to standard output and exit `0`. Operational failures write JSON to standard error and exit `1`; invalid command usage exits `2`. Project scans skip symlinks and generated/dependency directories and fail closed above 4,096 files or 512 MiB.
 
 ### AI assistance
 
@@ -144,7 +160,7 @@ Development builds expose **Libraries** on the activity rail. Choose BOSL2, MCAD
 
 For interior inspection in a development build, enable **Section** in the 3D viewer, select X, Y, or Z, and drag **Section position** through the model. The control applies a real local clipping plane to the rendered mesh; it does not alter source or export geometry. Enter a name under **Camera bookmarks** to save the current position, target, up vector, projection, and zoom. Selecting the name recalls it; **Delete** removes it. Names are unique without regard to case, and saving the same name replaces that project bookmark.
 
-The development branch now includes the M6 printability report and desktop slicer handoff described above. The architecture also includes seams for a separately qualified web distribution and the remaining headless CLI, color/3MF, engine-manager, and manufacturing-estimate work. None is a claim about the currently published beta.
+The development branch now includes the M6 printability report, desktop slicer handoff, engine manager, and headless CLI described above. The architecture also includes seams for a separately qualified web distribution and the remaining color/3MF and manufacturing-estimate work. None is a claim about the currently published beta.
 
 ## Troubleshooting and support
 

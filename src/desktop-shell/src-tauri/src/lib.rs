@@ -19,6 +19,7 @@ mod artifact_storage;
 mod associated_files;
 mod desktop_settings;
 mod engine_version_manager;
+mod headless_cli;
 mod keychain;
 mod mcp_stdio;
 mod native_menu;
@@ -26,6 +27,7 @@ mod project_storage;
 mod render_cache;
 mod slicer_handoff;
 
+pub use headless_cli::run_headless_cli;
 pub use mcp_stdio::run_mcp_stdio_client;
 
 #[derive(Debug, Serialize)]

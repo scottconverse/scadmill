@@ -12,6 +12,8 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Added
 
+- Added the M6 headless CLI to the desktop artifact: `render`, `export`, `params`, and `check` run without opening a window, emit JSON, return stable success/operation/usage exit codes, honor the exact project engine pin and stock parameter-set JSON, and keep export on the unrestricted full-quality path. Windows and Linux hosted CI now run the normative named-set 3MF export with the exact checksummed OpenSCAD 2026.06.12 engine and no display server.
+
 - Added the M6 desktop engine version manager: Settings inventories detected and app-managed OpenSCAD executables with exact SHA-256 values, offers an explicit checksum-disclosed download of the allow-listed official Windows `2026.06.12` snapshot, and records a strict per-project pin in `scadmill.project.json`. Render and export requests honor that pin even when another engine is the default; the status bar identifies it and a missing or invalid pin produces a Settings fix-it banner.
 
 - Added M6 desktop slicer handoff: ScadMill performs a fresh full-quality 3MF export, writes a bounded unique temporary artifact, and launches a validated user-configured executable or a passively detected PrusaSlicer, OrcaSlicer, Cura, or Bambu Studio installation. The browser composition remains explicitly unavailable, failed exports never launch a process, and multi-object filament-assignment honesty copy appears only when the export path identifies a multi-object result.

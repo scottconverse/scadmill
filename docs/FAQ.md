@@ -64,4 +64,4 @@ Messages and selected context go only to the provider/model you choose for that 
 
 ## Which later capabilities are not in this beta?
 
-AI assistance and the local MCP bridge are present in the current M4 workbench. The development branch has completed M5 libraries, navigation, split editing, section view, camera bookmarks, history, and batch export, but those features are not claimed by this beta. Slicing and manufacturing estimates and the headless CLI remain M6 work.
+AI assistance and the local MCP bridge are present in the current M4 workbench. The development branch has completed M5 plus M6 printability reporting, desktop slicer handoff, per-project engine management, and headless automation, but those features are not claimed by this beta. Color-preserving multi-part preview/export and manufacturing estimates remain M6 work.
