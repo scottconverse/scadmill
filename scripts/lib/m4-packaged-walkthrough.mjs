@@ -639,8 +639,11 @@ export const M4_DOM_SCRIPTS = Object.freeze({
       done({ error: 'Cached full render did not reach the visible status area.' });
     }, 10000);
     const startedAt = performance.now();
-    const observer = new MutationObserver(() => {
-      if (!/\\bcached\\b/iu.test(status.textContent ?? '')) return;
+    let finishing = false;
+    const probe = () => {
+      if (finishing || !/\\bcached\\b/iu.test(status.textContent ?? '')
+        || document.querySelector('.quality-badge')) return;
+      finishing = true;
       observer.disconnect();
       window.clearTimeout(timeout);
       requestAnimationFrame(() => requestAnimationFrame(() => done({
@@ -651,9 +654,11 @@ export const M4_DOM_SCRIPTS = Object.freeze({
         canvasVisible: canvas.getClientRects().length > 0
           && canvas.clientWidth > 0 && canvas.clientHeight > 0,
       })));
-    });
-    observer.observe(status, { childList: true, characterData: true, subtree: true });
+    };
+    const observer = new MutationObserver(probe);
+    observer.observe(document.body, { childList: true, characterData: true, subtree: true });
     render.click();
+    probe();
   `,
 });
 

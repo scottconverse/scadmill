@@ -118,7 +118,8 @@ describe("createWorkbenchRuntime", () => {
         .map(([key, bytes]) => ({ key: key.slice(projectIdentity.length + 1), byteSize: bytes.byteLength, lastAccessMs: 1 })),
     };
     const projectA = createProjectSnapshot("project-a", new Map([["Untitled", "cube(1);"]]), "identity-a");
-    const runtime = createWorkbenchRuntime(cacheableEngine(), {
+    const initialEngine = cacheableEngine();
+    const runtime = createWorkbenchRuntime(initialEngine, {
       initialProject: projectA,
       renderDiskCacheStorage: diskStorage,
       renderDiskCachePreferencePersistence: preferencePersistence,
@@ -128,7 +129,8 @@ describe("createWorkbenchRuntime", () => {
     await runtime.dispatch({ kind: "set-project-disk-render-cache", origin: "user", enabled: true });
     expect(runtime.project.getState()).toMatchObject({ diskRenderCacheEnabled: true });
     expect(enabled.get("identity-a")).toBe(true);
-    const restarted = createWorkbenchRuntime(cacheableEngine(), {
+    const restartedEngine = cacheableEngine();
+    const restarted = createWorkbenchRuntime(restartedEngine, {
       initialProject: projectA,
       renderDiskCacheStorage: diskStorage,
       renderDiskCachePreferencePersistence: preferencePersistence,
@@ -136,6 +138,9 @@ describe("createWorkbenchRuntime", () => {
     expect(restarted.project.getState()).toMatchObject({ diskRenderCacheEnabled: true });
     await runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
     expect(diskStorage.write).toHaveBeenCalledTimes(1);
+    await restarted.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
+    expect(restartedEngine.render).not.toHaveBeenCalled();
+    expect(restarted.render.getState()).toMatchObject({ status: "success", cached: true });
 
     const projectB = createProjectSnapshot("project-b", new Map([["main.scad", "sphere(2);"]]), "identity-b");
     await runtime.dispatch({

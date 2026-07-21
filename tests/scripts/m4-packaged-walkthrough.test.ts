@@ -173,6 +173,37 @@ describe("M4 packaged newcomer walkthrough", () => {
     window.close();
   });
 
+  it("observes a cached full render when only the preview-quality badge changes", async () => {
+    const window = new Window();
+    window.document.body.innerHTML = `
+      <span class="status-render">Rendered main.scad (3d, cached)</span>
+      <span class="quality-badge">Preview quality</span>
+      <button type="button">Full render</button>
+      <div class="viewer-pane"><canvas></canvas></div>
+      <div class="console-run">initial preview</div>
+    `;
+    const button = window.document.querySelector("button");
+    const canvas = window.document.querySelector("canvas");
+    if (!button || !canvas) throw new Error("Cached full-render DOM fixture is incomplete.");
+    Object.defineProperties(canvas, {
+      clientWidth: { value: 640 },
+      clientHeight: { value: 480 },
+      getClientRects: { value: () => [{ width: 640, height: 480 }] },
+    });
+    button.addEventListener("click", () => window.document.querySelector(".quality-badge")?.remove());
+    const execute = window.eval(`(function() {${M4_DOM_SCRIPTS.cachedPaint}})`) as (
+      done: (value: unknown) => void,
+    ) => void;
+
+    await expect(new Promise<unknown>((resolve) => { execute(resolve); })).resolves.toMatchObject({
+      status: "Rendered main.scad (3d, cached)",
+      consoleRunsBefore: 1,
+      consoleRunsAfter: 1,
+      canvasVisible: true,
+    });
+    window.close();
+  });
+
   it("waits for one semantic proposal and fails immediately on an AI alert", async () => {
     const pending = {
       aiVisible: true, proposalCount: 0, pendingProposalCount: 0,
@@ -381,6 +412,9 @@ describe("M4 packaged newcomer walkthrough", () => {
     expect(M4_DOM_SCRIPTS.thumbnailDecodedSnapshot).toContain("record.renderIdentity === expectedRenderIdentity");
     expect(M4_DOM_SCRIPTS.thumbnailDecodedSnapshot).toContain("Date.parse(record.capturedAt) >= notBeforeMs");
     expect(M4_DOM_SCRIPTS.thumbnailDecodedSnapshot).toContain("}, 5000)");
+    expect(M4_DOM_SCRIPTS.cachedPaint).toContain("document.querySelector('.quality-badge')");
+    expect(M4_DOM_SCRIPTS.cachedPaint).toContain("observer.observe(document.body");
+    expect(M4_DOM_SCRIPTS.cachedPaint).toContain("render.click();\n    probe();");
   });
 
   it("rejects any unconfigured-AI renderer network attempt", () => {
