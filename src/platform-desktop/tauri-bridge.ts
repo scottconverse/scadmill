@@ -17,6 +17,7 @@ interface NativeRenderSuccess3DWireResponse {
   format: "stl-binary";
   meshBase64: string;
   triangleCount: number;
+  volumeMm3?: number;
   bounds: {
     min: [number, number, number];
     max: [number, number, number];
@@ -160,7 +161,6 @@ export function createTauriBridge(
         };
       }
       const vertices = reportedStatistic(response.rawLog, "Vertices");
-      const volumeMm3 = reportedStatistic(response.rawLog, "Volume");
       const bytes = decodeBase64(response.meshBase64);
       return {
         kind: "3d",
@@ -172,7 +172,7 @@ export function createTauriBridge(
           ...(vertices !== undefined ? { vertices } : {}),
           triangles: response.triangleCount,
           boundingBox: { min: response.bounds.min, max: response.bounds.max },
-          ...(volumeMm3 !== undefined ? { volumeMm3 } : {}),
+          ...(Number.isFinite(response.volumeMm3) ? { volumeMm3: response.volumeMm3 } : {}),
           engineTimeMs: response.engineTimeMs,
         },
         diagnostics,

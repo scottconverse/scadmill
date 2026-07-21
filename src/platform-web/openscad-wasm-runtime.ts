@@ -9,7 +9,7 @@ import type {
 import { parseEngineLog } from "../application/diagnostics/parse-engine-log";
 import { PINNED_OPENSCAD_WASM_BUILD_IDENTITY } from "../application/engine/engine-pin";
 import { parseProjectPath, validateProjectLayout } from "../application/files/project-path";
-import { parseBinaryStl } from "../application/geometry/stl";
+import { closedMeshVolumeMm3, parseBinaryStl } from "../application/geometry/stl";
 import type {
   WasmExportRequest,
   WasmProjectFile,
@@ -361,7 +361,7 @@ class Runtime implements OpenScadWasmRuntime {
         const bytes = this.readBytes(stlPath);
         const parsed = parseBinaryStl(bytes);
         const vertices = reportedStatistic(stlRawLog, "Vertices");
-        const volumeMm3 = reportedStatistic(stlRawLog, "Volume");
+        const volumeMm3 = closedMeshVolumeMm3(parsed.positions);
         result = {
           kind: "3d",
           mesh: { format: "stl-binary", bytes },
@@ -372,7 +372,7 @@ class Runtime implements OpenScadWasmRuntime {
               min: [...parsed.bounds.min],
               max: [...parsed.bounds.max],
             },
-            ...(volumeMm3 !== undefined ? { volumeMm3 } : {}),
+            volumeMm3,
             engineTimeMs: capture.elapsedMs(),
           },
           diagnostics: diagnostics(stlRawLog, request.files),

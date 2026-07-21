@@ -120,6 +120,25 @@ function binaryStl(size: number): Uint8Array {
   return bytes;
 }
 
+function tetrahedronStl(): Uint8Array {
+  const v0 = [10, 20, 30];
+  const v1 = [11, 20, 30];
+  const v2 = [10, 21, 30];
+  const v3 = [10, 20, 31];
+  const triangles = [v0, v2, v1, v0, v1, v3, v0, v3, v2, v1, v2, v3];
+  const bytes = new Uint8Array(84 + 4 * 50);
+  const view = new DataView(bytes.buffer);
+  view.setUint32(80, 4, true);
+  triangles.forEach((vertex, index) => {
+    const triangle = Math.floor(index / 3);
+    const vertexInTriangle = index % 3;
+    vertex.forEach((coordinate, axis) => {
+      view.setFloat32(84 + triangle * 50 + 12 + vertexInTriangle * 12 + axis * 4, coordinate, true);
+    });
+  });
+  return bytes;
+}
+
 interface Harness {
   readonly fs: MemoryFs;
   readonly options: OpenScadWasmModuleOptions;
@@ -253,6 +272,22 @@ describe("OpenScadWasmRuntime", () => {
     ]);
     expect(harness.state.current?.fs.files.size).toBe(0);
     expect(harness.state.current?.fs.directories).toEqual(new Set(["/"]));
+  });
+
+  it("derives enclosed volume from rendered STL when OpenSCAD does not report numeric volume", async () => {
+    const harness = moduleHarness((arguments_, current) => {
+      current.fs.writeFile(arguments_[arguments_.indexOf("-o") + 1], tetrahedronStl());
+      emit(current.options.stderr, "Facets: 4\n");
+      return 0;
+    });
+    const runtime = await createOpenScadWasmRuntime(harness.namespace, { locateFile: (path) => path });
+
+    const result = await runtime.render(renderRequest("full"));
+
+    expect(result.kind).toBe("3d");
+    if (result.kind !== "3d") throw new Error("Expected a 3D WASM render result.");
+    expect(result.stats.triangles).toBe(4);
+    expect(result.stats.volumeMm3).toBeCloseTo(1 / 6, 12);
   });
 
   it("passes the normalized animation time as an exact OpenSCAD definition", async () => {

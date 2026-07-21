@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseBinaryStl } from "../../../src/application/geometry/stl";
+import { closedMeshVolumeMm3, parseBinaryStl } from "../../../src/application/geometry/stl";
 
 function binaryStl(vertices: ReadonlyArray<readonly [number, number, number]>): Uint8Array {
   if (vertices.length % 3 !== 0) {
@@ -32,6 +32,33 @@ function setFacetNormal(bytes: Uint8Array, normal: readonly [number, number, num
 }
 
 describe("parseBinaryStl", () => {
+  it("derives translation-invariant enclosed volume from a closed tetrahedron", () => {
+    const origin: readonly [number, number, number] = [10, 20, 30];
+    const point = (x: number, y: number, z: number): readonly [number, number, number] => (
+      [origin[0] + x, origin[1] + y, origin[2] + z]
+    );
+    const v0 = point(0, 0, 0);
+    const v1 = point(1, 0, 0);
+    const v2 = point(0, 1, 0);
+    const v3 = point(0, 0, 1);
+    const parsed = parseBinaryStl(binaryStl([
+      v0, v2, v1,
+      v0, v1, v3,
+      v0, v3, v2,
+      v1, v2, v3,
+    ]));
+
+    expect(closedMeshVolumeMm3(parsed.positions)).toBeCloseTo(1 / 6, 12);
+  });
+
+  it("rejects incomplete or non-finite volume position buffers", () => {
+    expect(() => closedMeshVolumeMm3(new Float32Array())).toThrow("complete triangles");
+    expect(() => closedMeshVolumeMm3(new Float32Array(8))).toThrow("complete triangles");
+    const positions = new Float32Array(9);
+    positions[8] = Number.NaN;
+    expect(() => closedMeshVolumeMm3(positions)).toThrow("non-finite");
+  });
+
   it("derives triangle positions and bounds from binary STL vertices", () => {
     const result = parseBinaryStl(
       binaryStl([

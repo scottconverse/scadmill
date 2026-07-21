@@ -124,6 +124,8 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Fixed
 
+- Native and WASM 3D renders now derive enclosed volume from the exact binary STL triangle mesh with translation-stable compensated summation, and the desktop wire carries the native result explicitly. This replaces an ineffective search for a numeric `Volume:` line that official OpenSCAD 2026.06.12 does not emit, so real volume-changing edits can report AC-15.b's non-zero delta on both engine paths.
+
 - The packaged M4 full-render oracle now waits up to 15 seconds for an automatic preview to release the real **Full render** control, then takes its console-run baseline and requires exactly one new full render. This removes a race exposed by exact clean Sandbox evidence without weakening the render assertion.
 
 - The packaged M4 geometry-delta phase now removes the AI fixture's terminal whitespace before entering it through WebDriver. This preserves the AI transcript's exact newline-bearing proposal contract while avoiding an impossible byte-exact wait after pinned WebView2 omits the terminal newline from keyboard input.

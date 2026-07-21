@@ -167,6 +167,7 @@ struct NativeRenderSuccess3DResponse {
     mesh_base64: String,
     triangle_count: u32,
     bounds: scadmill_native_engine::Bounds3D,
+    volume_mm3: f64,
     raw_log: String,
     engine_time_ms: u128,
 }
@@ -287,6 +288,7 @@ async fn render_native(
                     mesh_base64: base64::engine::general_purpose::STANDARD.encode(mesh),
                     triangle_count: geometry.triangle_count,
                     bounds: geometry.bounds,
+                    volume_mm3: geometry.volume_mm3,
                     raw_log: rendered.raw_log,
                     engine_time_ms: rendered.engine_time_ms,
                 })

@@ -16,6 +16,37 @@ const TRIANGLE_BYTES = 50;
 const NORMAL_BYTES = 12;
 const COORDINATES_PER_TRIANGLE = 9;
 
+export function closedMeshVolumeMm3(positions: Float32Array): number {
+  if (positions.length === 0 || positions.length % COORDINATES_PER_TRIANGLE !== 0) {
+    throw new Error("STL positions must contain one or more complete triangles.");
+  }
+  const referenceX = positions[0];
+  const referenceY = positions[1];
+  const referenceZ = positions[2];
+  let signedSixfoldVolume = 0;
+  let compensation = 0;
+  for (let offset = 0; offset < positions.length; offset += COORDINATES_PER_TRIANGLE) {
+    const ax = positions[offset] - referenceX;
+    const ay = positions[offset + 1] - referenceY;
+    const az = positions[offset + 2] - referenceZ;
+    const bx = positions[offset + 3] - referenceX;
+    const by = positions[offset + 4] - referenceY;
+    const bz = positions[offset + 5] - referenceZ;
+    const cx = positions[offset + 6] - referenceX;
+    const cy = positions[offset + 7] - referenceY;
+    const cz = positions[offset + 8] - referenceZ;
+    const term = ax * (by * cz - bz * cy)
+      - ay * (bx * cz - bz * cx)
+      + az * (bx * cy - by * cx);
+    if (!Number.isFinite(term)) throw new Error("STL positions contain a non-finite coordinate.");
+    const corrected = term - compensation;
+    const next = signedSixfoldVolume + corrected;
+    compensation = (next - signedSixfoldVolume) - corrected;
+    signedSixfoldVolume = next;
+  }
+  return Math.abs(signedSixfoldVolume) / 6;
+}
+
 export function parseBinaryStl(bytes: Uint8Array): ParsedBinaryStl {
   if (bytes.byteLength < HEADER_BYTES) {
     throw new Error("Binary STL is shorter than its 84-byte header.");

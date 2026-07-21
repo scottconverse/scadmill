@@ -126,7 +126,8 @@ describe("createTauriBridge", () => {
       meshBase64: "AQID",
       triangleCount: 12,
       bounds: { min: [0, 0, 0], max: [5, 5, 5], size: [5, 5, 5] },
-      rawLog: "Vertices: 8\nFacets: 6\nVolume: 125.5\n",
+      volumeMm3: 125.5,
+      rawLog: "Vertices: 8\nFacets: 6\n",
       engineTimeMs: 11,
     });
 
