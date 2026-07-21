@@ -124,6 +124,8 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Fixed
 
+- The packaged M4 restart boundary now captures the current persisted-thumbnail digest immediately before process exit and compares it with the same record in the fresh process before project reopen. Same-geometry thumbnail writes that legitimately occur after the earlier Files/Welcome screenshots no longer invalidate the proof; any byte change across the actual restart still fails closed.
+
 - The packaged M4 restart proof now hashes the persisted thumbnail bytes in the fresh WebView before reopening the project, then requires the post-open render to retain the same canonical geometry identity and valid dimensions. This proves actual persistence without incorrectly demanding deterministic PNG re-encoding, and dismisses Welcome before assertions so source restoration remains reachable on failure.
 
 - The packaged M4 thumbnail walkthrough and retained-artifact verifier now require the product's canonical `sha256:<64 lowercase hex>` geometry identity instead of incorrectly requiring a bare digest; malformed algorithm prefixes remain rejected.

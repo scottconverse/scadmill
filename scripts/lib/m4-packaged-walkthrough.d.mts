@@ -63,6 +63,7 @@ export interface M4RestartEvidence {
   readonly beforePid: number;
   readonly afterPid: number;
   readonly freshWebViewProcesses: true;
+  readonly beforeCloseThumbnailSha256: string;
   readonly persistedThumbnailSha256: string;
 }
 

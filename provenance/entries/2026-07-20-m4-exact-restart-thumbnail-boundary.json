@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-m4-exact-restart-thumbnail-boundary",
+  "createdAt": "2026-07-20T20:36:41-06:00",
+  "summary": "Bind thumbnail persistence evidence to the exact pre-exit and fresh-process pre-reopen boundary.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "FR-15.13", "V-5 release gate", "V-6 honesty rule"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-m4-exact-restart-thumbnail-boundary.json", "status": "added" },
+    { "path": "scripts/lib/m4-packaged-verifier.mjs", "status": "modified" },
+    { "path": "scripts/lib/m4-packaged-walkthrough.d.mts", "status": "modified" },
+    { "path": "scripts/lib/m4-packaged-walkthrough.mjs", "status": "modified" },
+    { "path": "scripts/run-packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "tests/scripts/m4-packaged-verifier.test.ts", "status": "modified" },
+    { "path": "tests/scripts/m4-packaged-walkthrough.test.ts", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0464",
+      "topic": "Exact thumbnail restart boundary",
+      "decision": "Capture the unique persisted thumbnail PNG digest immediately before deleting the packaged WebDriver session, capture it again in the fresh application/WebView process before reopening the project, and require those digests to match exactly in both live and retained verification. Continue to compare canonical geometry identity after project reopen.",
+      "rationale": "The earlier Files and Welcome screenshots can be followed by another valid same-geometry thumbnail write before shutdown. They are presentation evidence, not the process-persistence boundary. Exact pre-exit versus fresh-process pre-reopen bytes directly prove durable restart persistence and fail on any replacement at the boundary that matters.",
+      "specBasis": ["FR-15.13", "V-5 release gate", "V-6 honesty rule"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Evidence must retain equal canonical digests from immediately before process exit and from the fresh process before reopen.",
+      "test": "Require beforeCloseThumbnailSha256 throughout the walkthrough type, live validator, retained verifier, runner ordering contract, and tamper fixture.",
+      "red": {
+        "command": "npm.cmd test -- --run tests/scripts/m4-packaged-walkthrough.test.ts tests/scripts/m4-packaged-verifier.test.ts tests/scripts/packaged-desktop-evidence.test.ts",
+        "observedAt": "2026-07-20T20:35:31-06:00",
+        "outcome": "RED: 4 failed, 72 passed because the implementation did not capture or validate the exact pre-exit digest."
+      },
+      "green": {
+        "command": "npm.cmd test -- --run tests/scripts/m4-packaged-walkthrough.test.ts tests/scripts/m4-packaged-verifier.test.ts tests/scripts/packaged-desktop-evidence.test.ts",
+        "observedAt": "2026-07-20T20:36:34-06:00",
+        "outcome": "GREEN: 76/76 tests passed with live and retained exact-boundary equality plus runner ordering coverage."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-8b39b37-sandbox-m4-native-split-20260720/evidence.json",
+      "sought": "Exact clean packaged native M4 restart persistence evidence",
+      "confirmation": "The run passed release build, cube/STL, MCP, cache, geometry delta, animation, and thumbnail presentation, then showed that the current pre-reopen persisted PNG differed from the older Files-view PNG for the same geometry. Host cleanup passed."
+    }
+  ],
+  "questions": ["No owner decision is required; this moves the byte-equality oracle to the literal process-restart boundary."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

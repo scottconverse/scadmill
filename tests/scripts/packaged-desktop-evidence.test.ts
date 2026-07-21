@@ -928,7 +928,9 @@ describe("packaged desktop evidence helpers", () => {
     expect(runner).toContain('assert.equal(savedSource, expectedSource, "M4 restart source differs from the helper\'s cold-cache source.");');
     expect(runner).toContain('(await readFile(m4ProjectFile, "utf8")) === expectedSource');
     expect(runner).toContain("M4_DOM_SCRIPTS.thumbnailSnapshot");
+    expect(runner).toContain("beforeCloseThumbnailSha256");
     expect(runner).toContain("persistedThumbnailSha256");
+    expect(runner.indexOf("beforeCloseThumbnailSha256")).toBeLessThan(runner.indexOf("await client.deleteSession();"));
     expect(runner).toContain("await openDesktopProject(client, m4ProjectDirectory, expectedSource);");
     expect(runner.indexOf("M4_DOM_SCRIPTS.thumbnailSnapshot")).toBeLessThan(
       runner.indexOf("await openDesktopProject(client, m4ProjectDirectory, expectedSource);"),

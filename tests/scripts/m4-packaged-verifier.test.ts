@@ -116,7 +116,13 @@ async function fixture() {
     delta: { unchanged: true, volumeDeltaMm3: 200, boundsDeltaMm: [2, 0, 0] },
     animation: { frame: 52, time: 0.51, fps: 24, scrubConsoleRunsAdded: 1, playConsoleRunsAdded: 1, serialized: true },
     thumbnails: { documentPath: "main.scad", renderIdentity: `sha256:${"1".repeat(64)}`, pngSha256: "2".repeat(64), byteLength: 100, width: 240, height: 160, persistedAcrossRestart: true },
-    restart: { beforePid: 100, afterPid: 200, freshWebViewProcesses: true, persistedThumbnailSha256: "2".repeat(64) },
+    restart: {
+      beforePid: 100,
+      afterPid: 200,
+      freshWebViewProcesses: true,
+      beforeCloseThumbnailSha256: "2".repeat(64),
+      persistedThumbnailSha256: "2".repeat(64),
+    },
     screenshots: SCREENSHOTS.map((name) => ({ name, sha256: sha256(bytes), byteLength: bytes.byteLength })),
     source: { initialSha256: sourceSha, restoredSha256: sourceSha, restoredExactly: true },
   };

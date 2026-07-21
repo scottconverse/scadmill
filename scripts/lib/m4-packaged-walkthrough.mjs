@@ -1201,11 +1201,13 @@ function validateCachedPaint(value, limitMs) {
 }
 
 function validateRestart(value) {
-  assert.ok(exactKeys(value, ["beforePid", "afterPid", "freshWebViewProcesses", "persistedThumbnailSha256"]), "Restart observation has the wrong shape.");
+  assert.ok(exactKeys(value, ["beforePid", "afterPid", "freshWebViewProcesses", "beforeCloseThumbnailSha256", "persistedThumbnailSha256"]), "Restart observation has the wrong shape.");
   assert.ok(Number.isSafeInteger(value.beforePid) && value.beforePid > 0, "Restart prior PID is invalid.");
   assert.ok(Number.isSafeInteger(value.afterPid) && value.afterPid > 0 && value.afterPid !== value.beforePid, "Restart did not create a fresh application process.");
   assert.equal(value.freshWebViewProcesses, true, "Restart did not create fresh WebView processes.");
+  assert.match(value.beforeCloseThumbnailSha256, /^[a-f0-9]{64}$/u, "Restart did not retain a canonical pre-close thumbnail digest.");
   assert.match(value.persistedThumbnailSha256, /^[a-f0-9]{64}$/u, "Restart did not retain a canonical thumbnail digest.");
+  assert.equal(value.persistedThumbnailSha256, value.beforeCloseThumbnailSha256, "Persisted thumbnail bytes changed across the process restart.");
 }
 
 export async function waitForM4AiProposalOutcome(
@@ -1494,7 +1496,6 @@ export async function runM4PackagedWalkthrough({
 
     const restart = await automation.restartApplication(thumbnailCacheSource, projectPath);
     validateRestart(restart);
-    assert.equal(restart.persistedThumbnailSha256, fileTreeThumbnail.sha256, "Persisted thumbnail bytes changed before the project reopened.");
     await automation.waitForText("ScadMill");
     await automation.clickButton("Welcome");
     await automation.waitForText("Recent projects");
