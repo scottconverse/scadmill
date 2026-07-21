@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-m4-startup-preview-cache-independence",
+  "createdAt": "2026-07-20T21:22:58-06:00",
+  "summary": "Allow a freshly rendered startup preview before the strict cold cached-full measurement.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "FR-4.3", "FR-15.1", "AC-15.a", "V-5 release gate", "V-6 honesty rule"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-m4-startup-preview-cache-independence.json", "status": "added" },
+    { "path": "scripts/lib/m4-packaged-walkthrough.mjs", "status": "modified" },
+    { "path": "tests/scripts/m4-packaged-walkthrough.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0470",
+      "topic": "Startup preview independence from cold full-cache proof",
+      "decision": "After process restart, wait for an enabled Full render control, a successful Rendered status, and the visible Preview-quality badge before measuring. Do not require that startup preview to be cached. Continue to require the subsequent Full render to show cached status, remove the preview badge, add zero Console runs, retain a visible canvas, and paint under the AC-15.a limit.",
+      "rationale": "Exact clean evidence at 95ef226 showed the automatic startup preview can validly render through the engine while the persisted full-quality result remains the cache target under test. Requiring the independent preview to be cached prevented the Full click entirely and tested a condition AC-15.a does not impose.",
+      "specBasis": ["FR-4.3", "FR-15.1", "AC-15.a", "V-5 release gate", "V-6 honesty rule"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "A completed noncached startup preview must release the strict cached-full measurement without being mistaken for the measured cache hit.",
+      "test": "Present a delayed successful preview with Preview-quality badge and noncached status, then make Full render transition to cached status with the badge removed and no new Console run.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/m4-packaged-walkthrough.test.ts -t \"waits for the deferred cached preview before observing its full-quality transition\" --reporter=dot",
+        "observedAt": "2026-07-20T21:22:05-06:00",
+        "outcome": "RED: 1/1 failed within the bounded fixture because Full render was never clicked when the completed preview status was noncached."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/m4-packaged-walkthrough.test.ts -t \"waits for the deferred preview before observing its cached full-quality transition\" --reporter=dot",
+        "observedAt": "2026-07-20T21:22:35-06:00",
+        "outcome": "GREEN: 1/1 passed; the noncached preview released the click and the full transition still had to be cached."
+      }
+    },
+    {
+      "criterion": "The correction must preserve the combined M4 harness, verifier, packaged evidence, runtime cache, and TypeScript boundaries.",
+      "test": "Run TypeScript no-emit and the four focused M4/runtime suites once.",
+      "red": {
+        "command": "Not applicable: aggregate verification follows the behavioral RED/GREEN cycle above.",
+        "observedAt": "2026-07-20T21:22:43-06:00",
+        "outcome": "No synthetic aggregate failure was created."
+      },
+      "green": {
+        "command": "pnpm.cmd run typecheck; pnpm.cmd exec vitest run tests/scripts/m4-packaged-walkthrough.test.ts tests/scripts/m4-packaged-verifier.test.ts tests/scripts/packaged-desktop-evidence.test.ts tests/application/runtime/workbench-runtime.test.ts --reporter=dot",
+        "observedAt": "2026-07-20T21:22:43-06:00",
+        "outcome": "GREEN: TypeScript no-emit passed and 109/109 tests passed."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-95ef226-sandbox-m4-native-split-20260720/evidence.json",
+      "sought": "Exact clean packaged native M4 cold-start cache evidence",
+      "confirmation": "The retained timeout state proved clickStarted=false with a successful noncached 3D preview, visible preview badge, enabled Full control, and one post-restart engine run; host cleanup passed."
+    }
+  ],
+  "questions": ["No owner decision is required; this aligns the oracle with the existing AC-15.a cached-full requirement."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

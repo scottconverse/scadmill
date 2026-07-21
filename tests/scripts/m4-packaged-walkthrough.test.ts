@@ -173,7 +173,7 @@ describe("M4 packaged newcomer walkthrough", () => {
     window.close();
   });
 
-  it("waits for the deferred cached preview before observing its full-quality transition", async () => {
+  it("waits for the deferred preview before observing its cached full-quality transition", async () => {
     const window = new Window();
     window.document.body.innerHTML = `
       <span class="status-render">Rendered main.scad (3d)</span>
@@ -193,8 +193,17 @@ describe("M4 packaged newcomer walkthrough", () => {
     let clickedBeforePreview = false;
     button.addEventListener("click", () => {
       clickedBeforePreview = window.document.querySelector(".quality-badge") === null;
+      status.textContent = "Rendered main.scad (3d, cached)";
       window.document.querySelector(".quality-badge")?.remove();
     });
+    const nativeSetTimeout = window.setTimeout.bind(window);
+    window.setTimeout = ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => (
+      nativeSetTimeout(
+        handler as (...handlerArguments: unknown[]) => void,
+        timeout === 15000 ? 50 : timeout,
+        ...args,
+      )
+    )) as typeof window.setTimeout;
     const execute = window.eval(`(function() {${M4_DOM_SCRIPTS.cachedPaint}})`) as (
       waitForPreview: boolean,
       done: (value: unknown) => void,
@@ -202,7 +211,7 @@ describe("M4 packaged newcomer walkthrough", () => {
 
     const result = new Promise<unknown>((resolve) => { execute(true, resolve); });
     window.setTimeout(() => {
-      status.textContent = "Rendered main.scad (3d, cached)";
+      status.textContent = "Rendered main.scad (3d)";
       const badge = window.document.createElement("span");
       badge.className = "quality-badge";
       badge.textContent = "Preview quality";

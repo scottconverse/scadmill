@@ -659,7 +659,7 @@ export const M4_DOM_SCRIPTS = Object.freeze({
       const previewBadge = document.querySelector('.quality-badge');
       if (!clickStarted) {
         if (render.disabled || (waitForPreview
-          && (!/\\bcached\\b/iu.test(status.textContent ?? '') || !previewBadge))) return;
+          && (!/^Rendered /u.test(status.textContent ?? '') || !previewBadge))) return;
         consoleRunsBefore = document.querySelectorAll('.console-run').length;
         startedAt = performance.now();
         clickStarted = true;
