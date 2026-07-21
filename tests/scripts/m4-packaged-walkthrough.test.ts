@@ -988,7 +988,7 @@ describe("M4 packaged newcomer walkthrough", () => {
               key: `scadmill.desktop-render-thumbnails.v1:desktop-project:${"a".repeat(64)}`,
               value: JSON.stringify({
                 version: 1,
-                records: [{ documentPath: "main.scad", renderIdentity: "b".repeat(64), capturedAt: "2026-07-18T12:00:00.000Z", pngBase64: pngBase64() }],
+                records: [{ documentPath: "main.scad", renderIdentity: `sha256:${"b".repeat(64)}`, capturedAt: "2026-07-18T12:00:00.000Z", pngBase64: pngBase64() }],
               }),
             }],
             fileTree: { count: thumbnailPhase === "file-tree" ? 1 : 0, src: thumbnailPhase === "file-tree" ? `data:image/png;base64,${pngBase64()}` : null, complete: true, naturalWidth: 240, naturalHeight: 160, decoded: true },
@@ -1007,7 +1007,7 @@ describe("M4 packaged newcomer walkthrough", () => {
               key: `scadmill.desktop-render-thumbnails.v1:desktop-project:${"a".repeat(64)}`,
               value: JSON.stringify({
                 version: 1,
-                records: [{ documentPath: "main.scad", renderIdentity: "b".repeat(64), capturedAt: "2026-07-18T12:00:00.000Z", pngBase64: pngBase64() }],
+                records: [{ documentPath: "main.scad", renderIdentity: `sha256:${"b".repeat(64)}`, capturedAt: "2026-07-18T12:00:00.000Z", pngBase64: pngBase64() }],
               }),
             }],
             fileTree: { count: thumbnailPhase === "file-tree" ? 1 : 0, src: thumbnailPhase === "file-tree" ? `data:image/png;base64,${pngBase64()}` : null, complete: true, naturalWidth: 240, naturalHeight: 160, decoded: true },

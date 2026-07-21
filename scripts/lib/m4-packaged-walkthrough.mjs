@@ -1131,7 +1131,7 @@ function validateThumbnailSnapshot(snapshot, projectPath, surface) {
   assert.equal(matching.length, 1, "Thumbnail envelope must contain the active file exactly once.");
   const record = matching[0];
   assert.ok(exactKeys(record, ["documentPath", "renderIdentity", "capturedAt", "pngBase64"]), "Thumbnail record has the wrong shape.");
-  assert.match(record.renderIdentity, /^[a-f0-9]{64}$/u, "Thumbnail geometry identity is not canonical SHA-256.");
+  assert.match(record.renderIdentity, /^sha256:[a-f0-9]{64}$/u, "Thumbnail geometry identity is not canonical SHA-256.");
   assert.ok(Number.isFinite(Date.parse(record.capturedAt)), "Thumbnail timestamp is invalid.");
   const png = inspectM4Png(Buffer.from(record.pngBase64, "base64"), "Persisted thumbnail", MAX_THUMBNAIL_BYTES, THUMBNAIL_PNG_LIMITS);
   const visual = snapshot[surface];

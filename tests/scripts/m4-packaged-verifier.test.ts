@@ -115,7 +115,7 @@ async function fixture() {
     cache: { baselineConsoleRunsAdded: 1, elapsedMs: 42.25, consoleRunsAdded: 0, coldElapsedMs: 43.5, restoredAfterRestart: true },
     delta: { unchanged: true, volumeDeltaMm3: 200, boundsDeltaMm: [2, 0, 0] },
     animation: { frame: 52, time: 0.51, fps: 24, scrubConsoleRunsAdded: 1, playConsoleRunsAdded: 1, serialized: true },
-    thumbnails: { documentPath: "main.scad", renderIdentity: "1".repeat(64), pngSha256: "2".repeat(64), byteLength: 100, width: 240, height: 160, persistedAcrossRestart: true },
+    thumbnails: { documentPath: "main.scad", renderIdentity: `sha256:${"1".repeat(64)}`, pngSha256: "2".repeat(64), byteLength: 100, width: 240, height: 160, persistedAcrossRestart: true },
     restart: { beforePid: 100, afterPid: 200, freshWebViewProcesses: true },
     screenshots: SCREENSHOTS.map((name) => ({ name, sha256: sha256(bytes), byteLength: bytes.byteLength })),
     source: { initialSha256: sourceSha, restoredSha256: sourceSha, restoredExactly: true },
@@ -238,6 +238,16 @@ describe("retained M4 packaged verifier", () => {
       ...input,
       events: [{ ...value.initialEvent, evidenceSha256: sha256(disguisedBrokerText) }, value.cleanupEvent],
     })).rejects.toThrow("AI evidence");
+    await writeFile(value.walkthroughPath, `${JSON.stringify(value.walkthrough, null, 2)}\n`);
+
+    const malformedIdentity = structuredClone(value.walkthrough);
+    malformedIdentity.thumbnails.renderIdentity = `sha512:${"1".repeat(64)}`;
+    const malformedIdentityText = `${JSON.stringify(malformedIdentity, null, 2)}\n`;
+    await writeFile(value.walkthroughPath, malformedIdentityText);
+    await expect(verifyM4PackagedArtifacts({
+      ...input,
+      events: [{ ...value.initialEvent, evidenceSha256: sha256(malformedIdentityText) }, value.cleanupEvent],
+    })).rejects.toThrow("thumbnail evidence");
     await writeFile(value.walkthroughPath, `${JSON.stringify(value.walkthrough, null, 2)}\n`);
 
     const target = join(value.root, SCREENSHOTS[0]);

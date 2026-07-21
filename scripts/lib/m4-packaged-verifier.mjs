@@ -45,6 +45,10 @@ function validSha(value) {
   return typeof value === "string" && /^[a-f0-9]{64}$/iu.test(value);
 }
 
+function validGeometryIdentity(value) {
+  return typeof value === "string" && /^sha256:[a-f0-9]{64}$/u.test(value);
+}
+
 function canonicalJson(value) {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
   if (value !== null && typeof value === "object") {
@@ -149,7 +153,7 @@ function requireWalkthroughShape(value) {
     || value.animation.frame !== 52 || value.animation.time !== 0.51 || value.animation.fps !== 24
     || value.animation.scrubConsoleRunsAdded !== 1 || value.animation.playConsoleRunsAdded !== 1 || value.animation.serialized !== true) throw new Error("Retained M4 animation evidence is invalid.");
   if (!exactKeys(value.thumbnails, ["documentPath", "renderIdentity", "pngSha256", "byteLength", "width", "height", "persistedAcrossRestart"])
-    || value.thumbnails.documentPath !== "main.scad" || !validSha(value.thumbnails.renderIdentity) || !validSha(value.thumbnails.pngSha256)
+    || value.thumbnails.documentPath !== "main.scad" || !validGeometryIdentity(value.thumbnails.renderIdentity) || !validSha(value.thumbnails.pngSha256)
     || !Number.isSafeInteger(value.thumbnails.byteLength) || value.thumbnails.byteLength <= 0
     || value.thumbnails.width !== 240 || value.thumbnails.height !== 160 || value.thumbnails.persistedAcrossRestart !== true) throw new Error("Retained M4 thumbnail evidence is invalid.");
   if (!exactKeys(value.restart, ["beforePid", "afterPid", "freshWebViewProcesses"])
