@@ -12,6 +12,10 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Added
 
+- Passed the exact clean native M4 packaged newcomer journey on candidate `644aedd`: warm full-cache paint completed in 37.9 ms and cold post-restart full-cache paint in 56.4 ms, both with zero new engine runs. The enclosing packaged gate then exposed a separate later layout-oracle issue.
+
+- Updated the packaged layout proof to select the one fully validated opaque project layout matching the visible current width while allowing other valid prior-project layouts in the same durable profile; malformed, path-bearing, scratch, and ambiguous current layouts still fail closed.
+
 - Corrected every desktop render-cache IPC payload to send the Rust command contract's `workspaceIdentity` field instead of the rejected `projectIdentity` alias. Native cache reads, writes, lists, touches, removals, and clears can now execute rather than silently falling back to memory-only behavior.
 
 - Bound the native cache diagnostic to Tauri's page-owned invoke receiver and a non-protocol `diagnosticError` field, preventing the evidence probe itself from being detached or misclassified as a WebDriver remote error.

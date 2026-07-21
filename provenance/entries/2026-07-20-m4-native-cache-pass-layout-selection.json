@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-m4-native-cache-pass-layout-selection",
+  "createdAt": "2026-07-20T22:04:43-06:00",
+  "summary": "Record the exact native M4 cache pass and select the current layout among valid prior-project records.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "FR-15.1", "AC-15.a", "V-5 release gate", "V-6 honesty rule"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-m4-native-cache-pass-layout-selection.json", "status": "added" },
+    { "path": "scripts/lib/packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0475",
+      "topic": "Current packaged workspace layout selection",
+      "decision": "Validate every retained opaque desktop-project layout entry, then require exactly one entry whose serialized dock width matches the current visible splitter width. Permit valid layouts for prior projects to coexist, while continuing to reject malformed entries, path-bearing values, scratch identities, and multiple current-width candidates.",
+      "rationale": "After the M4 project completed successfully, the later recovery-project layout proof shared the same durable WebView profile and therefore contained two legitimate project layout records. The former oracle required exactly one project layout in the entire profile, so it could never pass after the preceding M4 journey started persisting its own layout.",
+      "specBasis": ["V-5 release gate", "V-6 honesty rule"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "One current-width layout must be selectable in the presence of a valid prior-project layout.",
+      "test": "Supply valid 260 px and 300 px opaque project layouts while the visible splitter is 300 px.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts -t \"selects the one current-width layout\" --reporter=dot",
+        "observedAt": "2026-07-20T22:03:31-06:00",
+        "outcome": "RED: 1/1 failed because the prior oracle rejected any second project layout entry."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts --reporter=dot; pnpm.cmd run typecheck",
+        "observedAt": "2026-07-20T22:04:26-06:00",
+        "outcome": "GREEN: 56/56 packaged helper tests passed and TypeScript no-emit passed."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-644aedd-sandbox-m4-native-cache-fix-20260720/m4-packaged-walkthrough.json",
+      "sought": "Exact clean packaged native M4 newcomer and cold-cache evidence",
+      "confirmation": "PASSED: warm cached full paint was 37.9 ms with zero new engine runs; cold post-restart cached full paint was 56.4 ms with zero new engine runs; the M4 event and retained walkthrough were written before the later layout-oracle failure."
+    },
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-644aedd-sandbox-m4-native-cache-fix-20260720/evidence.json",
+      "sought": "Complete packaged desktop evidence",
+      "confirmation": "The run advanced beyond M4 and failed only when the later layout observer rejected multiple valid project layout records; exact Sandbox cleanup passed."
+    }
+  ],
+  "questions": ["No owner decision is required; this aligns the later oracle with the shared-profile product behavior already exercised by the same gate."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

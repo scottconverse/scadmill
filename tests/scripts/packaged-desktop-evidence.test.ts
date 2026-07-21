@@ -310,6 +310,45 @@ describe("packaged desktop evidence helpers", () => {
     });
   });
 
+  it("selects the one current-width layout while retaining a prior project's valid layout", () => {
+    const currentIdentity = `desktop-project:${"a".repeat(64)}`;
+    const priorIdentity = `desktop-project:${"b".repeat(64)}`;
+    const layout = {
+      version: 1,
+      activeRail: "files",
+      dockOpen: true,
+      editorOpen: true,
+      viewerOpen: true,
+      parameterOpen: true,
+      consoleOpen: false,
+      dockWidth: 300,
+      viewerWidth: 480,
+      parameterHeight: 220,
+      consoleHeight: 180,
+      narrowView: "code",
+    };
+    const currentValue = JSON.stringify(layout);
+
+    expect(validatePackagedWorkspaceLayoutObservation({
+      dockWidth: 300,
+      storageEntries: [
+        {
+          key: `scadmill.desktop-workspace-layout.v1:${priorIdentity}`,
+          value: JSON.stringify({ ...layout, dockWidth: 260 }),
+        },
+        {
+          key: `scadmill.desktop-workspace-layout.v1:${currentIdentity}`,
+          value: currentValue,
+        },
+      ],
+    }, 300)).toEqual({
+      dockWidth: 300,
+      serializedLayout: currentValue,
+      storageKey: `scadmill.desktop-workspace-layout.v1:${currentIdentity}`,
+      workspaceIdentity: currentIdentity,
+    });
+  });
+
   it("rejects serialized layout evidence that could expose a raw project path", () => {
     const workspaceIdentity = `desktop-project:${"a".repeat(64)}`;
     const storageKey = `scadmill.desktop-workspace-layout.v1:${workspaceIdentity}`;
