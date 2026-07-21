@@ -124,7 +124,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Fixed
 
-- The native-only M4 gate now establishes the same explicit `cube([14, 10, 10])` MCP fixture that the hosted AI sequence previously produced, so MCP diff/review assertions retain their exact precondition after evidence ownership was split.
+- The native-only M4 gate now captures its actual editor source immediately before MCP default-deny, proves denial leaves it unchanged, and compares the pending review against that exact source and an exact no-trailing-newline proposal. This removes the obsolete dependency on a preceding AI mutation and avoids synthetic CodeMirror fixture entry while retaining exact diff and approval assertions.
 
 - Hardened packaged AI walkthrough input so WebDriver proves and, at most once, corrects focus on the exact connected enabled Message textarea before text insertion; focus diagnostics contain only fixed-name booleans and never retain message, credential, or active-element attribute values.
 

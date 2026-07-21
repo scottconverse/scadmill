@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-m4-native-mcp-dynamic-precondition",
+  "createdAt": "2026-07-20T19:18:30-06:00",
+  "summary": "Capture the exact native MCP source precondition instead of synthetically reproducing a source previously created by the hosted AI journey.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "AC-11.a", "V-5 release gate", "V-6 honesty rule"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-m4-native-mcp-dynamic-precondition.json", "status": "added" },
+    { "path": "scripts/lib/m4-packaged-walkthrough.mjs", "status": "modified" },
+    { "path": "scripts/run-packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "tests/scripts/m4-packaged-walkthrough.test.ts", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0457",
+      "topic": "MCP source independence from hosted AI",
+      "decision": "Supersede D-0456's synthetic agentSource setup. Capture the exact editor source at MCP default-deny entry, retain it in bounded harness memory, require denial not to change it, and compare the review UI against that exact local source and an exact proposal without a terminal newline before approval.",
+      "rationale": "The native-only run proved WebDriver could not reliably type the trailing-newline agentSource fixture while the AI rail was active. The MCP acceptance criterion does not require a particular prior AI-generated source; it requires safe default denial, explicit review, and exact approved mutation. Capturing the real source removes cross-gate coupling and uses the same no-terminal-newline proposal shape already passed by the earlier Appendix B packaged MCP walkthrough.",
+      "specBasis": ["AC-11.a", "V-5 release gate", "V-6 honesty rule"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Native-only mode must reach MCP without starting packaged AI or synthetically rewriting CodeMirror, and the runner must bind the review oracle to the captured exact source.",
+      "test": "Run the focused M4 walkthrough, verifier, and packaged runner contract suites.",
+      "red": {
+        "command": "Exact clean packaged Windows Sandbox run bound to commit 9e0cd249739db06ca387018b8c682c20c2ac4fb1 and tree 7b840c26d85a4fe2af9039493e0abb79bab823f7",
+        "observedAt": "2026-07-20T19:16:33-06:00",
+        "outcome": "RUNTIME RED: the synthetic pre-MCP agentSource entry timed out in CodeMirror before MCP began. Exact Sandbox cleanup passed."
+      },
+      "green": {
+        "command": "npm.cmd test -- --run tests/scripts/m4-packaged-walkthrough.test.ts tests/scripts/m4-packaged-verifier.test.ts tests/scripts/packaged-desktop-evidence.test.ts",
+        "observedAt": "2026-07-20T19:18:01-06:00",
+        "outcome": "GREEN: 75/75 tests passed. Native-only mode reaches MCP with initialSource unchanged and no AI mock; static runner contracts bind the exact review comparison to m4McpLocalSource captured before the denied write."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-9e0cd24-sandbox-m4-native-split-20260720/evidence.json",
+      "sought": "Exact clean native-only packaged M4 walkthrough with a synthetic agentSource precondition",
+      "confirmation": "The retained error occurred during fixture entry before MCP, not in product MCP behavior; all earlier native events and exact cleanup passed."
+    }
+  ],
+  "questions": ["No owner decision is required; AC-11.a does not require MCP to inherit a particular AI-generated source."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

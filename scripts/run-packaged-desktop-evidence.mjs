@@ -1405,7 +1405,7 @@ try {
   const m4InitialSource = "cube([10, 10, 10]);";
   const m4ProposalSource = "cube([12, 10, 10]);\n";
   const m4AgentSource = "cube([14, 10, 10]);\n";
-  const m4McpSource = "cube([16, 10, 10]);\n";
+  const m4McpSource = "cube([16, 10, 10]);";
   const m4ProjectDirectory = join(process.env.USERPROFILE, "Documents", "ScadMillM4Walkthrough");
   const m4ProjectFile = join(m4ProjectDirectory, "main.scad");
   const m4Secret = `SCADMILL-M4-LOCAL-${randomBytes(24).toString("hex")}`;
@@ -1418,6 +1418,7 @@ try {
   await clearDiagnosticConsole(client);
   lastVerifiedAppProcess = await requireSingleAppProcess(args.app, appSha256);
   let m4EndpointRecord = null;
+  let m4McpLocalSource = null;
 
   const m4Evidence = await runM4PackagedWalkthrough({
     initialSource: m4InitialSource,
@@ -1483,6 +1484,8 @@ try {
         assert.equal(initialize?.protocolVersion, "2025-11-25");
         m4McpClient.notify("notifications/initialized");
         const sourceBefore = await editorSource(client);
+        assert.equal(typeof sourceBefore, "string", "M4 MCP source precondition was unavailable.");
+        m4McpLocalSource = sourceBefore;
         const denied = await m4McpClient.requestRaw("tools/call", {
           name: "write_file",
           arguments: { path: "main.scad", content: m4McpSource },
@@ -1522,7 +1525,8 @@ try {
         assert.equal(pending.status, "pending_review");
         await activateRail(client, "History");
         await waitForBody(client, "Pending review");
-        assert.deepEqual(await mcpDiffSources(client), { local: m4AgentSource, proposed: m4McpSource });
+        assert.equal(typeof m4McpLocalSource, "string", "M4 MCP source precondition was not retained.");
+        assert.deepEqual(await mcpDiffSources(client), { local: m4McpLocalSource, proposed: m4McpSource });
         await clickButton(client, "Approve change");
         await waitFor(async () => (await editorSource(client)) === m4McpSource, "approved M4 MCP source", 15_000, 50);
         await clickAria(client, "Open settings");
@@ -1534,6 +1538,7 @@ try {
         await waitFor(async () => (await mcpEndpointsForProcess(args.app, lastVerifiedAppProcess.pid)).length === 0, "M4 MCP manifest removal", 15_000, 100);
         await waitFor(async () => !(await tcpEndpointReachable(m4EndpointRecord.endpoint)), "M4 MCP endpoint refusal", 15_000, 100);
         m4EndpointRecord = null;
+        m4McpLocalSource = null;
         return {
           protocolVersion: "2025-11-25",
           toolNames: toolsResult.tools.map(({ name }) => name),

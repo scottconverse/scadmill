@@ -58,7 +58,7 @@ function pngBase64(): string {
 }
 
 describe("M4 packaged newcomer walkthrough", () => {
-  it("prepares the native MCP fixture without starting packaged AI automation", async () => {
+  it("enters native MCP without starting packaged AI automation or mutating its source fixture", async () => {
     const initialSource = "cube([10, 10, 10]);";
     const agentSource = "cube([14, 10, 10]);\n";
     let source = initialSource;
@@ -93,8 +93,8 @@ describe("M4 packaged newcomer walkthrough", () => {
       startAiMock: async () => { mockStarts += 1; throw new Error("AI mock must not start"); },
       stopAiMock: async () => [],
       probeMcpDefaultDeny: async () => {
-        expect(source).toBe(agentSource);
-        throw new Error("native MCP fixture prepared");
+        expect(source).toBe(initialSource);
+        throw new Error("native MCP boundary reached");
       },
       runMcpAllowSessionJourney: async () => { throw new Error("not reached"); },
       restartApplication: async () => ({ beforePid: 1, afterPid: 2, freshWebViewProcesses: true }),
@@ -107,7 +107,7 @@ describe("M4 packaged newcomer walkthrough", () => {
       agentSource,
       projectPath: "main.scad",
       aiConversationMode: "hosted-plus-manual",
-    })).rejects.toThrow("native MCP fixture prepared");
+    })).rejects.toThrow("native MCP boundary reached");
     expect(mockStarts).toBe(0);
     expect(source).toBe(initialSource);
   });
