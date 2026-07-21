@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-21-github-repository-landing-page",
+  "createdAt": "2026-07-21T10:17:33-06:00",
+  "summary": "Replace the compact repository overview with an evidence-based GitHub landing page that makes the Windows beta easy to understand, verify, install, and evaluate without overstating M5 or M6 maturity.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "FR-13.4", "V-5 release gate", "V-6 honesty rule"],
+  "filesTouched": [
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-21-github-repository-landing-page.json", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0480",
+      "topic": "GitHub repository landing-page information architecture",
+      "decision": "Lead with the signed Windows beta, source-first value, verified installation path, and existing project artwork; group implemented behavior by user workflow; expose architecture and release evidence; and identify every M5 and M6 cluster as planned in a compact status matrix.",
+      "rationale": "A new visitor should understand and try the real release within one scan while retaining the exact boundary between the available M0-M4 beta and the complete M0-M6 product commitment. Repository artwork and implementation evidence communicate this without a fabricated screenshot or competitor claim.",
+      "specBasis": ["FR-13.4", "V-5 release gate", "V-6 honesty rule"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The README must render as GitHub-compatible Markdown, expose a five-step first model path, preserve the exact release contract, and contain no broken local or public links.",
+      "test": "Run the existing public-surface contract, mechanically validate every unique README destination, fetch every public destination once, and render the Markdown through GitHub's GFM API.",
+      "red": {
+        "command": "Repository-first landing-page inventory before editing README.md",
+        "observedAt": "2026-07-21T10:13:00-06:00",
+        "outcome": "RED: the accurate 59-line overview had no logo or hero artwork, no direct workflow narrative, no first-model example, no support matrix, no public release-evidence section, and only one compact architecture diagram; installation and maturity required a closer read than the requested repository landing-page standard permits."
+      },
+      "green": {
+        "command": "pnpm.cmd check:public-surfaces; README relative-path/HTTP checker; gh api markdown -F text=@README.md -f mode=gfm -f context=scottconverse/scadmill",
+        "observedAt": "2026-07-21T10:17:00-06:00",
+        "outcome": "GREEN: the baseline public-surface contract passed 2/2 tests; the rewritten README had 27 unique destinations, 16 relative destinations, zero broken relative paths, and 11 public URLs returning HTTP 200; GitHub rendered one H1, six images/badges, and both Mermaid diagrams."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": ["No owner decision is required; the owner explicitly directed the implementer to apply the GitHub repository landing-page skill to this repository."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
