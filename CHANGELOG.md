@@ -124,6 +124,8 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Fixed
 
+- The native-only M4 gate now establishes the same explicit `cube([14, 10, 10])` MCP fixture that the hosted AI sequence previously produced, so MCP diff/review assertions retain their exact precondition after evidence ownership was split.
+
 - Hardened packaged AI walkthrough input so WebDriver proves and, at most once, corrects focus on the exact connected enabled Message textarea before text insertion; focus diagnostics contain only fixed-name booleans and never retain message, credential, or active-element attribute values.
 
 - Packaged desktop evidence now enters controlled React textareas through the pinned WebView2 runtime's loopback CDP `Input.insertText` command after exact focus and selection, then requires consecutive committed-value observations. Discovery must match the current WebDriver page and refuses redirects; socket selection, outbound text, response sizes, event counts, time, and acknowledged close are bounded, with any timed-out socket retained for authoritative session teardown. Remote, cross-port, ambiguous, malformed, and secret-bearing diagnostic paths fail closed. This replaces accepted-but-ineffective WebDriver keyboard Actions proven by exact clean Sandbox evidence. Ordinary inputs and selects retain their already-proven bounded setter path.

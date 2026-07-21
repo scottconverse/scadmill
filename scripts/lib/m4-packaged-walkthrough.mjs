@@ -1378,6 +1378,11 @@ export async function runM4PackagedWalkthrough({
       assertSecretAbsent(await automation.execute(M4_DOM_SCRIPTS.secretSurfaceSnapshot), mock.secret);
     }
 
+    if (aiConversationMode === "hosted-plus-manual") {
+      await automation.replaceSource(agentSource);
+      await automation.waitForSource(agentSource);
+    }
+
     const denied = await automation.probeMcpDefaultDeny();
     order.push("c11-default-deny");
     const allowed = await automation.runMcpAllowSessionJourney();

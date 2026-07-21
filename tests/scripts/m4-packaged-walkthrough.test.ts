@@ -58,6 +58,60 @@ function pngBase64(): string {
 }
 
 describe("M4 packaged newcomer walkthrough", () => {
+  it("prepares the native MCP fixture without starting packaged AI automation", async () => {
+    const initialSource = "cube([10, 10, 10]);";
+    const agentSource = "cube([14, 10, 10]);\n";
+    let source = initialSource;
+    let mockStarts = 0;
+    const zeroNetwork = {
+      rendererAttemptCount: 0,
+      rendererExternalAttemptCount: 0,
+      rendererInternalAttemptCount: 0,
+      rendererDroppedAttemptCount: 0,
+      rendererObservations: [],
+      tauriInvokeAttemptCount: null,
+      tauriInvokeMonitoring: "protected-nonwritable",
+    };
+    const automation: M4PackagedAutomation = {
+      readSource: async () => source,
+      replaceSource: async (next) => { source = next; },
+      waitForSource: async (expected) => { expect(source).toBe(expected); },
+      activateRail: async () => undefined,
+      clickAria: async () => undefined,
+      clickButton: async () => undefined,
+      setControl: async () => undefined,
+      setChecked: async () => undefined,
+      waitForText: async () => undefined,
+      execute: async (script) => {
+        if (script === M4_DOM_SCRIPTS.installNetworkAttemptMonitor
+          || script === M4_DOM_SCRIPTS.networkAttemptSnapshot) return zeroNetwork;
+        if (script === M4_DOM_SCRIPTS.aiUnconfigured) return { guidanceVisible: true, sendCount: 0 };
+        throw new Error("unexpected native fixture script");
+      },
+      executeAsync: async () => undefined,
+      captureScreenshot: async () => PNG,
+      startAiMock: async () => { mockStarts += 1; throw new Error("AI mock must not start"); },
+      stopAiMock: async () => [],
+      probeMcpDefaultDeny: async () => {
+        expect(source).toBe(agentSource);
+        throw new Error("native MCP fixture prepared");
+      },
+      runMcpAllowSessionJourney: async () => { throw new Error("not reached"); },
+      restartApplication: async () => ({ beforePid: 1, afterPid: 2, freshWebViewProcesses: true }),
+    };
+
+    await expect(runM4PackagedWalkthrough({
+      automation,
+      initialSource,
+      proposalSource: "cube([12, 10, 10]);\n",
+      agentSource,
+      projectPath: "main.scad",
+      aiConversationMode: "hosted-plus-manual",
+    })).rejects.toThrow("native MCP fixture prepared");
+    expect(mockStarts).toBe(0);
+    expect(source).toBe(initialSource);
+  });
+
   it("reads the clean profile's exact main AI settings controls", () => {
     const window = new Window();
     window.document.body.innerHTML = `

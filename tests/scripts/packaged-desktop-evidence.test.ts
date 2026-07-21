@@ -919,6 +919,7 @@ describe("packaged desktop evidence helpers", () => {
     expect(runner).toContain("writeFile(m4EvidencePath,");
     expect(runner).toContain("JSON.stringify(m4Evidence, null, 2)");
     expect(runner).toContain('aiConversationMode: "hosted-plus-manual"');
+    expect(runner).toContain("agentSource: m4AgentSource");
     expect(runner).toContain('clickButton(client, "Clear AI key")');
     expect(runner).toContain('setControl(client, "AI provider", "none")');
     expect(runner).toContain("m4SecretScan");
