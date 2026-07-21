@@ -12,6 +12,8 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Added
 
+- Bound the native cache diagnostic to Tauri's page-owned invoke receiver and a non-protocol `diagnosticError` field, preventing the evidence probe itself from being detached or misclassified as a WebDriver remote error.
+
 - Retained bounded native cache preference and opaque record-count/hash evidence immediately before close, after restart, and after project reopen when the exact cold-cache transition fails, distinguishing missing writes, lost records, corrupt removal, and key mismatches without retaining source or project identity.
 
 - Kept successful geometry presentation responsive while delaying the user-facing successful render status until the configured persistent cache-write attempt settles. This closes the clean-restart race that could discard a visibly completed full-quality cache record without making cache failure fatal.

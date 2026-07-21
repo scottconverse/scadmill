@@ -280,8 +280,14 @@ describe("M4 packaged newcomer walkthrough", () => {
       `scadmill.desktop-render-cache-preference.v1:${projectIdentity}`,
       "enabled",
     );
-    const invoke = vi.fn().mockResolvedValue([{ key: cacheKey, byteSize: 684, lastAccessMs: 42 }]);
-    (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = { invoke };
+    let invokeReceiver: unknown;
+    const internals = {
+      invoke: vi.fn(function (this: unknown) {
+        invokeReceiver = this;
+        return Promise.resolve([{ key: cacheKey, byteSize: 684, lastAccessMs: 42 }]);
+      }),
+    };
+    (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = internals;
     const execute = window.eval(`(function() {${M4_DOM_SCRIPTS.renderCacheStorageSnapshot}})`) as (
       done: (value: unknown) => void,
     ) => void;
@@ -295,9 +301,10 @@ describe("M4 packaged newcomer walkthrough", () => {
       recordCount: 1,
       records: [{ key: cacheKey, byteSize: 684, lastAccessMs: 42 }],
       droppedRecordCount: 0,
-      error: null,
+      diagnosticError: null,
     });
-    expect(invoke).toHaveBeenCalledWith("render_cache_list", { projectIdentity });
+    expect(internals.invoke).toHaveBeenCalledWith("render_cache_list", { projectIdentity });
+    expect(invokeReceiver).toBe(internals);
     expect(JSON.stringify(result)).not.toContain(projectIdentity);
     window.close();
   });

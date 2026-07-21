@@ -477,11 +477,11 @@ export const M4_DOM_SCRIPTS = Object.freeze({
         recordCount: null,
         records: [],
         droppedRecordCount: 0,
-        error: typeof invoke === 'function' ? 'preference-unavailable' : 'tauri-invoke-unavailable',
+        diagnosticError: typeof invoke === 'function' ? 'preference-unavailable' : 'tauri-invoke-unavailable',
       });
       return;
     }
-    Promise.resolve(invoke('render_cache_list', { projectIdentity: selectedIdentity })).then((value) => {
+    Promise.resolve(invoke.call(globalThis.__TAURI_INTERNALS__, 'render_cache_list', { projectIdentity: selectedIdentity })).then((value) => {
       const records = Array.isArray(value) ? value : [];
       const safe = records.filter((record) => record && typeof record === 'object'
         && /^sha256:[a-f0-9]{64}$/u.test(record.key)
@@ -496,7 +496,7 @@ export const M4_DOM_SCRIPTS = Object.freeze({
         recordCount: records.length,
         records: safe,
         droppedRecordCount: Math.max(0, records.length - safe.length),
-        error: null,
+        diagnosticError: null,
       });
     }, () => done({
       preferenceCount: preferences.length,
@@ -505,7 +505,7 @@ export const M4_DOM_SCRIPTS = Object.freeze({
       recordCount: null,
       records: [],
       droppedRecordCount: 0,
-      error: 'render-cache-list-rejected',
+      diagnosticError: 'render-cache-list-rejected',
     }));
   `,
   thumbnailDecodedSnapshot: `
