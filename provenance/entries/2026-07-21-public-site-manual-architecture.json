@@ -65,6 +65,20 @@
         "observedAt": "2026-07-21T01:13:00-06:00",
         "outcome": "GREEN: 2 cross-surface contract tests and 3 server-render route tests passed; the production build completed on Windows; npm reported zero vulnerabilities after bounded dependency updates."
       }
+    },
+    {
+      "criterion": "The published visitor journey must be reachable, responsive, internally consistent, and bound to the exact supported installer.",
+      "test": "Inspect all three live routes at desktop and mobile viewports, mechanically follow every route-scoped link, verify live release metadata and GitHub surfaces, and independently verify the already-downloaded public installer.",
+      "red": {
+        "command": "Initial post-deploy visitor audit of Sites version 1",
+        "observedAt": "2026-07-21T01:22:00-06:00",
+        "outcome": "RED: the site was live, but the first archive still used a provisional metadata base and the repository and release surfaces did not yet link back to the live product site."
+      },
+      "green": {
+        "command": "Post-deploy visitor audit of Sites version 2 at https://scadmill-beta.sconverse.chatgpt.site",
+        "observedAt": "2026-07-21T01:31:00-06:00",
+        "outcome": "GREEN: landing, manual, and architecture pages rendered without horizontal overflow at desktop and 375 px mobile viewports; 53 route-scoped link checks returned 53 reachable destinations and zero broken links; release.json, favicon, social image, rendered GitHub README, repository homepage, and release body were live; the public installer remained exactly 208699552 bytes with the published SHA-256 and a valid Scott Converse signature. Visitor findings closed at 0 blocker / 0 critical / 0 major / 0 minor / 0 nit."
+      }
     }
   ],
   "nearMisses": [
