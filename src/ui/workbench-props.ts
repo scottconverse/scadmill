@@ -16,6 +16,7 @@ import type {
 } from "../application/platform/scadmill-platform";
 import type { WorkbenchRuntime } from "../application/runtime/workbench-runtime";
 import type { SecretStore } from "../application/settings/secret-store";
+import type { SlicerHandoffPort } from "../application/manufacturing/slicer-handoff";
 import type { ThemePreference } from "../application/theme/theme-runtime";
 import type { ThemeTokens } from "../application/theme/theme-schema";
 import type { ClipboardWriter } from "./diagnostics/DiagnosticConsole";
@@ -49,6 +50,7 @@ export interface WorkbenchProps {
   recoveryPersistence?: RecoveryPersistence;
   projectPortability?: ProjectPortabilityController;
   scratchAutosavePersistence?: ScratchAutosavePersistence;
+  slicerHandoff?: SlicerHandoffPort;
   onThemePreferenceChange(preference: ThemePreference): void;
   configuredEnginePath?: string;
   onConfigureEnginePath?(path: string): void;

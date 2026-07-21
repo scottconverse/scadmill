@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { fireEvent, render, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { RenderSuccess3D } from "../../../src/application/engine/contracts";
 import { ManufacturingActivity } from "../../../src/ui/manufacturing/ManufacturingActivity";
@@ -43,5 +43,24 @@ describe("ManufacturingActivity", () => {
     fireEvent.change(view.getByRole("spinbutton", { name: "Build width (mm)" }), { target: { value: "5" } });
     fireEvent.click(view.getByRole("button", { name: "Run printability check" }));
     await waitFor(() => expect(view.getByText(/Build volume: FAIL .*configured 5 × 220 × 250 mm/)).toBeVisible());
+  });
+
+  it("launches a detected or explicitly configured desktop slicer with honest handoff copy", async () => {
+    const open = vi.fn(async () => ({ slicerName: "OrcaSlicer", temporaryFile: "C:/Temp/main.3mf" }));
+    const view = render(<ManufacturingActivity multiObject onOpenInSlicer={open} />);
+    fireEvent.change(view.getByRole("textbox", { name: "Optional slicer executable" }), {
+      target: { value: " C:/Tools/orca-slicer.exe " },
+    });
+    fireEvent.click(view.getByRole("button", { name: "Open in slicer" }));
+
+    await waitFor(() => expect(open).toHaveBeenCalledWith("C:/Tools/orca-slicer.exe"));
+    expect(await view.findByText("Opened the exported 3MF in OrcaSlicer.")).toBeVisible();
+    expect(view.getByText(/assign filaments per object in your slicer/i)).toBeVisible();
+  });
+
+  it("keeps slicer handoff unavailable outside the desktop composition", () => {
+    const view = render(<ManufacturingActivity />);
+    expect(view.getByRole("button", { name: "Open in slicer" })).toBeDisabled();
+    expect(view.getByText(/desktop app only/i)).toBeVisible();
   });
 });

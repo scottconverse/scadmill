@@ -47,6 +47,7 @@ describe("desktop platform composition", () => {
     expect(platform.files.revealInOs.available).toBe(true);
     expect(platform.files.trashInOs.available).toBe(true);
     expect(platform.files.fileAssociations.available).toBe(true);
+    expect(platform.files.slicerHandoff.available).toBe(true);
     expect(platform.menus.presentation).toBe("native");
     expect(platform.menus.commands.available).toBe(true);
     expect(platform.dialogs.openDirectory.available).toBe(true);

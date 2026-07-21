@@ -13,6 +13,7 @@ import type { RenderDiskCachePreferencePersistence } from "../render-cache/rende
 import type { RenderDiskCacheStorage } from "../render-cache/render-disk-cache";
 import type { RenderThumbnailPersistence } from "../render-cache/render-thumbnail-persistence";
 import type { ModelHistoryPersistence } from "../model-history/model-history";
+import type { SlicerHandoffPort } from "../manufacturing/slicer-handoff";
 import type { WorkspaceLayoutPersistence } from "../runtime/layout-persistence";
 import type { SecretStore } from "../settings/secret-store";
 import type { SettingsPersistence } from "../settings/settings-persistence";
@@ -139,7 +140,7 @@ export interface ScadMillPlatform {
     readonly revealInOs: PlatformFeature<true>;
     readonly trashInOs: PlatformFeature<true>;
     readonly fileAssociations: PlatformFeature<AssociatedFileOpenSource>;
-    readonly slicerHandoff: PlatformFeature<true>;
+    readonly slicerHandoff: PlatformFeature<SlicerHandoffPort>;
   };
   readonly dialogs: PlatformDialogs;
   readonly menus: {

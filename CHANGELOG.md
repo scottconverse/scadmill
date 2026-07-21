@@ -12,6 +12,8 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Added
 
+- Added M6 desktop slicer handoff: ScadMill performs a fresh full-quality 3MF export, writes a bounded unique temporary artifact, and launches a validated user-configured executable or a passively detected PrusaSlicer, OrcaSlicer, Cura, or Bambu Studio installation. The browser composition remains explicitly unavailable, failed exports never launch a process, and multi-object filament-assignment honesty copy appears only when the export path identifies a multi-object result.
+
 - Started M6 with an on-demand printability report for the last full 3D render. The Manufacturing activity checks mesh topology, compares exact model bounds with a user-configured build volume, and runs a bounded sampled minimum-feature heuristic away from the UI thread. Every result states its method or says `NOT CHECKED`; the product makes no aggregate print-ready claim.
 
 - Completed the M5 product scope with a toggleable axis-aligned section plane that moves through real Three.js-rendered geometry and named camera bookmarks that can be saved, recalled, replaced, and deleted per project through bounded platform-owned persistence.

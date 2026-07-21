@@ -323,6 +323,9 @@ export function App({
       workspaceDirectory={workspaceDirectory}
       recoveryPersistence={recoveryPersistence}
       scratchAutosavePersistence={scratchAutosavePersistence}
+      slicerHandoff={platform.files.slicerHandoff.available
+        ? platform.files.slicerHandoff.service
+        : undefined}
       projectPortability={projectPortability}
       configuredEnginePath={engineHealth.kind === "checking" || engineHealth.kind === "invalid-config"
         ? engineHealth.configuredPath

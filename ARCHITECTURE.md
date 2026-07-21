@@ -54,7 +54,7 @@ Native rendering runs outside the UI process. OpenSCAD WASM execution, project i
 
 ## Desktop shell and installer
 
-Tauri owns OS dialogs, native menus, `.scad` association and single-instance routing, window restoration, credential-store access, and engine process control. The public Windows setup is a signed current-user NSIS installer with an offline WebView2 runtime. A package is not release-qualified until its exact public bytes have passed signature/hash verification and the required isolated lifecycle walkthrough.
+Tauri owns OS dialogs, native menus, `.scad` association and single-instance routing, window restoration, credential-store access, and engine process control. M6 slicer handoff is another typed desktop-only port: the application first requests an ordinary full-quality 3MF export, then the native adapter writes a unique bounded temp artifact and launches a validated configured executable or one of four bounded passively detected slicer families. The web composition exposes no substitute. The public Windows setup is a signed current-user NSIS installer with an offline WebView2 runtime. A package is not release-qualified until its exact public bytes have passed signature/hash verification and the required isolated lifecycle walkthrough.
 
 ## Provenance and supply-chain gates
 
@@ -62,4 +62,4 @@ Non-trivial changes have append-only records under `provenance/entries`. npm and
 
 ## Extension seams through M6
 
-The ports and worker boundaries support later public web distribution, headless CLI behavior, color/3MF work, and manufacturing estimates. M5 is complete on the development branch, and M6 printability reporting is implemented there; neither is a claim about the current beta. Platform behavior belongs in adapters; reusable behavior belongs in application services; UI consumes declared capabilities.
+The ports and worker boundaries support later public web distribution, headless CLI behavior, color/3MF work, and manufacturing estimates. M5 is complete on the development branch, and M6 printability reporting plus desktop slicer handoff are implemented there; neither is a claim about the current beta. Platform behavior belongs in adapters; reusable behavior belongs in application services; UI consumes declared capabilities.

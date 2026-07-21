@@ -23,6 +23,7 @@ mod mcp_stdio;
 mod native_menu;
 mod project_storage;
 mod render_cache;
+mod slicer_handoff;
 
 pub use mcp_stdio::run_mcp_stdio_client;
 
@@ -478,6 +479,7 @@ pub fn run() {
             render_cache::render_cache_touch,
             render_cache::render_cache_list,
             artifact_storage::save_artifact,
+            slicer_handoff::open_in_slicer,
             associated_files::take_pending_associated_files,
             native_menu::update_native_menu_state,
             native_menu::disable_native_menu,

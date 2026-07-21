@@ -3,7 +3,7 @@ export type MeshFormat = "stl-binary" | "stl-ascii" | "3mf" | "off" | "amf";
 export type FlatFormat = "svg" | "dxf";
 export type ImageFormat = "png";
 export type ExportFormat = MeshFormat | FlatFormat | ImageFormat;
-export type ParamValue = number | boolean | string | number[];
+export type ParamValue = number | boolean | string | readonly number[];
 
 export interface RenderRequest {
   entryFile: string;

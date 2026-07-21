@@ -27,6 +27,7 @@ import { createTauriProjectDirectoryPicker } from "./tauri-project-directory-pic
 import { createTauriProjectStorage } from "./tauri-project-storage";
 import { createTauriRenderCacheStorage } from "./tauri-render-cache";
 import { createTauriSecretStore } from "./tauri-secret-store";
+import { createTauriSlicerHandoff } from "./tauri-slicer-handoff";
 import { createTauriSettingsPersistence } from "./tauri-settings-persistence";
 import { createTauriWindowControls } from "./tauri-window-controls";
 
@@ -53,7 +54,7 @@ export async function createDesktopPlatform(): Promise<ScadMillPlatform> {
       fileAssociations: associatedFiles.status === "fulfilled"
         ? available(associatedFiles.value)
         : unavailable(),
-      slicerHandoff: unavailable(),
+      slicerHandoff: available(createTauriSlicerHandoff()),
     },
     dialogs: {
       openDirectory: available(directoryPicker),

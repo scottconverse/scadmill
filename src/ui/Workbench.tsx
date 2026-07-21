@@ -1,6 +1,8 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { activeDocument, canCloseDocument, canReopenDocument } from "../application/documents/document-workspace";
+import { createProjectSnapshot } from "../application/files/project-snapshot";
 import type { WorkspaceLayoutAction } from "../application/layout/workspace-layout";
+import { startSlicerHandoff } from "../application/manufacturing/slicer-handoff";
 import { parameterDocument } from "../application/parameters/parameter-state";
 import { buildRuntimeRenderFileMap } from "../application/runtime/project-render-files";
 import { EPHEMERAL_SECRET_STORE } from "../application/settings/secret-store";
@@ -51,6 +53,7 @@ export function Workbench({
   recoveryPersistence,
   projectPortability,
   scratchAutosavePersistence,
+  slicerHandoff,
   onThemePreferenceChange,
   configuredEnginePath = "", onConfigureEnginePath, onRetryWasmEngine, renderDiskCacheAvailable = false,
   mcpPort,
@@ -133,6 +136,23 @@ export function Workbench({
   const editorCommands = useEditorCommandCoordinator(runtime, layout, narrow, dispatchLayout);
   const { renderPreview, renderFull } = useWorkbenchRenderCommands(runtime, engineAvailable,
     render.status, keybindings);
+  const openInSlicer = useCallback((configuredExecutablePath?: string) => {
+    if (!engine || !slicerHandoff) return Promise.reject(new Error("Slicer handoff is unavailable."));
+    const snapshot = createProjectSnapshot(
+      projectState.snapshot.projectId,
+      animationFiles,
+      projectState.snapshot.workspaceIdentity,
+    );
+    return startSlicerHandoff({
+      engine,
+      handoff: slicerHandoff,
+      snapshot,
+      entryFile: document.path,
+      parameters: currentParameters.overrides,
+      timeoutMs: profile.rendering.fullTimeoutMs,
+      configuredExecutablePath,
+    }).done;
+  }, [animationFiles, currentParameters.overrides, document.path, engine, profile.rendering.fullTimeoutMs, projectState.snapshot.projectId, projectState.snapshot.workspaceIdentity, slicerHandoff]);
   const fileCommands = useFileCommands({
     runtime, workspace: documents, layout, projectMode: projectState.mode,
     scratchPersistence: scratchAutosavePersistence,
@@ -318,7 +338,7 @@ export function Workbench({
           files: <FilesActivity canReveal={canRevealProjectFiles} canTrash={canTrashProjectFiles} directoryPicker={directoryPicker} engine={engineAvailable ? engine : undefined} portability={projectPortability} recoveryPersistence={recoveryPersistence} projectTransitionsBlocked={recoveryPending} requestedExport={fileCommands.requestedExport} requestedNewFile={fileCommands.requestedNewFile} runtime={runtime} storage={projectStorage} workspaceDirectory={workspaceDirectory} />,
           history: <HistoryActivityConnector runtime={runtime} pendingReviews={pendingReviews} sourceForPath={sourceForMcpPath} onApprove={approveMcpReview} onDeny={dismissReview} />,
           libraries: <LibrariesActivity key={projectState.snapshot.workspaceIdentity} project={projectState} storage={projectStorage} onProjectFilesChanged={() => runtime.dispatch({ kind: "refresh-project", origin: "user" }).then(() => undefined)} />,
-          manufacturing: <ManufacturingActivity key={activeViewer.presentation?.renderIdentity ?? "no-full-render"} quality={activeViewer.presentation?.quality} result={activeViewer.presentation?.result.kind === "3d" ? activeViewer.presentation.result : undefined} />,
+          manufacturing: <ManufacturingActivity key={activeViewer.presentation?.renderIdentity ?? "no-full-render"} onOpenInSlicer={engineAvailable && engine && slicerHandoff ? openInSlicer : undefined} quality={activeViewer.presentation?.quality} result={activeViewer.presentation?.result.kind === "3d" ? activeViewer.presentation.result : undefined} />,
           search: <SearchActivity activePath={document.path} outline={projectNavigation.outline} references={projectNavigation.references} loadSources={projectNavigation.loadSources} onApplyReplacements={projectNavigation.applyReplacements} onFindReferences={projectNavigation.findReferences} onNavigate={projectNavigation.navigate} />,
         }}
         activityBadges={{ history: pendingReviews.length > 0 }}

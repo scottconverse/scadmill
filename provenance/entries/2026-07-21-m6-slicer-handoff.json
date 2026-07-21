@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-21-m6-slicer-handoff",
+  "createdAt": "2026-07-21T15:14:28-06:00",
+  "summary": "Implement M6 desktop slicer handoff through a fresh full-quality 3MF export and a bounded native temp-file/process port.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "FR-15.10", "M6"],
+  "filesTouched": [
+    { "path": "ARCHITECTURE.md", "status": "modified" },
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "docs/USER-GUIDE.md", "status": "modified" },
+    { "path": "src/app/App.tsx", "status": "modified" },
+    { "path": "src/application/engine/contracts.ts", "status": "modified" },
+    { "path": "src/application/manufacturing/slicer-handoff.ts", "status": "added" },
+    { "path": "src/application/platform/scadmill-platform.ts", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/src/lib.rs", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/src/slicer_handoff.rs", "status": "added" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/platform-desktop/desktop-platform.ts", "status": "modified" },
+    { "path": "src/platform-desktop/tauri-slicer-handoff.ts", "status": "added" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/manufacturing/ManufacturingActivity.tsx", "status": "modified" },
+    { "path": "src/ui/manufacturing/SlicerHandoffPanel.tsx", "status": "added" },
+    { "path": "src/ui/workbench-props.ts", "status": "modified" },
+    { "path": "tests/application/manufacturing/slicer-handoff.test.ts", "status": "added" },
+    { "path": "tests/platform-desktop/desktop-platform.test.ts", "status": "modified" },
+    { "path": "tests/platform-desktop/tauri-slicer-handoff.test.ts", "status": "added" },
+    { "path": "tests/ui/Workbench.manufacturing.test.tsx", "status": "modified" },
+    { "path": "tests/ui/manufacturing/ManufacturingActivity.test.tsx", "status": "modified" },
+    { "path": "website/app/architecture/page.tsx", "status": "modified" },
+    { "path": "provenance/entries/2026-07-21-m6-slicer-handoff.json", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [
+    { "label": "Owner-provided ScadMill functional specification v0.6", "destination": "spec/scadmill-spec-v0.6.md", "sha256": "A2D12C68E23590DF061BF3E222F481C3FFC40ECA6541D6F3DF49FDA87C1DE15A" }
+  ],
+  "decisions": [
+    {
+      "id": "D-0501",
+      "topic": "Slicer handoff authority boundary",
+      "decision": "Keep 3MF generation in the existing EngineService export boundary and give the desktop adapter only the completed bytes, a safe suggested name, and an optional explicit executable path. The browser composition exposes no handoff service.",
+      "rationale": "FR-15.10 requires a real full-quality export and desktop process launch. Separating those responsibilities avoids a second engine/export path and prevents shared UI code from gaining file-system or process authority.",
+      "specBasis": ["FR-15.10", "FR-4.3", "Appendix A EngineService"]
+    },
+    {
+      "id": "D-0502",
+      "topic": "Slicer detection and temporary-artifact policy",
+      "decision": "Prefer a user-supplied absolute existing executable; otherwise inspect only bounded well-known Program Files and LocalAppData locations for PrusaSlicer, OrcaSlicer, Cura, and Bambu Studio. Write with create-new semantics under the ScadMill temp namespace, cap decoded 3MF data at 512 MiB, and remove only handoff-owned files older than seven days.",
+      "rationale": "Passive bounded detection meets the desktop workflow without registry mutation, broad disk search, executable bundling, accidental overwrite, or unbounded temp accumulation.",
+      "specBasis": ["FR-15.10", "Section 5 security and privacy"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "A slicer handoff must perform an ordinary 3MF export and must not launch on export failure.",
+      "test": "Drive the application service with a spy EngineService and SlicerHandoffPort, inspect the exact export request and launch bytes, then fail export and cancel the active job.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/manufacturing/slicer-handoff.test.ts tests/platform-desktop/tauri-slicer-handoff.test.ts",
+        "observedAt": "2026-07-21T15:03:34-06:00",
+        "outcome": "RED: neither the application slicer-handoff service nor the native adapter existed."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/manufacturing/slicer-handoff.test.ts tests/platform-desktop/tauri-slicer-handoff.test.ts",
+        "observedAt": "2026-07-21T15:05:36-06:00",
+        "outcome": "GREEN: 2 files and 4 tests passed."
+      }
+    },
+    {
+      "criterion": "The desktop adapter must use bounded passive detection, safe unique temp files, strict transport, and explicit browser unavailability.",
+      "test": "Exercise configured-path precedence, detection order including versioned installs, unique non-overwriting 3MF writes, desktop/web capability composition, and strict Tauri response decoding.",
+      "red": {
+        "command": "cargo test slicer_handoff --locked",
+        "observedAt": "2026-07-21T15:03:00-06:00",
+        "outcome": "RED was established before implementation: no native slicer module or command was registered."
+      },
+      "green": {
+        "command": "cargo test slicer_handoff --locked; pnpm.cmd exec vitest run tests/platform-desktop/desktop-platform.test.ts tests/platform-web/web-platform.test.ts tests/platform-desktop/tauri-slicer-handoff.test.ts",
+        "observedAt": "2026-07-21T15:14:12-06:00",
+        "outcome": "GREEN: 4 Rust slicer tests passed; the combined TypeScript handoff/platform/UI slice passed 15 of 15 tests, and the final affected UI rerun passed 7 of 7 tests."
+      }
+    },
+    {
+      "criterion": "The Manufacturing UI must distinguish desktop availability, support an explicit executable, and avoid premature multi-object filament claims.",
+      "test": "Open the Manufacturing activity through the real Workbench, run 3MF export into the typed handoff port, and assert the unavailable and multi-object honesty states.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/manufacturing/ManufacturingActivity.test.tsx",
+        "observedAt": "2026-07-21T15:08:42-06:00",
+        "outcome": "RED: the slicer executable input, Open in slicer action, desktop-only state, and outcome copy were absent."
+      },
+      "green": {
+        "command": "pnpm.cmd run typecheck; pnpm.cmd run lint; pnpm.cmd exec vitest run tests/ui/manufacturing/ManufacturingActivity.test.tsx tests/ui/Workbench.manufacturing.test.tsx",
+        "observedAt": "2026-07-21T15:14:12-06:00",
+        "outcome": "GREEN: TypeScript passed, lint/source policy checked 586 files, and the affected UI suites passed 7 of 7 tests."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
