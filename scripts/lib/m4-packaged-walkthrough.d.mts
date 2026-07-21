@@ -100,6 +100,11 @@ export interface M4PackagedWalkthroughOptions {
   readonly agentSource: string;
   readonly projectPath: string;
   readonly cachePaintLimitMs?: number;
+  readonly aiConversationMode?: "automated";
+}
+
+export interface M4NativePackagedWalkthroughOptions extends Omit<M4PackagedWalkthroughOptions, "aiConversationMode"> {
+  readonly aiConversationMode: "hosted-plus-manual";
 }
 
 export interface M4PackagedWalkthroughEvidence {
@@ -191,6 +196,34 @@ export interface M4PackagedWalkthroughEvidence {
   };
 }
 
+export interface M4NativePackagedWalkthroughEvidence extends Omit<M4PackagedWalkthroughEvidence, "schemaVersion" | "order" | "ai"> {
+  readonly schemaVersion: 2;
+  readonly order: readonly [
+    "c10-unconfigured",
+    "c11-default-deny",
+    "c11-allow-session",
+    "cache",
+    "delta",
+    "animation",
+    "thumbnail",
+    "restart",
+    "source-restored",
+  ];
+  readonly ai: {
+    readonly mode: "hosted-plus-manual";
+    readonly unconfiguredRequestCount: 0;
+    readonly unconfiguredRendererAttempts: number;
+    readonly unconfiguredRendererExternalAttempts: 0;
+    readonly unconfiguredRendererInternalAttempts: number;
+    readonly unconfiguredRendererObservations: readonly M4RendererTransportObservation[];
+    readonly unconfiguredTauriInvokeAttempts: 0 | null;
+    readonly unconfiguredInvokeMonitoring: "installed" | "protected-nonwritable" | "patch-failed";
+    readonly requestCount: 0;
+    readonly hostedAutomationRequired: true;
+    readonly manualPackagedInputRequired: true;
+  };
+}
+
 export const M4_SELECTORS: Readonly<Record<string, string>>;
 export const M4_DOM_SCRIPTS: Readonly<Record<string, string>>;
 
@@ -255,6 +288,10 @@ export function waitForM4AiProposalOutcome(
   readonly assistantHasExpected: boolean;
   readonly alertText: string;
 }>;
+
+export function runM4PackagedWalkthrough(
+  options: M4NativePackagedWalkthroughOptions,
+): Promise<M4NativePackagedWalkthroughEvidence>;
 
 export function runM4PackagedWalkthrough(
   options: M4PackagedWalkthroughOptions,

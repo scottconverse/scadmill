@@ -906,7 +906,7 @@ describe("packaged desktop evidence helpers", () => {
     expect(runner).toContain("execute/async");
     const n2 = runner.indexOf("const n2SoakSummary = await runN2Soak");
     const m4 = runner.indexOf("await runM4PackagedWalkthrough");
-    const m4Cleanup = runner.indexOf('await record("m4-helper-secret-cleared-and-scanned"');
+    const m4Cleanup = runner.indexOf('await record("m4-ai-sensitive-state-scanned"');
     const m4Final = runner.indexOf('await record("m4-final-artifacts-verified", finalM4Verification)');
     const credential = runner.indexOf("const syntheticSecret = `SCADMILL-OS-CREDENTIAL-");
     expect(n2).toBeGreaterThanOrEqual(0);
@@ -918,6 +918,7 @@ describe("packaged desktop evidence helpers", () => {
     expect(runner).toContain('setControl(client, "MCP write-file permission", "deny")');
     expect(runner).toContain("writeFile(m4EvidencePath,");
     expect(runner).toContain("JSON.stringify(m4Evidence, null, 2)");
+    expect(runner).toContain('aiConversationMode: "hosted-plus-manual"');
     expect(runner).toContain('clickButton(client, "Clear AI key")');
     expect(runner).toContain('setControl(client, "AI provider", "none")');
     expect(runner).toContain("m4SecretScan");

@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-m4-release-evidence-split",
+  "createdAt": "2026-07-20T19:05:00-06:00",
+  "summary": "Split M4 evidence across exact-head hosted AI automation, clean-Sandbox manual keyboard proof, and packaged native-only automation after the tauri-driver input boundary was conclusively exhausted.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "AC-10.a", "AC-10.b", "AC-10.c", "AC-10.d", "N-3 keyboard operability", "V-4 end-to-end", "V-5 release gate", "V-6 honesty rule"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-m4-release-evidence-split.json", "status": "added" },
+    { "path": "scripts/lib/m4-packaged-walkthrough.d.mts", "status": "modified" },
+    { "path": "scripts/lib/m4-packaged-walkthrough.mjs", "status": "modified" },
+    { "path": "scripts/lib/m4-packaged-verifier.mjs", "status": "modified" },
+    { "path": "scripts/run-packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "tests/scripts/m4-packaged-verifier.test.ts", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0455",
+      "topic": "M4 cross-surface release evidence ownership",
+      "decision": "Stop attempting to inject packaged Message text through a tauri-driver-owned WebView2 session. Run the complete mocked AC-10 conversation and agent journey in exact-head hosted Playwright, require a clean-Sandbox manual Message-input check under V-5, and restrict packaged automation to native-specific boundaries that do not depend on synthetic text injection: unconfigured-AI zero external egress, MCP default-deny/allow-session, cache, geometry delta, animation, thumbnails, restart, and sensitive-state scanning. Emit schema version 2 with hostedAutomationRequired and manualPackagedInputRequired both true; the verifier fails closed if either requirement is weakened.",
+      "rationale": "Exact clean source-bound runs proved WebDriver actions, CDP editing, main-world input events, Unicode SendInput, and physical virtual-key SendInput all fail to commit the controlled Message value only when tauri-driver owns the packaged WebView2 session. The same c1da348 packaged product retained ordinary physical-key input and enabled Send in a networking-disabled clean Sandbox, and the exact hosted M4 journey passed its complete mocked provider path. V-4 assigns AI mock apply-diff to Playwright and V-5 separately requires logged manual ACs and fresh-VM testing. Continuing to mutate the tauri-driver input protocol would be test-looping, not product validation.",
+      "specBasis": ["AC-10.a", "AC-10.b", "AC-10.c", "AC-10.d", "N-3 keyboard operability", "V-4 end-to-end", "V-5 release gate", "V-6 honesty rule"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The packaged evidence artifact must describe the native-only scope explicitly, retain native M4 checks, and fail closed unless hosted automation and manual packaged input remain required.",
+      "test": "Run the packaged walkthrough, retained-artifact verifier, and packaged runner contract suites plus TypeScript and targeted lint.",
+      "red": {
+        "command": "Exact clean packaged Windows Sandbox run bound to commit 442c65d63698640c7e037c04e193f0c9460fb466 and tree f9b9db6bc1eb8a86051f1e79e92c07eaaaf5dbfd",
+        "observedAt": "2026-07-20T18:58:02-06:00",
+        "outcome": "RUNTIME RED: physical virtual-key SendInput again reported successful injection but packaged React retained no Message value; the mock received zero requests. Build, cube render, STL export, MCP default-off, MCP Appendix B, endpoint removal, and exact cleanup passed. This conclusively closes synthetic packaged textarea injection."
+      },
+      "green": {
+        "command": "npm.cmd test -- --run tests/scripts/m4-packaged-walkthrough.test.ts tests/scripts/m4-packaged-verifier.test.ts tests/scripts/packaged-desktop-evidence.test.ts; npm.cmd run typecheck; npm.cmd exec biome lint <six changed implementation/test files>",
+        "observedAt": "2026-07-20T19:04:10-06:00",
+        "outcome": "GREEN: 74/74 focused tests passed, TypeScript passed, and targeted lint passed. The schema-2 verifier accepts the exact native-only manifest and rejects manualPackagedInputRequired=false. Exact clean guest execution remains required once source-bound."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-442c65d-sandbox-m4-physical-keys-20260720/evidence.json",
+      "sought": "Exact clean packaged M4 walkthrough with physical virtual-key text injection",
+      "confirmation": "The exact source, binary, engine, driver, and runtime identities were retained. Native pre-M4 events passed, then Message state did not commit and the mock received zero requests. Host cleanup recorded zero exact Sandbox sessions and removed staging."
+    }
+  ],
+  "questions": ["No owner decision is required. The split follows V-4, V-5, and V-6 without weakening any AC; exact-head hosted and manual evidence must both exist before release."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

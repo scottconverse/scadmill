@@ -1425,6 +1425,7 @@ try {
     agentSource: m4AgentSource,
     projectPath: "main.scad",
     cachePaintLimitMs: 100,
+    aiConversationMode: "hosted-plus-manual",
     automation: {
       readSource: () => editorSource(client),
       replaceSource: (source) => replaceEditorSource(client, source),
@@ -1586,10 +1587,15 @@ try {
 
   await clickAria(client, "Open settings");
   await setControl(client, "Search settings", "AI");
-  await waitFor(async () => (await inputValue(client, "AI API key")) === m4Secret, "M4 AI key before clear", 15_000, 100);
-  await clickButton(client, "Clear AI key");
-  await waitForBody(client, "AI key cleared.");
-  await setControl(client, "AI provider", "none");
+  if (m4Evidence.ai.mode === "hosted-plus-manual") {
+    assert.equal(await inputValue(client, "AI API key"), "", "Packaged native-only M4 journey unexpectedly stored an AI key.");
+    assert.equal(await inputValue(client, "AI provider"), "none", "Packaged native-only M4 journey changed the AI provider.");
+  } else {
+    await waitFor(async () => (await inputValue(client, "AI API key")) === m4Secret, "M4 AI key before clear", 15_000, 100);
+    await clickButton(client, "Clear AI key");
+    await waitForBody(client, "AI key cleared.");
+    await setControl(client, "AI provider", "none");
+  }
   await clickAria(client, "Close settings");
   const m4CredentialAbsent = await probeCredential(args["credential-probe"], false);
   assert.equal(m4CredentialAbsent.lastError, ERROR_NOT_FOUND);
@@ -1608,7 +1614,7 @@ try {
   assert.deepEqual(m4SecretScan.matches, [], `M4 helper secret leaked into: ${m4SecretScan.matches.join(", ")}`);
   const m4Unreadable = m4SecretScan.unreadable.filter(({ path }) => path.toLowerCase().includes("scadmill"));
   assert.deepEqual(m4Unreadable, [], `Could not scan M4 app-managed files: ${JSON.stringify(m4Unreadable)}`);
-  await record("m4-helper-secret-cleared-and-scanned", {
+  await record("m4-ai-sensitive-state-scanned", {
     credential: m4CredentialAbsent,
     roots: m4SecretScan.roots,
     filesScanned: m4SecretScan.filesScanned,

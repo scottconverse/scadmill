@@ -144,6 +144,62 @@ afterEach(async () => {
 });
 
 describe("retained M4 packaged verifier", () => {
+  it("accepts the native-only split while requiring hosted automation and manual packaged input", async () => {
+    const value = await fixture();
+    const nativeScreenshots = value.walkthrough.screenshots.filter(({ name }) =>
+      !["04b-ai-proposal-applied.png", "04c-ai-agent-pending-diff.png"].includes(name));
+    const native = {
+      ...value.walkthrough,
+      schemaVersion: 2,
+      order: [
+        "c10-unconfigured", "c11-default-deny", "c11-allow-session", "cache", "delta",
+        "animation", "thumbnail", "restart", "source-restored",
+      ],
+      ai: {
+        mode: "hosted-plus-manual",
+        unconfiguredRequestCount: 0,
+        unconfiguredRendererAttempts: 1,
+        unconfiguredRendererExternalAttempts: 0,
+        unconfiguredRendererInternalAttempts: 1,
+        unconfiguredRendererObservations: [{
+          command: "update_native_menu_state", kind: "fetch", method: "POST",
+          origin: "http://ipc.localhost", targetClass: "tauri-ipc",
+        }],
+        unconfiguredTauriInvokeAttempts: null,
+        unconfiguredInvokeMonitoring: "protected-nonwritable",
+        requestCount: 0,
+        hostedAutomationRequired: true,
+        manualPackagedInputRequired: true,
+      },
+      screenshots: nativeScreenshots,
+    };
+    const serialized = `${JSON.stringify(native, null, 2)}\n`;
+    await writeFile(value.walkthroughPath, serialized);
+    const events = [
+      {
+        ...value.initialEvent,
+        evidenceSha256: sha256(serialized),
+        requestCount: 0,
+        screenshotCount: nativeScreenshots.length,
+      },
+      { ...value.cleanupEvent, name: "m4-ai-sensitive-state-scanned" },
+    ];
+    await expect(verifyM4PackagedArtifacts({
+      walkthroughPath: value.walkthroughPath,
+      screenshotDirectory: value.root,
+      events,
+    })).resolves.toMatchObject({ status: "passed", screenshotCount: 6 });
+
+    const missingManual = { ...native, ai: { ...native.ai, manualPackagedInputRequired: false } };
+    const missingManualText = `${JSON.stringify(missingManual, null, 2)}\n`;
+    await writeFile(value.walkthroughPath, missingManualText);
+    await expect(verifyM4PackagedArtifacts({
+      walkthroughPath: value.walkthroughPath,
+      screenshotDirectory: value.root,
+      events: [{ ...events[0], evidenceSha256: sha256(missingManualText) }, events[1]],
+    })).rejects.toThrow("native-only M4 AI boundary evidence");
+  });
+
   it("revalidates exact artifacts and rejects delete, truncate, replace, and threshold tampering", async () => {
     const value = await fixture();
     const input = { walkthroughPath: value.walkthroughPath, screenshotDirectory: value.root, events: value.events };

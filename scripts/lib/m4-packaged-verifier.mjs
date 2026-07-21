@@ -19,6 +19,18 @@ const ORDER = [
   "c10-unconfigured", "c10-proposal", "c10-agent", "c10-agent-cap", "c11-default-deny",
   "c11-allow-session", "cache", "delta", "animation", "thumbnail", "restart", "source-restored",
 ];
+const NATIVE_SCREENSHOTS = [
+  "04a-ai-unconfigured.png",
+  "04d-cache-geometry-delta.png",
+  "04e-animation-frame-52.png",
+  "04f-file-tree-thumbnail.png",
+  "04g-welcome-recent-thumbnail.png",
+  "04h-cold-cache-restored-thumbnail.png",
+];
+const NATIVE_ORDER = [
+  "c10-unconfigured", "c11-default-deny", "c11-allow-session", "cache", "delta",
+  "animation", "thumbnail", "restart", "source-restored",
+];
 
 function sha256(bytes) {
   return createHash("sha256").update(bytes).digest("hex");
@@ -51,9 +63,32 @@ async function required(path, label) {
 
 function requireWalkthroughShape(value) {
   if (!exactKeys(value, ["schemaVersion", "status", "order", "ai", "mcp", "cache", "delta", "animation", "thumbnails", "restart", "screenshots", "source"])
-    || value.schemaVersion !== 1 || value.status !== "passed") throw new Error("Retained M4 walkthrough has an invalid top-level schema.");
-  if (JSON.stringify(value.order) !== JSON.stringify(ORDER)) throw new Error("Retained M4 walkthrough order is invalid.");
+    || ![1, 2].includes(value.schemaVersion) || value.status !== "passed") throw new Error("Retained M4 walkthrough has an invalid top-level schema.");
+  const nativeOnly = value.schemaVersion === 2;
+  if (JSON.stringify(value.order) !== JSON.stringify(nativeOnly ? NATIVE_ORDER : ORDER)) throw new Error("Retained M4 walkthrough order is invalid.");
   const ai = value.ai;
+  if (nativeOnly) {
+    if (!exactKeys(ai, ["mode", "unconfiguredRequestCount", "unconfiguredRendererAttempts", "unconfiguredRendererExternalAttempts", "unconfiguredRendererInternalAttempts", "unconfiguredRendererObservations", "unconfiguredTauriInvokeAttempts", "unconfiguredInvokeMonitoring", "requestCount", "hostedAutomationRequired", "manualPackagedInputRequired"])
+      || ai.mode !== "hosted-plus-manual" || ai.unconfiguredRequestCount !== 0
+      || !Number.isSafeInteger(ai.unconfiguredRendererAttempts) || ai.unconfiguredRendererAttempts < 0
+      || ai.unconfiguredRendererExternalAttempts !== 0
+      || !Number.isSafeInteger(ai.unconfiguredRendererInternalAttempts) || ai.unconfiguredRendererInternalAttempts < 0
+      || ai.unconfiguredRendererAttempts !== ai.unconfiguredRendererInternalAttempts
+      || !Array.isArray(ai.unconfiguredRendererObservations)
+      || ai.unconfiguredRendererObservations.length !== ai.unconfiguredRendererAttempts
+      || ai.unconfiguredRendererObservations.some((observation) =>
+        !exactKeys(observation, ["command", "kind", "method", "origin", "targetClass"])
+        || !["fetch", "xhr"].includes(observation.kind)
+        || typeof observation.method !== "string" || !/^[A-Z]{1,16}$/u.test(observation.method)
+        || typeof observation.origin !== "string" || observation.origin.length === 0 || observation.origin.length > 256
+        || !["tauri-ipc", "same-origin", "local-scheme"].includes(observation.targetClass)
+        || (observation.targetClass === "tauri-ipc" && observation.command === "ai_http_request")
+        || (observation.command !== null && (typeof observation.command !== "string" || !/^[A-Za-z0-9:_-]{1,128}$/u.test(observation.command))))
+      || !["installed", "protected-nonwritable", "patch-failed"].includes(ai.unconfiguredInvokeMonitoring)
+      || ai.unconfiguredTauriInvokeAttempts !== (ai.unconfiguredInvokeMonitoring === "installed" ? 0 : null)
+      || ai.requestCount !== 0 || ai.hostedAutomationRequired !== true
+      || ai.manualPackagedInputRequired !== true) throw new Error("Retained native-only M4 AI boundary evidence is invalid.");
+  } else {
   const expectedContexts = [
     { source: true, diagnostics: true, parameters: true, screenshot: true },
     ...Array.from({ length: 4 }, () => ({ source: false, diagnostics: false, parameters: false, screenshot: false })),
@@ -102,6 +137,7 @@ function requireWalkthroughShape(value) {
       || (record.responseToolName !== null && !record.toolNames.includes(record.responseToolName))) throw new Error("Retained M4 sanitized transcript is invalid.");
   }
   if (sha256(canonicalJson(ai.transcript.records)) !== ai.transcript.sha256) throw new Error("Retained M4 sanitized transcript hash is invalid.");
+  }
   if (!exactKeys(value.mcp, ["defaultDenyCode", "mutationApproved"])
     || value.mcp.defaultDenyCode !== -32001 || value.mcp.mutationApproved !== true) throw new Error("Retained M4 MCP evidence is invalid.");
   if (!exactKeys(value.cache, ["baselineConsoleRunsAdded", "elapsedMs", "consoleRunsAdded", "coldElapsedMs", "restoredAfterRestart"])
@@ -139,7 +175,7 @@ function validObservedAt(value) {
 }
 
 function requireCleanupEvent(events, initial) {
-  const matches = events.filter(({ name } = {}) => name === "m4-helper-secret-cleared-and-scanned");
+  const matches = events.filter(({ name } = {}) => ["m4-helper-secret-cleared-and-scanned", "m4-ai-sensitive-state-scanned"].includes(name));
   if (matches.length !== 1) throw new Error("Retained evidence must contain exactly one M4 helper-secret cleanup event.");
   const cleanup = matches[0];
   if (!exactKeys(cleanup, ["name", "observedAt", "credential", "roots", "filesScanned", "bytesScanned", "matches", "unreadableAppFiles", "secretSha256"])
@@ -189,20 +225,21 @@ export async function verifyM4PackagedArtifacts(input) {
     throw new Error("Retained M4 walkthrough JSON is invalid.", { cause: error });
   }
   walkthrough = requireWalkthroughShape(walkthrough);
+  const expectedScreenshots = walkthrough.schemaVersion === 2 ? NATIVE_SCREENSHOTS : SCREENSHOTS;
   const event = initialEvent(input.events);
   const cleanup = requireCleanupEvent(input.events, event);
   if (event.evidenceSha256?.toLowerCase() !== walkthroughSha256
-    || event.requestCount !== 7 || event.screenshotCount !== SCREENSHOTS.length
+    || event.requestCount !== walkthrough.ai.requestCount || event.screenshotCount !== expectedScreenshots.length
     || event.cachePaintMs !== walkthrough.cache.elapsedMs || event.coldCachePaintMs !== walkthrough.cache.coldElapsedMs) {
     throw new Error("Retained M4 walkthrough event differs from its artifact.");
   }
-  if (!Array.isArray(walkthrough.screenshots) || walkthrough.screenshots.length !== SCREENSHOTS.length
-    || JSON.stringify(walkthrough.screenshots.map(({ name }) => name)) !== JSON.stringify(SCREENSHOTS)) {
+  if (!Array.isArray(walkthrough.screenshots) || walkthrough.screenshots.length !== expectedScreenshots.length
+    || JSON.stringify(walkthrough.screenshots.map(({ name }) => name)) !== JSON.stringify(expectedScreenshots)) {
     throw new Error("Retained M4 screenshot manifest is invalid.");
   }
   const auditedScreenshots = [];
   for (const [index, screenshot] of walkthrough.screenshots.entries()) {
-    if (!exactKeys(screenshot, ["name", "sha256", "byteLength"]) || screenshot.name !== SCREENSHOTS[index]
+    if (!exactKeys(screenshot, ["name", "sha256", "byteLength"]) || screenshot.name !== expectedScreenshots[index]
       || !validSha(screenshot.sha256) || !Number.isSafeInteger(screenshot.byteLength)) throw new Error("Retained M4 screenshot entry is invalid.");
     const bytes = await required(join(input.screenshotDirectory, screenshot.name), `screenshot ${screenshot.name}`);
     const png = inspectM4Png(bytes, `Retained M4 screenshot ${screenshot.name}`, 16 * 1024 * 1024);

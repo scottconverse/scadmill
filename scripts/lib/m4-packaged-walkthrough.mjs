@@ -1245,6 +1245,7 @@ export async function runM4PackagedWalkthrough({
   agentSource,
   projectPath,
   cachePaintLimitMs = 100,
+  aiConversationMode = "automated",
 }) {
   assert.ok(exactRecord(automation), "M4 walkthrough requires an automation adapter.");
   for (const name of ["readSource", "replaceSource", "waitForSource", "activateRail", "clickAria", "clickButton", "setControl", "setChecked", "waitForText", "execute", "executeAsync", "captureScreenshot", "startAiMock", "stopAiMock", "probeMcpDefaultDeny", "runMcpAllowSessionJourney", "restartApplication"]) {
@@ -1254,6 +1255,7 @@ export async function runM4PackagedWalkthrough({
     assert.ok(safeString(value, 1_000_000), `M4 ${name} is invalid.`);
   }
   assert.ok(Number.isFinite(cachePaintLimitMs) && cachePaintLimitMs > 0 && cachePaintLimitMs <= 100, "M4 cache-paint limit must be greater than zero and no more than 100 ms.");
+  assert.ok(["automated", "hosted-plus-manual"].includes(aiConversationMode), "M4 AI conversation mode is invalid.");
   assert.equal(await automation.readSource(), initialSource, "M4 walkthrough did not start from the declared source.");
 
   const order = [];
@@ -1264,6 +1266,10 @@ export async function runM4PackagedWalkthrough({
   let failureMockDiagnostic;
   let result;
   let failure;
+  let finalNetworkObservation;
+  let contextFixtureSource;
+  let agentConsoleRunsBefore;
+  let agentConsoleRunsAfter;
   try {
     const initialNetworkObservationRaw = await automation.execute(M4_DOM_SCRIPTS.installNetworkAttemptMonitor);
     networkMonitorActive = true;
@@ -1274,7 +1280,7 @@ export async function runM4PackagedWalkthrough({
     assert.deepEqual(unconfigured, { guidanceVisible: true, sendCount: 0 }, "Unconfigured AI exposed a send path or lost its setup guidance.");
     const finalNetworkObservationRaw = await automation.execute(M4_DOM_SCRIPTS.networkAttemptSnapshot);
     networkMonitorActive = false;
-    const finalNetworkObservation = validateM4ZeroNetworkAttempts(finalNetworkObservationRaw);
+    finalNetworkObservation = validateM4ZeroNetworkAttempts(finalNetworkObservationRaw);
     assert.equal(
       finalNetworkObservation.tauriInvokeMonitoring,
       initialNetworkObservation.tauriInvokeMonitoring,
@@ -1283,7 +1289,8 @@ export async function runM4PackagedWalkthrough({
     order.push("c10-unconfigured");
     await screenshot(automation, screenshots, "04a-ai-unconfigured.png");
 
-    mock = assertLoopbackMock(await automation.startAiMock({
+    if (aiConversationMode === "automated") {
+      mock = assertLoopbackMock(await automation.startAiMock({
       proposalSource,
       agentSource,
       cappedRounds: 2,
@@ -1309,7 +1316,7 @@ export async function runM4PackagedWalkthrough({
     assert.equal(conversationModel.optionCount, 1, "The bounded M4 journey requires exactly one configured conversation model.");
     assert.ok(conversationModel.selectedLabel.includes(mock.model), "The sole conversation-model label does not identify the configured mock model.");
     assert.match(conversationModel.selectedValue, /^model-[a-f0-9]+$/u, "Conversation model did not use its generated model identity.");
-    const contextFixtureSource = "width = 10; // [1:1:20]\necho(m4_missing_context_value);\ncube([width, 10, 10]);";
+      contextFixtureSource = "width = 10; // [1:1:20]\necho(m4_missing_context_value);\ncube([width, 10, 10]);";
     await automation.replaceSource(contextFixtureSource);
     await automation.executeAsync(M4_DOM_SCRIPTS.fullRenderCompleted, [projectPath]);
     await automation.clickAria("Capture viewport as PNG");
@@ -1341,13 +1348,13 @@ export async function runM4PackagedWalkthrough({
     await automation.setChecked("Viewer screenshot", false);
     await automation.setChecked("Allow tool calls for this conversation", true);
     await automation.setControl("Maximum tool-call rounds", "6");
-    const agentConsoleRunsBefore = await automation.execute(M4_DOM_SCRIPTS.consoleRunCount);
+      agentConsoleRunsBefore = await automation.execute(M4_DOM_SCRIPTS.consoleRunCount);
     assert.ok(exactKeys(agentConsoleRunsBefore, ["count"])
       && Number.isSafeInteger(agentConsoleRunsBefore.count), "M4 agent console-run baseline is invalid.");
     await automation.setControl("Message", "Render, inspect diagnostics, and propose the exact agent edit.");
     await automation.clickButton("Send");
     await automation.waitForText("Agent status: completed");
-    const agentConsoleRunsAfter = await automation.execute(M4_DOM_SCRIPTS.consoleRunCount);
+      agentConsoleRunsAfter = await automation.execute(M4_DOM_SCRIPTS.consoleRunCount);
     assert.ok(exactKeys(agentConsoleRunsAfter, ["count"])
       && Number.isSafeInteger(agentConsoleRunsAfter.count), "M4 agent console-run result is invalid.");
     await automation.activateRail("History");
@@ -1368,7 +1375,8 @@ export async function runM4PackagedWalkthrough({
     await automation.clickButton("Send");
     await automation.waitForText("Agent status: capped");
     order.push("c10-agent-cap");
-    assertSecretAbsent(await automation.execute(M4_DOM_SCRIPTS.secretSurfaceSnapshot), mock.secret);
+      assertSecretAbsent(await automation.execute(M4_DOM_SCRIPTS.secretSurfaceSnapshot), mock.secret);
+    }
 
     const denied = await automation.probeMcpDefaultDeny();
     order.push("c11-default-deny");
@@ -1481,43 +1489,40 @@ export async function runM4PackagedWalkthrough({
     order.push("restart");
     await screenshot(automation, screenshots, "04h-cold-cache-restored-thumbnail.png");
 
-    const rawTranscript = await automation.stopAiMock();
-    mockStopped = true;
-    const semanticTranscript = validateM4RawTranscriptSemantics(rawTranscript, {
-      contextFixtureSource,
-      agentSource,
-      agentConsoleRunsBefore: agentConsoleRunsBefore.count,
-      agentConsoleRunsAfter: agentConsoleRunsAfter.count,
-    });
-    const transcript = sanitizeAiTranscript(rawTranscript, mock.secret);
-    assert.equal(transcript.records.length, 7, "M4 AI mock must observe exactly seven bounded requests.");
-    const selectedResponseToolSequence = transcript.records.map(({ responseToolName }) => responseToolName);
-    assert.deepEqual(selectedResponseToolSequence, [
-      null,
-      "render_preview",
-      "get_diagnostics",
-      "write_file",
-      null,
-      "render_preview",
-      "render_preview",
-    ], "M4 AI responses did not follow the exact proposal, three-tool agent, final, and two-round cap sequence.");
-    const contextPatterns = transcript.records.map(({ context }) => context);
-    assert.deepEqual(contextPatterns, [
-      { source: true, diagnostics: true, parameters: true, screenshot: true },
-      { source: false, diagnostics: false, parameters: false, screenshot: false },
-      { source: false, diagnostics: false, parameters: false, screenshot: false },
-      { source: false, diagnostics: false, parameters: false, screenshot: false },
-      { source: false, diagnostics: false, parameters: false, screenshot: false },
-      { source: true, diagnostics: false, parameters: false, screenshot: false },
-      { source: true, diagnostics: false, parameters: false, screenshot: false },
-    ], "M4 AI context toggles did not produce the exact enabled, disabled, and re-enabled per-send request patterns.");
-    assertSecretAbsent(await automation.execute(M4_DOM_SCRIPTS.secretSurfaceSnapshot), mock.secret);
-
-    result = {
-      schemaVersion: 1,
-      status: "passed",
-      order,
-      ai: {
+    let aiEvidence;
+    if (aiConversationMode === "automated") {
+      const rawTranscript = await automation.stopAiMock();
+      mockStopped = true;
+      const semanticTranscript = validateM4RawTranscriptSemantics(rawTranscript, {
+        contextFixtureSource,
+        agentSource,
+        agentConsoleRunsBefore: agentConsoleRunsBefore.count,
+        agentConsoleRunsAfter: agentConsoleRunsAfter.count,
+      });
+      const transcript = sanitizeAiTranscript(rawTranscript, mock.secret);
+      assert.equal(transcript.records.length, 7, "M4 AI mock must observe exactly seven bounded requests.");
+      const selectedResponseToolSequence = transcript.records.map(({ responseToolName }) => responseToolName);
+      assert.deepEqual(selectedResponseToolSequence, [
+        null,
+        "render_preview",
+        "get_diagnostics",
+        "write_file",
+        null,
+        "render_preview",
+        "render_preview",
+      ], "M4 AI responses did not follow the exact proposal, three-tool agent, final, and two-round cap sequence.");
+      const contextPatterns = transcript.records.map(({ context }) => context);
+      assert.deepEqual(contextPatterns, [
+        { source: true, diagnostics: true, parameters: true, screenshot: true },
+        { source: false, diagnostics: false, parameters: false, screenshot: false },
+        { source: false, diagnostics: false, parameters: false, screenshot: false },
+        { source: false, diagnostics: false, parameters: false, screenshot: false },
+        { source: false, diagnostics: false, parameters: false, screenshot: false },
+        { source: true, diagnostics: false, parameters: false, screenshot: false },
+        { source: true, diagnostics: false, parameters: false, screenshot: false },
+      ], "M4 AI context toggles did not produce the exact enabled, disabled, and re-enabled per-send request patterns.");
+      assertSecretAbsent(await automation.execute(M4_DOM_SCRIPTS.secretSurfaceSnapshot), mock.secret);
+      aiEvidence = {
         unconfiguredRequestCount: 0,
         unconfiguredRendererAttempts: finalNetworkObservation.rendererAttemptCount,
         unconfiguredRendererExternalAttempts: finalNetworkObservation.rendererExternalAttemptCount,
@@ -1534,7 +1539,28 @@ export async function runM4PackagedWalkthrough({
         contextPatterns,
         semanticTranscript,
         transcript,
-      },
+      };
+    } else {
+      aiEvidence = {
+        mode: "hosted-plus-manual",
+        unconfiguredRequestCount: 0,
+        unconfiguredRendererAttempts: finalNetworkObservation.rendererAttemptCount,
+        unconfiguredRendererExternalAttempts: finalNetworkObservation.rendererExternalAttemptCount,
+        unconfiguredRendererInternalAttempts: finalNetworkObservation.rendererInternalAttemptCount,
+        unconfiguredRendererObservations: finalNetworkObservation.rendererObservations,
+        unconfiguredTauriInvokeAttempts: finalNetworkObservation.tauriInvokeAttemptCount,
+        unconfiguredInvokeMonitoring: finalNetworkObservation.tauriInvokeMonitoring,
+        requestCount: 0,
+        hostedAutomationRequired: true,
+        manualPackagedInputRequired: true,
+      };
+    }
+
+    result = {
+      schemaVersion: aiConversationMode === "automated" ? 1 : 2,
+      status: "passed",
+      order,
+      ai: aiEvidence,
       mcp: { defaultDenyCode: denied.error.code, mutationApproved: allowed.mutationApproved },
       cache: {
         baselineConsoleRunsAdded: baselineRun.consoleRunsAfter - baselineRun.consoleRunsBefore,
