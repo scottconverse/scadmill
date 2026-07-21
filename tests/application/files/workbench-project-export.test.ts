@@ -7,7 +7,10 @@ import type {
   RenderJob,
 } from "../../../src/application/engine/contracts";
 import type { ArtifactDestination } from "../../../src/application/files/artifact-destination";
-import { startWorkbenchProjectExport } from "../../../src/application/files/workbench-project-export";
+import {
+  startWorkbenchBatchProjectExport,
+  startWorkbenchProjectExport,
+} from "../../../src/application/files/workbench-project-export";
 import { createWorkbenchRuntime } from "../../../src/application/runtime/workbench-runtime";
 
 function binaryStl(): Uint8Array {
@@ -99,6 +102,51 @@ describe("workbench project export Customizer integration", () => {
     expect("previewFacetLimit" in requests[0]).toBe(false);
     expect(runtime.documents.getState().documents[0]?.source).toBe(source);
     await expect(operation.done).resolves.toMatchObject({ fileName: "main.stl" });
+    runtime.dispose();
+  });
+
+  it("AC-15.d saves one full export for each of three selected parameter sets", async () => {
+    const requests: ExportRequest[] = [];
+    const engine: EngineService = {
+      render: vi.fn(),
+      export: vi.fn((request) => {
+        requests.push(request);
+        return {
+          ...exportJob({ ok: true, bytes: binaryStl(), diagnostics: [], rawLog: "" }),
+          jobId: `batch-${requests.length}`,
+        };
+      }),
+      version: vi.fn(),
+      cancel: vi.fn(),
+    };
+    const destination: ArtifactDestination = {
+      available: true,
+      save: vi.fn(async ({ suggestedName }) => ({ location: `Downloads/${suggestedName}` })),
+    };
+    const runtime = createWorkbenchRuntime(engine, { artifactDestination: destination });
+    const sets = [
+      { name: "Small", values: { width: 10 } },
+      { name: "Medium", values: { width: 20 } },
+      { name: "Large", values: { width: 30 } },
+    ] as const;
+
+    const operation = startWorkbenchBatchProjectExport(
+      runtime,
+      engine,
+      "stl-binary",
+      sets,
+      "{model}-{set}.{ext}",
+    );
+    const result = await operation.done;
+
+    expect(requests.map(({ parameters }) => parameters)).toEqual([
+      { width: 10 }, { width: 20 }, { width: 30 },
+    ]);
+    expect(requests.every((request) => !("quality" in request))).toBe(true);
+    expect(vi.mocked(destination.save).mock.calls.map(([request]) => request.suggestedName)).toEqual([
+      "main-Small.stl", "main-Medium.stl", "main-Large.stl",
+    ]);
+    expect(result.items.map(({ status }) => status)).toEqual(["success", "success", "success"]);
     runtime.dispose();
   });
 });

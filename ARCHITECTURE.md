@@ -36,6 +36,7 @@ The web-source adapter uses a module worker, verifies the exact JavaScript/WASM 
 - Settings, layout, recovery, recent-project metadata, annotations, and optional project cache use typed persistence ports.
 - Render-cache persistence is off by default, enabled per project, bounded, integrity-checked, and ineligible for scratch work.
 - Editor buffers and command history are application state. The M5 model-history service binds each accepted render to source, parameters, quality, geometry identity, and a thumbnail. Its 100-snapshot session timeline is the default; project persistence is a separate explicit opt-in through a platform port and is capped at 16 MiB.
+- Batch export snapshots the active project and selected saved parameter sets once, then serializes full-quality engine/export operations. Each destination write completes before the next item starts, so an item failure or later cancellation cannot roll back an already saved artifact.
 - Uninstall removes the app and association, not user projects or necessarily every profile/credential record.
 
 ## Network and privacy boundaries

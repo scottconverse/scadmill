@@ -7,6 +7,8 @@ import type {
   ProjectExportCompletion,
   ProjectExportOperation,
 } from "../../../src/application/files/project-export";
+import type { BatchExportState } from "../../../src/application/files/batch-project-export";
+import type { NamedParameterSet } from "../../../src/application/parameters/parameter-set-codec";
 import { ProjectExportDialog } from "../../../src/ui/files/ProjectExportDialog";
 
 function deferred<T>() {
@@ -157,5 +159,50 @@ describe("ProjectExportDialog", () => {
       diagnostics: [],
     });
     expect(await view.findByText("Saved to Project A downloads/a.3mf")).toBeVisible();
+  });
+
+  it("selects a subset of saved parameter sets and shows per-item batch results", async () => {
+    const parameterSets: readonly NamedParameterSet[] = [
+      { name: "Small", values: { width: 10 } },
+      { name: "Tall", values: { width: 20 } },
+      { name: "Large", values: { width: 30 } },
+    ];
+    const result: BatchExportState = {
+      items: [
+        { setName: "Small", fileName: "cube-Small.3mf", status: "success" },
+        { setName: "Large", fileName: "cube-Large.3mf", status: "failure", error: "engine failed" },
+      ],
+      completed: 2,
+      total: 2,
+      cancelled: false,
+    };
+    const startBatchExport = vi.fn(() => ({
+      done: Promise.resolve(result),
+      getState: () => result,
+      subscribe: () => () => undefined,
+      cancel: vi.fn(),
+    }));
+    const view = render(
+      <ProjectExportDialog
+        destinationDescription="Downloads"
+        entryFile="cube.scad"
+        parameterSets={parameterSets}
+        startBatchExport={startBatchExport}
+        startExport={vi.fn()}
+      />,
+    );
+    fireEvent.click(view.getByRole("button", { name: "Export…" }));
+    fireEvent.click(view.getByRole("radio", { name: "Batch parameter sets" }));
+    fireEvent.click(view.getByRole("checkbox", { name: "Tall" }));
+    fireEvent.click(view.getByRole("button", { name: "Export selected sets" }));
+
+    expect(startBatchExport).toHaveBeenCalledWith(
+      "3mf",
+      [parameterSets[0], parameterSets[2]],
+      "{model}-{set}.{ext}",
+    );
+    expect(await view.findByText("Small — Saved")).toBeVisible();
+    expect(view.getByText("Large — Failed: engine failed")).toBeVisible();
+    expect(view.getByText("2 of 2 complete")).toBeVisible();
   });
 });

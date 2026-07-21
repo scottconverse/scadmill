@@ -23,6 +23,7 @@ export interface ProjectExportInput {
   readonly parameters: Readonly<Record<string, ParamValue>>;
   readonly timeoutMs: number;
   readonly image?: ExportRequest["image"];
+  readonly outputFileName?: string;
 }
 
 export interface ProjectExportCompletion extends ExportArtifactSummary {
@@ -72,6 +73,22 @@ function outputFileName(entryFile: string, format: ExportFormat): string {
   return `${stem || "model"}.${FORMAT_ARTIFACT[format].extension}`;
 }
 
+function validatedOutputFileName(value: string, format: ExportFormat): string {
+  const fileName = value.trim();
+  const expectedExtension = `.${FORMAT_ARTIFACT[format].extension}`;
+  if (
+    fileName.length === 0
+    || fileName.length > 240
+    || fileName === "."
+    || fileName === ".."
+    || [...fileName].some((character) => (
+      character === "/" || character === "\\" || character.charCodeAt(0) <= 0x1f
+    ))
+    || !fileName.toLocaleLowerCase().endsWith(expectedExtension)
+  ) throw new ProjectExportError("validation", "Export output file name is invalid for this format.");
+  return fileName;
+}
+
 function reasonMessage(reason: unknown): string {
   return reason instanceof Error ? reason.message : String(reason);
 }
@@ -108,6 +125,10 @@ export function startProjectExport(input: ProjectExportInput): ProjectExportOper
     throw new ProjectExportError("validation", reasonMessage(reason));
   }
 
+  const fileName = input.outputFileName === undefined
+    ? outputFileName(input.entryFile, input.format)
+    : validatedOutputFileName(input.outputFileName, input.format);
+
   let job: ReturnType<EngineService["export"]> | undefined;
   let summaryJob: ReturnType<EngineService["export"]> | undefined;
   try {
@@ -127,7 +148,6 @@ export function startProjectExport(input: ProjectExportInput): ProjectExportOper
     );
   }
 
-  const fileName = outputFileName(input.entryFile, input.format);
   const primaryJob = job;
   const jobs = summaryJob ? [primaryJob, summaryJob] : [primaryJob];
   const done = Promise.all(jobs.map(({ done: result }) => result)).then(async (

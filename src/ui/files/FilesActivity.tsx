@@ -9,7 +9,12 @@ import type {
   ProjectDirectoryPicker,
   WorkspaceDirectory,
 } from "../../application/files/workspace-directory";
-import { startWorkbenchProjectExport } from "../../application/files/workbench-project-export";
+import {
+  startWorkbenchBatchProjectExport,
+  startWorkbenchProjectExport,
+} from "../../application/files/workbench-project-export";
+import { parameterDocument } from "../../application/parameters/parameter-state";
+import type { NamedParameterSet } from "../../application/parameters/parameter-set-codec";
 import type { WorkbenchRuntime } from "../../application/runtime/workbench-runtime";
 import { messages } from "../../messages/en";
 import { useReadonlyStore } from "../use-readonly-store";
@@ -48,9 +53,21 @@ export function FilesActivity({
 }: FilesActivityProps) {
   const document = useReadonlyStore(runtime.documents, activeDocument);
   const renderResult = useReadonlyStore(runtime.render, (state) => state.result);
+  const parameterSets = useReadonlyStore(
+    runtime.parameters,
+    (state) => parameterDocument(state, document.id).sets,
+  );
   const startExport = useCallback((format: ExportFormat) => {
     if (!engine) throw new Error(messages.engineUnavailable);
     return startWorkbenchProjectExport(runtime, engine, format);
+  }, [engine, runtime]);
+  const startBatchExport = useCallback((
+    format: ExportFormat,
+    sets: readonly NamedParameterSet[],
+    fileNameTemplate: string,
+  ) => {
+    if (!engine) throw new Error(messages.engineUnavailable);
+    return startWorkbenchBatchProjectExport(runtime, engine, format, sets, fileNameTemplate);
   }, [engine, runtime]);
   const destinationDescription = runtime.artifacts.kind === "browser-downloads"
     ? messages.projectExportDestinationBrowser
@@ -79,6 +96,8 @@ export function FilesActivity({
           entryFile={document.path}
           modelKind={renderResult?.kind === "2d" ? "2d" : "3d"}
           openRequest={requestedExport}
+          parameterSets={parameterSets}
+          startBatchExport={startBatchExport}
           startExport={startExport}
         />
       )}

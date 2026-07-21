@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-21-m5-batch-export",
+  "createdAt": "2026-07-21T13:06:00-06:00",
+  "summary": "Implement sequential full-quality batch export for selected saved parameter sets with templated names, item progress, failure isolation, and cancellation.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "FR-15.4", "AC-15.d", "M5"],
+  "filesTouched": [
+    { "path": "ARCHITECTURE.md", "status": "modified" },
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "src/application/files/batch-project-export.ts", "status": "added" },
+    { "path": "src/application/files/project-export.ts", "status": "modified" },
+    { "path": "src/application/files/workbench-project-export.ts", "status": "modified" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/ui/files/FilesActivity.tsx", "status": "modified" },
+    { "path": "src/ui/files/ProjectExportDialog.tsx", "status": "modified" },
+    { "path": "tests/application/files/batch-project-export.test.ts", "status": "added" },
+    { "path": "tests/application/files/project-export.test.ts", "status": "modified" },
+    { "path": "tests/application/files/workbench-project-export.test.ts", "status": "modified" },
+    { "path": "tests/ui/files/ProjectExportDialog.test.tsx", "status": "modified" },
+    { "path": "provenance/entries/2026-07-21-m5-batch-export.json", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0486",
+      "topic": "Batch execution and cancellation",
+      "decision": "Snapshot the active project and selected parameter sets once, execute one full-quality export operation at a time, save each artifact before advancing, continue after an ordinary item failure, and on cancellation stop the active operation and mark every unstarted item cancelled.",
+      "rationale": "Strict serialization prevents engine pressure and makes completion durable per item. A later failure or cancellation cannot erase item one, while the progress state truthfully distinguishes success, failure, and cancellation for every selected set.",
+      "specBasis": ["FR-15.4", "AC-15.d"]
+    },
+    {
+      "id": "D-0487",
+      "topic": "Batch output naming",
+      "decision": "Default to `{model}-{set}.{ext}`, sanitize model and set tokens for portable leaf names, require the set placeholder, reject paths, unknown placeholders, duplicates, overlong templates, and format-mismatched output extensions before starting engine work.",
+      "rationale": "Parameter-set names are user data and may contain filesystem metacharacters. Preflight validation prevents path traversal, accidental overwrites, ambiguous duplicate destinations, and misleading file extensions.",
+      "specBasis": ["FR-15.4", "N-5"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "AC-15.d must export three selected parameter sets sequentially, retain item one when item two fails, and report each outcome.",
+      "test": "Run the batch coordinator with deferred item operations, then run the workbench integration against an engine spy and artifact destination.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/files/batch-project-export.test.ts",
+        "observedAt": "2026-07-21T12:59:48-06:00",
+        "outcome": "RED: the batch-project-export module did not exist, so no batch tests could load."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/files/batch-project-export.test.ts tests/application/files/workbench-project-export.test.ts",
+        "observedAt": "2026-07-21T13:04:43-06:00",
+        "outcome": "GREEN: the coordinator proved sequential start, item-one durability, failure continuation, and cancellation; the workbench integration saved three correctly named full-quality STL artifacts with the three distinct parameter maps."
+      }
+    },
+    {
+      "criterion": "The export dialog must select any subset, show the filename template, and expose per-item progress and failures.",
+      "test": "Exercise the dialog's batch mode with three saved sets, exclude the middle set, and inspect the final two-item progress list.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/files/ProjectExportDialog.test.tsx -t \"selects a subset\"",
+        "observedAt": "2026-07-21T13:02:15-06:00",
+        "outcome": "RED: no Batch parameter sets control existed. The first implementation then exposed a pooled-event bug when reading checkbox state inside a deferred state updater."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/files/batch-project-export.test.ts tests/application/files/project-export.test.ts tests/application/files/workbench-project-export.test.ts tests/ui/files/ProjectExportDialog.test.tsx tests/ui/files/FilesActivity.test.tsx",
+        "observedAt": "2026-07-21T13:04:53-06:00",
+        "outcome": "GREEN: 5 files and 22 tests passed, covering subset selection, per-item labels, template routing, output filename validation, single-export regressions, and Files panel integration. TypeScript then passed with no errors."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

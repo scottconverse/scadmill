@@ -92,6 +92,35 @@ describe("project export", () => {
     });
   });
 
+  it("uses a validated batch-provided output filename", async () => {
+    const { destination, engine, snapshot } = setup();
+    const operation = startProjectExport({
+      engine,
+      destination,
+      snapshot,
+      entryFile: "parts/cube.scad",
+      format: "stl-binary",
+      parameters: { size: 20 },
+      timeoutMs: 600_000,
+      outputFileName: "cube-Tall.stl",
+    });
+
+    await expect(operation.done).resolves.toMatchObject({ fileName: "cube-Tall.stl" });
+    expect(destination.save).toHaveBeenCalledWith(expect.objectContaining({
+      suggestedName: "cube-Tall.stl",
+    }));
+    expect(() => startProjectExport({
+      engine,
+      destination,
+      snapshot,
+      entryFile: "parts/cube.scad",
+      format: "stl-binary",
+      parameters: {},
+      timeoutMs: 600_000,
+      outputFileName: "../escape.stl",
+    })).toThrow(/file name/iu);
+  });
+
   it("does not save failed or byte-less engine output and exposes engine diagnostics", async () => {
     for (const result of [
       { ok: false, diagnostics: [{ severity: "error" as const, message: "Unknown module" }], rawLog: "ERROR" },
