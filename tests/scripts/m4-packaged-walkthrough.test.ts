@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { request as requestHttp } from "node:http";
 import { deflateSync } from "node:zlib";
 import { Window } from "happy-dom";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type {
   M4PackagedAutomation,
   M4RawAiTranscriptRecord,
@@ -255,14 +255,50 @@ describe("M4 packaged newcomer walkthrough", () => {
       waitForPreview: boolean,
       done: (value: unknown) => void,
     ) => void;
+    (window as unknown as Record<string, unknown>).__scadmillM4RenderCacheDiagnostic = {
+      beforeClose: { recordCount: 2 },
+      afterRestart: { recordCount: 2 },
+      afterOpen: { recordCount: 3 },
+    };
 
     const result = await new Promise<unknown>((resolve) => { execute(true, resolve); });
 
     expect(result).toEqual({
       error: "Cached full render did not reach the visible status area. "
         + "clickStarted=true; status=Rendered main.scad (3d, cached); "
-        + "previewBadge=true; renderDisabled=false; consoleRunsBefore=1; consoleRunsAfter=1.",
+        + "previewBadge=true; renderDisabled=false; consoleRunsBefore=1; consoleRunsAfter=1; "
+        + "cacheDiagnostic={\"beforeClose\":{\"recordCount\":2},\"afterRestart\":{\"recordCount\":2},\"afterOpen\":{\"recordCount\":3}}.",
     });
+    window.close();
+  });
+
+  it("captures bounded native render-cache records without retaining the project identity", async () => {
+    const window = new Window();
+    const projectIdentity = `desktop-project:${"a".repeat(64)}`;
+    const cacheKey = `sha256:${"b".repeat(64)}`;
+    window.localStorage.setItem(
+      `scadmill.desktop-render-cache-preference.v1:${projectIdentity}`,
+      "enabled",
+    );
+    const invoke = vi.fn().mockResolvedValue([{ key: cacheKey, byteSize: 684, lastAccessMs: 42 }]);
+    (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = { invoke };
+    const execute = window.eval(`(function() {${M4_DOM_SCRIPTS.renderCacheStorageSnapshot}})`) as (
+      done: (value: unknown) => void,
+    ) => void;
+
+    const result = await new Promise<unknown>((resolve) => { execute(resolve); });
+
+    expect(result).toEqual({
+      preferenceCount: 1,
+      enabledPreferenceCount: 1,
+      selectedPreferenceValid: true,
+      recordCount: 1,
+      records: [{ key: cacheKey, byteSize: 684, lastAccessMs: 42 }],
+      droppedRecordCount: 0,
+      error: null,
+    });
+    expect(invoke).toHaveBeenCalledWith("render_cache_list", { projectIdentity });
+    expect(JSON.stringify(result)).not.toContain(projectIdentity);
     window.close();
   });
 

@@ -456,6 +456,58 @@ export const M4_DOM_SCRIPTS = Object.freeze({
       welcome: { count: welcome.length, src: welcome[0]?.src ?? null },
     };
   `,
+  renderCacheStorageSnapshot: `
+    const done = arguments[arguments.length - 1];
+    const prefix = 'scadmill.desktop-render-cache-preference.v1:';
+    const preferences = [];
+    for (let index = 0; index < localStorage.length; index += 1) {
+      const key = localStorage.key(index);
+      if (key?.startsWith(prefix)) preferences.push({ key, value: localStorage.getItem(key) });
+    }
+    const enabled = preferences.filter(({ value }) => value === 'enabled');
+    const selectedIdentity = enabled.length === 1 ? enabled[0].key.slice(prefix.length) : null;
+    const validIdentity = typeof selectedIdentity === 'string'
+      && /^desktop-project:[a-f0-9]{64}$/u.test(selectedIdentity);
+    const invoke = globalThis.__TAURI_INTERNALS__?.invoke;
+    if (!validIdentity || typeof invoke !== 'function') {
+      done({
+        preferenceCount: preferences.length,
+        enabledPreferenceCount: enabled.length,
+        selectedPreferenceValid: validIdentity,
+        recordCount: null,
+        records: [],
+        droppedRecordCount: 0,
+        error: typeof invoke === 'function' ? 'preference-unavailable' : 'tauri-invoke-unavailable',
+      });
+      return;
+    }
+    Promise.resolve(invoke('render_cache_list', { projectIdentity: selectedIdentity })).then((value) => {
+      const records = Array.isArray(value) ? value : [];
+      const safe = records.filter((record) => record && typeof record === 'object'
+        && /^sha256:[a-f0-9]{64}$/u.test(record.key)
+        && Number.isSafeInteger(record.byteSize) && record.byteSize >= 0
+        && Number.isSafeInteger(record.lastAccessMs) && record.lastAccessMs >= 0)
+        .slice(0, 32)
+        .map(({ key, byteSize, lastAccessMs }) => ({ key, byteSize, lastAccessMs }));
+      done({
+        preferenceCount: preferences.length,
+        enabledPreferenceCount: enabled.length,
+        selectedPreferenceValid: true,
+        recordCount: records.length,
+        records: safe,
+        droppedRecordCount: Math.max(0, records.length - safe.length),
+        error: null,
+      });
+    }, () => done({
+      preferenceCount: preferences.length,
+      enabledPreferenceCount: enabled.length,
+      selectedPreferenceValid: true,
+      recordCount: null,
+      records: [],
+      droppedRecordCount: 0,
+      error: 'render-cache-list-rejected',
+    }));
+  `,
   thumbnailDecodedSnapshot: `
     const surface = arguments[0];
     const expectedPath = arguments[1];
@@ -647,7 +699,8 @@ export const M4_DOM_SCRIPTS = Object.freeze({
           + '; previewBadge=' + String(document.querySelector('.quality-badge') !== null)
           + '; renderDisabled=' + String(render.disabled)
           + '; consoleRunsBefore=' + String(consoleRunsBefore)
-          + '; consoleRunsAfter=' + String(document.querySelectorAll('.console-run').length) + '.',
+          + '; consoleRunsAfter=' + String(document.querySelectorAll('.console-run').length)
+          + '; cacheDiagnostic=' + JSON.stringify(globalThis.__scadmillM4RenderCacheDiagnostic ?? null) + '.',
       });
     }, 15000);
     let consoleRunsBefore;

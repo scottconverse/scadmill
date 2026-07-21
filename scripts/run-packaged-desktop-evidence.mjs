@@ -1576,6 +1576,7 @@ try {
         const before = lastVerifiedAppProcess;
         const priorWebViews = await requireExactExecutableProcesses(webViewExecutable, webViewSha256, "M4 WebView processes before restart");
         const beforeCloseThumbnail = await readPersistedThumbnail(client, expectedProjectPath, "immediately before process exit");
+        const beforeCloseRenderCache = await client.executeAsync(M4_DOM_SCRIPTS.renderCacheStorageSnapshot);
         await client.deleteSession();
         client = null;
         await waitForNoAppProcess(args.app);
@@ -1587,7 +1588,17 @@ try {
         const after = await requireSingleAppProcess(args.app, appSha256);
         const nextWebViews = await requireExactExecutableProcesses(webViewExecutable, webViewSha256, "M4 WebView processes after restart");
         const persistedThumbnail = await readPersistedThumbnail(client, expectedProjectPath, "before project reopen");
+        const afterRestartRenderCache = await client.executeAsync(M4_DOM_SCRIPTS.renderCacheStorageSnapshot);
         await openDesktopProject(client, m4ProjectDirectory, expectedSource);
+        const afterOpenRenderCache = await client.executeAsync(M4_DOM_SCRIPTS.renderCacheStorageSnapshot);
+        await client.execute(`
+          globalThis.__scadmillM4RenderCacheDiagnostic = arguments[0];
+          return true;
+        `, [{
+          beforeClose: beforeCloseRenderCache,
+          afterRestart: afterRestartRenderCache,
+          afterOpen: afterOpenRenderCache,
+        }]);
         assert.ok(nextWebViews.every(({ pid }) => !priorWebViews.some((prior) => prior.pid === pid)), "M4 restart retained a WebView process.");
         lastVerifiedAppProcess = after;
         return {
