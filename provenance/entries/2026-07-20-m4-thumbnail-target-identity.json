@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-m4-thumbnail-target-identity",
+  "createdAt": "2026-07-20T20:46:13-06:00",
+  "summary": "Require M4 thumbnail evidence to match the exact verified target geometry identity.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "FR-15.13", "V-5 release gate", "V-6 honesty rule"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-m4-thumbnail-target-identity.json", "status": "added" },
+    { "path": "scripts/lib/m4-packaged-verifier.mjs", "status": "modified" },
+    { "path": "scripts/lib/m4-packaged-walkthrough.d.mts", "status": "modified" },
+    { "path": "scripts/lib/m4-packaged-walkthrough.mjs", "status": "modified" },
+    { "path": "scripts/run-packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "tests/scripts/m4-packaged-verifier.test.ts", "status": "modified" },
+    { "path": "tests/scripts/m4-packaged-walkthrough.test.ts", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0465",
+      "topic": "Exact thumbnail target identity",
+      "decision": "Derive the expected M4 thumbnail geometry identity from the SHA-256 of the already-exported and parsed exact cube STL. Require Files, Welcome, pre-exit persistence, fresh-process persistence, and post-reopen Welcome evidence to carry that exact sha256-prefixed identity; retain exact PNG byte equality only across the literal process boundary.",
+      "rationale": "Full-render status can settle before the delayed thumbnail pipeline, and a prior animation capture can finish after the new render starts. A timestamp alone can therefore accept the wrong accepted geometry. The verified STL hash is an independent exact target oracle already produced by the same clean packaged journey, so identity-filtered waiting rejects stale captures without adding retries or product-only hooks.",
+      "specBasis": ["FR-15.13", "V-5 release gate", "V-6 honesty rule"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Every thumbnail surface and both restart persistence observations must be bound to the exact verified target geometry identity.",
+      "test": "Require an expectedThumbnailRenderIdentity option, filter the bounded DOM wait by record identity, carry both boundary identities in retained evidence, reject identity tampering, and statically bind the packaged runner target to the verified STL digest.",
+      "red": {
+        "command": "npm.cmd test -- --run tests/scripts/m4-packaged-walkthrough.test.ts tests/scripts/m4-packaged-verifier.test.ts tests/scripts/packaged-desktop-evidence.test.ts",
+        "observedAt": "2026-07-20T20:44:17-06:00",
+        "outcome": "RED: 4 failed, 72 passed because the walkthrough and retained schema did not carry the target or restart-boundary geometry identities."
+      },
+      "green": {
+        "command": "npm.cmd test -- --run tests/scripts/m4-packaged-walkthrough.test.ts tests/scripts/m4-packaged-verifier.test.ts tests/scripts/packaged-desktop-evidence.test.ts",
+        "observedAt": "2026-07-20T20:46:04-06:00",
+        "outcome": "GREEN: 76/76 tests passed, including exact-identity DOM filtering, argument propagation, runner ordering, and persisted-identity tamper rejection."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-2bcde09-sandbox-m4-native-split-20260720/evidence.json",
+      "sought": "Exact clean packaged native M4 thumbnail restart evidence",
+      "confirmation": "The run passed build, cube/STL, MCP, cache, delta, animation, thumbnail bytes across restart, and cleanup, then proved the timestamp-only Files thumbnail represented an earlier geometry while the persisted and fresh-process render matched the verified cube STL identity 63811883..."
+    }
+  ],
+  "questions": ["No owner decision is required; this binds the existing requirement to an exact independent geometry oracle."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

@@ -64,7 +64,9 @@ export interface M4RestartEvidence {
   readonly afterPid: number;
   readonly freshWebViewProcesses: true;
   readonly beforeCloseThumbnailSha256: string;
+  readonly beforeCloseThumbnailRenderIdentity: string;
   readonly persistedThumbnailSha256: string;
+  readonly persistedThumbnailRenderIdentity: string;
 }
 
 export interface M4RendererTransportObservation {
@@ -101,6 +103,7 @@ export interface M4PackagedWalkthroughOptions {
   readonly proposalSource: string;
   readonly agentSource: string;
   readonly projectPath: string;
+  readonly expectedThumbnailRenderIdentity: string;
   readonly cachePaintLimitMs?: number;
   readonly aiConversationMode?: "automated";
 }

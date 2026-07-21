@@ -121,7 +121,9 @@ async function fixture() {
       afterPid: 200,
       freshWebViewProcesses: true,
       beforeCloseThumbnailSha256: "2".repeat(64),
+      beforeCloseThumbnailRenderIdentity: `sha256:${"1".repeat(64)}`,
       persistedThumbnailSha256: "2".repeat(64),
+      persistedThumbnailRenderIdentity: `sha256:${"1".repeat(64)}`,
     },
     screenshots: SCREENSHOTS.map((name) => ({ name, sha256: sha256(bytes), byteLength: bytes.byteLength })),
     source: { initialSha256: sourceSha, restoredSha256: sourceSha, restoredExactly: true },
@@ -263,6 +265,16 @@ describe("retained M4 packaged verifier", () => {
     await expect(verifyM4PackagedArtifacts({
       ...input,
       events: [{ ...value.initialEvent, evidenceSha256: sha256(replacedPersistedThumbnailText) }, value.cleanupEvent],
+    })).rejects.toThrow("restart evidence");
+    await writeFile(value.walkthroughPath, `${JSON.stringify(value.walkthrough, null, 2)}\n`);
+
+    const replacedPersistedIdentity = structuredClone(value.walkthrough);
+    replacedPersistedIdentity.restart.persistedThumbnailRenderIdentity = `sha256:${"4".repeat(64)}`;
+    const replacedPersistedIdentityText = `${JSON.stringify(replacedPersistedIdentity, null, 2)}\n`;
+    await writeFile(value.walkthroughPath, replacedPersistedIdentityText);
+    await expect(verifyM4PackagedArtifacts({
+      ...input,
+      events: [{ ...value.initialEvent, evidenceSha256: sha256(replacedPersistedIdentityText) }, value.cleanupEvent],
     })).rejects.toThrow("restart evidence");
     await writeFile(value.walkthroughPath, `${JSON.stringify(value.walkthrough, null, 2)}\n`);
 

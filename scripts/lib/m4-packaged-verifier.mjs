@@ -156,13 +156,17 @@ function requireWalkthroughShape(value) {
     || value.thumbnails.documentPath !== "main.scad" || !validGeometryIdentity(value.thumbnails.renderIdentity) || !validSha(value.thumbnails.pngSha256)
     || !Number.isSafeInteger(value.thumbnails.byteLength) || value.thumbnails.byteLength <= 0
     || value.thumbnails.width !== 240 || value.thumbnails.height !== 160 || value.thumbnails.persistedAcrossRestart !== true) throw new Error("Retained M4 thumbnail evidence is invalid.");
-  if (!exactKeys(value.restart, ["beforePid", "afterPid", "freshWebViewProcesses", "beforeCloseThumbnailSha256", "persistedThumbnailSha256"])
+  if (!exactKeys(value.restart, ["beforePid", "afterPid", "freshWebViewProcesses", "beforeCloseThumbnailSha256", "beforeCloseThumbnailRenderIdentity", "persistedThumbnailSha256", "persistedThumbnailRenderIdentity"])
     || !Number.isSafeInteger(value.restart.beforePid) || !Number.isSafeInteger(value.restart.afterPid)
     || value.restart.beforePid <= 0 || value.restart.afterPid <= 0
     || value.restart.beforePid === value.restart.afterPid || value.restart.freshWebViewProcesses !== true
     || !validSha(value.restart.beforeCloseThumbnailSha256)
+    || !validGeometryIdentity(value.restart.beforeCloseThumbnailRenderIdentity)
     || !validSha(value.restart.persistedThumbnailSha256)
-    || value.restart.persistedThumbnailSha256 !== value.restart.beforeCloseThumbnailSha256) throw new Error("Retained M4 restart evidence is invalid.");
+    || !validGeometryIdentity(value.restart.persistedThumbnailRenderIdentity)
+    || value.restart.persistedThumbnailSha256 !== value.restart.beforeCloseThumbnailSha256
+    || value.restart.persistedThumbnailRenderIdentity !== value.restart.beforeCloseThumbnailRenderIdentity
+    || value.restart.persistedThumbnailRenderIdentity !== value.thumbnails.renderIdentity) throw new Error("Retained M4 restart evidence is invalid.");
   if (!exactKeys(value.source, ["initialSha256", "restoredSha256", "restoredExactly"])
     || !validSha(value.source.initialSha256) || value.source.restoredSha256 !== value.source.initialSha256
     || value.source.restoredExactly !== true) throw new Error("Retained M4 source restoration is invalid.");

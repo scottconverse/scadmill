@@ -98,7 +98,7 @@ describe("M4 packaged newcomer walkthrough", () => {
         throw new Error("native MCP boundary reached");
       },
       runMcpAllowSessionJourney: async () => { throw new Error("not reached"); },
-      restartApplication: async () => ({ beforePid: 1, afterPid: 2, freshWebViewProcesses: true, beforeCloseThumbnailSha256: "0".repeat(64), persistedThumbnailSha256: "0".repeat(64) }),
+      restartApplication: async () => ({ beforePid: 1, afterPid: 2, freshWebViewProcesses: true, beforeCloseThumbnailSha256: "0".repeat(64), beforeCloseThumbnailRenderIdentity: `sha256:${"b".repeat(64)}`, persistedThumbnailSha256: "0".repeat(64), persistedThumbnailRenderIdentity: `sha256:${"b".repeat(64)}` }),
     };
 
     await expect(runM4PackagedWalkthrough({
@@ -107,6 +107,7 @@ describe("M4 packaged newcomer walkthrough", () => {
       proposalSource: "cube([12, 10, 10]);\n",
       agentSource,
       projectPath: "main.scad",
+      expectedThumbnailRenderIdentity: `sha256:${"b".repeat(64)}`,
       aiConversationMode: "hosted-plus-manual",
     })).rejects.toThrow("native MCP boundary reached");
     expect(mockStarts).toBe(0);
@@ -377,6 +378,7 @@ describe("M4 packaged newcomer walkthrough", () => {
     expect(M4_DOM_SCRIPTS.animationPlayFrameCompleted).toContain("Frame 52 of 100");
     expect(M4_DOM_SCRIPTS.animationPlayFrameCompleted).not.toContain("Frame 51 of 100");
     expect(M4_DOM_SCRIPTS.thumbnailDecodedSnapshot).toContain("notBeforeMs");
+    expect(M4_DOM_SCRIPTS.thumbnailDecodedSnapshot).toContain("record.renderIdentity === expectedRenderIdentity");
     expect(M4_DOM_SCRIPTS.thumbnailDecodedSnapshot).toContain("Date.parse(record.capturedAt) >= notBeforeMs");
     expect(M4_DOM_SCRIPTS.thumbnailDecodedSnapshot).toContain("}, 5000)");
   });
@@ -624,7 +626,7 @@ describe("M4 packaged newcomer walkthrough", () => {
         protocolVersion: "2025-11-25", toolNames: [], preview: { kind: "3d", triangles: 12 },
         diagnostics: { quality: "preview", count: 0 }, pendingReview: { status: "pending_review" }, mutationApproved: true,
       }),
-      restartApplication: async () => ({ beforePid: 1, afterPid: 2, freshWebViewProcesses: true, beforeCloseThumbnailSha256: "0".repeat(64), persistedThumbnailSha256: "0".repeat(64) }),
+      restartApplication: async () => ({ beforePid: 1, afterPid: 2, freshWebViewProcesses: true, beforeCloseThumbnailSha256: "0".repeat(64), beforeCloseThumbnailRenderIdentity: `sha256:${"b".repeat(64)}`, persistedThumbnailSha256: "0".repeat(64), persistedThumbnailRenderIdentity: `sha256:${"b".repeat(64)}` }),
     };
 
     await expect(runM4PackagedWalkthrough({
@@ -633,6 +635,7 @@ describe("M4 packaged newcomer walkthrough", () => {
       proposalSource: "cube([12, 10, 10]);\n",
       agentSource: "cube([14, 10, 10]);\n",
       projectPath: "main.scad",
+      expectedThumbnailRenderIdentity: `sha256:${"b".repeat(64)}`,
     })).rejects.toThrow("forced mid-probe failure");
     expect(scripts.filter((script) => script === M4_DOM_SCRIPTS.installNetworkAttemptMonitor)).toHaveLength(1);
     expect(scripts.filter((script) => script === M4_DOM_SCRIPTS.networkAttemptSnapshot)).toHaveLength(1);
@@ -681,7 +684,7 @@ describe("M4 packaged newcomer walkthrough", () => {
         protocolVersion: "2025-11-25", toolNames: [], preview: { kind: "3d", triangles: 12 },
         diagnostics: { quality: "preview", count: 0 }, pendingReview: { status: "pending_review" }, mutationApproved: true,
       }),
-      restartApplication: async () => ({ beforePid: 1, afterPid: 2, freshWebViewProcesses: true, beforeCloseThumbnailSha256: "0".repeat(64), persistedThumbnailSha256: "0".repeat(64) }),
+      restartApplication: async () => ({ beforePid: 1, afterPid: 2, freshWebViewProcesses: true, beforeCloseThumbnailSha256: "0".repeat(64), beforeCloseThumbnailRenderIdentity: `sha256:${"b".repeat(64)}`, persistedThumbnailSha256: "0".repeat(64), persistedThumbnailRenderIdentity: `sha256:${"b".repeat(64)}` }),
     };
 
     await expect(runM4PackagedWalkthrough({
@@ -690,6 +693,7 @@ describe("M4 packaged newcomer walkthrough", () => {
       proposalSource: "cube([12, 10, 10]);\n",
       agentSource: "cube([14, 10, 10]);\n",
       projectPath: "main.scad",
+      expectedThumbnailRenderIdentity: `sha256:${"b".repeat(64)}`,
     })).rejects.toThrow("first snapshot transport failure");
     expect(snapshotCalls).toBe(2);
     expect(source).toBe(initialSource);
@@ -760,7 +764,7 @@ describe("M4 packaged newcomer walkthrough", () => {
         protocolVersion: "2025-11-25", toolNames: [], preview: { kind: "3d", triangles: 12 },
         diagnostics: { quality: "preview", count: 0 }, pendingReview: { status: "pending_review" }, mutationApproved: true,
       }),
-      restartApplication: async () => ({ beforePid: 1, afterPid: 2, freshWebViewProcesses: true, beforeCloseThumbnailSha256: "0".repeat(64), persistedThumbnailSha256: "0".repeat(64) }),
+      restartApplication: async () => ({ beforePid: 1, afterPid: 2, freshWebViewProcesses: true, beforeCloseThumbnailSha256: "0".repeat(64), beforeCloseThumbnailRenderIdentity: `sha256:${"b".repeat(64)}`, persistedThumbnailSha256: "0".repeat(64), persistedThumbnailRenderIdentity: `sha256:${"b".repeat(64)}` }),
     };
 
     let failure = "";
@@ -771,6 +775,7 @@ describe("M4 packaged newcomer walkthrough", () => {
         proposalSource: "cube([12, 10, 10]);\n",
         agentSource: "cube([14, 10, 10]);\n",
         projectPath: "main.scad",
+        expectedThumbnailRenderIdentity: `sha256:${"b".repeat(64)}`,
       });
     } catch (error) {
       failure = error instanceof Error ? error.message : String(error);
@@ -1001,8 +1006,9 @@ describe("M4 packaged newcomer walkthrough", () => {
         }
         throw new Error("Unknown DOM script");
       },
-      executeAsync: async (script: string) => {
+      executeAsync: async (script: string, args?: readonly unknown[]) => {
         if (script === M4_DOM_SCRIPTS.thumbnailDecodedSnapshot) {
+          expect(args?.[3]).toBe(`sha256:${"b".repeat(64)}`);
           return {
             storageEntries: [{
               key: `scadmill.desktop-render-thumbnails.v1:desktop-project:${"a".repeat(64)}`,
@@ -1073,7 +1079,9 @@ describe("M4 packaged newcomer walkthrough", () => {
           afterPid: 200,
           freshWebViewProcesses: true,
           beforeCloseThumbnailSha256: createHash("sha256").update(PNG).digest("hex"),
+          beforeCloseThumbnailRenderIdentity: `sha256:${"b".repeat(64)}`,
           persistedThumbnailSha256: createHash("sha256").update(PNG).digest("hex"),
+          persistedThumbnailRenderIdentity: `sha256:${"b".repeat(64)}`,
         };
       },
     };
@@ -1084,6 +1092,7 @@ describe("M4 packaged newcomer walkthrough", () => {
       proposalSource,
       agentSource,
       projectPath: "main.scad",
+      expectedThumbnailRenderIdentity: `sha256:${"b".repeat(64)}`,
       cachePaintLimitMs: 100,
     });
 
@@ -1118,7 +1127,9 @@ describe("M4 packaged newcomer walkthrough", () => {
       thumbnails: { documentPath: "main.scad", width: 240, height: 160, persistedAcrossRestart: true },
       restart: {
         beforeCloseThumbnailSha256: createHash("sha256").update(PNG).digest("hex"),
+        beforeCloseThumbnailRenderIdentity: `sha256:${"b".repeat(64)}`,
         persistedThumbnailSha256: createHash("sha256").update(PNG).digest("hex"),
+        persistedThumbnailRenderIdentity: `sha256:${"b".repeat(64)}`,
       },
       source: { restoredExactly: true },
     });

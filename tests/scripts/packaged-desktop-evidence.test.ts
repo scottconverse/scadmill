@@ -929,12 +929,20 @@ describe("packaged desktop evidence helpers", () => {
     expect(runner).toContain('(await readFile(m4ProjectFile, "utf8")) === expectedSource');
     expect(runner).toContain("M4_DOM_SCRIPTS.thumbnailSnapshot");
     expect(runner).toContain("beforeCloseThumbnailSha256");
+    expect(runner).toContain("beforeCloseThumbnailRenderIdentity");
     expect(runner).toContain("persistedThumbnailSha256");
-    expect(runner.indexOf("beforeCloseThumbnailSha256")).toBeLessThan(runner.indexOf("await client.deleteSession();"));
+    expect(runner).toContain("persistedThumbnailRenderIdentity");
+    expect(runner).toContain(["expectedThumbnailRenderIdentity: `sha256:$", "{fingerprint(stlBytes).toLowerCase()}`"].join(""));
     expect(runner).toContain("await openDesktopProject(client, m4ProjectDirectory, expectedSource);");
-    expect(runner.indexOf("M4_DOM_SCRIPTS.thumbnailSnapshot")).toBeLessThan(
-      runner.indexOf("await openDesktopProject(client, m4ProjectDirectory, expectedSource);"),
-    );
+    const restartBlock = runner.indexOf("restartApplication: async (expectedSource, expectedProjectPath) => {");
+    const preExitThumbnail = runner.indexOf("const beforeCloseThumbnail =", restartBlock);
+    const processExit = runner.indexOf("await client.deleteSession();", restartBlock);
+    const postRestartThumbnail = runner.indexOf("const persistedThumbnail =", restartBlock);
+    const projectReopen = runner.indexOf("await openDesktopProject(client, m4ProjectDirectory, expectedSource);", restartBlock);
+    expect(restartBlock).toBeGreaterThan(-1);
+    expect(preExitThumbnail).toBeLessThan(processExit);
+    expect(processExit).toBeLessThan(postRestartThumbnail);
+    expect(postRestartThumbnail).toBeLessThan(projectReopen);
     expect(runner).toContain('await clickButton(client, "Save active file");\n  await waitFor(async () => (await readFile(m4ProjectFile, "utf8")) === m4InitialSource');
     expect(wrapper).toContain('Copy-Item -LiteralPath (Join-Path $repo "scripts\\lib\\m4-packaged-walkthrough.mjs")');
     expect(wrapper).toContain('Copy-Item -LiteralPath (Join-Path $repo "scripts\\lib\\m4-packaged-verifier.mjs")');

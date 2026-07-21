@@ -460,9 +460,11 @@ export const M4_DOM_SCRIPTS = Object.freeze({
     const surface = arguments[0];
     const expectedPath = arguments[1];
     const notBeforeMs = arguments[2];
+    const expectedRenderIdentity = arguments[3];
     const done = arguments[arguments.length - 1];
     if (!['fileTree', 'welcome'].includes(surface)
-      || typeof expectedPath !== 'string' || !Number.isFinite(notBeforeMs)) {
+      || typeof expectedPath !== 'string' || !Number.isFinite(notBeforeMs)
+      || !/^sha256:[a-f0-9]{64}$/u.test(expectedRenderIdentity)) {
       done({ error: 'Thumbnail wait arguments are invalid.' });
       return;
     }
@@ -487,7 +489,8 @@ export const M4_DOM_SCRIPTS = Object.freeze({
         try {
           const envelope = JSON.parse(entry.value);
           const record = envelope?.records?.find((candidate) => candidate?.documentPath === expectedPath);
-          if (record && Date.parse(record.capturedAt) >= notBeforeMs) return record;
+          if (record && record.renderIdentity === expectedRenderIdentity
+            && Date.parse(record.capturedAt) >= notBeforeMs) return record;
         } catch { /* Keep polling until a complete bounded envelope exists. */ }
       }
       return null;
@@ -1201,13 +1204,16 @@ function validateCachedPaint(value, limitMs) {
 }
 
 function validateRestart(value) {
-  assert.ok(exactKeys(value, ["beforePid", "afterPid", "freshWebViewProcesses", "beforeCloseThumbnailSha256", "persistedThumbnailSha256"]), "Restart observation has the wrong shape.");
+  assert.ok(exactKeys(value, ["beforePid", "afterPid", "freshWebViewProcesses", "beforeCloseThumbnailSha256", "beforeCloseThumbnailRenderIdentity", "persistedThumbnailSha256", "persistedThumbnailRenderIdentity"]), "Restart observation has the wrong shape.");
   assert.ok(Number.isSafeInteger(value.beforePid) && value.beforePid > 0, "Restart prior PID is invalid.");
   assert.ok(Number.isSafeInteger(value.afterPid) && value.afterPid > 0 && value.afterPid !== value.beforePid, "Restart did not create a fresh application process.");
   assert.equal(value.freshWebViewProcesses, true, "Restart did not create fresh WebView processes.");
   assert.match(value.beforeCloseThumbnailSha256, /^[a-f0-9]{64}$/u, "Restart did not retain a canonical pre-close thumbnail digest.");
+  assert.match(value.beforeCloseThumbnailRenderIdentity, /^sha256:[a-f0-9]{64}$/u, "Restart did not retain a canonical pre-close thumbnail geometry identity.");
   assert.match(value.persistedThumbnailSha256, /^[a-f0-9]{64}$/u, "Restart did not retain a canonical thumbnail digest.");
+  assert.match(value.persistedThumbnailRenderIdentity, /^sha256:[a-f0-9]{64}$/u, "Restart did not retain a canonical thumbnail geometry identity.");
   assert.equal(value.persistedThumbnailSha256, value.beforeCloseThumbnailSha256, "Persisted thumbnail bytes changed across the process restart.");
+  assert.equal(value.persistedThumbnailRenderIdentity, value.beforeCloseThumbnailRenderIdentity, "Persisted thumbnail geometry identity changed across the process restart.");
 }
 
 export async function waitForM4AiProposalOutcome(
@@ -1264,6 +1270,7 @@ export async function runM4PackagedWalkthrough({
   proposalSource,
   agentSource,
   projectPath,
+  expectedThumbnailRenderIdentity,
   cachePaintLimitMs = 100,
   aiConversationMode = "automated",
 }) {
@@ -1274,6 +1281,7 @@ export async function runM4PackagedWalkthrough({
   for (const [name, value] of Object.entries({ initialSource, proposalSource, agentSource, projectPath })) {
     assert.ok(safeString(value, 1_000_000), `M4 ${name} is invalid.`);
   }
+  assert.match(expectedThumbnailRenderIdentity, /^sha256:[a-f0-9]{64}$/u, "M4 expected thumbnail geometry identity is invalid.");
   assert.ok(Number.isFinite(cachePaintLimitMs) && cachePaintLimitMs > 0 && cachePaintLimitMs <= 100, "M4 cache-paint limit must be greater than zero and no more than 100 ms.");
   assert.ok(["automated", "hosted-plus-manual"].includes(aiConversationMode), "M4 AI conversation mode is invalid.");
   assert.equal(await automation.readSource(), initialSource, "M4 walkthrough did not start from the declared source.");
@@ -1480,7 +1488,7 @@ export async function runM4PackagedWalkthrough({
     assert.equal(await automation.execute(M4_DOM_SCRIPTS.focusFileTreeThumbnail, [projectPath]), true, "Active file could not be focused for thumbnail preview.");
     const fileTreeThumbnail = validateThumbnailSnapshot(await automation.executeAsync(
       M4_DOM_SCRIPTS.thumbnailDecodedSnapshot,
-      ["fileTree", projectPath, thumbnailCaptureNotBeforeMs],
+      ["fileTree", projectPath, thumbnailCaptureNotBeforeMs, expectedThumbnailRenderIdentity],
     ), projectPath, "fileTree");
     order.push("thumbnail");
     await screenshot(automation, screenshots, "04f-file-tree-thumbnail.png");
@@ -1488,7 +1496,7 @@ export async function runM4PackagedWalkthrough({
     await automation.waitForText("Recent projects");
     const welcomeThumbnail = validateThumbnailSnapshot(await automation.executeAsync(
       M4_DOM_SCRIPTS.thumbnailDecodedSnapshot,
-      ["welcome", projectPath, thumbnailCaptureNotBeforeMs],
+      ["welcome", projectPath, thumbnailCaptureNotBeforeMs, expectedThumbnailRenderIdentity],
     ), projectPath, "welcome");
     assert.equal(welcomeThumbnail.sha256, fileTreeThumbnail.sha256, "Welcome and file tree thumbnails differ.");
     await screenshot(automation, screenshots, "04g-welcome-recent-thumbnail.png");
@@ -1496,15 +1504,16 @@ export async function runM4PackagedWalkthrough({
 
     const restart = await automation.restartApplication(thumbnailCacheSource, projectPath);
     validateRestart(restart);
+    assert.equal(restart.persistedThumbnailRenderIdentity, expectedThumbnailRenderIdentity, "Persisted thumbnail geometry does not match the exact target render.");
     await automation.waitForText("ScadMill");
     await automation.clickButton("Welcome");
     await automation.waitForText("Recent projects");
     const restoredThumbnail = validateThumbnailSnapshot(await automation.executeAsync(
       M4_DOM_SCRIPTS.thumbnailDecodedSnapshot,
-      ["welcome", projectPath, thumbnailCaptureNotBeforeMs],
+      ["welcome", projectPath, thumbnailCaptureNotBeforeMs, expectedThumbnailRenderIdentity],
     ), projectPath, "welcome");
     await automation.clickAria("Close welcome");
-    assert.equal(restoredThumbnail.renderIdentity, fileTreeThumbnail.renderIdentity, "Thumbnail geometry identity changed across restart.");
+    assert.equal(restoredThumbnail.renderIdentity, expectedThumbnailRenderIdentity, "Thumbnail geometry identity changed across restart.");
     const coldCached = validateCachedPaint(await automation.executeAsync(M4_DOM_SCRIPTS.cachedPaint), cachePaintLimitMs);
     order.push("restart");
     await screenshot(automation, screenshots, "04h-cold-cache-restored-thumbnail.png");

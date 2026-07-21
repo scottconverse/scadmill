@@ -84,7 +84,7 @@ async function fileSha256(path) {
   return fingerprint(await readFile(path));
 }
 
-async function readPersistedThumbnailSha256(client, projectPath, boundary) {
+async function readPersistedThumbnail(client, projectPath, boundary) {
   const snapshot = await client.execute(M4_DOM_SCRIPTS.thumbnailSnapshot);
   assert.ok(snapshot && Array.isArray(snapshot.storageEntries)
     && snapshot.storageEntries.length === 1, `M4 persisted thumbnail envelope is unavailable ${boundary}.`);
@@ -93,7 +93,11 @@ async function readPersistedThumbnailSha256(client, projectPath, boundary) {
   const records = envelope.records.filter((record) => record?.documentPath === projectPath);
   assert.equal(records.length, 1, `M4 persisted thumbnail record is not unique ${boundary}.`);
   assert.ok(typeof records[0].pngBase64 === "string" && records[0].pngBase64.length > 0, `M4 persisted thumbnail bytes are unavailable ${boundary}.`);
-  return fingerprint(Buffer.from(records[0].pngBase64, "base64")).toLowerCase();
+  assert.match(records[0].renderIdentity, /^sha256:[a-f0-9]{64}$/u, `M4 persisted thumbnail geometry identity is invalid ${boundary}.`);
+  return {
+    sha256: fingerprint(Buffer.from(records[0].pngBase64, "base64")).toLowerCase(),
+    renderIdentity: records[0].renderIdentity,
+  };
 }
 
 function delay(milliseconds) {
@@ -1438,6 +1442,7 @@ try {
     proposalSource: m4ProposalSource,
     agentSource: m4AgentSource,
     projectPath: "main.scad",
+    expectedThumbnailRenderIdentity: `sha256:${fingerprint(stlBytes).toLowerCase()}`,
     cachePaintLimitMs: 100,
     aiConversationMode: "hosted-plus-manual",
     automation: {
@@ -1570,7 +1575,7 @@ try {
         await waitFor(async () => (await readFile(m4ProjectFile, "utf8")) === expectedSource, "saved M4 source before restart", 15_000, 50);
         const before = lastVerifiedAppProcess;
         const priorWebViews = await requireExactExecutableProcesses(webViewExecutable, webViewSha256, "M4 WebView processes before restart");
-        const beforeCloseThumbnailSha256 = await readPersistedThumbnailSha256(client, expectedProjectPath, "immediately before process exit");
+        const beforeCloseThumbnail = await readPersistedThumbnail(client, expectedProjectPath, "immediately before process exit");
         await client.deleteSession();
         client = null;
         await waitForNoAppProcess(args.app);
@@ -1581,11 +1586,19 @@ try {
         await assertWelcomeStaysDisabled(client);
         const after = await requireSingleAppProcess(args.app, appSha256);
         const nextWebViews = await requireExactExecutableProcesses(webViewExecutable, webViewSha256, "M4 WebView processes after restart");
-        const persistedThumbnailSha256 = await readPersistedThumbnailSha256(client, expectedProjectPath, "before project reopen");
+        const persistedThumbnail = await readPersistedThumbnail(client, expectedProjectPath, "before project reopen");
         await openDesktopProject(client, m4ProjectDirectory, expectedSource);
         assert.ok(nextWebViews.every(({ pid }) => !priorWebViews.some((prior) => prior.pid === pid)), "M4 restart retained a WebView process.");
         lastVerifiedAppProcess = after;
-        return { beforePid: before.pid, afterPid: after.pid, freshWebViewProcesses: true, beforeCloseThumbnailSha256, persistedThumbnailSha256 };
+        return {
+          beforePid: before.pid,
+          afterPid: after.pid,
+          freshWebViewProcesses: true,
+          beforeCloseThumbnailSha256: beforeCloseThumbnail.sha256,
+          beforeCloseThumbnailRenderIdentity: beforeCloseThumbnail.renderIdentity,
+          persistedThumbnailSha256: persistedThumbnail.sha256,
+          persistedThumbnailRenderIdentity: persistedThumbnail.renderIdentity,
+        };
       },
     },
   });
