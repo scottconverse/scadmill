@@ -46,7 +46,7 @@ Full-quality export supports 3MF, STL, OFF, AMF, SVG, DXF, and PNG where appropr
 
 ### Understand what is not included
 
-The public beta is Windows-only. It does not publish a browser app, Mac/Linux installers, or OpenSCAD WebAssembly engine. OpenSCAD is a separate required download. Installed-library expansion, broader navigation/refactoring, batch tools, manufacturing estimates, and the headless CLI remain later M5/M6 work.
+The public beta is Windows-only. It does not publish a browser app, Mac/Linux installers, or OpenSCAD WebAssembly engine. OpenSCAD is a separate required download. The development branch now contains model history, batch parameter-set export, and the project library manager; they are not part of the published beta. Broader navigation/refactoring, split editing, section views, manufacturing estimates, and the headless CLI remain later M5/M6 work.
 
 ## Part II — Technical reference
 
@@ -116,7 +116,9 @@ Native engine work is out of process. Mesh parsing, project indexing, archive wo
 
 The release pipeline checks provenance and licenses, builds from a clean pinned tree, signs the Windows installer, and binds retained evidence to exact hashes. The current beta passed hosted CI, isolated similarity review, a literal one-hour soak, Radeon 780M performance evidence, and a clean Windows Sandbox install-to-uninstall walkthrough.
 
-The architecture includes seams for a separately qualified web distribution, installed-library completions, navigation/refactoring, batch operations, a headless CLI, and manufacturing estimates. These remain future M5/M6 work and are not beta claims.
+Development builds expose **Libraries** on the activity rail. Choose BOSL2, MCAD, or dotSCAD, download the pinned package, read the license shown from that package, and confirm installation. ScadMill copies only bounded runtime files plus the license into the current project and records ownership in `scadmill.libraries.json`; it never updates a pin silently. A custom pinned HTTPS ZIP can be reviewed through the same flow. Once a project source imports a vendored file with `include` or `use`, its module/function signatures participate in completion and native/WASM renders receive the same file map. Removing a library removes only manifest-owned files and leaves ordinary project source intact.
+
+The architecture includes seams for a separately qualified web distribution, navigation/refactoring, split editing, section views, a headless CLI, and manufacturing estimates. These remain future M5/M6 work and are not beta claims.
 
 ## Troubleshooting and support
 

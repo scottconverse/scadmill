@@ -37,6 +37,7 @@ The web-source adapter uses a module worker, verifies the exact JavaScript/WASM 
 - Render-cache persistence is off by default, enabled per project, bounded, integrity-checked, and ineligible for scratch work.
 - Editor buffers and command history are application state. The M5 model-history service binds each accepted render to source, parameters, quality, geometry identity, and a thumbnail. Its 100-snapshot session timeline is the default; project persistence is a separate explicit opt-in through a platform port and is capped at 16 MiB.
 - Batch export snapshots the active project and selected saved parameter sets once, then serializes full-quality engine/export operations. Each destination write completes before the next item starts, so an item failure or later cancellation cannot roll back an already saved artifact.
+- The M5 library manager downloads a pinned catalog package through a CORS-safe GitHub tree/raw-file path (or a user-supplied HTTPS ZIP), filters and validates its bounded runtime files, presents the package license before confirmation, and vendors owned paths plus `scadmill.libraries.json` into the project. Multi-file install/update/remove operations use a snapshot-backed compensation pass; the manifest is written last. Vendored paths such as `BOSL2/std.scad` therefore enter the same immutable project map consumed by native rendering, WASM rendering, and cross-file completion indexing.
 - Uninstall removes the app and association, not user projects or necessarily every profile/credential record.
 
 ## Network and privacy boundaries
@@ -57,4 +58,4 @@ Non-trivial changes have append-only records under `provenance/entries`. npm and
 
 ## Extension seams through M6
 
-The ports and worker boundaries support later public web distribution, installed-library completions, navigation/refactoring, batch operations, headless CLI behavior, color/3MF work, and manufacturing estimates. These are architectural seams, not claims about the current beta. Platform behavior belongs in adapters; reusable behavior belongs in application services; UI consumes declared capabilities.
+The ports and worker boundaries support later public web distribution, navigation/refactoring, split editing, section views, headless CLI behavior, color/3MF work, and manufacturing estimates. These are architectural seams, not claims about the current beta. Platform behavior belongs in adapters; reusable behavior belongs in application services; UI consumes declared capabilities.

@@ -1,0 +1,21 @@
+.libraries-activity { display: grid; gap: 10px; padding: 10px; overflow: auto; }
+.libraries-intro, .libraries-empty, .libraries-error { margin: 0; overflow-wrap: anywhere; }
+.libraries-empty { padding: 10px; color: var(--chrome-text-muted); }
+.libraries-error { padding: 7px; border: 1px solid var(--chrome-badge-error); border-radius: 5px; color: var(--chrome-badge-error); }
+.library-catalog { display: grid; gap: 8px; }
+.library-card { display: grid; gap: 5px; padding: 9px; border: 1px solid var(--chrome-border); border-radius: 6px; background: var(--chrome-surface-raised); }
+.library-card header, .library-license-review header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.library-card h2, .library-license-review h2 { margin: 0; font-size: 14px; }
+.library-card header span { color: var(--chrome-text-muted); font-size: 11px; }
+.library-card p, .library-custom p, .library-license-review p { margin: 0; color: var(--chrome-text-muted); font-size: 12px; }
+.library-card a { color: var(--chrome-accent); }
+.library-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.libraries-activity button { min-height: 30px; border: 1px solid var(--chrome-border); border-radius: 4px; background: var(--chrome-surface); color: var(--chrome-text); cursor: pointer; }
+.libraries-activity button:disabled { color: var(--chrome-text-disabled); cursor: not-allowed; }
+.library-custom { padding: 8px; border: 1px solid var(--chrome-border); border-radius: 6px; }
+.library-custom summary { cursor: pointer; font-weight: 700; }
+.library-custom form { display: grid; gap: 7px; margin-top: 8px; }
+.library-custom label { display: grid; gap: 3px; font-size: 12px; }
+.library-custom input { min-width: 0; border: 1px solid var(--chrome-border); border-radius: 4px; background: var(--chrome-surface-raised); color: var(--chrome-text); }
+.library-license-review { display: grid; gap: 8px; padding: 9px; border: 1px solid var(--chrome-accent); border-radius: 6px; background: var(--chrome-surface-raised); }
+.library-license-review pre { max-height: 260px; padding: 8px; margin: 0; overflow: auto; border: 1px solid var(--chrome-border); background: var(--editor-background); color: var(--editor-text); font-size: 11px; white-space: pre-wrap; }

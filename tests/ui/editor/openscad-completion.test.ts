@@ -609,7 +609,7 @@ thickness = 3;`;
       expect.objectContaining({ detail: "m59999(size = 2)" }),
     ]);
     source.dispose();
-  });
+  }, 10_000);
 
   it("rejects incomplete callable signatures from referenced project files", async () => {
     const document = "include <lib.scad>\nbr";

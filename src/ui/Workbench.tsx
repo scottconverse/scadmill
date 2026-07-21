@@ -19,6 +19,7 @@ import { ProjectSessionHost } from "./files/ProjectSessionHost";
 import { useFileCommands } from "./files/use-file-commands";
 import { useProjectOpenQueue } from "./files/use-project-open-queue";
 import { useLayoutKeybindings, useNarrowLayout, useNativeMenuState, usePlatformMenuCommands, WebMenuBar, WorkbenchStatusBar, WorkspaceFrame } from "./layout";
+import { LibrariesActivity } from "./libraries/LibrariesActivity";
 import { HistoryActivityConnector, useMcpReviewApproval, useMcpStdio, useMcpViewportCapture } from "./mcp";
 import { ParameterPanelConnector } from "./parameters/ParameterPanelConnector";
 import { activePresentationToken, presentationHiddenByMode, RenderControls, RenderStatusText, sameRenderStateExceptCached, useWorkbenchRenderCommands } from "./render";
@@ -33,8 +34,7 @@ import { DismissibleNotice, NativeHelpPanel } from "./WorkbenchOverlays";
 import { WelcomeLauncher } from "./welcome/WelcomeLauncher";
 import type { WorkbenchProps } from "./workbench-props";
 import { diagnosticStatusLabel, geometryDeltaStatus } from "./workbench-status";
-import "./workbench.css";
-const CodeEditor = lazy(() => import("./editor/CodeEditor").then((module) => ({ default: module.CodeEditor })));
+import "./workbench.css"; const CodeEditor = lazy(() => import("./editor/CodeEditor").then((module) => ({ default: module.CodeEditor })));
 export function Workbench({
   runtime, aiFetch = () => globalThis.fetch.bind(globalThis), engine, secretStore = EPHEMERAL_SECRET_STORE,
   engineLabel, engineAvailable = true, engineChecking = false, engineRecovery,
@@ -53,8 +53,7 @@ export function Workbench({
   mcpPort,
 }: WorkbenchProps) {
   const documents = useReadonlyStore(runtime.documents, (state) => state);
-  const document = activeDocument(documents);
-  const render = useReadonlyStore(runtime.render, (state) => state, sameRenderStateExceptCached);
+  const document = activeDocument(documents); const render = useReadonlyStore(runtime.render, (state) => state, sameRenderStateExceptCached);
   const consoleState = useReadonlyStore(runtime.console, (state) => state);
   const { autoRender, editor: editorSettings, keybindings, persistenceStatus: settingsPersistenceStatus, profile } = useReadonlyStore(runtime.settings, (state) => state);
   const formatterSettings = profile.formatter;
@@ -376,6 +375,7 @@ export function Workbench({
           ai: <AiWorkbenchPanel key={projectState.snapshot.workspaceIdentity} agentToolHandler={agentHandler} aiFetch={aiFetch} contextInputs={{ source: document.source, diagnostics: aiDiagnostics, parameters: aiParameters, screenshotDataUrl: viewerScreenshotDataUrl }} document={document} onApproveReview={approveMcpReview} onCopy={clipboard?.writeText} onInsertAtCursor={(code) => { const session = editorSessions.current.get(document.id); const head = session?.state.selection.main.head ?? document.source.length; const offset = Math.max(0, Math.min(document.source.length, head)); void runtime.dispatch({ kind: "edit-document", origin: "ai-panel", documentId: document.id, source: `${document.source.slice(0, offset)}${code}${document.source.slice(offset)}` }).catch(() => undefined); }} pendingReview={pendingReview} profile={profile} projectIdentity={projectState.snapshot.workspaceIdentity} runtime={runtime} secretStore={secretStore} />,
           files: <FilesActivity canReveal={canRevealProjectFiles} canTrash={canTrashProjectFiles} directoryPicker={directoryPicker} engine={engineAvailable ? engine : undefined} portability={projectPortability} recoveryPersistence={recoveryPersistence} projectTransitionsBlocked={recoveryPending} requestedExport={fileCommands.requestedExport} requestedNewFile={fileCommands.requestedNewFile} runtime={runtime} storage={projectStorage} workspaceDirectory={workspaceDirectory} />,
           history: <HistoryActivityConnector runtime={runtime} pendingReviews={pendingReviews} sourceForPath={sourceForMcpPath} onApprove={approveMcpReview} onDeny={dismissReview} />,
+          libraries: <LibrariesActivity key={projectState.snapshot.workspaceIdentity} project={projectState} storage={projectStorage} onProjectFilesChanged={() => runtime.dispatch({ kind: "refresh-project", origin: "user" }).then(() => undefined)} />,
         }}
         activityBadges={{ history: pendingReviews.length > 0 }}
         layout={layout}

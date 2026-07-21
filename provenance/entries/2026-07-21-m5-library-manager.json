@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-21-m5-library-manager",
+  "createdAt": "2026-07-21T13:28:59-06:00",
+  "summary": "Implement the M5 per-project pinned OpenSCAD library manager, license review, rollback-safe vendoring, dual-engine project-map integration, and library-aware signature completion.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "FR-15.5", "FR-15.17", "AC-15.e", "AC-15.o", "M5"],
+  "filesTouched": [
+    { "path": "ARCHITECTURE.md", "status": "modified" },
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "docs/USER-GUIDE.md", "status": "modified" },
+    { "path": "src/application/libraries/library-manager.ts", "status": "added" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/libraries/LibrariesActivity.tsx", "status": "added" },
+    { "path": "src/ui/libraries/libraries.css", "status": "added" },
+    { "path": "tests/application/libraries/library-manager.test.ts", "status": "added" },
+    { "path": "tests/application/libraries/library-runtime.integration.test.ts", "status": "added" },
+    { "path": "tests/ui/libraries/LibrariesActivity.test.tsx", "status": "added" },
+    { "path": "tests/ui/editor/openscad-completion.test.ts", "status": "modified" },
+    { "path": "website/app/architecture/page.tsx", "status": "modified" },
+    { "path": "website/app/page.tsx", "status": "modified" },
+    { "path": "provenance/entries/2026-07-21-m5-library-manager.json", "status": "added" }
+  ],
+  "externalInputs": [
+    { "url": "https://github.com/BelfrySCAD/BOSL2", "accessedOn": "2026-07-21", "purpose": "Confirm official project identity, installation path convention, release and license metadata." },
+    { "url": "https://api.github.com/repos/BelfrySCAD/BOSL2/releases/latest", "accessedOn": "2026-07-21", "purpose": "Confirm latest official BOSL2 release tag v2.0.747 and publication metadata." },
+    { "url": "https://api.github.com/repos/BelfrySCAD/BOSL2/git/trees/v2.0.747?recursive=1", "accessedOn": "2026-07-21", "purpose": "Validate the pinned CORS-safe file-inventory endpoint and bounded runtime package size." },
+    { "url": "https://api.github.com/repos/openscad/MCAD/tags?per_page=5", "accessedOn": "2026-07-21", "purpose": "Confirm the official MCAD release tag used for the catalog pin." },
+    { "url": "https://api.github.com/repos/openscad/MCAD/contents?ref=openscad-2019.05", "accessedOn": "2026-07-21", "purpose": "Confirm the tagged package license filename and runtime layout." },
+    { "url": "https://api.github.com/repos/openscad/MCAD/git/trees/openscad-2019.05?recursive=1", "accessedOn": "2026-07-21", "purpose": "Validate the pinned CORS-safe file inventory and bounded runtime package size." },
+    { "url": "https://github.com/JustinSDK/dotSCAD", "accessedOn": "2026-07-21", "purpose": "Confirm official project identity and package metadata." },
+    { "url": "https://api.github.com/repos/JustinSDK/dotSCAD/releases/latest", "accessedOn": "2026-07-21", "purpose": "Confirm latest official dotSCAD release tag v3.3." },
+    { "url": "https://api.github.com/repos/JustinSDK/dotSCAD/contents?ref=v3.3", "accessedOn": "2026-07-21", "purpose": "Confirm the tagged package license and source layout." },
+    { "url": "https://api.github.com/repos/JustinSDK/dotSCAD/git/trees/v3.3?recursive=1", "accessedOn": "2026-07-21", "purpose": "Validate the pinned CORS-safe file inventory and bounded runtime package size." },
+    { "url": "https://github.com/BelfrySCAD/BOSL2/archive/refs/tags/v2.0.747.zip", "accessedOn": "2026-07-21", "purpose": "Verify the official pinned archive exists and observe its redirect/CORS behavior." },
+    { "url": "https://github.com/openscad/MCAD/archive/refs/tags/openscad-2019.05.zip", "accessedOn": "2026-07-21", "purpose": "Verify the official pinned archive exists." },
+    { "url": "https://github.com/JustinSDK/dotSCAD/archive/refs/tags/v3.3.zip", "accessedOn": "2026-07-21", "purpose": "Verify the official pinned archive exists." }
+  ],
+  "providedInputs": [
+    { "label": "Owner-provided ScadMill functional specification v0.6", "destination": "spec/scadmill-spec-v0.6.md", "sha256": "A2D12C68E23590DF061BF3E222F481C3FFC40ECA6541D6F3DF49FDA87C1DE15A" }
+  ],
+  "decisions": [
+    {
+      "id": "D-0488",
+      "topic": "Project library ownership and engine-path parity",
+      "decision": "Vendor runtime files at a stable project-root folder such as BOSL2/std.scad and write scadmill.libraries.json last with the exact owned file list, pin, source, license, and install time. Install, re-pin, and removal compensate every touched file from the pre-operation project snapshot on failure.",
+      "rationale": "Project-root paths satisfy stock include syntax without an engine-specific search-path option. Exact ownership prevents removal from touching ordinary source, and snapshot compensation addresses the existing storage port's lack of a multi-file transaction while preserving one project map for native and WASM.",
+      "specBasis": ["FR-15.5", "AC-15.e", "N-5"]
+    },
+    {
+      "id": "D-0489",
+      "topic": "License and update consent",
+      "decision": "Prepare downloads without writing project files, require a readable license inside the downloaded package, display its full text, and write only after explicit confirmation. A different installed version requires an explicit re-pin; no background or silent update path exists.",
+      "rationale": "The user sees the license actually shipped by the selected bytes before accepting them, and an immutable project pin cannot drift without a deliberate action.",
+      "specBasis": ["FR-15.5"]
+    },
+    {
+      "id": "D-0490",
+      "topic": "Browser-safe catalog acquisition",
+      "decision": "Acquire well-known catalog packages from the pinned GitHub tree API and pinned raw-file URLs with an eight-request concurrency cap, strict file/count/expanded-size limits, inventory-size verification, and development/docs/test filtering. Retain HTTPS ZIP acquisition for an extensible custom source whose host allows it.",
+      "rationale": "GitHub's generated ZIP redirects to codeload.github.com, which does not grant arbitrary browser origins CORS access. The official tree and raw endpoints grant CORS access and preserve the exact tag pin without relying on an untrusted proxy.",
+      "specBasis": ["FR-15.5", "C13 web target", "N-1", "N-5"]
+    },
+    {
+      "id": "D-0491",
+      "topic": "Library-aware completion scope",
+      "decision": "Feed vendored library sources through the existing bounded project reference index. A module/function signature becomes eligible after the project imports its vendored file with include/use and disappears after removal; do not inject every installed symbol globally.",
+      "rationale": "Import-scoped intelligence matches OpenSCAD name visibility, avoids an unbounded global completion flood from large libraries, retains worker cancellation/size limits, and carries the actual parameter list parsed from the pinned installed source.",
+      "specBasis": ["FR-15.17", "AC-15.o", "FR-15.6"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "FR-15.5 must install a pinned package only after license review, retain its license, update only by explicit re-pin, and remove only owned files.",
+      "test": "Exercise a synthetic ZIP through package preparation, installation, re-pin, forced third-write failure, rollback, removal, path traversal, license absence, and the CORS-safe GitHub inventory adapter.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/libraries/library-manager.test.ts",
+        "observedAt": "2026-07-21T13:13:17-06:00",
+        "outcome": "RED: the library-manager module did not exist, so the acceptance suite could not load."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/libraries/library-manager.test.ts tests/application/libraries/library-runtime.integration.test.ts tests/ui/libraries/LibrariesActivity.test.tsx",
+        "observedAt": "2026-07-21T13:26:12-06:00",
+        "outcome": "GREEN: 3 files and 13 tests passed, covering the package service, license-gated UI, rollback, project refresh, native/WASM request maps, completion signature, removal, and browser-safe acquisition path."
+      }
+    },
+    {
+      "criterion": "AC-15.e and AC-15.o require the installed BOSL2 path and license in both engine request maps and its imported callable signature in completion only while installed.",
+      "test": "Install a pinned synthetic BOSL2 fixture, dispatch full renders through native- and WASM-labeled engine ports, then query CodeMirror completion before and after manager removal.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/libraries/LibrariesActivity.test.tsx",
+        "observedAt": "2026-07-21T13:16:35-06:00",
+        "outcome": "RED: the Libraries activity component did not exist."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/libraries/library-runtime.integration.test.ts && pnpm.cmd typecheck && pnpm.cmd lint",
+        "observedAt": "2026-07-21T13:27:00-06:00",
+        "outcome": "GREEN: 3 runtime integration tests passed; TypeScript passed; lint and source-policy checks passed with no findings."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "https://api.github.com/repos/openscad/MCAD/contents?ref=openscad-2019.05",
+      "sought": "Confirm the license identity and filename shipped by the pinned MCAD tag before displaying it in the catalog.",
+      "confirmation": "The tag carries lgpl-2.1.txt rather than the draft's assumed BSD LICENSE; the catalog, recognizer, link, and regression assertion were corrected to LGPL-2.1-only."
+    },
+    {
+      "url": "https://github.com/BelfrySCAD/BOSL2/archive/refs/tags/v2.0.747.zip",
+      "sought": "Confirm that the generated pinned ZIP could be downloaded directly by both desktop and browser products.",
+      "confirmation": "The redirect target restricts CORS to render.githubusercontent.com, so catalog acquisition was replaced by wildcard-CORS official GitHub tree/raw endpoints with bounded concurrency; custom ZIP remains only for compatible hosts."
+    }
+  ],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

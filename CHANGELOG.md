@@ -12,6 +12,8 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Added
 
+- Added the M5 per-project library manager and library-aware completion path. BOSL2 `v2.0.747`, MCAD `openscad-2019.05`, and dotSCAD `v3.3` are pinned in an extensible catalog; the downloaded package license is shown before confirmation; runtime files and their license are vendored into owned project paths; update is an explicit re-pin; multi-file failures compensate from the pre-operation snapshot; and imported module/function signatures flow through the existing bounded project index on both native and WASM project maps. Catalog downloads use GitHub's CORS-safe tree/raw-file endpoints rather than the browser-incompatible generated ZIP redirect, while custom HTTPS ZIP packages remain supported.
+
 - Added M5 batch export for saved parameter sets: the export dialog can select any subset, validate a `{model}-{set}.{ext}` filename template, run full-quality exports sequentially, retain each completed artifact independently, show per-item progress/failure, and cancel without starting later items.
 
 - Added the M5 model-history timeline: each accepted non-animation render records its source, parameter overrides, quality, geometry identity, and bounded preview thumbnail; users can scrub a real source diff and restore any retained snapshot as one undoable command. History is session-only by default, capped at 100 snapshots per workspace, and can be explicitly persisted per project under a 16 MiB cap. Q-0040 records the still-open animation-frame inclusion policy without blocking ordinary history.
