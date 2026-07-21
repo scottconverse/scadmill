@@ -12,6 +12,8 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Added
 
+- Preserved the exact final DOM state when the packaged cold-cache quality oracle times out, including whether Full render was clicked, the visible status, preview badge, render-control state, and before/after Console run counts. This keeps the clean-Sandbox gate strict while replacing an evidence-losing generic error with a bounded actionable failure.
+
 - Split M4 release evidence at the real platform boundary after exact clean WebView2 proved that a tauri-driver session rejects both Unicode packets and keyboard-layout-resolved guest `SendInput`, while the same packaged UI accepts ordinary user keys in a clean Sandbox. Exact-head hosted Playwright now owns the automated AC-10 conversation/mock journey; the packaged native gate owns unconfigured-AI egress denial, MCP, cache, geometry delta, animation, thumbnails, restart, and sensitive-state scanning; V-5 retains a manual clean-Sandbox Message-input check. The packaged artifact records both external requirements explicitly and cannot pass by claiming tauri-driver text injection is user-equivalent.
 
 - Retained a bounded Win32 `SendInput` diagnostic helper that activates only the exact verified ScadMill process and emits keyboard-layout-resolved virtual-key records without retaining text. Exact clean evidence showed that tauri-driver-owned WebView2 rejects this synthetic guest input even though ordinary user keys work; the helper is therefore not a release oracle and no further packaged input variants are permitted.

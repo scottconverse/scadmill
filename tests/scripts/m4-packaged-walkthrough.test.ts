@@ -218,6 +218,41 @@ describe("M4 packaged newcomer walkthrough", () => {
     window.close();
   });
 
+  it("retains the final cached-paint DOM state when the transition times out", async () => {
+    const window = new Window();
+    window.document.body.innerHTML = `
+      <span class="status-render">Rendered main.scad (3d, cached)</span>
+      <button type="button">Full render</button>
+      <div class="viewer-pane"><canvas></canvas></div>
+      <div class="console-run">initial preview</div>
+      <span class="quality-badge">Preview quality</span>
+    `;
+    const canvas = window.document.querySelector("canvas");
+    if (!canvas) throw new Error("Cached-paint timeout fixture is incomplete.");
+    Object.defineProperties(canvas, {
+      clientWidth: { value: 640 },
+      clientHeight: { value: 480 },
+      getClientRects: { value: () => [{ width: 640, height: 480 }] },
+    });
+    const nativeSetTimeout = window.setTimeout.bind(window);
+    window.setTimeout = ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => (
+      nativeSetTimeout(handler, timeout === 15000 ? 5 : timeout, ...args)
+    )) as typeof window.setTimeout;
+    const execute = window.eval(`(function() {${M4_DOM_SCRIPTS.cachedPaint}})`) as (
+      waitForPreview: boolean,
+      done: (value: unknown) => void,
+    ) => void;
+
+    const result = await new Promise<unknown>((resolve) => { execute(true, resolve); });
+
+    expect(result).toEqual({
+      error: "Cached full render did not reach the visible status area. "
+        + "clickStarted=true; status=Rendered main.scad (3d, cached); "
+        + "previewBadge=true; renderDisabled=false; consoleRunsBefore=1; consoleRunsAfter=1.",
+    });
+    window.close();
+  });
+
   it("waits for one semantic proposal and fails immediately on an AI alert", async () => {
     const pending = {
       aiVisible: true, proposalCount: 0, pendingProposalCount: 0,

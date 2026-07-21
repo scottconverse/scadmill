@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-m4-cold-cache-timeout-evidence",
+  "createdAt": "2026-07-20T21:14:54-06:00",
+  "summary": "Retain the decisive final DOM state when the cold full-cache transition times out.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "FR-15.1", "AC-15.a", "V-5 release gate", "V-6 honesty rule"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-m4-cold-cache-timeout-evidence.json", "status": "added" },
+    { "path": "scripts/lib/m4-packaged-walkthrough.mjs", "status": "modified" },
+    { "path": "tests/scripts/m4-packaged-walkthrough.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0468",
+      "topic": "Cold-cache timeout evidence retention",
+      "decision": "Keep the 15-second cold-cache oracle bound and strict cached-full acceptance criteria unchanged, but include the click phase, visible status, preview-badge presence, Full-render disabled state, and before/after Console run counts in any timeout error.",
+      "rationale": "The exact clean run at 7a2c1d0 failed after restart but the generic timeout discarded the state needed to distinguish a missed click, cache miss, engine run, or stale preview badge. Retaining only fixed-shape non-sensitive DOM facts makes the next bounded run diagnostic without weakening or retrying the gate.",
+      "specBasis": ["FR-15.1", "AC-15.a", "V-5 release gate", "V-6 honesty rule"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "A cached-paint timeout must preserve its decisive final DOM state.",
+      "test": "Execute the production cachedPaint script against a stuck cached-preview fixture with the 15-second timer bounded to five milliseconds and assert the exact diagnostic error.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/m4-packaged-walkthrough.test.ts --reporter=dot",
+        "observedAt": "2026-07-20T21:14:27-06:00",
+        "outcome": "RED: 1 failed and 20 passed because the timeout returned only the generic error and omitted all final-state fields."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/m4-packaged-walkthrough.test.ts --reporter=dot",
+        "observedAt": "2026-07-20T21:14:42-06:00",
+        "outcome": "GREEN: 21/21 passed; the exact fixed-shape timeout evidence was retained."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-7a2c1d0-sandbox-m4-native-split-20260720/evidence.json",
+      "sought": "Exact clean packaged native M4 cold-start cache evidence",
+      "confirmation": "The run passed native cube, binary STL, MCP, exact target thumbnail, and process-restart checks, then failed the strict cold cached-full transition with only a generic timeout; host cleanup passed."
+    }
+  ],
+  "questions": ["No owner decision is required; this is evidence retention for the existing strict gate."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

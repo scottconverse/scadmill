@@ -640,7 +640,15 @@ export const M4_DOM_SCRIPTS = Object.freeze({
     }
     const timeout = window.setTimeout(() => {
       observer.disconnect();
-      done({ error: 'Cached full render did not reach the visible status area.' });
+      done({
+        error: 'Cached full render did not reach the visible status area. '
+          + 'clickStarted=' + String(clickStarted)
+          + '; status=' + (status.textContent?.trim() ?? '')
+          + '; previewBadge=' + String(document.querySelector('.quality-badge') !== null)
+          + '; renderDisabled=' + String(render.disabled)
+          + '; consoleRunsBefore=' + String(consoleRunsBefore)
+          + '; consoleRunsAfter=' + String(document.querySelectorAll('.console-run').length) + '.',
+      });
     }, 15000);
     let consoleRunsBefore;
     let startedAt;
