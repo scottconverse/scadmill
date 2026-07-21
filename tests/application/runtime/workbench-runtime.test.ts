@@ -181,6 +181,51 @@ describe("createWorkbenchRuntime", () => {
     expect(failedPreference.project.getState()).toMatchObject({ diskRenderCacheEnabled: false });
   });
 
+  it("does not publish a successful project render before its disk-cache write settles", async () => {
+    let releaseWrite: () => void = () => undefined;
+    let markWriteStarted: () => void = () => undefined;
+    const writeStarted = new Promise<void>((resolve) => {
+      markWriteStarted = resolve;
+    });
+    const writeSettled = new Promise<void>((resolve) => {
+      releaseWrite = resolve;
+    });
+    const diskStorage: RenderDiskCacheStorage = {
+      read: async () => undefined,
+      write: vi.fn(async () => {
+        markWriteStarted();
+        await writeSettled;
+      }),
+      remove: async () => undefined,
+      list: async () => [],
+    };
+    const project = createProjectSnapshot(
+      "durable-cache-project",
+      new Map([["main.scad", "cube(10);"]]),
+      "durable-cache-identity",
+    );
+    const runtime = createWorkbenchRuntime(cacheableEngine(), {
+      initialProject: project,
+      renderDiskCacheStorage: diskStorage,
+      renderDiskCachePreferencePersistence: {
+        load: () => true,
+        save: () => undefined,
+      },
+    });
+
+    const render = runtime.dispatch({ kind: "render-active", origin: "user", quality: "full" });
+    await writeStarted;
+
+    expect(runtime.render.getState()).toMatchObject({ status: "rendering", quality: "full" });
+    releaseWrite();
+    await render;
+    expect(runtime.render.getState()).toMatchObject({
+      status: "success",
+      quality: "full",
+      cached: false,
+    });
+  });
+
   it("reuses an unchanged successful render without a second engine invocation", async () => {
     const engine = cacheableEngine();
     const cache = new RenderMemoryCache();

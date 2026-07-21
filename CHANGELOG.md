@@ -12,6 +12,8 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Added
 
+- Kept successful geometry presentation responsive while delaying the user-facing successful render status until the configured persistent cache-write attempt settles. This closes the clean-restart race that could discard a visibly completed full-quality cache record without making cache failure fatal.
+
 - Corrected the cold-cache quality oracle to wait for any completed startup preview—cached or freshly rendered—before clicking Full render, while still requiring the measured full render itself to be a zero-new-engine-run cache hit. This matches AC-15.a and the exact clean restart behavior without weakening the cached-full proof.
 
 - Kept the bounded cached-paint timeout test compatible with the DOM timer's full `TimerHandler` signature while still executing only the function callback supplied by the production oracle; clean TypeScript prebuild now accepts the diagnostic regression.

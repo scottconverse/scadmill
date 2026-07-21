@@ -1720,72 +1720,85 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       ? await ensureGeometryIdentity(rawResult)
       : rawResult;
     if (render.getState().jobId !== job.jobId) return;
-    render.setState({
-      status: result.kind === "failure" ? "failure" : "success",
-      jobId: job.jobId,
-      quality: command.quality,
-      documentId: document.id,
-      entryFile: document.path,
-      sourceRevision: document.revision,
-      sourceFiles,
-      projectRevision,
-      parameterValues,
-      result,
-      cached: false,
-      presentationToken: result.kind === "failure" ? undefined : commandId,
-    }, true);
-    if (!snapshotIsCurrent() || renderAttempt !== renderAttemptGeneration) return;
-    const currentWorkspace = documents.getState();
-    if (result.kind !== "failure") {
-      const presentationJobId = commandId;
-      viewer.setState(reduceViewerState(viewer.getState(), {
-        kind: "present-result",
-        documentId: document.id,
-        modelIdentity: presentationJobId,
+    const publishCompletedRender = () => {
+      render.setState({
+        status: result.kind === "failure" ? "failure" : "success",
+        jobId: job.jobId,
         quality: command.quality,
+        documentId: document.id,
+        entryFile: document.path,
+        sourceRevision: document.revision,
+        sourceFiles,
+        projectRevision,
+        parameterValues,
         result,
-      }), true);
-      if (currentWorkspace.activeDocumentId === document.id) {
-        updateLayout({ kind: "render-succeeded", jobId: presentationJobId });
+        cached: false,
+        presentationToken: result.kind === "failure" ? undefined : commandId,
+      }, true);
+    };
+    if (result.kind === "failure") {
+      publishCompletedRender();
+      if (!snapshotIsCurrent() || renderAttempt !== renderAttemptGeneration) return;
+      if (documents.getState().activeDocumentId === document.id) {
+        updateLayout({
+          kind: result.reason !== "cancelled" ? "render-failed" : "render-succeeded",
+          jobId: job.jobId,
+        });
       }
-      const engineInfo = renderCache ? await engineInfoForCache() : null;
-      const cacheKey = engineInfo
-        ? await createRenderCacheKey(request, engineInfo, rendering.profile.engine.executablePath)
-        : undefined;
-      if (render.getState().jobId !== job.jobId || renderAttempt !== renderAttemptGeneration) return;
-      if (cacheKey && renderCache) {
-        try {
-          await renderCache.put(projectState.snapshot.workspaceIdentity, cacheKey, result);
-          if (renderCache.touch?.(projectState.snapshot.workspaceIdentity, cacheKey)) {
-            presentedCacheKeys.set(result, cacheKey);
-          }
-          if (engineInfo) {
-            knownCacheKeys.set(
-              renderMemoKey(
-                workspace,
-                projectRevision,
-                projectState.snapshot.workspaceIdentity,
-                document.id,
-                request,
-                engineInfo,
-                rendering.profile.engine.executablePath,
-              ),
-              cacheKey,
-            );
-          }
-        } catch {
-          // Cache failure must not hide or downgrade a successful engine result.
-        }
-      }
-      if (render.getState().jobId !== job.jobId || renderAttempt !== renderAttemptGeneration) return;
       return;
     }
-    if (currentWorkspace.activeDocumentId === document.id) {
-      updateLayout({
-        kind: result.reason !== "cancelled" ? "render-failed" : "render-succeeded",
-        jobId: job.jobId,
-      });
+    if (!snapshotIsCurrent() || renderAttempt !== renderAttemptGeneration) {
+      publishCompletedRender();
+      return;
     }
+
+    const engineInfo = renderCache ? await engineInfoForCache() : null;
+    const cacheKey = engineInfo
+      ? await createRenderCacheKey(request, engineInfo, rendering.profile.engine.executablePath)
+      : undefined;
+    if (render.getState().jobId !== job.jobId) return;
+    if (!snapshotIsCurrent() || renderAttempt !== renderAttemptGeneration) {
+      publishCompletedRender();
+      return;
+    }
+    const presentationJobId = commandId;
+    viewer.setState(reduceViewerState(viewer.getState(), {
+      kind: "present-result",
+      documentId: document.id,
+      modelIdentity: presentationJobId,
+      quality: command.quality,
+      result,
+    }), true);
+    if (documents.getState().activeDocumentId === document.id) {
+      updateLayout({ kind: "render-succeeded", jobId: presentationJobId });
+    }
+    if (cacheKey && renderCache) {
+      try {
+        await renderCache.put(projectState.snapshot.workspaceIdentity, cacheKey, result);
+        if (renderCache.touch?.(projectState.snapshot.workspaceIdentity, cacheKey)) {
+          presentedCacheKeys.set(result, cacheKey);
+        }
+        if (engineInfo) {
+          knownCacheKeys.set(
+            renderMemoKey(
+              workspace,
+              projectRevision,
+              projectState.snapshot.workspaceIdentity,
+              document.id,
+              request,
+              engineInfo,
+              rendering.profile.engine.executablePath,
+            ),
+            cacheKey,
+          );
+        }
+      } catch {
+        // Cache failure must not hide or downgrade a successful engine result.
+      }
+    }
+    if (render.getState().jobId !== job.jobId) return;
+    publishCompletedRender();
+    if (!snapshotIsCurrent() || renderAttempt !== renderAttemptGeneration) return;
   }
 
   return {
