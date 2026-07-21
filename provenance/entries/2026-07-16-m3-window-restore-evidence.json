@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-16-m3-window-restore-evidence",
+  "createdAt": "2026-07-16T23:16:00-06:00",
+  "summary": "Wait boundedly for asynchronous desktop window restoration and retain exact rectangle diagnostics instead of sampling geometry once at native-handle creation.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 M3 delivery protocol",
+    "FR-13.1 Windows installer lifecycle",
+    "V-3 packaged desktop evidence",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-16-m3-window-restore-evidence.json", "status": "added" },
+    { "path": "scripts/windows/test-installed-lifecycle.ps1", "status": "modified" },
+    { "path": "tests/scripts/windows-installer.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29556068185",
+      "accessedOn": "2026-07-16",
+      "purpose": "Observe that the exact installed Windows candidate passed byte, signature, install, and association checks before the one-shot saved-rectangle assertion failed without retaining either rectangle."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0284",
+      "topic": "Asynchronous native window-state evidence",
+      "decision": "After native handle creation, first require the complete ScadMill WebView application surface, then poll for at least three consecutive stable geometry samples for at least 600 ms and at most 15 seconds. Retain the existing 12 px saved-rectangle tolerance. For off-monitor recovery, observe and prove that a deliberately unique valid size is actually outside the virtual desktop before close, then require the third launch to restore that exact size while remaining on a visible display, causally distinguishing processed saved state from the default startup rectangle. Retry transient geometry-read failures, refresh the active main handle, and record exact expected or virtual bounds, last actual rectangle, relevant deltas, probe count, last probe error, and process state.",
+      "rationale": "A nonzero Win32 window handle precedes the pinned window-state plugin's scheduled window-ready restore. The previous single immediate geometry read could observe the configured startup rectangle before restoration; an off-monitor check that accepted any visible rectangle could likewise false-pass on that startup state. Requiring the uniquely saved size proves that restoration processed the saved state while the visible-position assertion proves the invalid off-screen coordinates were not reused. Stable samples retain the settled user-visible proof without weakening geometric acceptance or relying on a blind fixed sleep.",
+      "specBasis": ["FR-13.1", "V-3", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Installed-lifecycle evidence waits for normal and off-monitor window restoration and fails with exact bounded diagnostics.",
+      "test": "Fail-closed source contract for both wait helpers plus PowerShell parser validation; hosted exact-installer replacement remains the behavioral proof.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/windows-installer.test.ts -t 'binds the Windows installed lifecycle'",
+        "observedAt": "2026-07-16T23:14:20-06:00",
+        "outcome": "RED: 1/1 selected contract failed because Wait-WindowRect and Wait-VisibleWindowRect were absent and both launches sampled geometry immediately."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/windows-installer.test.ts -t 'binds the Windows installed lifecycle'",
+        "observedAt": "2026-07-16T23:27:45-06:00",
+        "outcome": "FOCUSED GREEN / HOSTED REPLACEMENT PENDING: 1/1 selected contract passed after adding the application-ready, stable-sample, observed-off-monitor, and unique saved-size requirements; the complete PowerShell AST parsed successfully with 3,225 tokens. The next exact-head Windows lifecycle must prove convergence on the hosted runner."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

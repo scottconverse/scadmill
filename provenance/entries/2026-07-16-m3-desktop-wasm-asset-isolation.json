@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-16-m3-desktop-wasm-asset-isolation",
+  "createdAt": "2026-07-16T13:37:30-06:00",
+  "summary": "Separate Vite web and Tauri desktop build modes so the web-only OpenSCAD WebAssembly artifact pair is never copied into desktop resources or installers.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 M3 delivery protocol",
+    "Architecture A-2 out-of-process engine isolation",
+    "FR-4.1 native and WebAssembly engine implementations",
+    "FR-13.4 cross-platform installers",
+    "AC-13.a platform boundaries",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "package.json", "status": "modified" },
+    { "path": "provenance/entries/2026-07-16-m3-desktop-wasm-asset-isolation.json", "status": "added" },
+    { "path": "src/desktop-shell/src-tauri/tauri.conf.json", "status": "modified" },
+    { "path": "tests/scripts/desktop-public-assets.test.ts", "status": "added" },
+    { "path": "vite.config.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0263",
+      "topic": "Exclude the separately fetched GPL web engine from desktop application resources",
+      "decision": "Keep the normal Vite build public directory for the static web target, add a desktop Vite mode whose publicDir is false, and require Tauri's beforeBuildCommand to invoke only build:desktop. Retain one typed mode-selection function as the executable policy seam.",
+      "rationale": "Vite copies public files into dist by default, and Tauri embeds dist into each desktop application. Without a mode split, staging the separately fetched OpenSCAD WASM pair for the web would silently place the unused GPL engine inside every native installer, contradicting A-2 and increasing package size. Desktop uses only NativeEngineService and must not carry the web engine artifact.",
+      "specBasis": ["A-2", "FR-4.1", "FR-13.4", "AC-13.a", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Web builds copy public engine assets, while every Tauri build uses a desktop mode that disables public-directory copying.",
+      "test": "Assert the Vite mode selector returns public for web and false for desktop, require the exact build:desktop script, and require Tauri's pre-build command to invoke it.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/desktop-public-assets.test.ts",
+        "observedAt": "2026-07-16T13:36:54-06:00",
+        "outcome": "RED: the focused contract failed because no mode selector existed; the existing single build path copied public assets for both web and Tauri."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/desktop-public-assets.test.ts; pnpm.cmd exec biome check vite.config.ts tests/scripts/desktop-public-assets.test.ts package.json src/desktop-shell/src-tauri/tauri.conf.json; pnpm.cmd typecheck; node scripts/check-source-policy.mjs; git diff --check",
+        "observedAt": "2026-07-16T13:37:18-06:00",
+        "outcome": "GREEN: the focused build-isolation contract passed 1/1 in 570 ms; scoped Biome, strict TypeScript, source-policy, and diff gates exited 0. Actual web/desktop dist contents remain queued for the post-CivicCast aggregate build gate."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

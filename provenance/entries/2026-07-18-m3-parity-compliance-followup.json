@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-18-m3-parity-compliance-followup",
+  "createdAt": "2026-07-18T10:57:21-06:00",
+  "summary": "Apply the owner-approved CRLF-to-LF-only SVG parity rule with retained raw evidence and add a fail-closed hosted package for the exact OpenSCAD WebAssembly bytes, recursive corresponding source, license, build recipe, and checksums.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "A-1", "A-5", "AC-4.a", "V-3", "Section 6 engine license", "Q-0033", "Q-0034", "M3"],
+  "filesTouched": [
+    { "path": ".github/workflows/ci.yml", "status": "modified" },
+    { "path": ".github/workflows/package-openscad-web-engine.yml", "status": "added" },
+    { "path": "engine-compliance/openscad-2026.06.12/README.md", "status": "added" },
+    { "path": "tests/parity/ac4-native-wasm-parity.parity.ts", "status": "modified" },
+    { "path": "tests/parity/ac4-parity-bytes.ts", "status": "added" },
+    { "path": "tests/parity/ac4-parity-bytes.test.ts", "status": "added" },
+    { "path": "tests/scripts/production-static-browser.test.ts", "status": "modified" },
+    { "path": "tests/scripts/wasm-compliance-workflow.test.ts", "status": "added" },
+    { "path": "provenance/entries/2026-07-18-m3-parity-compliance-followup.json", "status": "added" }
+  ],
+  "externalInputs": [
+    { "url": "https://github.com/openscad/openscad/tree/0a66508c67374febcfc814a73b5b948dd84a1ca3", "accessedOn": "2026-07-18", "purpose": "Verify the exact official OpenSCAD source tree and its recursive-source/build context at the pinned commit." },
+    { "url": "https://github.com/openscad/openscad/blob/0a66508c67374febcfc814a73b5b948dd84a1ca3/COPYING", "accessedOn": "2026-07-18", "purpose": "Verify that the exact source checkout contains the license file copied into the compliance payload." }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0374", "topic": "Narrow canonical SVG parity", "decision": "Retain and hash every native and WASM raw artifact, convert only SVG CRLF pairs to LF for canonical comparison, apply no transformation to STL, and upload the evidence on both success and failure.", "rationale": "This is the literal Q-0034 owner decision and preserves the original platform bytes while proving that no difference remains after the single authorized line-ending conversion.", "specBasis": ["A-1", "AC-4.a", "V-3", "Q-0034"] },
+    { "id": "D-0375", "topic": "Conservative public WASM compliance payload", "decision": "Package the exact retained JS/WASM pair with a deterministic archive of the exact official root checkout and recursive submodules, the checkout's COPYING file, the reproducible build workflow, ENGINE_VERSION, root/submodule provenance, and checksums for every file.", "rationale": "The package makes the distributed bytes, exact corresponding source, applicable license, build recipe, and artifact/source identities inseparable and auditable without applying ScadMill's application license to the separate engine.", "specBasis": ["A-5", "Section 6", "Q-0033", "M3"] }
+  ],
+  "testEvidence": [
+    { "criterion": "All Appendix F and required official cases satisfy the amended native/WASM parity rule while retaining raw artifacts and hashes.", "test": "Run the real pinned native executable and locally staged exact source-built WASM pair through pnpm.cmd test:parity.", "red": { "command": "pnpm.cmd test:parity before Q-0034 resolution", "observedAt": "2026-07-16T00:00:00-06:00", "outcome": "RED: Appendix F3 raw SVG differed at native CR versus WASM LF and the fail-fast lane did not reach the three official examples." }, "green": { "command": "$env:SCADMILL_AC4_OPENSCAD=<exact pinned executable>; pnpm.cmd test:parity", "observedAt": "2026-07-18T10:52:30-06:00", "outcome": "GREEN: 1 Playwright test passed in 7.7 seconds. Six cases completed. Both 3D Appendix samples and all three official examples matched raw binary STL exactly; Appendix F3 retained raw 7,617/7,542-byte SVG artifacts and hashes, then both canonicalized to 7,542 bytes with SHA-256 C431C4A240E51316DDDCAF452D50D6E1F605FB31D8689A1159A1E6A44E221973 and no canonical difference." } },
+    { "criterion": "The compliance packaging lane is structurally bound to the exact engine bytes, recursive source, license, build recipe, and checksums.", "test": "Run the focused compliance-workflow, canonical-byte, and production-static workflow tests.", "red": { "command": "Owner resolution of Q-0033", "observedAt": "2026-07-18T00:00:00-06:00", "outcome": "RED by evidence status: approval existed but no complete executable packaging lane assembled the required materials." }, "green": { "command": "pnpm.cmd exec vitest run tests/scripts/wasm-compliance-workflow.test.ts tests/parity/ac4-parity-bytes.test.ts tests/scripts/production-static-browser.test.ts --reporter=dot", "observedAt": "2026-07-18T10:49:18-06:00", "outcome": "GREEN: 3 files and 6 tests passed; scoped Biome passed after removing two literal-template warnings. Hosted execution and publication remain fail-closed follow-up gates." } }
+  ],
+  "nearMisses": [
+    { "url": "local://tests/parity/ac4-native-wasm-parity.parity.ts", "sought": "Real parity execution evidence", "confirmation": "The first local invocation was terminated by an incorrect 10-second shell wrapper and produced EPIPE, not a product assertion. After verifying no orphaned test process, one bounded rerun with the declared gate ceiling passed all six cases." }
+  ],
+  "questions": ["Formal hosted M3 closure still requires the exact committed candidate's parity job and compliance-package workflow to pass and retain their artifacts. Public deployment remains a separate explicit release action."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

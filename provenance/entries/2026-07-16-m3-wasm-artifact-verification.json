@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-16-m3-wasm-artifact-verification",
+  "createdAt": "2026-07-16T06:21:00-06:00",
+  "summary": "Verify the first official-source OpenSCAD WebAssembly artifact byte-for-byte, record its hosted identity and checksums, and prevent evidence-only ENGINE_VERSION edits from launching unchanged 90-minute builds.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7/A-5 official-source engine build and artifact checksums",
+    "FR-4.1 WebAssembly worker engine implementation",
+    "FR-4.7 separately fetched and cached WebAssembly artifact",
+    "AC-4.a same-build native and web parity",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": ".github/workflows/build-openscad-wasm.yml", "status": "modified" },
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "ENGINE_VERSION", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-16-m3-wasm-artifact-verification.json", "status": "added" },
+    { "path": "scripts/lib/wasm-workflow-contract.mjs", "status": "modified" },
+    { "path": "tests/scripts/wasm-build-workflow.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29495964243",
+      "accessedOn": "2026-07-16",
+      "purpose": "Obtain exact-SHA hosted build status and artifact 8374641324 for independent manifest, byte, bootstrap, API, and side-asset inspection."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0244",
+      "topic": "Verified source-built WASM artifact and build trigger scope",
+      "decision": "Record the exact run, artifact, manifest, JavaScript, and WebAssembly identities in ENGINE_VERSION; retain only the workflow file as the automatic build trigger because it contains every byte-affecting source, container, toolchain, and command input while ENGINE_VERSION is separately validated in regular CI.",
+      "rationale": "Hosted run 29495964243 produced the only two generated runtime assets, and independent hashes match its manifest. ENGINE_VERSION now contains output evidence as well as approved pins, so treating every evidence-only metadata update as an engine input would spend 90 minutes rebuilding identical bytes. Pin drift still fails the production workflow contract, and a pin change necessarily updates the workflow before a build can pass.",
+      "specBasis": ["Section 2.7/A-5", "FR-4.1", "FR-4.7", "AC-4.a", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The hosted artifact is bound to the approved source recipe and its retained bytes match the manifest",
+      "test": "Inspect the exact-SHA hosted run and downloaded artifact outside the repository, enumerate every regular file, and calculate SHA-256 independently.",
+      "red": {
+        "command": "ENGINE_VERSION and hosted artifact inspection before run 29495964243 completed",
+        "observedAt": "2026-07-16T05:00:00-06:00",
+        "outcome": "RED: ENGINE_VERSION truthfully recorded that no source-built WASM artifact had yet been produced, so no source-build artifact checksum claim could pass."
+      },
+      "green": {
+        "command": "gh run view 29495964243; gh run download 29495964243; Get-FileHash -Algorithm SHA256 on the manifest, openscad.js, and openscad.wasm",
+        "observedAt": "2026-07-16T06:05:31-06:00",
+        "outcome": "GREEN: the exact candidate run passed all five build steps. Artifact 8374641324 contains only a 100,027-byte JavaScript module and 10,760,714-byte WASM asset plus its 533-byte manifest; independently calculated hashes E458673D46D506D77B780C526D6E5492250F353D582057C6F912724A9586D86E and 64124667A8E54EAF20324A0B1BF707FC5E338D7C92187BB411982FE5F69EF82F match the manifest exactly."
+      }
+    },
+    {
+      "criterion": "Artifact-evidence metadata cannot launch an unchanged heavyweight engine build",
+      "test": "Remove ENGINE_VERSION from the path trigger, keep exact production validation of its canonical pins in regular CI, and mutation-test reintroducing the metadata-only trigger.",
+      "red": {
+        "command": "Adversarial review of the successful workflow path filter before recording artifact output metadata",
+        "observedAt": "2026-07-16T06:16:00-06:00",
+        "outcome": "RED: changing wasm.build_status, run identity, artifact ID, sizes, or checksums in ENGINE_VERSION would have launched the 90-minute build even though none of those output-evidence fields can change produced bytes."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/wasm-build-workflow.test.ts",
+        "observedAt": "2026-07-16T06:21:19-06:00",
+        "outcome": "GREEN: 1 test file and 26 tests passed, including rejection of an added ENGINE_VERSION path trigger while retaining exact workflow and canonical ENGINE_VERSION pin validation."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": ["Q-0023 remains open only for whether the official prebuilt archive may substitute; it no longer blocks or describes the completed official-source build."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

@@ -1,0 +1,320 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-m2-five-zero-review-closure",
+  "createdAt": "2026-07-11T19:36:00-06:00",
+  "summary": "Record the final M2 correction work for atomic recovery, transactional and honest settings-secret behavior, complete named-set validation, localized console history, collision-free viewer and modal presentation, fail-closed packaged process inspection, and source-bound boundary documentation while the final current-tree evidence and adversarial gates remain pending.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.2 owner-gate and clean-room restrictions",
+    "Section 2.4 provenance ledger",
+    "Section 2.7 test-first milestone gates and question protocol",
+    "FR-2.9 render progress and elapsed time",
+    "FR-6.7 crash recovery",
+    "FR-8.4 console history",
+    "FR-9.1 through FR-9.4 settings and secret persistence",
+    "FR-5.5 named parameter sets",
+    "N-3 accessibility",
+    "N-4 localization",
+    "N-6 privacy",
+    "N-7 evidence honesty",
+    "Amendment A-9 FR-2.5 owner-designated viewer benchmark",
+    "M2 exit gate"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "package.json", "status": "modified" },
+    { "path": "provenance/entries/2026-07-11-m2-five-zero-review-closure.json", "status": "added" },
+    { "path": "provenance/entries/2026-07-14-a9-viewer-baseline.json", "status": "added" },
+    { "path": "provenance/schema.json", "status": "modified" },
+    { "path": "scripts/lib/provenance.mjs", "status": "modified" },
+    { "path": "scripts/run-packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "scripts/run-viewer-performance-profile.mjs", "status": "added" },
+    { "path": "scripts/windows/run-packaged-desktop-evidence.ps1", "status": "modified" },
+    { "path": "spec/QUESTIONS.md", "status": "modified" },
+    { "path": "spec/scadmill-spec-v0.6.md", "status": "modified" },
+    { "path": "src/application/diagnostics/console-state.ts", "status": "modified" },
+    { "path": "src/application/files/project-session.ts", "status": "modified" },
+    { "path": "src/application/files/recovery-restoration.ts", "status": "added" },
+    { "path": "src/application/files/recovery-state.ts", "status": "modified" },
+    { "path": "src/application/parameters/parameter-set-codec.ts", "status": "modified" },
+    { "path": "src/application/parameters/parameter-state.ts", "status": "modified" },
+    { "path": "src/application/runtime/project-transition.ts", "status": "modified" },
+    { "path": "src/application/runtime/workbench-runtime-contracts.ts", "status": "modified" },
+    { "path": "src/application/runtime/workbench-runtime.ts", "status": "modified" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/platform-web/browser-secret-store.ts", "status": "modified" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/WorkbenchBanners.tsx", "status": "modified" },
+    { "path": "src/ui/files/ProjectLifecycleControls.tsx", "status": "modified" },
+    { "path": "src/ui/files/project-portability.css", "status": "modified" },
+    { "path": "src/ui/layout/WorkbenchStatusBar.tsx", "status": "modified" },
+    { "path": "src/ui/parameters/ParameterPanelConnector.tsx", "status": "modified" },
+    { "path": "src/ui/render/RenderControls.tsx", "status": "modified" },
+    { "path": "src/ui/settings/SettingsDialog.tsx", "status": "modified" },
+    { "path": "src/ui/settings/SettingsLauncher.tsx", "status": "modified" },
+    { "path": "src/ui/settings/use-ai-secret.ts", "status": "added" },
+    { "path": "src/ui/viewer/RenderProgressOverlay.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/ViewerPane.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/ViewerPaneConnector.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/ViewerToolbar.tsx", "status": "modified" },
+    { "path": "src/ui/workbench.css", "status": "modified" },
+    { "path": "tests/app/App.test.tsx", "status": "modified" },
+    { "path": "tests/application/diagnostics/console-state.test.ts", "status": "modified" },
+    { "path": "tests/application/files/recovery-restoration.test.ts", "status": "added" },
+    { "path": "tests/application/files/recovery-state.test.ts", "status": "modified" },
+    { "path": "tests/application/parameters/parameter-state.test.ts", "status": "modified" },
+    { "path": "tests/application/runtime/workbench-runtime-projects.test.ts", "status": "modified" },
+    { "path": "tests/application/runtime/workbench-runtime.test.ts", "status": "modified" },
+    { "path": "tests/e2e/c9-settings-layout.e2e.ts", "status": "modified" },
+    { "path": "tests/performance/fixtures/m2-viewer-performance.tsx", "status": "modified" },
+    { "path": "tests/performance/m2-viewer-performance.perf.ts", "status": "modified" },
+    { "path": "tests/performance/viewer-performance-evidence.test.ts", "status": "added" },
+    { "path": "tests/performance/viewer-performance-evidence.ts", "status": "added" },
+    { "path": "tests/platform-web/browser-secret-store.test.ts", "status": "modified" },
+    { "path": "tests/scripts/m2-boundary-docs.test.ts", "status": "added" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" },
+    { "path": "tests/scripts/provenance.test.ts", "status": "modified" },
+    { "path": "tests/scripts/viewer-performance-runner.test.mjs", "status": "added" },
+    { "path": "tests/ui/files/ProjectLifecycleControls.test.tsx", "status": "modified" },
+    { "path": "tests/ui/files/WorkbenchRecoveryIntegration.test.tsx", "status": "modified" },
+    { "path": "tests/ui/message-catalog-units.test.ts", "status": "modified" },
+    { "path": "tests/ui/Workbench.test.tsx", "status": "modified" },
+    { "path": "tests/ui/settings/SettingsDialog.test.tsx", "status": "modified" },
+    { "path": "tests/ui/settings/SettingsLauncher.test.tsx", "status": "modified" },
+    { "path": "tests/ui/settings/WorkbenchSettingsLoadLock.test.tsx", "status": "added" },
+    { "path": "tests/ui/viewer/ViewerPane.test.tsx", "status": "modified" },
+    { "path": "tests/ui/viewer/ViewerPaneConnector.test.tsx", "status": "modified" },
+    { "path": "tests/ui/viewer/ViewerToolbar.test.tsx", "status": "modified" },
+    { "path": "tests/ui/viewer/WorkbenchRenderTimer.test.tsx", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0212",
+      "topic": "Static M2 boundary documentation",
+      "decision": "Keep README and CHANGELOG acceptance language source-bound and timeless, and correct Q-0001 package counts to the current 119 npm and 492 Rust records without embedding a stale packaged-run status.",
+      "rationale": "A capability table must describe the acceptance oracle rather than promote or invalidate a particular external run after source changes.",
+      "specBasis": ["Section 2.7 milestone evidence", "N-7"]
+    },
+    {
+      "id": "D-0217",
+      "topic": "Atomic and continuously durable recovery restoration",
+      "decision": "Plan and validate the complete recovery workspace off-store, bind restoration to exact project and document states across every await, preload fallible layout and history metadata, apply one replacement transition, keep the recovery bytes durable, and reactivate the selected project entry before auto-render. Retain a user-facing project display name, replace legacy opaque workspace identities with a neutral localized name, and present pending or failed recovery as a truthful labeled nonmodal region.",
+      "rationale": "Sequential restoration, clear-then-recapture, or document-only race checks can lose work, duplicate recovery, apply an older project snapshot, or render the wrong recovered file. Storage identities are not safe display labels, and a recovery choice must remain visibly pending after failure without claiming modal behavior it does not enforce.",
+      "specBasis": ["FR-6.7", "N-3", "N-4", "N-6", "N-7", "Section 2.7"]
+    },
+    {
+      "id": "D-0218",
+      "topic": "Transactional settings and AI-secret coordination",
+      "decision": "Use functional current-profile commits and fieldwise compensation around asynchronous secret moves and AI restore, preserve concurrent settings edits, keep secret operations single-flight, expose partial rollback honestly, and show the browser local-storage warning before opt-in. Track durable key state separately from the editable draft, report a successful persistence migration with a distinct migrated status rather than the saved-key status, keep the dialog mounted until each mutating secret transaction settles, and disable plus invalidate whole-profile import while that transaction owns the persistence target.",
+      "rationale": "Whole stale snapshots and optimistic durable writes can silently split the stored secret location from the persisted preference or overwrite a concurrent user edit. Moving the last durable key must neither persist an unsaved draft nor tell the user that the draft was saved. Unmounting during a keychain mutation would discard its component-local coordination and let an immediate reopen race a stale load against the active write; allowing an earlier asynchronous import to replace the persistence flag mid-write creates the same split-store risk.",
+      "specBasis": ["FR-9.1", "FR-9.3", "FR-9.4", "AC-9.c", "N-6", "N-7"]
+    },
+    {
+      "id": "D-0219",
+      "topic": "Settings load-error containment and modal behavior",
+      "decision": "Portal Settings outside an inert workbench, keep focus inside the actual enabled controls, show persistence feedback in a visible grid row, and disable every settings-owned mutation surface while durable settings are unsafe.",
+      "rationale": "An aria-modal label alone did not prevent background commands, clipped errors, focus escape, or writes based on default values after a failed load.",
+      "specBasis": ["FR-9.1", "N-3", "N-6"]
+    },
+    {
+      "id": "D-0220",
+      "topic": "Render progress lifetime and transient viewer flow",
+      "decision": "Capture both wall-clock and monotonic origins when the runtime dispatches a render, make the runtime monotonic origin authoritative for elapsed time across component remounts, and accumulate only monotonic deltas after mount so wall-clock jumps cannot move elapsed time backward or forward. Keep visual timer ticks out of the live region, use a real asymmetric reduced-motion-aware spinner, and place progress, annotation recovery, and degradation notices in one flow.",
+      "rationale": "A component-local origin resets on document switches, while Date-based elapsed time can jump when the system clock changes. Rapidly re-announced assistive text, a visually static glyph, and independently positioned alerts also misrepresented an active render.",
+      "specBasis": ["FR-2.9", "N-3", "N-7"]
+    },
+    {
+      "id": "D-0221",
+      "topic": "Project lifecycle surface ordering",
+      "decision": "Place lifecycle, portability, and file notices in the explicit banner grid row and collapse empty lifecycle surfaces.",
+      "rationale": "Implicit placement left a persistent empty strip and made DOM focus order diverge from visual order.",
+      "specBasis": ["C0 layout", "C6 project workflow", "N-3"]
+    },
+    {
+      "id": "D-0222",
+      "topic": "Complete named-parameter-set runtime invariant",
+      "decision": "Snapshot every set accessor once and validate all names, keys, owned values, vectors, duplicates, and prototype-shaped members before replacing reducer state. Convert rejected parameter commands to generic localized UI feedback instead of displaying internal exception text.",
+      "rationale": "Runtime callers could otherwise create ambiguous or unencodable state even though imported JSON passed the codec. Raw validation errors are implementation details that can be unlocalized or disclose internal state.",
+      "specBasis": ["FR-5.5", "N-4", "N-6", "Section 2.7"]
+    },
+    {
+      "id": "D-0223",
+      "topic": "Localized copied console history",
+      "decision": "Route outcome, quality, duration, severity, location, elapsed time, stream, and dropped-line labels through the message catalog while preserving raw engine text verbatim.",
+      "rationale": "Copy all is user-visible output and must not bypass N-4 merely because its strings are assembled outside a React component.",
+      "specBasis": ["FR-8.4", "N-4"]
+    },
+    {
+      "id": "D-0224",
+      "topic": "Fail-closed packaged process inspection",
+      "decision": "Make every host and guest Win32 process enumeration terminating, reject cleanup evidence when inspection cannot complete, parse each Sandbox session command line with the native Windows argument parser, and accept a session only when exactly one parsed argument equals the exact retained config path.",
+      "rationale": "Suppressing CIM errors could convert an unknown process state into a false zero-process PASS, while substring matching can bind evidence to an unrelated Sandbox session whose argument merely contains the config path.",
+      "specBasis": ["AC-0.b", "Section 2.7", "N-7"]
+    },
+    {
+      "id": "D-0226",
+      "topic": "Strict decision identifiers and structured append-only corrections",
+      "decision": "Require every ledger decision and correction identifier to match the published D-number format. Represent an immutable decision-id correction with its actual declaration host, the duplicate id, both original entry ids, the replacement authoritative id, and the entry that independently owns that unique authoritative decision; accept a duplicate only when exactly one complete declaration resolves exactly two original occurrences.",
+      "rationale": "A nonempty but malformed identifier is not a stable decision key. A prose-only correction also left the ledger structurally ambiguous and allowed later duplicate identifiers to pass unnoticed. Schema and runtime validation preserve historical entries while keeping identities and authority machine-checkable.",
+      "specBasis": ["Section 2.4 provenance ledger", "N-7 evidence honesty"]
+    }
+  ],
+  "decisionIdCorrections": [
+    {
+      "duplicateId": "D-0130",
+      "declarationEntry": "2026-07-11-m2-five-zero-review-closure",
+      "retainedEntry": "2026-07-11-c6-file-shortcut-correction",
+      "correctedEntry": "2026-07-11-q0001-unicode-license",
+      "authoritativeId": "D-0131",
+      "authorityEntry": "2026-07-11-q0001-decision-id-correction"
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Atomic recovery remains durable and race-safe",
+      "test": "Focused UI, planner, and runtime regressions cover clear gaps, missing or binary buffers, invalid later paths, case and parent collisions, ID collisions, dirty and clean document races, project-only races, fallible pre-apply metadata, layout failure, auto-render, and selected-entry reactivation.",
+      "red": {
+        "command": "NOT_RETAINED",
+        "observedAt": "2026-07-11T19:36:00-06:00",
+        "outcome": "No exact aggregate command or complete aggregate stdout was retained. Individual assertion failures were observed across the correction sequence: 5 initial recovery tests failed; the post-await race failed separately; project-only mutation, post-apply history failure, missing auto-render, and wrong multi-buffer entry each reproduced before implementation. The last entry test expected main.scad and received parts.scad."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/files/recovery-restoration.test.ts tests/application/runtime/workbench-runtime-projects.test.ts tests/ui/files/ProjectLifecycleControls.test.tsx tests/ui/files/WorkbenchRecoveryIntegration.test.tsx",
+        "observedAt": "2026-07-11T19:36:00-06:00",
+        "outcome": "GREEN at the recorded slice checkpoint: the exact listed command passed 4 files and 61 tests. This is retained slice evidence, not a final current-tree review tally."
+      }
+    },
+    {
+      "criterion": "Settings, secret storage, modal isolation, and concurrency",
+      "test": "Deferred secret and settings writes exercise destination failures, read failures, concurrent edits, optimistic durable-write rejection, fieldwise compensation, partial rollback, restore ordering, warning timing, focus containment, load-error locking, and visible disabled affordances.",
+      "red": {
+        "command": "NOT_RETAINED",
+        "observedAt": "2026-07-11T19:36:00-06:00",
+        "outcome": "No exact aggregate command or complete aggregate stdout was retained. Individual assertion failures reproduced source deletion before destination write, swallowed read errors, concurrent saves, key loss on failed restore, stale whole-profile overwrites, silent optimistic durable-write absorption, missing pre-opt-in warning, false unchanged-data copy, focus escape to BODY, clipped feedback, background interaction, and enabled external settings surfaces."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/platform-web/browser-secret-store.test.ts tests/ui/settings/SettingsDialog.test.tsx tests/ui/settings/SettingsLauncher.test.tsx tests/ui/settings/WorkbenchSettingsLoadLock.test.tsx tests/ui/viewer/ViewerPane.test.tsx tests/ui/viewer/WorkbenchRenderTimer.test.tsx; pnpm.cmd exec playwright test tests/e2e/c9-settings-layout.e2e.ts --workers=1 --retries=0",
+        "observedAt": "2026-07-11T19:36:00-06:00",
+        "outcome": "GREEN at the recorded slice checkpoint: the exact listed Vitest command passed 6 files and 59 tests, and the exact listed Playwright command passed all 5 C9 cases. This is retained slice evidence, not a final current-tree review tally."
+      }
+    },
+    {
+      "criterion": "An active secret mutation owns the settings-dialog lifetime",
+      "test": "Defer a key save, verify Close is disabled and Escape cannot dismiss the dialog while the mutation is active, then verify dismissal is restored only after the exact save settles.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/settings/SettingsDialog.test.tsx --reporter=verbose --maxWorkers=1",
+        "observedAt": "2026-07-15T10:11:33-06:00",
+        "outcome": "ASSERTION RED: 1 of 19 tests failed because the Close settings button remained enabled during a deferred secret save; the other 18 tests passed."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/settings/SettingsDialog.test.tsx --reporter=verbose --maxWorkers=1",
+        "observedAt": "2026-07-15T10:12:25-06:00",
+        "outcome": "GREEN: 1 test file and all 19 tests passed. During the deferred mutation Close is disabled and Escape is contained without dismissal; after settlement the same control is enabled and closes exactly once."
+      }
+    },
+    {
+      "criterion": "An active secret mutation also owns the whole-profile import boundary",
+      "test": "Start reading an imported profile, begin a deferred key save, require import to become disabled and the pending read to be invalidated before it can flip the secret-persistence target, then restore import only after the save settles.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/performance/viewer-performance-evidence.test.ts tests/scripts/viewer-performance-runner.test.mjs tests/ui/settings/SettingsDialog.test.tsx --reporter=verbose --maxWorkers=1",
+        "observedAt": "2026-07-15T10:39:45-06:00",
+        "outcome": "ASSERTION RED: 3 of 37 tests failed and 34 passed. The settings regression failed because Import settings JSON remained enabled during the deferred secret save; the other two failures independently reproduced performance-evidence defects."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/performance/viewer-performance-evidence.test.ts tests/scripts/viewer-performance-runner.test.mjs tests/ui/settings/SettingsDialog.test.tsx --reporter=verbose --maxWorkers=1",
+        "observedAt": "2026-07-15T10:42:01-06:00",
+        "outcome": "GREEN: 3 test files and all 37 tests passed. Beginning the secret transaction synchronously invalidates the already-started import, disables new imports for the mutation lifetime, and restores import only after the exact save settles."
+      }
+    },
+    {
+      "criterion": "Complete named-set invariants and localized console copy",
+      "test": "Reducer and codec tests use malformed and changing-accessor sets; exact console-output tests cover running, completed, error and timeout outcomes, both qualities, all streams, severities, locations, elapsed units, and singular/plural dropped lines.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/parameters/parameter-state.test.ts tests/application/diagnostics/console-state.test.ts tests/ui/message-catalog-units.test.ts",
+        "observedAt": "2026-07-11T19:36:00-06:00",
+        "outcome": "ASSERTION REDS: blank and duplicate set names and invalid keys were accepted; a changing accessor produced invalid later state; copied console history lacked catalog calls and emitted raw quality, severity, and stream labels."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/parameters/parameter-state.test.ts tests/application/parameters/parameter-set-codec.test.ts tests/application/diagnostics/console-state.test.ts tests/ui/message-catalog-units.test.ts",
+        "observedAt": "2026-07-11T19:36:00-06:00",
+        "outcome": "GREEN at the recorded slice checkpoint: 4 files and 46 tests passed. This is retained slice evidence, not a final current-tree review tally."
+      }
+    },
+    {
+      "criterion": "Packaged process inspection cannot false-pass",
+      "test": "The source contract requires terminating CIM enumeration in both host inspections and the guest helper, and forbids converting guest inspection failure into an empty process list.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts -t \"fails closed when packaged process inspection cannot complete\"",
+        "observedAt": "2026-07-11T19:36:00-06:00",
+        "outcome": "ASSERTION RED: 1 test failed and 19 were skipped because the host still contained Get-CimInstance Win32_Process -ErrorAction SilentlyContinue."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts tests/scripts/m2-boundary-docs.test.ts",
+        "observedAt": "2026-07-11T19:36:00-06:00",
+        "outcome": "GREEN at the recorded slice checkpoint: the exact listed command passed 2 files and 22 tests. This is retained slice evidence, not a final current-tree review tally."
+      }
+    },
+    {
+      "criterion": "Structured append-only decision-id correction is published and enforced",
+      "test": "Require the validator and JSON schema to reject unregistered duplicate decision ids, validate every correction field, and accept D-0130 only through the D-0131 authority entry without changing either historical duplicate.",
+      "red": {
+        "command": "pnpm.cmd check:provenance",
+        "observedAt": "2026-07-14T23:34:39-06:00",
+        "outcome": "RED with exit code 1: D-0130 was duplicated by 2026-07-11-c6-file-shortcut-correction and 2026-07-11-q0001-unicode-license without a valid append-only correction."
+      },
+      "green": {
+        "command": "pnpm.cmd check:provenance",
+        "observedAt": "2026-07-14T23:48:01-06:00",
+        "outcome": "GREEN with exit code 0: Provenance ledger passed validation in baseline mode with the structured D-0130 to D-0131 correction."
+      }
+    },
+    {
+      "criterion": "The published provenance schema exposes the correction contract",
+      "test": "Assert that decisionIdCorrections is a non-empty array of closed objects with all six typed fields and reusable decision-id and entry-id definitions; reject declarations whose stated host or authoritative owner does not match the ledger.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/provenance.test.ts --reporter=verbose",
+        "observedAt": "2026-07-14T23:52:01-06:00",
+        "outcome": "RED with exit code 1: 5 of 14 tests failed because declarationEntry was not yet published or validated and correction records were not bound to their containing entry; the other 9 tests passed."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/provenance.test.ts --reporter=verbose",
+        "observedAt": "2026-07-14T23:52:35-06:00",
+        "outcome": "GREEN with exit code 0: 1 test file and all 14 tests passed, including entry-shape, schema-contract, duplicate-rejection, declaration-host, authority-owner, and valid-correction coverage."
+      }
+    },
+    {
+      "criterion": "Provenance regression fixtures remain type-safe",
+      "test": "Use a typed decision fixture rather than indexing an unknown-valued generic entry record.",
+      "red": {
+        "command": "pnpm.cmd typecheck",
+        "observedAt": "2026-07-14T23:34:39-06:00",
+        "outcome": "RED with exit code 2: TS2571 reported Object is of type unknown at tests/scripts/provenance.test.ts lines 154 and 159."
+      },
+      "green": {
+        "command": "pnpm.cmd typecheck",
+        "observedAt": "2026-07-14T23:48:01-06:00",
+        "outcome": "GREEN with exit code 0: tsc --noEmit completed without diagnostics."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "The owner similarity gate, comparison repositories, harness, and workflow content were not opened, modified, or executed locally. A current-candidate hosted result is still required before M3 starts.",
+    "The current branch remains a local implementation candidate; no push or hosted CI result is claimed by this entry.",
+    "Cargo audit continues to report zero vulnerability failures and 17 already-recorded warning-class advisories in the latest compatible Tauri 2 dependency graph; this entry does not suppress or call them warning-free.",
+    "The historical D-0130 duplication is resolved append-only by this entry's structured declaration: 2026-07-11-c6-file-shortcut-correction retains D-0130, 2026-07-11-q0001-unicode-license is corrected, and D-0131 in 2026-07-11-q0001-decision-id-correction is authoritative for the Unicode-3.0 policy.",
+    "The declaration host and authority owner are intentionally distinct: D-0131 was already committed in 2026-07-11-q0001-decision-id-correction before the structured correction schema existed, so requiring host equality would rewrite that immutable entry or duplicate D-0131. The validator instead binds declarationEntry to this new entry and independently requires authorityEntry to uniquely own D-0131.",
+    "Under A-9, AMD Radeon 780M is the owner-designated evidence baseline. The prior unbound profile is diagnostic only; current-candidate status is deliberately not claimed here and is accepted only from retained external evidence bound to the exact candidate tree and profiler harness.",
+    "Packaged status is accepted only from retained external evidence bound to an exact clean source commit and self-built executable; static repository documentation deliberately does not predeclare a run result.",
+    "M3 and the requested Windows installer are not started by this correction; the owner-requested milestone-boundary pause remains in force."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

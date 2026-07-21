@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-m4-cache-paint-boundary",
+  "createdAt": "2026-07-20T00:51:03-06:00",
+  "summary": "Give AC-15.a deterministic UI headroom by painting the cached marker through a leaf subscription and keeping render-marker and History notifications from rebuilding the editor/viewer root.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "AC-15.a", "FR-15.1", "M4 hosted evidence", "N-1"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-m4-cache-paint-boundary.json", "status": "added" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/layout/WorkbenchStatusBar.tsx", "status": "modified" },
+    { "path": "src/ui/mcp/HistoryActivityConnector.tsx", "status": "added" },
+    { "path": "src/ui/mcp/index.ts", "status": "modified" },
+    { "path": "src/ui/render/RenderStatusText.tsx", "status": "added" },
+    { "path": "src/ui/render/index.ts", "status": "added" },
+    { "path": "src/ui/render/render-state-view.ts", "status": "added" },
+    { "path": "src/ui/use-readonly-store.ts", "status": "modified" },
+    { "path": "tests/ui/mcp/HistoryActivityConnector.test.tsx", "status": "added" },
+    { "path": "tests/ui/render/RenderStatusText.test.tsx", "status": "added" },
+    { "path": "tests/ui/use-readonly-store.test.tsx", "status": "added" },
+    { "path": "tests/ui/workbench-cache-paint-boundary.test.ts", "status": "added" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29722068557/job/88286969958",
+      "accessedOn": "2026-07-20",
+      "purpose": "Inspect the exact 8661cdc Ubuntu production-static failure: the unchanged cache paint measured 113.300 ms against the unchanged under-100-ms limit, while the subsequent full M4 hosted journey passed in the same job."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0422",
+      "topic": "Cached status paint boundary",
+      "decision": "Exclude only the cached marker from the root Workbench render-state subscription, publish that marker through a lightweight status-text leaf subscribed to the complete render store, and move history and history-detail subscriptions into the History activity connector that is mounted only when its rail is active.",
+      "rationale": "After the zero-copy runtime repair, a cache-marker-only render update and its synchronous command-history record still notified the root Workbench subscriptions and rebuilt the editor, viewer, and activity tree before one status string settled. The split preserves the exact visible cached label, every material render-state transition, synchronous complete command history, and current History detail behavior while removing unrelated root work from the measured product path.",
+      "specBasis": ["AC-15.a", "FR-15.1", "N-1"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "A cached-marker-only change must update the visible status leaf without rerendering the material-render parent, while every other RenderState field remains render-sensitive and History remains complete and live under panel-local ownership.",
+      "test": "Test equality-aware store selection, direct cached status publication, History parent isolation plus remount freshness, the unchanged status-bar surface, and structural Workbench wiring in one bounded focused run.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/use-readonly-store.test.tsx tests/ui/render/RenderStatusText.test.tsx --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T00:47:29-06:00",
+        "outcome": "RED: both focused suites failed before collecting tests because the test-first render projection and status-leaf modules did not exist. Independently, exact hosted job 88286969958 measured the pre-boundary product at 113.300 ms and failed AC-15.a."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/use-readonly-store.test.tsx tests/ui/render/RenderStatusText.test.tsx tests/ui/layout/WorkbenchStatusBar.mcp.test.tsx tests/ui/mcp/HistoryActivityConnector.test.tsx tests/ui/workbench-cache-paint-boundary.test.ts --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T00:49:44-06:00",
+        "outcome": "GREEN locally: all 5 focused files and 5 tests passed in 4.51 seconds. The parent selector ignores only cached; the leaf publishes exact normal and cached text; History updates and details without parent rerender, remounts to the newest complete snapshot, and Workbench source retains all three isolation boundaries. A separate final Workbench integration run passed all 23 tests in 6.18 seconds; typecheck, lint, and the 400-line source policy also passed. Exact hosted under-100-ms confirmation remains required."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://src/application/runtime/workbench-runtime.ts",
+      "sought": "Deferring or dropping command-history recording until after the measured paint",
+      "confirmation": "Rejected. The runtime continues to record the command synchronously. Subscription ownership, not product semantics or measurement ordering, changed."
+    },
+    {
+      "url": "local://tests/e2e/m4-cache-paint.e2e.ts",
+      "sought": "A threshold increase, retry, sample selection, timeout change, or removal of either animation frame",
+      "confirmation": "Rejected. The exact under-100-ms limit, one sample, zero retries, status mutation, and both post-paint requestAnimationFrame observations remain unchanged."
+    },
+    {
+      "url": "local://src/ui/use-readonly-store.ts",
+      "sought": "A freshly allocated cached-omitting projection",
+      "confirmation": "Rejected because useSyncExternalStore requires a stable snapshot and a new object would rerender or loop. The optional equality path retains the previous selected object only when its exhaustive material-field comparison passes."
+    },
+    {
+      "url": "local://src/ui/Workbench.tsx",
+      "sought": "Final type and source-policy compliance",
+      "confirmation": "The first static pass found a test-only useRef initialization type error and Workbench at 401 lines. Initializing the ref explicitly and consolidating the existing render imports through a barrel restored typecheck and the 400-line UI policy without changing behavior."
+    }
+  ],
+  "questions": ["No owner decision is required. Exact hosted AC-15.a confirmation remains pending; the exact 8661cdc M4 journey, DMG lifecycle, Windows browser, web, native, parity, WASM, and compliance lanes are green."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-m4-restart-thumbnail-persistence",
+  "createdAt": "2026-07-20T20:25:37-06:00",
+  "summary": "Prove persisted thumbnail bytes before project reopen while allowing valid post-open PNG re-encoding.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "FR-15.13", "V-5 release gate", "V-6 honesty rule"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-m4-restart-thumbnail-persistence.json", "status": "added" },
+    { "path": "scripts/lib/m4-packaged-verifier.mjs", "status": "modified" },
+    { "path": "scripts/lib/m4-packaged-walkthrough.d.mts", "status": "modified" },
+    { "path": "scripts/lib/m4-packaged-walkthrough.mjs", "status": "modified" },
+    { "path": "scripts/run-packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "tests/scripts/m4-packaged-verifier.test.ts", "status": "modified" },
+    { "path": "tests/scripts/m4-packaged-walkthrough.test.ts", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0463",
+      "topic": "Restart thumbnail persistence oracle",
+      "decision": "In the fresh packaged-WebView process, inspect and hash the unique persisted thumbnail record before reopening the project and require that digest to equal the pre-restart PNG digest. After reopening and rendering, require the same canonical geometry identity plus valid bounded PNG dimensions rather than identical compressed PNG bytes. Close Welcome before post-reopen assertions so failure cleanup can always restore the source.",
+      "rationale": "Reopening intentionally starts a new render and WebGL PNG encoding is not byte-deterministic across processes. The pre-reopen storage digest proves the original bytes survived restart; canonical geometry identity proves the replacement image represents the same accepted geometry. Requiring re-encoded bytes to match exactly was a false persistence oracle and could also strand cleanup behind the Welcome overlay.",
+      "specBasis": ["FR-15.13", "V-5 release gate", "V-6 honesty rule"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Restart evidence must include and revalidate the pre-reopen persisted PNG digest, while the post-reopen comparison must use canonical geometry identity.",
+      "test": "Extend the walkthrough, retained verifier, and packaged-runner contract tests with persistedThumbnailSha256 and an ordering assertion that storage inspection precedes project reopen.",
+      "red": {
+        "command": "npm.cmd test -- --run tests/scripts/m4-packaged-walkthrough.test.ts tests/scripts/m4-packaged-verifier.test.ts",
+        "observedAt": "2026-07-20T20:20:00-06:00",
+        "outcome": "RED: 3 failed, 18 passed because the existing restart evidence omitted the required persisted-thumbnail digest."
+      },
+      "green": {
+        "command": "npm.cmd test -- --run tests/scripts/m4-packaged-walkthrough.test.ts tests/scripts/m4-packaged-verifier.test.ts tests/scripts/packaged-desktop-evidence.test.ts",
+        "observedAt": "2026-07-20T20:29:51-06:00",
+        "outcome": "GREEN: 76/76 tests passed, including the pre-reopen ordering contract and rejection of a replacement persisted-thumbnail digest."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-9746b18-sandbox-m4-native-split-20260720/evidence.json",
+      "sought": "Exact clean packaged native M4 restart and thumbnail-persistence evidence",
+      "confirmation": "The run passed build, cube/STL, MCP, cache, geometry delta, animation, and thumbnail validation, then failed because a fresh-process re-render produced a different valid PNG byte stream for the same canonical geometry; cleanup passed."
+    }
+  ],
+  "questions": ["No owner decision is required; the change strengthens the persistence proof while removing an unsupported PNG-encoding determinism assumption."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

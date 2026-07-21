@@ -1,0 +1,125 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-m2-viewer-performance-harness",
+  "createdAt": "2026-07-11T14:42:00-06:00",
+  "summary": "Add a reproducible hardware-disclosing FR-2.5 orbit profile through the production ModelViewer, exercise exactly two million triangles with trusted pointer input, and retain an explicitly unqualified AMD Radeon 780M diagnostic without closing the required 2020-class hardware criterion.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 test-first evidence and milestone gates",
+    "FR-2.1 orbit interaction",
+    "FR-2.4 scene furniture",
+    "FR-2.5 two-million-triangle interactive frame rate and degradation",
+    "N-1 performance",
+    "N-7 UI honesty",
+    "M2-R04 qualifying hardware evidence"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "package.json", "status": "modified" },
+    { "path": "provenance/entries/2026-07-11-m2-viewer-performance-harness.json", "status": "added" },
+    { "path": "src/application/geometry/stl.ts", "status": "modified" },
+    { "path": "src/ui/viewer/ModelViewer.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/model-viewer-defaults.ts", "status": "added" },
+    { "path": "tests/performance/fixtures/m2-viewer-performance.html", "status": "added" },
+    { "path": "tests/performance/fixtures/m2-viewer-performance.tsx", "status": "added" },
+    { "path": "tests/performance/m2-viewer-performance.perf.ts", "status": "added" },
+    { "path": "tests/performance/viewer-performance.playwright.config.ts", "status": "added" },
+    { "path": "tests/ui/viewer/ModelViewer.theme.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0180",
+      "topic": "Isolating the normative rendering measurement from STL decode setup",
+      "decision": "Add an optional parsed-geometry dependency seam to ModelViewer while retaining the existing off-thread STL parser as the immutable production default; the performance fixture injects an exact two-million-triangle non-indexed geometry and then exercises the real Three.js renderer, furniture degradation, OrbitControls, canvas, and trusted pointer path.",
+      "rationale": "FR-2.5 specifies orbit rendering frame rate, not archive construction or STL decode latency. The first full-STL fixture repeatedly exhausted its measurement timeout before a sample could begin, so mixing setup and rendering made the result neither reproducible nor attributable. The injection seam isolates the required draw workload without replacing any production rendering code or weakening the default engine-result path.",
+      "specBasis": ["FR-2.1", "FR-2.4", "FR-2.5", "N-1", "M2-R04"]
+    },
+    {
+      "id": "D-0181",
+      "topic": "Hardware qualification honesty",
+      "decision": "Write the unmasked WebGL renderer, host video/CPU records, exact triangle count, and an explicit hardwareQualification field into retained evidence; do not infer target qualification from a passing frame-rate number.",
+      "rationale": "The available AMD Radeon 780M is a 2023/2024-class integrated GPU, not the normative 2020-class target. Its result proves the harness and current implementation can pass on this host, but cannot close the hardware-specific acceptance criterion. Requiring an explicit qualification label prevents a diagnostic pass from silently becoming an acceptance claim.",
+      "specBasis": ["FR-2.5", "N-7", "M2-R04"]
+    },
+    {
+      "id": "D-0182",
+      "topic": "Large binary-STL parser hot loop",
+      "decision": "Use scalar comparison, magnitude, normalization, and precomputed offset arithmetic inside the existing strict binary-STL parser while preserving every length, finiteness, fallback-normal, and bounds check.",
+      "rationale": "The initial full-path profile exposed avoidable per-coordinate Math.min/Math.max calls, spread-based Math.hypot calls, repeated offsets, and repeated divisions at multi-million-triangle scale. Scalar arithmetic reduces setup cost without changing the parser contract or validation behavior.",
+      "specBasis": ["FR-2.5", "N-1"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The harness fails instead of manufacturing a frame-rate result when setup never reaches a measurable production renderer",
+      "test": "Attempt the original exact two-million-triangle binary-STL journey through the production parser and renderer under a finite Playwright timeout.",
+      "red": {
+        "command": "pnpm.cmd exec playwright test --config tests/performance/viewer-performance.playwright.config.ts",
+        "observedAt": "2026-07-11T14:04:26-06:00",
+        "outcome": "ASSERTION-LEVEL RED: 1 failed after the 180000 ms test timeout while page.evaluate awaited viewer readiness. The retained trace and command output are under outputs/gate-scadmill-2026-07-10/artifacts/m2-r04-viewer-diagnostic-20260711T200426Z. No fps was reported."
+      },
+      "green": {
+        "command": "pnpm.cmd --silent profile:viewer",
+        "observedAt": "2026-07-11T14:50:57-06:00",
+        "outcome": "GREEN HARNESS DIAGNOSTIC: 1 passed (6.1s) after isolating parsed geometry from render measurement. The production viewer reached ready, rendered exactly 2,000,000 triangles, and completed the trusted orbit sample."
+      }
+    },
+    {
+      "criterion": "Orbit input is trusted, the renderer is hardware-backed, and the sample is console-clean",
+      "test": "Start frame sampling in the page, drive real Playwright mouse down/move/up events across the production canvas, reject SwiftShader/software renderers, and require empty page and console error arrays.",
+      "red": {
+        "command": "SCADMILL_PERF_TRIANGLES=100000 pnpm.cmd exec playwright test --config tests/performance/viewer-performance.playwright.config.ts",
+        "observedAt": "2026-07-11T14:30:55-06:00",
+        "outcome": "ASSERTION-LEVEL RED: the first hardware-backed probe reached ready and measured 59.93 fps, then failed because synthetic PointerEvent input caused OrbitControls setPointerCapture to report no active pointer and the fixture also requested a missing favicon."
+      },
+      "green": {
+        "command": "pnpm.cmd --silent profile:viewer",
+        "observedAt": "2026-07-11T14:50:57-06:00",
+        "outcome": "GREEN: real Playwright pointer input, a data favicon, empty page/console error arrays, and the unmasked ANGLE AMD Radeon 780M Direct3D11 renderer all passed."
+      }
+    },
+    {
+      "criterion": "Two-million-triangle orbit meets the numeric threshold on the disclosed current host while remaining explicitly unqualified for AC advancement",
+      "test": "Require exactly 2,000,000 triangles, automatic edge and shadow degradation, hardware rendering, at least 30 average fps, real frame statistics, and retained host disclosure.",
+      "red": {
+        "command": "No qualifying 2020-class integrated GPU was available; this criterion intentionally remains red for milestone acceptance even after the local diagnostic implementation passes.",
+        "observedAt": "2026-07-11T14:41:19-06:00",
+        "outcome": "M2-R04 acceptance remains unverified because the only available hardware is AMD Radeon 780M, which is newer than the specified class."
+      },
+      "green": {
+        "command": "pnpm.cmd --silent profile:viewer",
+        "observedAt": "2026-07-11T14:50:57-06:00",
+        "outcome": "LOCAL DIAGNOSTIC ONLY: 59.9500 animation fps and 59.2839 production-render submissions per second (178 actual ModelViewer render calls), 180 animation frames over 3002.5 ms, 16.8 ms p95, 17.7 ms longest frame, 0.4 ms p95 render submission, zero long tasks, and both edges/shadow degraded. Evidence: outputs/gate-scadmill-2026-07-10/artifacts/m2-r04-viewer-diagnostic-20260711T205057Z. Profile SHA-256 9E17235506A6C93E914D172CF906E5D5F67937B0CD817F5ABC6B2B4029FF3B8F; command output SHA-256 6CA4513D341F35F5B5DD3677DCD737949546E91042A59501948BEB0031DE02E8; video disclosure SHA-256 603A9516FB525253AF4D47447DFFFAD3FC1A35B237DD079BC3B155C6D17EE80D; CPU disclosure SHA-256 E9B3B2D63DAE429CFB159761CB03107B3DC56ED5F0D157FF1F0895DE02F071B8. hardwareQualification is unqualified-current-host-amd-radeon-780m."
+      }
+    },
+    {
+      "criterion": "The numeric result counts actual production ModelViewer render submissions rather than unrelated requestAnimationFrame callbacks",
+      "test": "Instrument the production renderer completion point through an optional observer callback, drive controlled orbit camera positions for the sample window, and require both animation fps and actual rendered fps to meet 30 at exactly two million triangles.",
+      "red": {
+        "command": "pnpm.cmd --silent profile:viewer",
+        "observedAt": "2026-07-11T14:48:24-06:00",
+        "outcome": "ASSERTION-LEVEL RED: the strengthened test rejected the prior rAF-only metric because renderedFrames was 0; a 60 Hz browser clock by itself was no longer accepted as proof that the model rendered."
+      },
+      "green": {
+        "command": "pnpm.cmd --silent profile:viewer",
+        "observedAt": "2026-07-11T14:50:57-06:00",
+        "outcome": "GREEN DIAGNOSTIC: 178 real production ModelViewer render submissions over 3002.5 ms (59.2839 rendered fps), alongside 59.9500 animation fps and the same hardware/triangle/degradation assertions."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "M2-R04 is not closed. A run on a truthfully disclosed 2020-class integrated GPU remains required before M2 advancement under the owner's zero-residual rule.",
+    "No owner similarity gate, comparison repository, workflow content, or prohibited source was opened or executed."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

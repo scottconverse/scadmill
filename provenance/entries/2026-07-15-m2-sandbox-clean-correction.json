@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-15-m2-sandbox-clean-correction",
+  "createdAt": "2026-07-15T12:35:00-06:00",
+  "summary": "Make the packaged Windows evidence lane clean the complete dedicated desktop target so a prior canonical release executable cannot survive a package-filtered Cargo clean.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.7 M2 exit gate",
+    "AC-0.b packaged Windows evidence",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-15-m2-sandbox-clean-correction.json", "status": "added" },
+    { "path": "scripts/lib/packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "scripts/windows/run-packaged-desktop-evidence.ps1", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0228",
+      "topic": "Deterministic clean release build for packaged evidence",
+      "decision": "Clean the complete dedicated desktop Cargo target before every packaged-evidence release build and retain that exact unfiltered clean command in source metadata.",
+      "rationale": "Cargo's package-filtered clean removed zero files while the canonical release executable remained. Cleaning the lane's dedicated target is the smallest deterministic boundary: it cannot reuse another package artifact, and the existing post-clean executable guard still fails closed if cleanup is incomplete.",
+      "specBasis": ["AC-0.b packaged Windows evidence", "N-7 evidence honesty"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "A prior canonical release executable cannot survive the packaged-evidence clean command",
+      "test": "Require the wrapper and its validated source metadata to use an unfiltered clean of the dedicated desktop target and reject reintroduction of the scadmill-desktop package filter.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts --reporter=verbose --maxWorkers=1",
+        "observedAt": "2026-07-15T12:33:46-06:00",
+        "outcome": "RED: 1 test file failed; 1 test failed and 20 passed. The stale-build contract did not find the required unfiltered target clean because the wrapper still supplied --package scadmill-desktop."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts --reporter=verbose --maxWorkers=1",
+        "observedAt": "2026-07-15T12:34:18-06:00",
+        "outcome": "GREEN: 1 test file passed and all 21 tests passed in 524 ms. The wrapper, retained command validator, and fixtures agree on the unfiltered dedicated-target clean, and the package filter is rejected."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "The exact committed candidate still requires fresh retained Sandbox evidence; this entry does not predeclare the external guest result."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

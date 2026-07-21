@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-ai-context-aggregate-green",
+  "createdAt": "2026-07-17T04:15:58-06:00",
+  "summary": "Record the bounded aggregate suite after the C10 presentation/context and Appendix B schema slices: all 168 test files and 1258 tests pass.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "verifier" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "C10", "C11", "N-7 evidence and status honesty"],
+  "filesTouched": [{ "path": "provenance/entries/2026-07-17-m4-ai-context-aggregate-green.json", "status": "added" }],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [{ "id": "D-0345", "topic": "Post-slice aggregate proof", "decision": "Retain one bounded repository-wide test run after the AI and MCP contract changes; do not repeat the suite absent a new cross-boundary change or a failure requiring diagnosis.", "rationale": "The new UI/runtime wiring crosses application and presentation boundaries, so one aggregate falsification pass is required while the no-loop rule forbids redundant cycles.", "specBasis": ["C10", "C11", "N-7"] }],
+  "testEvidence": [{ "criterion": "The complete local suite remains green after the C10/C11 slices.", "test": "Run one bounded aggregate test command after focused verification.", "red": { "command": "pnpm.cmd test -- --reporter=dot", "observedAt": "2026-07-17T04:05:26-06:00", "outcome": "GREEN baseline: 168 files and 1256 tests passed before this slice." }, "green": { "command": "pnpm.cmd test -- --reporter=dot", "observedAt": "2026-07-17T04:15:24-06:00", "outcome": "GREEN: Test Files 168 passed (168); Tests 1258 passed (1258); Duration 19.66s." } }],
+  "nearMisses": [],
+  "questions": ["Hosted AI acceptance, viewer screenshot context, conversation persistence hydration/deletion, agent tool rounds, desktop MCP lifecycle, permission UI, and clean-host evidence remain pending."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

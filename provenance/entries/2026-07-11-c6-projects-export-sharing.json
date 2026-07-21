@@ -1,0 +1,579 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-c6-projects-export-sharing",
+  "createdAt": "2026-07-11T02:57:26-06:00",
+  "summary": "Complete the C6 project, file, full-quality export, recovery, ZIP portability, and serverless sharing workflows on desktop and web while preserving text and binary project content and keeping this capability stack independent of later M2 viewer, Customizer, SVG, and settings work.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.7 milestone protocol",
+    "Section 4.6 C6 files, projects, import/export, sharing",
+    "FR-6.1 through FR-6.8",
+    "AC-6.a through AC-6.e",
+    "Appendix A EngineService export contract",
+    "Amendments A-2, A-3, A-7, and A-8"
+  ],
+  "filesTouched": [
+    {
+      "path": "CHANGELOG.md",
+      "status": "modified"
+    },
+    {
+      "path": "package.json",
+      "status": "modified"
+    },
+    {
+      "path": "pnpm-lock.yaml",
+      "status": "modified"
+    },
+    {
+      "path": "PRIVACY.md",
+      "status": "modified"
+    },
+    {
+      "path": "provenance/entries/2026-07-11-c6-projects-export-sharing.json",
+      "status": "added"
+    },
+    {
+      "path": "README.md",
+      "status": "modified"
+    },
+    {
+      "path": "src/app/App.tsx",
+      "status": "modified"
+    },
+    {
+      "path": "src/application/documents/document-workspace.ts",
+      "status": "modified"
+    },
+    {
+      "path": "src/application/files/artifact-destination.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/application/files/export-flow.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/application/files/external-change.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/application/files/project-export.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/application/files/project-file-service.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/application/files/project-path.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/application/files/project-portability.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/application/files/project-session.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/application/files/project-snapshot.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/application/files/project-zip.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/application/files/recent-projects.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/application/files/recovery-state.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/application/files/scratch-autosave.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/application/files/share-link.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/application/files/workbench-portability.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/application/files/workbench-project-export.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/application/runtime/layout-action-summary.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/application/runtime/project-render-files.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/application/runtime/project-transition.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/application/runtime/workbench-runtime-contracts.ts",
+      "status": "modified"
+    },
+    {
+      "path": "src/application/runtime/workbench-runtime.ts",
+      "status": "modified"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/src/artifact_storage.rs",
+      "status": "added"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/src/lib.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/desktop-shell/src-tauri/src/project_storage.rs",
+      "status": "added"
+    },
+    {
+      "path": "src/main.tsx",
+      "status": "modified"
+    },
+    {
+      "path": "src/messages/en.ts",
+      "status": "modified"
+    },
+    {
+      "path": "src/native-engine/tests/export_runtime.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/platform-desktop/desktop-project-metadata.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/platform-desktop/tauri-artifact-destination.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/platform-desktop/tauri-project-storage.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/platform-web/browser-artifact-destination.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/platform-web/browser-project-metadata.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/platform-web/indexeddb-project-storage.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/ui/diagnostics/use-diagnostic-navigation.ts",
+      "status": "modified"
+    },
+    {
+      "path": "src/ui/editor/CodeEditor.tsx",
+      "status": "modified"
+    },
+    {
+      "path": "src/ui/editor/use-document-keybindings.ts",
+      "status": "modified"
+    },
+    {
+      "path": "src/ui/files/FilesActivity.tsx",
+      "status": "added"
+    },
+    {
+      "path": "src/ui/files/project-portability.css",
+      "status": "added"
+    },
+    {
+      "path": "src/ui/files/ProjectExportDialog.tsx",
+      "status": "added"
+    },
+    {
+      "path": "src/ui/files/ProjectExternalChangeControls.tsx",
+      "status": "added"
+    },
+    {
+      "path": "src/ui/files/ProjectLifecycleControls.tsx",
+      "status": "added"
+    },
+    {
+      "path": "src/ui/files/ProjectPanel.tsx",
+      "status": "added"
+    },
+    {
+      "path": "src/ui/files/ProjectPortabilityPanel.tsx",
+      "status": "added"
+    },
+    {
+      "path": "src/ui/files/ProjectSessionHost.tsx",
+      "status": "added"
+    },
+    {
+      "path": "src/ui/files/ScratchAutosave.tsx",
+      "status": "added"
+    },
+    {
+      "path": "src/ui/files/use-file-commands.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/ui/layout/FileMenuCommands.tsx",
+      "status": "added"
+    },
+    {
+      "path": "src/ui/layout/LegacyWorkbenchStatusBar.tsx",
+      "status": "added"
+    },
+    {
+      "path": "src/ui/layout/MenuCommand.tsx",
+      "status": "added"
+    },
+    {
+      "path": "src/ui/layout/WebMenuBar.tsx",
+      "status": "modified"
+    },
+    {
+      "path": "src/ui/layout/WorkspaceFrame.tsx",
+      "status": "modified"
+    },
+    {
+      "path": "src/ui/viewer/LegacyViewerPane.tsx",
+      "status": "added"
+    },
+    {
+      "path": "src/ui/workbench-props.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/ui/workbench.css",
+      "status": "modified"
+    },
+    {
+      "path": "src/ui/Workbench.tsx",
+      "status": "modified"
+    },
+    {
+      "path": "tests/app/App.test.tsx",
+      "status": "modified"
+    },
+    {
+      "path": "tests/application/documents/document-workspace.test.ts",
+      "status": "modified"
+    },
+    {
+      "path": "tests/application/files/artifact-destination.test.ts",
+      "status": "added"
+    },
+    {
+      "path": "tests/application/files/export-flow.test.ts",
+      "status": "added"
+    },
+    {
+      "path": "tests/application/files/external-change.test.ts",
+      "status": "added"
+    },
+    {
+      "path": "tests/application/files/project-export.test.ts",
+      "status": "added"
+    },
+    {
+      "path": "tests/application/files/project-file-service.test.ts",
+      "status": "added"
+    },
+    {
+      "path": "tests/application/files/project-path.test.ts",
+      "status": "added"
+    },
+    {
+      "path": "tests/application/files/project-portability.test.ts",
+      "status": "added"
+    },
+    {
+      "path": "tests/application/files/project-session.test.ts",
+      "status": "added"
+    },
+    {
+      "path": "tests/application/files/project-snapshot.test.ts",
+      "status": "added"
+    },
+    {
+      "path": "tests/application/files/project-zip.test.ts",
+      "status": "added"
+    },
+    {
+      "path": "tests/application/files/recent-projects.test.ts",
+      "status": "added"
+    },
+    {
+      "path": "tests/application/files/recovery-state.test.ts",
+      "status": "added"
+    },
+    {
+      "path": "tests/application/files/share-link.test.ts",
+      "status": "added"
+    },
+    {
+      "path": "tests/application/files/workbench-portability.test.ts",
+      "status": "added"
+    },
+    {
+      "path": "tests/application/runtime/workbench-runtime-projects.test.ts",
+      "status": "added"
+    },
+    {
+      "path": "tests/application/runtime/workbench-runtime.test.ts",
+      "status": "modified"
+    },
+    {
+      "path": "tests/platform-desktop/desktop-project-metadata.test.ts",
+      "status": "added"
+    },
+    {
+      "path": "tests/platform-desktop/tauri-artifact-destination.test.ts",
+      "status": "added"
+    },
+    {
+      "path": "tests/platform-desktop/tauri-project-storage.test.ts",
+      "status": "added"
+    },
+    {
+      "path": "tests/platform-web/browser-artifact-destination.test.ts",
+      "status": "added"
+    },
+    {
+      "path": "tests/platform-web/browser-project-metadata.test.ts",
+      "status": "added"
+    },
+    {
+      "path": "tests/platform-web/indexeddb-project-storage.test.ts",
+      "status": "added"
+    },
+    {
+      "path": "tests/ui/diagnostics/use-diagnostic-navigation.test.tsx",
+      "status": "added"
+    },
+    {
+      "path": "tests/ui/editor/CodeEditor.language.test.tsx",
+      "status": "modified"
+    },
+    {
+      "path": "tests/ui/editor/use-document-keybindings.test.tsx",
+      "status": "modified"
+    },
+    {
+      "path": "tests/ui/files/FilesActivity.test.tsx",
+      "status": "added"
+    },
+    {
+      "path": "tests/ui/files/ProjectExportDialog.test.tsx",
+      "status": "added"
+    },
+    {
+      "path": "tests/ui/files/ProjectLifecycleControls.test.tsx",
+      "status": "added"
+    },
+    {
+      "path": "tests/ui/files/ProjectPanel.test.tsx",
+      "status": "added"
+    },
+    {
+      "path": "tests/ui/files/ProjectPortabilityPanel.test.tsx",
+      "status": "added"
+    },
+    {
+      "path": "tests/ui/files/ScratchAutosave.test.tsx",
+      "status": "added"
+    },
+    {
+      "path": "tests/ui/files/use-file-commands.test.tsx",
+      "status": "added"
+    },
+    {
+      "path": "tests/ui/files/WorkbenchRecoveryIntegration.test.tsx",
+      "status": "added"
+    },
+    {
+      "path": "tests/ui/layout/WebMenuBar.test.tsx",
+      "status": "modified"
+    }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://registry.npmjs.org/fflate/0.8.3",
+      "accessedOn": "2026-07-11",
+      "purpose": "Pinned the A-8-approved MIT fflate@0.8.3 package for bounded ZIP and gzip operations; pnpm-lock.yaml records integrity sha512-tbZNuJrLwGUp3zshBtdy4W+ORxZuIh8a5ilyIEQDC5rY1f3U20JMry0Ll3WBzU58EZKsEuJFXhb5gwv8CsPvgA==."
+    },
+    {
+      "url": "https://github.com/101arrowz/fflate",
+      "accessedOn": "2026-07-11",
+      "purpose": "Recorded the upstream project and MIT attribution for the approved fflate dependency used by project ZIP and share-fragment portability."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0090",
+      "topic": "Project snapshot and render-file representation",
+      "decision": "Represent a project as a normalized, sorted project-relative map of string or Uint8Array content, defensively copy binary bytes, and overlay every open text buffer onto the complete snapshot when rendering or exporting.",
+      "rationale": "Includes and binary imports must reach the engine even when their files are not open, while current unsaved editor text must remain the authoritative render input without coercing assets through UTF-8.",
+      "specBasis": [
+        "FR-6.1",
+        "FR-6.2",
+        "Appendix A RenderRequest.files",
+        "A-3"
+      ]
+    },
+    {
+      "id": "D-0091",
+      "topic": "Desktop and web project durability",
+      "decision": "Confine desktop operations to a canonical non-symlink project root with atomic writes and OS trash, use IndexedDB for byte-preserving web projects, and fail open to the blank scratch editor when project storage is unavailable.",
+      "rationale": "C6 must provide real local persistence without allowing traversal or link escapes, and a blocked browser database must not remove the always-available single-file quick mode.",
+      "specBasis": [
+        "FR-6.1",
+        "FR-6.2",
+        "FR-6.3",
+        "AC-6.a"
+      ]
+    },
+    {
+      "id": "D-0092",
+      "topic": "Full-quality export and artifact truthfulness",
+      "decision": "Run every model export at full quality, await the actual browser or desktop artifact destination before reporting success, default 3D meshes to 3MF, and derive exact binary-STL triangle and bounds summaries when the selected format exposes those facts.",
+      "rationale": "Preview geometry is never an export source, and the UI must distinguish a rendered model from a file that was actually saved while avoiding invented statistics for formats that do not report them.",
+      "specBasis": [
+        "FR-6.4",
+        "AC-6.b",
+        "A-2",
+        "A-7",
+        "Q-0021",
+        "Q-0031"
+      ]
+    },
+    {
+      "id": "D-0093",
+      "topic": "Bounded project ZIP and share-link portability",
+      "decision": "Use the exact MIT fflate@0.8.3 pin for deterministic ZIP/gzip plumbing, validate a versioned ZIP manifest and traversal/size limits before installation, and encode only bounded single-file source in a URL fragment with an origin banner and explicit privacy notice.",
+      "rationale": "Project interchange must preserve bytes without ZIP-slip or decompression amplification, while share source must remain out of HTTP requests and users must understand that possession of the complete URL reveals the source.",
+      "specBasis": [
+        "FR-6.2",
+        "FR-6.8",
+        "AC-6.e",
+        "A-8"
+      ]
+    },
+    {
+      "id": "D-0094",
+      "topic": "External-change and repeat-crash recovery identity",
+      "decision": "Bind external-change prompts to project identity, block project transitions while recovery is pending, and on a repeated crash preserve both the older pending recovery set and the current dirty buffers with deterministic collision suffixes.",
+      "rationale": "A delayed choice must never mutate a replacement project, and an abnormal exit during a recovery decision must not discard either generation of unsaved work.",
+      "specBasis": [
+        "FR-6.6",
+        "FR-6.7",
+        "AC-6.c",
+        "AC-6.d"
+      ]
+    },
+    {
+      "id": "D-0095",
+      "topic": "C6 shell behavior and capability-stack boundary",
+      "decision": "Autosave only the original scratch document, retain additional scratch tabs through dirty state and recovery, expose recent projects and functional File commands, open unloaded diagnostic targets through the project source port, and keep this C6 stack on empty parameter overrides until C5 is layered later.",
+      "rationale": "These choices deliver the unblocked C6 behaviors without pretending one scratch slot can durably save every tab and without leaking C2, C3, C5, or C9 implementations into the independently auditable capability commit.",
+      "specBasis": [
+        "Section 2.7",
+        "FR-6.3",
+        "FR-6.5",
+        "FR-6.7",
+        "Q-0018",
+        "Q-0019",
+        "Q-0029",
+        "Q-0030"
+      ]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "C6-only shared integration",
+      "test": "Compile the isolated C6 files against the A-7 stack and then compile the completed shared runtime, App, Workbench, and platform wiring.",
+      "red": {
+        "command": "pnpm.cmd typecheck",
+        "observedAt": "2026-07-11T02:42:00-06:00",
+        "outcome": "RED: before the shared C6 integration, TypeScript reported missing C6 message keys, runtime project/artifact fields and actions, Workbench/App props, and an improper later-C5 parameter-state dependency in workbench-project-export."
+      },
+      "green": {
+        "command": "pnpm.cmd typecheck",
+        "observedAt": "2026-07-11T02:56:00-06:00",
+        "outcome": "GREEN: TypeScript completed with no diagnostics after C6-only shared wiring and empty parameter overrides; the four C2 annotation cases embedded in the combined project-runtime test were removed from this capability stack."
+      }
+    },
+    {
+      "criterion": "C6 application behavior",
+      "test": "Exercise project path/storage/session, file-tree, recovery, external-change, export, ZIP/share portability, File menu, App, and Workbench behavior, then run the full TypeScript suite.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/files tests/application/runtime/workbench-runtime-projects.test.ts tests/platform-desktop/tauri-artifact-destination.test.ts tests/platform-desktop/tauri-project-storage.test.ts tests/platform-web/browser-artifact-destination.test.ts tests/platform-web/indexeddb-project-storage.test.ts tests/ui/files tests/ui/Workbench.test.tsx tests/ui/layout/WebMenuBar.test.tsx",
+        "observedAt": "2026-07-11T02:47:27-06:00",
+        "outcome": "RED: 10 of 146 focused tests exposed a corrupted ellipsis and the pre-C6 Open Project label introduced while extracting the shared message block; 136 tests already passed."
+      },
+      "green": {
+        "command": "pnpm.cmd test",
+        "observedAt": "2026-07-11T02:49:50-06:00",
+        "outcome": "GREEN: 73 files and 530 tests passed, including recovery collision handling, storage boundaries, exact export summaries, ZIP/share limits, unloaded diagnostic navigation, File menu commands, App scratch mode, and Workbench composition."
+      }
+    },
+    {
+      "criterion": "Desktop C6 storage and artifact boundary",
+      "test": "Compile and execute the Tauri shell unit tests for artifact naming/writes and project root, binary, atomic-write, traversal, move, and trash behavior.",
+      "red": {
+        "command": "No contemporaneous RED command was retained for the original combined-worktree desktop implementation.",
+        "observedAt": "2026-07-11T02:57:26-06:00",
+        "outcome": "The reconstruction preserved the completed C6 Rust modules, but no original failing-test transcript was retained. This entry records the evidence gap and does not manufacture a RED run."
+      },
+      "green": {
+        "command": "cargo test --locked --manifest-path src/desktop-shell/src-tauri/Cargo.toml",
+        "observedAt": "2026-07-11T02:55:00-06:00",
+        "outcome": "GREEN: 17 desktop-shell tests passed, including two artifact-storage tests and six project-storage tests; no failures or ignored tests."
+      }
+    },
+    {
+      "criterion": "C6 static and production gates",
+      "test": "Enforce formatting/source boundaries and compile the production client.",
+      "red": {
+        "command": "pnpm.cmd lint",
+        "observedAt": "2026-07-11T02:55:00-06:00",
+        "outcome": "RED: the first integrated pass found two unused Workbench imports and a 453-line UI file above the 400-line source-policy ceiling."
+      },
+      "green": {
+        "command": "pnpm.cmd lint && pnpm.cmd build",
+        "observedAt": "2026-07-11T02:56:00-06:00",
+        "outcome": "GREEN: Biome checked 196 files with no fixes, source policy passed, TypeScript passed, and Vite built 135 modules successfully after extracting C6-only legacy viewer and status composition shims."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "Q-0001 continues to block only the Rust Unicode-3.0 license-policy check; the npm portion passes and C6 adds no Rust dependency.",
+    "Q-0018 and Q-0019 remain authoritative for dirty-tab and final-tab close behavior.",
+    "Q-0021 parks only explicit-camera PNG exports; default-camera PNG and all non-PNG C6 exports proceed.",
+    "Q-0029 parks recent-project duplication on the future M3 welcome screen.",
+    "Q-0030 parks the autosave control and multi-untitled durable-store semantics; original-scratch autosave and multi-buffer recovery proceed.",
+    "Q-0031 parks an application-owned cross-platform destination picker; actual browser/desktop destinations and saved locations remain visible."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

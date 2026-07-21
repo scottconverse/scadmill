@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-m4-full-render-readiness",
+  "createdAt": "2026-07-20T19:38:25-06:00",
+  "summary": "Wait for automatic preview completion before beginning a packaged full-render oracle.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "AC-15.a", "AC-15.d", "V-5 release gate", "V-6 honesty rule"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-m4-full-render-readiness.json", "status": "added" },
+    { "path": "scripts/lib/m4-packaged-walkthrough.mjs", "status": "modified" },
+    { "path": "tests/scripts/m4-packaged-walkthrough.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0459",
+      "topic": "Full-render readiness after automatic preview",
+      "decision": "Poll for at most 15 seconds until the existing Full render button, status element, and canvas exist and the button is enabled; only then capture the console-run baseline, click Full render, and retain the existing 60-second exact completion oracle.",
+      "rationale": "Editing source legitimately starts an automatic preview and disables both render controls while that run is active. Exact clean evidence bound to 43a1193 passed the complete native MCP journey and source replacement, then the harness inspected the transiently disabled control immediately. Waiting for readiness models the product state without counting the preview as the requested full render or relaxing the exactly-one-run assertion.",
+      "specBasis": ["AC-15.a", "AC-15.d", "V-5 release gate", "V-6 honesty rule"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "A packaged full-render oracle must tolerate a preceding automatic preview while preserving an exact post-readiness run baseline.",
+      "test": "Execute the production DOM script against a disabled Full render button, release it asynchronously, and require one exact new console run and the exact 3D status.",
+      "red": {
+        "command": "npm.cmd test -- --run tests/scripts/m4-packaged-walkthrough.test.ts -t \"waits for an automatic preview to release Full render before taking its run baseline\"",
+        "observedAt": "2026-07-20T19:33:13-06:00",
+        "outcome": "RED: 1 failed, 18 skipped. The script returned Full-render completion controls are unavailable before the control was released."
+      },
+      "green": {
+        "command": "npm.cmd test -- --run tests/scripts/m4-packaged-walkthrough.test.ts tests/scripts/m4-packaged-verifier.test.ts tests/scripts/packaged-desktop-evidence.test.ts",
+        "observedAt": "2026-07-20T19:34:00-06:00",
+        "outcome": "GREEN: 76/76 tests passed."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-43a1193-sandbox-m4-native-split-20260720/evidence.json",
+      "sought": "Exact clean packaged native M4 walkthrough",
+      "confirmation": "The retained run passed build, launch, cube/STL, and the full native MCP lifecycle, then failed at the cache baseline because Full render was transiently disabled; exact cleanup passed."
+    }
+  ],
+  "questions": ["No owner decision is required; the bounded readiness wait preserves the exact full-render result and run-count requirements."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

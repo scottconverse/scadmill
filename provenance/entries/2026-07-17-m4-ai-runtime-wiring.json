@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-ai-runtime-wiring",
+  "createdAt": "2026-07-17T03:48:00-06:00",
+  "summary": "Wire the AI conversation panel to the active WorkbenchRuntime document, async platform SecretStore, streaming provider bridge, and existing ai-panel edit history command with a stale-document guard.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "C10", "FR-10.1", "FR-10.4", "FR-10.7", "AC-10.a", "AC-10.b", "N-7 evidence and status honesty"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-17-m4-ai-runtime-wiring.json", "status": "added" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/ai/ai-runtime-bridge.ts", "status": "added" },
+    { "path": "src/ui/ai/index.ts", "status": "added" },
+    { "path": "tests/ui/ai/ai-runtime-bridge.test.ts", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0325", "topic": "Runtime/provider bridge", "decision": "Keep the application AI client synchronous at its secret boundary and bridge the platform's async SecretStore in a provider-neutral async generator; configured provider selection is the only condition that exposes requestStream, while applyEdit dispatches an ai-panel command only for the active document.", "rationale": "This preserves zero fetch calls for no-provider state, avoids duplicating provider logic in UI, and prevents a stale proposal from mutating a newly active document.", "specBasis": ["FR-10.1", "FR-10.7", "AC-10.a", "N-7"] }
+  ],
+  "testEvidence": [
+    { "criterion": "The bridge dispatches an accepted proposal only for the active document and the panel/runtime AI tests remain green.", "test": "Run the focused bridge and panel suites once after wiring Workbench activity content.", "red": { "command": "pnpm.cmd lint", "observedAt": "2026-07-17T03:45:40-06:00", "outcome": "RED: the first wiring pass pushed Workbench.tsx to 401 physical lines, violating the 400-line UI policy." }, "green": { "command": "pnpm.cmd exec vitest run tests/ui/ai/ai-runtime-bridge.test.ts tests/ui/ai/AiConversationPanel.test.tsx", "observedAt": "2026-07-17T03:46:59-06:00", "outcome": "GREEN: Test Files 2 passed (2); Tests 3 passed (3); Duration 966ms." } },
+    { "criterion": "The runtime wiring remains type-safe and source-policy clean after the bounded line-budget correction.", "test": "Run TypeScript and repository lint/source policy once after the correction.", "red": { "command": "pnpm.cmd lint", "observedAt": "2026-07-17T03:45:40-06:00", "outcome": "RED: source policy reported src/ui/Workbench.tsx at 401 lines." }, "green": { "command": "pnpm.cmd exec tsc --noEmit --pretty false; pnpm.cmd lint", "observedAt": "2026-07-17T03:46:59-06:00", "outcome": "GREEN: TypeScript exited 0; Checked 427 files in 215ms with source policy passed." } }
+  ],
+  "nearMisses": [],
+  "questions": ["Provider credentials, current-file context toggles, markdown rendering, conversation persistence integration, and hosted clean-browser AI evidence remain beyond this bridge unit; AC-10.c/d are not claimed."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

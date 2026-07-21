@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-16-m3-theme-policy-cli-disambiguation",
+  "createdAt": "2026-07-16T08:52:00-06:00",
+  "summary": "Disambiguate OpenSCAD command-line options from CSS custom properties without weakening Appendix C enforcement in TypeScript, TSX, or CSS.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 M3 delivery protocol",
+    "AC-12.b zero hardcoded component colors",
+    "V-2 CI color-literal rule",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "tests/application/theme/theme-css-variable-usage.test.ts", "status": "modified" },
+    { "path": "provenance/entries/2026-07-16-m3-theme-policy-cli-disambiguation.json", "status": "added" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29503768098",
+      "accessedOn": "2026-07-16",
+      "purpose": "Inspect the exact hosted Web-check failure and confirm that only quoted OpenSCAD CLI options were being misclassified as CSS custom properties."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0253",
+      "topic": "Token-aware TypeScript CSS custom-property policy",
+      "decision": "Scan script source for custom properties only in var() expressions, CSSOM property methods, and quoted or unquoted object-property declarations while continuing to scan every custom-property-shaped token in CSS files.",
+      "rationale": "A bare quoted token beginning with two hyphens is also the normal representation of a command-line option. Restricting script matches to CSS-bearing syntax removes false positives without allowing unknown Appendix C variables through the production CSS, CSS-in-JS, CSSOM, or style-object paths ScadMill uses or can introduce.",
+      "specBasis": ["AC-12.b", "V-2", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "OpenSCAD CLI arguments do not fail the Appendix C gate, while real unknown custom properties in script and stylesheet contexts still fail it",
+      "test": "Exercise quoted OpenSCAD CLI arguments alongside var(), CSSOM set/read, and style-object custom properties, then scan the complete production tree.",
+      "red": {
+        "command": "Hosted Web checks for e4551c02dc34eb7dbf7093441062dc7bac1dcebc; pnpm.cmd exec vitest run tests/application/theme/theme-css-variable-usage.test.ts",
+        "observedAt": "2026-07-16T08:48:08-06:00",
+        "outcome": "RED: hosted CI rejected seven valid OpenSCAD CLI option occurrences; the adversarial regression extension then failed 1 of 3 focused tests because CSSOM and quoted object-key custom properties were not yet detected."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/theme/theme-css-variable-usage.test.ts; pnpm.cmd exec biome check tests/application/theme/theme-css-variable-usage.test.ts",
+        "observedAt": "2026-07-16T08:49:48-06:00",
+        "outcome": "GREEN: 1 focused test file and all 3 tests passed in 657 ms; the focused Biome check examined the file with no fixes or diagnostics."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

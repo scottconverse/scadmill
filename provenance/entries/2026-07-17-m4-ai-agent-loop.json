@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-ai-agent-loop",
+  "createdAt": "2026-07-17T04:20:45-06:00",
+  "summary": "Add a bounded opt-in AI agent-loop runner that executes scripted MCP-style tool rounds, returns tool results as bounded conversation context, honors cancellation, and stops exactly at the configured round cap.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "FR-10.5", "AC-10.c", "N-2", "N-7 evidence and status honesty"],
+  "filesTouched": [
+    { "path": "src/application/ai/agent-loop.ts", "status": "modified" },
+    { "path": "tests/application/ai/agent-loop.test.ts", "status": "added" },
+    { "path": "provenance/entries/2026-07-17-m4-ai-agent-loop.json", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0347", "topic": "Agent execution boundary", "decision": "Keep the agent runner transport-neutral: the model supplies a text or named tool call, and an injected executor performs one call and returns a serialized tool-result system message; mutation review remains the executor's responsibility.", "rationale": "This enables the scripted AC-10.c sequence without coupling the AI module to a desktop process or inventing a second MCP handler owner.", "specBasis": ["FR-10.5", "FR-11.4", "N-7"] },
+    { "id": "D-0348", "topic": "Hard round cap", "decision": "Increment the round counter before each tool execution and stop immediately when the configured cap is reached; no extra model or tool call occurs after capped state.", "rationale": "The cap must bound deliberate looping mocks and protect memory/process stability under N-2.", "specBasis": ["FR-10.5", "AC-10.c", "N-2"] }
+  ],
+  "testEvidence": [{ "criterion": "The agent loop executes a tool round and caps a deliberately looping model.", "test": "Run the focused agent-loop and persistence tests once.", "red": { "command": "pnpm.cmd exec vitest run tests/application/ai/agent-loop.test.ts tests/application/ai/conversation-persistence.test.ts", "observedAt": "2026-07-17T04:19:55-06:00", "outcome": "RED: no pre-change red test was required for this new runner; tests were written against the exact capped behavior before implementation." }, "green": { "command": "pnpm.cmd exec vitest run tests/application/ai/agent-loop.test.ts tests/application/ai/conversation-persistence.test.ts", "observedAt": "2026-07-17T04:20:20-06:00", "outcome": "GREEN: 2 files and 5 tests passed." } }],
+  "nearMisses": [],
+  "questions": ["UI opt-in/auto-apply controls, actual MCP handler wiring, persistence hydration/deletion, and hosted AC-10.c remain pending."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

@@ -7,6 +7,7 @@ const ALLOWED_LICENSES = new Set([
   "MIT",
   "MPL-2.0",
   "PSF-2.0",
+  "Unicode-3.0",
   "Zlib",
 ]);
 

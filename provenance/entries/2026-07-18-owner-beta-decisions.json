@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-18-owner-beta-decisions",
+  "createdAt": "2026-07-18T00:00:00-06:00",
+  "summary": "Record the owner's SVG parity, public WASM compliance, and Windows-first public-beta decisions without claiming their follow-up evidence gates have already passed.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "decision-recorder" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 question protocol", "AC-4.a native/WASM parity", "Section 6 engine license", "FR-13.4 installers", "M0-M6 commitment scope"],
+  "filesTouched": [
+    { "path": "spec/QUESTIONS.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-18-owner-beta-decisions.json", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0368", "topic": "Canonical SVG parity", "decision": "Canonical SVG comparison may convert only CRLF to LF before comparing and hashing, while the original native and WASM artifacts, raw lengths, and raw hashes remain retained.", "rationale": "The observed native/WASM difference is platform line-ending representation; retaining raw evidence preserves auditability while the narrowly approved canonical form tests the intended SVG bytes without authorizing semantic fallback.", "specBasis": ["A-1", "AC-4.a", "V-3", "Q-0034"] },
+    { "id": "D-0369", "topic": "Public WASM compliance route", "decision": "Public distribution of the pinned OpenSCAD WASM pair is approved only with its exact corresponding official source, applicable GPL-2.0-or-later materials, reproducible build recipe, and artifact/source checksums.", "rationale": "The conservative package keeps the distributed engine bytes tied to their exact source and reproducible provenance while preserving ScadMill's separate product boundary.", "specBasis": ["Section 2.5", "Architecture A-2", "Section 6", "Q-0033"] },
+    { "id": "D-0370", "topic": "First public beta platform", "decision": "Target Windows desktop 0.1.0-beta.1 as the first public beta; defer macOS and Linux release proof without cutting either platform or any capability from the complete M0-M6 product commitment.", "rationale": "A Windows-first beta narrows the immediate publication proof while preserving the accepted complete-product scope and later cross-platform delivery.", "specBasis": ["FR-13.4", "M0-M6 commitment scope", "A-6"] }
+  ],
+  "testEvidence": [],
+  "nearMisses": [],
+  "questions": ["Q-0033 and Q-0034 are resolved; their approved implementation/evidence follow-ups remain fail-closed until verified."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

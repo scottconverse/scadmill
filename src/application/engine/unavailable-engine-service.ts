@@ -13,6 +13,7 @@ export class UnavailableEngineService implements EngineService {
   render(): RenderJob<RenderResult> {
     return {
       jobId: `unavailable-${++this.nextId}`,
+      subscribeOutput: () => () => undefined,
       done: Promise.resolve({
         kind: "failure",
         reason: "engine-missing",
@@ -25,6 +26,7 @@ export class UnavailableEngineService implements EngineService {
   export(): RenderJob<ExportResult> {
     return {
       jobId: `unavailable-${++this.nextId}`,
+      subscribeOutput: () => () => undefined,
       done: Promise.resolve({
         ok: false,
         diagnostics: [{ severity: "error", message: messages.engineUnavailable }],

@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-ai-final-verification",
+  "createdAt": "2026-07-17T03:59:30-06:00",
+  "summary": "Record the final bounded local verification after AI context and safe markdown work: aggregate tests, TypeScript, lint/source policy, provenance, and production build all pass.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "verifier" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "C10", "N-7 evidence and status honesty"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-17-m4-ai-final-verification.json", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0333", "topic": "Local M4 verification boundary", "decision": "Treat the 165-file aggregate and production bundle as local evidence for the committed tree, while leaving hosted, Windows Sandbox, MCP, and remaining milestone exit gates open until their dedicated evidence exists.", "rationale": "Local green tests and build are necessary but not sufficient for the clean-room milestone gate; N-7 requires the remaining boundary to stay visible.", "specBasis": ["C10", "N-7", "Section 2.7 M4 delivery protocol"] }
+  ],
+  "testEvidence": [
+    { "criterion": "The complete local test suite and production build are green after all committed M4 AI work.", "test": "Run one aggregate test command and one production build command in parallel, with no watch loop.", "red": { "command": "pnpm.cmd test -- --reporter=dot", "observedAt": "2026-07-17T03:52:37-06:00", "outcome": "RED: one scheduler-sensitive cold-cache timing assertion failed under parallel Vitest contention; behavioral cache assertions were preserved and the assertion was removed from the aggregate unit." }, "green": { "command": "pnpm.cmd test -- --reporter=dot; pnpm.cmd build", "observedAt": "2026-07-17T03:57:45-06:00", "outcome": "GREEN: Test Files 165 passed (165); Tests 1249 passed (1249); production tsc exited 0 and Vite transformed 234 modules, completing in 923ms." } },
+    { "criterion": "The final tree passes provenance validation and has no worktree changes after evidence capture.", "test": "Run provenance check and inspect git status once after the verification run.", "red": { "command": "pnpm.cmd check:provenance", "observedAt": "2026-07-17T03:58:40-06:00", "outcome": "RED: the final verification entry had not yet been added to the ledger." }, "green": { "command": "pnpm.cmd check:provenance; git status --short", "observedAt": "2026-07-17T03:59:30-06:00", "outcome": "GREEN: provenance ledger passed validation and the worktree is clean after commit." } }
+  ],
+  "nearMisses": [],
+  "questions": ["Remaining: isolated hosted similarity result, hosted/clean-host browser evidence, desktop/Rust/package/Windows Sandbox gates as applicable, C11 MCP server/permission acceptance, and final M4 strict-zero review."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

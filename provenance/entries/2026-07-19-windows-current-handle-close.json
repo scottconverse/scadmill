@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-19-windows-current-handle-close",
+  "createdAt": "2026-07-19T11:05:58-06:00",
+  "summary": "Make the signed Windows installer lifecycle close the exact current ScadMill main window after off-monitor recovery instead of reusing a potentially stale pre-recovery HWND.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "FR-13.4", "AC-13.b", "N-7"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-19-windows-current-handle-close.json", "status": "added" },
+    { "path": "scripts/windows/lib/installed-lifecycle-window.ps1", "status": "added" },
+    { "path": "scripts/windows/test-installed-lifecycle.ps1", "status": "modified" },
+    { "path": "tests/scripts/windows-installer.test.ts", "status": "modified" },
+    { "path": "tests/scripts/windows-lifecycle-close.behavior.ps1", "status": "added" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29695705039/job/88215975377",
+      "accessedOn": "2026-07-19",
+      "purpose": "Inspect the exact-head hosted Windows setup lifecycle failure after successful signing, installation, launch, association, and window-state probes."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0409",
+      "topic": "Current-window identity for normal close evidence",
+      "decision": "Refresh the process immediately before each normal-close assertion, require a nonzero current main HWND owned by that exact ScadMill PID, post one asynchronous WM_CLOSE request, and retain the existing 15-second fail-closed exit deadline. Never fall back to a caller-captured HWND.",
+      "rationale": "The hosted run passed the first two close assertions and every product/lifecycle probe through off-monitor recovery, then the third close timed out using the HWND captured before recovery. The wait helper already refreshes the process and may observe a newer main HWND locally, but its caller retained the original handle. Resolving and ownership-checking the handle at the close boundary removes that stale-handle seam without weakening the one-request, bounded normal-exit proof, targeting an unrelated reused HWND, or hiding a product that actually refuses to close.",
+      "specBasis": ["FR-13.4", "AC-13.b", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Every lifecycle close must target a live current ScadMill main window and must still fail if the process does not exit normally within 15 seconds.",
+      "test": "Add a focused source-contract assertion first, observe it fail against the stale-handle SendMessage implementation, then implement the refreshed current-handle PostMessage boundary and run the focused Vitest contract plus its cross-platform executable PowerShell behavior harness.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/windows-installer.test.ts --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-19T11:04:12-06:00",
+        "outcome": "RED: 1 of 3 tests failed because Close-Normally did not refresh or use Process.MainWindowHandle and still sent WM_CLOSE to the caller's captured HWND."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/windows-installer.test.ts --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-19T11:18:50-06:00",
+        "outcome": "GREEN: all 4 focused lifecycle tests passed. The executable PowerShell behavior harness proved the resolved current handle is posted, zero and foreign handles fail without posting, PostMessage failure retains its Win32 error, and timeout kills then throws; the source contract separately proves production callers provide no captured-HWND fallback. Earlier PowerShell AST parsing and Win32 Add-Type compilation also passed. Exact hosted signed-installer lifecycle confirmation remains required on the next source head."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29695705039/job/88215975377",
+      "sought": "Whether the failed job proved a broken installer, unsigned binary, missing runtime, association defect, or off-monitor recovery regression",
+      "confirmation": "The exact log showed all of those gates passed. Only the final harness-issued normal-close request timed out after the third window recovered to a visible 1014 by 646 rectangle."
+    }
+  ],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

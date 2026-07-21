@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-desktop-mcp-stdio-toggle",
+  "createdAt": "2026-07-17T06:38:45-06:00",
+  "summary": "Wire the desktop MCP server end-to-end through an off-by-default Settings toggle, Tauri stdin/stdout bridge, typed event port, validated frontend controller, and bounded pending-review queue.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "C11", "FR-11.4", "FR-11.6", "AC-11.b", "AC-11.c", "Appendix B", "N-7 evidence and status honesty"],
+  "filesTouched": [
+    { "path": "src/application/platform/scadmill-platform.ts", "status": "modified" },
+    { "path": "src/platform-desktop/tauri-mcp-port.ts", "status": "added" },
+    { "path": "src/platform-desktop/desktop-platform.ts", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/src/mcp_stdio.rs", "status": "added" },
+    { "path": "src/desktop-shell/src-tauri/src/lib.rs", "status": "modified" },
+    { "path": "src/app/App.tsx", "status": "modified" },
+    { "path": "src/ui/workbench-props.ts", "status": "modified" },
+    { "path": "src/ui/mcp/use-mcp-stdio.ts", "status": "added" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/settings/SettingsLauncher.tsx", "status": "modified" },
+    { "path": "src/ui/settings/SettingsDialog.tsx", "status": "modified" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "tests/platform-desktop/tauri-mcp-port.test.ts", "status": "added" },
+    { "path": "tests/platform-desktop/desktop-platform.test.ts", "status": "modified" },
+    { "path": "tests/ui/mcp/use-mcp-stdio.test.tsx", "status": "added" },
+    { "path": "tests/ui/settings/SettingsDialog.test.tsx", "status": "modified" },
+    { "path": "provenance/entries/2026-07-17-m4-desktop-mcp-stdio-toggle.json", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0362", "topic": "Desktop MCP transport", "decision": "Use the desktop application's existing stdin/stdout only while the Settings toggle is enabled; Tauri forwards newline-terminated request frames to the frontend and writes one bounded response frame back to stdout.", "rationale": "This implements the specified stdio transport without opening a network socket or claiming browser MCP capability. The bridge starts disabled and validates the one-frame response boundary.", "specBasis": ["FR-11.4", "AC-11.c", "Appendix B", "N-7"] },
+    { "id": "D-0363", "topic": "MCP enablement scope", "decision": "Keep the initial enablement toggle session-local and default-off while the existing strict persisted-settings v1 schema remains unchanged; the application forces the native bridge off on hook cleanup.", "rationale": "The specification requires a Settings toggle and default-off behavior, but does not require persistence of that toggle. Avoiding an unversioned settings-schema change preserves strict import/export compatibility.", "specBasis": ["FR-11.4", "FR-11.6", "N-7"] }
+  ],
+  "testEvidence": [
+    { "criterion": "Desktop MCP remains off by default, enables through Settings, forwards typed Tauri requests, and routes valid response frames through the existing controller.", "test": "Run focused hook, Tauri-port, desktop-platform, SettingsDialog, and Workbench tests; run lint/build; run native MCP and full desktop Rust tests; then one aggregate browser/unit suite.", "red": { "command": "pnpm.cmd lint", "observedAt": "2026-07-17T06:35:10-06:00", "outcome": "RED: the first inlined Workbench orchestration exceeded the repository's 400-line UI source policy limit (425 lines); native MCP compilation still passed." }, "green": { "command": "pnpm.cmd exec vitest run tests/ui/mcp/use-mcp-stdio.test.tsx tests/platform-desktop/tauri-mcp-port.test.ts tests/platform-desktop/desktop-platform.test.ts tests/ui/settings/SettingsDialog.test.tsx tests/ui/Workbench.test.tsx --reporter=dot; pnpm.cmd lint; pnpm.cmd build; cargo fmt --manifest-path src/desktop-shell/src-tauri/Cargo.toml -- --check; cargo test --manifest-path src/desktop-shell/src-tauri/Cargo.toml; pnpm.cmd test -- --reporter=dot", "observedAt": "2026-07-17T06:38:35-06:00", "outcome": "GREEN: focused coverage passed 5 files and 49 tests; lint/source policy and TypeScript/Vite build passed (244 modules); cargo fmt check passed; full desktop Rust suite passed 42 tests; aggregate passed 174 files and 1271 tests in 21.11 seconds." } }
+  ],
+  "nearMisses": [
+    { "url": "local://src/desktop-shell/src-tauri/src/mcp_stdio.rs", "sought": "A newline-delimited request frame compatible with the frontend stdio decoder", "confirmation": "Rust BufRead::lines strips newlines, so the bridge explicitly re-terminates each emitted request frame before the aggregate run." }
+  ],
+  "questions": ["The Settings toggle is intentionally session-local. Pending-review presentation and approval-to-runtime-dispatch, direct screenshot tool implementation, real desktop subprocess walkthrough, and hosted AC-11.b/c evidence remain pending."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

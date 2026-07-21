@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-19-hosted-m4-dmg-repairs",
+  "createdAt": "2026-07-19T17:51:00-06:00",
+  "summary": "Repair the exact-head hosted M4 context-toggle failure and make the noninteractive macOS lifecycle probe explicitly accept ScadMill's newly embedded Apache-2.0 DMG license.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "FR-13.4", "C10 AI assistance", "M4 hosted evidence", "Q-0038"],
+  "filesTouched": [
+    { "path": ".github/workflows/ci.yml", "status": "modified" },
+    { "path": "provenance/entries/2026-07-19-hosted-m4-dmg-repairs.json", "status": "added" },
+    { "path": "src/ui/ai/AiConversationPanel.tsx", "status": "modified" },
+    { "path": "tests/scripts/windows-installer.test.ts", "status": "modified" },
+    { "path": "tests/ui/ai/AiConversationPanel.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29708426266/job/88249025004",
+      "accessedOn": "2026-07-19",
+      "purpose": "Inspect the exact-head Ubuntu M4 hosted failure at the Current file context toggle."
+    },
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29708426266/job/88249025006",
+      "accessedOn": "2026-07-19",
+      "purpose": "Inspect the exact-head macOS DMG lifecycle failure after the embedded Apache license was presented."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0414",
+      "topic": "Stable AI context-toggle event values",
+      "decision": "Capture each checkbox's checked value synchronously in its change handler before passing that primitive into the functional React state update.",
+      "rationale": "The hosted Linux click completed while the controlled checkbox remained checked. Reading event.currentTarget later inside the state-updater callback ties the update to transient event state; capturing the boolean at handler entry makes the controlled state deterministic across scheduler timing.",
+      "specBasis": ["C10 AI assistance", "M4 hosted evidence", "N-7"]
+    },
+    {
+      "id": "D-0415",
+      "topic": "Noninteractive DMG license acceptance",
+      "decision": "Pass -acceptlicense on the single read-only hdiutil attach command used by the hosted macOS lifecycle proof.",
+      "rationale": "The Apache-2.0 bundle license was correctly embedded and presented, after which hdiutil canceled because the CI probe is noninteractive. Explicitly accepting that exact embedded license preserves the existing read-only mount and fail-closed behavior for all other attach errors.",
+      "specBasis": ["FR-13.4", "Q-0038", "Windows-first beta cross-platform packaging evidence"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "AI context toggles must settle to the user's selected controlled state before the next request is assembled.",
+      "test": "Use the exact hosted M4 failure as RED, add a focused component request-context regression, capture event booleans synchronously, and run the focused component file once.",
+      "red": {
+        "command": "pnpm test:e2e:m4-hosted (Ubuntu browser job 88249025004)",
+        "observedAt": "2026-07-19T17:48:03-06:00",
+        "outcome": "RED: Playwright timed out after 30 seconds at m4-hosted-journey.e2e.ts:316. The Current file checkbox click completed but its controlled checked state never settled false."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/ai/AiConversationPanel.test.tsx tests/scripts/windows-installer.test.ts --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-19T17:53:21-06:00",
+        "outcome": "GREEN locally: 2 files and all 21 tests passed in 2.74 seconds. The component regression proves all three default-on context toggles stay off across a source rerender and omit every context tag from the next provider request. Exact hosted Linux confirmation remains required."
+      }
+    },
+    {
+      "criterion": "The license-bearing DMG must mount noninteractively for the existing read-only lifecycle proof without a second unguarded attach path.",
+      "test": "Add an exact workflow contract first, observe it fail against the bare attach command, then add -acceptlicense and rerun the same focused lane once.",
+      "red": {
+        "command": "macOS Desktop installer job 88249025006; pnpm.cmd exec vitest run tests/ui/ai/AiConversationPanel.test.tsx tests/scripts/windows-installer.test.ts --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-19T17:51:25-06:00",
+        "outcome": "RED hosted: hdiutil printed the complete embedded Apache License and then reported attach canceled. RED locally: 1 of 21 focused tests failed because the workflow lacked -acceptlicense; the 20 component tests passed."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/ai/AiConversationPanel.test.tsx tests/scripts/windows-installer.test.ts --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-19T17:53:21-06:00",
+        "outcome": "GREEN locally: 2 files and all 21 tests passed in 2.74 seconds. The parsed workflow contract requires exactly one hdiutil attach path and requires it to accept the embedded license while preserving read-only mounting. Exact hosted macOS confirmation remains required."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://src/ui/ai/AiConversationPanel.tsx",
+      "sought": "A test-only timing workaround",
+      "confirmation": "Rejected. The failed controlled checkbox could ignore a user's source-context opt-out and send source to the configured provider. The production event-lifetime defect was fixed for all four context toggles, and the regression crosses a source rerender before inspecting the real outbound request."
+    }
+  ],
+  "questions": ["Q-0038 is resolved. Q-0039 remains open."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-m4-webdriver-keyboard-actions",
+  "createdAt": "2026-07-20T08:35:00-06:00",
+  "summary": "Replace the packaged controlled-textarea element-value command with low-level W3C keyboard Actions after a second exact clean run proved the former did not update React state.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "M4 release candidate", "N-7 evidence honesty"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-m4-webdriver-keyboard-actions.json", "status": "added" },
+    { "path": "scripts/lib/packaged-desktop-evidence.d.mts", "status": "modified" },
+    { "path": "scripts/lib/packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "scripts/run-packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://www.w3.org/TR/2026/WD-webdriver2-20260528/#actions",
+      "accessedOn": "2026-07-20",
+      "purpose": "Verify the official low-level keyboard Actions contract and its required keyDown/keyUp event semantics."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0447",
+      "topic": "Packaged controlled-textarea event source",
+      "decision": "After resolving and clicking exactly one visible enabled textarea, replace its contents with one W3C key input source: Control down, A down/up, Control up, then keyDown/keyUp for each requested Unicode code point. Always attempt to release WebDriver actions, retain both failures in causal order when entry and release fail together, and preserve the existing two-read React commit proof.",
+      "rationale": "Two exact clean WebView2 runs reached the Message field but the element-value endpoint failed to update the controlled React value; the second run retained zero mock requests. Low-level Actions follow the official user-input event boundary without changing the product's controlled onChange contract or weakening the post-action oracle.",
+      "specBasis": ["M4 C10 AI assist", "Section 2.7 delivery protocol", "N-7 evidence honesty"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The adapter must build explicit select-all and Unicode keyboard actions, route them through the W3C Actions endpoint, release keyboard state even on failure, retain primary and cleanup failures in causal order, and require two committed value reads.",
+      "test": "Exercise the action builder and fake WebDriver boundary, including a supplementary-plane character, entry-only failure, and simultaneous entry/release failures; statically bind the runner to POST and DELETE on the session Actions endpoint.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts -t \"retains both the primary keyboard failure\" --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T08:41:20-06:00",
+        "outcome": "RED: the focused regression failed 0/1 because a secondary release error replaced the primary keyboard-actions error instead of preserving both."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T08:41:49-06:00",
+        "outcome": "GREEN: the complete helper suite passed 47/47, including action payload, Unicode, entry-only cleanup, dual-failure aggregation, runner endpoint wiring, and committed reads."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-6d55d0b-sandbox-m4-webdriver-textarea-20260720/evidence.json",
+      "sought": "Exact clean packaged M4 walkthrough on candidate 6d55d0b",
+      "confirmation": "The source-bound clean build and all pre-AI-message phases passed. The run failed before Send because WebDriver's element-value command did not update the controlled Message value; the local mock received zero requests. Exact cleanup removed staging and left no matching Sandbox session. This artifact remains failed and is not packaged-pass evidence."
+    }
+  ],
+  "questions": ["No owner decision is required. Low-level keyboard Actions are locally contract-proven; exact clean WebView2/React retention remains explicitly unproven until one source-bound clean Sandbox run passes."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

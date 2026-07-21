@@ -1,0 +1,170 @@
+@top Document { statement* }
+
+@skip { whitespace | LineComment | BlockComment }
+
+@detectDelim
+
+@precedence {
+  call @left,
+  index @left,
+  unary @right,
+  multiply @left,
+  add @left,
+  compare @left,
+  equality @left,
+  and @left,
+  or @left,
+  ternary @right
+}
+
+@external specialize { Identifier } specializeIdentifier from "../openscad-token-specializer" {
+  ModuleKeyword,
+  FunctionKeyword,
+  IfKeyword,
+  ElseKeyword,
+  ForKeyword,
+  IntersectionForKeyword,
+  LetKeyword,
+  EachKeyword,
+  IncludeKeyword,
+  UseKeyword,
+  Boolean,
+  Constant,
+  AssertKeyword,
+  EchoKeyword,
+  Builtin
+}
+
+statement {
+  IncludeStatement |
+  UseStatement |
+  ModuleDeclaration |
+  FunctionDeclaration |
+  IfStatement |
+  ForStatement |
+  LetStatement |
+  ModifiedStatement |
+  AssignmentStatement |
+  ModuleCallStatement |
+  Block |
+  EmptyStatement
+}
+
+IncludeStatement { IncludeKeyword Path }
+UseStatement { UseKeyword Path }
+
+ModuleDeclaration { ModuleKeyword Identifier ParameterList Block }
+FunctionDeclaration { FunctionKeyword Identifier ParameterList Assign expression Semicolon }
+
+IfStatement { IfKeyword LParen expression RParen statement ~ifElse (ElseKeyword statement)? }
+ForStatement { (ForKeyword | IntersectionForKeyword) LParen ForSpecification RParen statement }
+LetStatement { LetKeyword LParen argumentList? RParen statement }
+ModifiedStatement { Modifier statement }
+AssignmentStatement { variableName Assign expression Semicolon }
+ModuleCallStatement { moduleName ArgumentList statement }
+Block { LBrace statement* RBrace }
+EmptyStatement { Semicolon }
+
+moduleName { Identifier | Builtin | AssertKeyword | EchoKeyword }
+variableName { Identifier | Builtin | SpecialVariable }
+
+ParameterList { LParen commaSep<Parameter>? RParen }
+Parameter { Identifier (Assign expression)? }
+ArgumentList { LParen argumentList? RParen }
+argumentList { Argument (Comma Argument)* Comma? }
+Argument { NamedArgument | expression }
+NamedArgument { Identifier Assign expression }
+
+expression {
+  Identifier |
+  Builtin |
+  SpecialVariable |
+  Number |
+  String |
+  Boolean |
+  Constant |
+  ListExpression |
+  ParenthesizedExpression |
+  FunctionCall |
+  IndexExpression |
+  UnaryExpression |
+  BinaryExpression |
+  TernaryExpression
+  | LetExpression
+  | AssertExpression
+  | EchoExpression
+  | FunctionLiteral
+}
+
+ParenthesizedExpression { LParen expression RParen }
+FunctionCall { expression !call ArgumentList }
+IndexExpression { expression !index LBracket expression RBracket }
+UnaryExpression { !unary (Plus | Minus | Not) expression }
+BinaryExpression {
+  expression !multiply (Multiply | Divide | Modulo) expression |
+  expression !add (Plus | Minus) expression |
+  expression !compare (Less | LessEqual | Greater | GreaterEqual) expression |
+  expression !equality (Equal | NotEqual) expression |
+  expression !and And expression |
+  expression !or Or expression
+}
+TernaryExpression { expression !ternary Question expression Colon expression }
+LetExpression { LetKeyword ArgumentList expression }
+AssertExpression { AssertKeyword ArgumentList expression }
+EchoExpression { EchoKeyword ArgumentList expression }
+FunctionLiteral { FunctionKeyword ParameterList expression }
+
+ListExpression { LBracket (RangeExpression | ListElements)? RBracket }
+RangeExpression { expression Colon expression (Colon expression)? }
+ListElements { ListElement (Comma ListElement)* Comma? }
+ListElement { Comprehension | expression }
+Comprehension { ForComprehension | EachComprehension | IfComprehension }
+ForComprehension { ForKeyword LParen ForSpecification RParen ListElement }
+EachComprehension { EachKeyword expression }
+IfComprehension {
+  IfKeyword LParen expression RParen ListElement ~ifElse (ElseKeyword ListElement)?
+}
+
+ForSpecification { BindingList (Semicolon expression Semicolon BindingList)? }
+BindingList { Binding (Comma Binding)* }
+Binding { variableName Assign expression }
+
+commaSep<content> { content (Comma content)* Comma? }
+
+@tokens {
+  whitespace { @whitespace+ }
+  Identifier { (@asciiLetter | "_") (@asciiLetter | @digit | "_")* }
+  SpecialVariable { "$" (@asciiLetter | "_") (@asciiLetter | @digit | "_")* }
+  Number { (@digit+ ("." @digit*)? | "." @digit+) ($[eE] $[+-]? @digit+)? }
+  String { "\"" (![\"\\\n\r] | "\\" _)* "\"" }
+  Path { "<" ![>\n\r]+ ">" }
+  Modifier { $[*!#%] }
+  Assign { "=" }
+  Plus { "+" }
+  Minus { "-" }
+  Multiply { "*" }
+  Divide { "/" }
+  Modulo { "%" }
+  Not { "!" }
+  And { "&&" }
+  Or { "||" }
+  Equal { "==" }
+  NotEqual { "!=" }
+  Less { "<" }
+  LessEqual { "<=" }
+  Greater { ">" }
+  GreaterEqual { ">=" }
+  Question { "?" }
+  Colon { ":" }
+  LParen { "(" }
+  RParen { ")" }
+  LBracket { "[" }
+  RBracket { "]" }
+  LBrace { "{" }
+  RBrace { "}" }
+  Comma { "," }
+  Semicolon { ";" }
+  LineComment { "//" ![\n\r]* }
+  BlockComment { "/*" (![*] | "*"+ ![*/])* "*"+ "/" }
+  @precedence { LineComment, BlockComment, Divide }
+}

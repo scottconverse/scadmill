@@ -1,0 +1,314 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-10-c1-document-tabs",
+  "createdAt": "2026-07-10T05:28:34.1768823-06:00",
+  "summary": "Deliver the next M1 C1 editor slice: stable multi-document buffers, accessible reorderable tabs, safe clean close and reopen, per-document CodeMirror session restoration, centralized default shortcut labels, and render results bound to an exact document and project-source snapshot. Save, dirty close, final-tab close, browser-reserved shortcut acceptance, and final stale-diagnostic presentation remain explicitly parked by Q-0012, Q-0018, Q-0019, Q-0015, and Q-0016.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.2 permitted inputs",
+    "Section 2.4 provenance ledger",
+    "Section 2.7 questions, decisions, and unit of work",
+    "Section 3 A-3 single command bus",
+    "Section 3 A-6 modularity caps and typed domain stores",
+    "Section 4.0 FR-0.4 and FR-0.5 console and render-state honesty",
+    "Section 4.1 C1 code editor with OpenSCAD language support",
+    "Section 4.1 FR-1.1 multi-tab text editor",
+    "Section 4.1 FR-1.7 standard keybindings",
+    "Section 4.1 AC-1.d unsaved-changes marker",
+    "Section 4.1 AC-1.e command-bus integration",
+    "Section 4.2 FR-2.9 render status and last-good mesh boundary",
+    "Section 4.4 FR-4.5 multi-file render requests",
+    "Section 4.6 FR-6.3 and FR-6.7 deferred close and persistence boundaries",
+    "Section 4.11 FR-11.1 and FR-11.2 command history and editor-local undo",
+    "Section 5 N-3 keyboard accessibility",
+    "Section 5 N-4 English message catalog",
+    "Section 5 N-7 UI honesty",
+    "Section 7 V-1 and V-2",
+    "Section 8 M1 C1 excluding diff view",
+    "Appendix A RenderRequest.files",
+    "Appendix D default keybindings"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    {
+      "path": "provenance/entries/2026-07-10-c1-document-tabs.json",
+      "status": "added"
+    },
+    { "path": "spec/QUESTIONS.md", "status": "modified" },
+    {
+      "path": "src/application/commands/default-keybindings.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/application/documents/document-workspace.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/application/runtime/workbench-runtime.ts",
+      "status": "modified"
+    },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/editor/CodeEditor.tsx", "status": "modified" },
+    { "path": "src/ui/editor/DocumentTabBar.tsx", "status": "added" },
+    {
+      "path": "src/ui/editor/use-document-keybindings.ts",
+      "status": "added"
+    },
+    { "path": "src/ui/layout/WebMenuBar.tsx", "status": "modified" },
+    { "path": "src/ui/workbench.css", "status": "modified" },
+    {
+      "path": "tests/application/documents/document-workspace.test.ts",
+      "status": "added"
+    },
+    {
+      "path": "tests/application/runtime/workbench-runtime.test.ts",
+      "status": "modified"
+    },
+    { "path": "tests/setup.ts", "status": "modified" },
+    { "path": "tests/ui/Workbench.test.tsx", "status": "modified" },
+    {
+      "path": "tests/ui/editor/CodeEditor.language.test.tsx",
+      "status": "modified"
+    },
+    {
+      "path": "tests/ui/editor/DocumentTabBar.test.tsx",
+      "status": "added"
+    },
+    {
+      "path": "tests/ui/editor/use-document-keybindings.test.tsx",
+      "status": "added"
+    },
+    {
+      "path": "tests/ui/layout/WebMenuBar.test.tsx",
+      "status": "modified"
+    }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0051",
+      "topic": "Document identity, revision, and saved baseline",
+      "decision": "Represent every open document with a unique non-empty stable id and path, a monotonic content revision for render identity, and both savedRevision and savedSource baselines; determine dirty state by source equality with savedSource rather than by revision equality.",
+      "rationale": "Stable ids prevent tab order and filename changes from retargeting commands, monotonic revisions distinguish render races, and source equality correctly clears dirty state when editor undo returns to the saved content even though the revision remains monotonic.",
+      "specBasis": ["A-6", "FR-1.1", "AC-1.d", "Q-0012"]
+    },
+    {
+      "id": "D-0052",
+      "topic": "Safe close and reopen boundary",
+      "decision": "Allow close only for clean documents when another document remains; when closing the active document select its right neighbor or otherwise its left neighbor, retain a LIFO closed snapshot with its former index, and reopen only snapshots whose id and path do not collide with an open document.",
+      "rationale": "This delivers every unambiguous close and reopen path without risking silent data loss or inventing the unresolved empty-versus-scratch final-tab behavior.",
+      "specBasis": ["FR-1.1", "FR-6.3", "FR-6.7", "Q-0018", "Q-0019"]
+    },
+    {
+      "id": "D-0053",
+      "topic": "Per-document editor sessions",
+      "decision": "Cache each document's CodeMirror EditorState and scroll offsets by stable document id, restore that session only when its source still matches the buffer, reconfigure runtime extensions on restore, and annotate controlled value replacement so it neither echoes as a user edit nor enters undo history.",
+      "rationale": "A document switch preserves selection, scroll position, and undo history without letting an external buffer update contaminate the user's local edit history or dispatch a duplicate edit command.",
+      "specBasis": ["FR-1.1", "FR-1.5", "FR-11.2", "AC-1.d"]
+    },
+    {
+      "id": "D-0054",
+      "topic": "Accessible tab interaction and ordering",
+      "decision": "Show filenames visually, use full project paths in accessible labels only when basenames collide, implement tablist/tab/tabpanel relationships with a roving tab stop and Arrow/Home/End activation, support native drag reorder and Alt+Shift+Arrow keyboard reorder, and recover focus after close and Ctrl+Tab activation.",
+      "rationale": "The tab strip remains compact while duplicate files stay distinguishable, every pointer operation has a keyboard route, and focus remains predictable across dynamic tab removal and editor-initiated cycling.",
+      "specBasis": ["FR-1.1", "FR-1.7", "N-3", "Appendix D"]
+    },
+    {
+      "id": "D-0055",
+      "topic": "Render source-snapshot identity",
+      "decision": "Send every open source buffer in the render request and atomically label render state with the target document id, entry path, source revision, and exact project-source map; withhold geometry and diagnostics when the active document or any source differs, and permit render-failure layout effects only for the still-active exact snapshot.",
+      "rationale": "OpenSCAD include/use results can depend on files beyond the entry buffer, so document id or entry revision alone cannot prevent stale geometry, diagnostics, or background failures from being attributed to the wrong current source.",
+      "specBasis": ["A-3", "FR-0.4", "FR-0.5", "FR-4.5", "N-7", "Appendix A", "Q-0016"]
+    },
+    {
+      "id": "D-0056",
+      "topic": "Honest file commands and shortcut labels",
+      "decision": "Centralize Appendix D default shortcut labels, expose working clean Close Tab and Reopen Closed Tab commands through the runtime, and show Save, Save All, New, and Open as visibly disabled until their owning persistence and project boundaries are implemented.",
+      "rationale": "One catalog keeps menu labels aligned with installed command handlers, while disabled unavailable actions avoid implying that unsaved data can already be persisted or that a project chooser exists.",
+      "specBasis": ["FR-1.7", "AC-1.e", "N-7", "Q-0010", "Q-0012", "Q-0015"]
+    },
+    {
+      "id": "D-0057",
+      "topic": "Last-good mesh remains C2 scope",
+      "decision": "Replace render state atomically for each new job and withhold inactive or stale results in this C1 slice; do not add the separate last-good-mesh cache and dimmed failure presentation required by FR-2.9 until the C2 viewer capability is implemented.",
+      "rationale": "Mixing the C2 failure cache into a document-tab unit would cross the Section 2.7 capability boundary; the current behavior prevents false attribution without claiming the later viewer requirement complete.",
+      "specBasis": ["Section 2.7", "FR-2.9", "M2 C2"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "FR-1.1 stable document workspace and safe close/reopen",
+      "test": "The reducer targets edits and activation by stable id, rejects identity collisions and invalid moves, preserves buffer contents during reorder, closes only safe clean non-final tabs, selects a deterministic neighbor, and reopens at the former index without collisions.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/documents/document-workspace.test.ts tests/ui/Workbench.test.tsx",
+        "observedAt": "2026-07-10T05:26:58-06:00",
+        "outcome": "RED: 2 of 20 focused tests failed at assertion level because revision 2 differed from savedRevision 0 after undo returned the source to `cube(10);`; the domain still reported dirty and the integrated close control remained disabled."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/documents/document-workspace.test.ts tests/ui/Workbench.test.tsx",
+        "observedAt": "2026-07-10T05:27:14-06:00",
+        "outcome": "GREEN: both focused files passed, 20 tests total, including stable identity, safe close/reopen, undo-to-clean, and integrated close-control behavior."
+      }
+    },
+    {
+      "criterion": "FR-1.1 and AC-1.e document command routing",
+      "test": "Open, activate, edit, move, close, and reopen commands produce exactly one history entry for a real mutation, no entry for rejected or no-op actions, and preserve the runtime store's singleton lifecycle.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/runtime/workbench-runtime.test.ts --reporter=verbose",
+        "observedAt": "2026-07-10T04:45:56.5865130-06:00",
+        "outcome": "RED: the new multi-document runtime tests failed because document commands and their single-store lifecycle were not implemented."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/documents/document-workspace.test.ts tests/application/runtime/workbench-runtime.test.ts tests/ui/Workbench.test.tsx tests/ui/editor/CodeEditor.language.test.tsx tests/ui/editor/DocumentTabBar.test.tsx tests/ui/editor/use-document-keybindings.test.tsx tests/ui/layout/WebMenuBar.test.tsx",
+        "observedAt": "2026-07-10T05:28:35.9458322-06:00",
+        "outcome": "GREEN: the independent correctness re-audit passed all 7 focused files and 43 tests with no remaining release blocker."
+      }
+    },
+    {
+      "criterion": "FR-1.1 isolated editor state and AC-1.d dirty lifecycle",
+      "test": "Switching documents preserves CodeMirror source, selection, scroll offsets, and undo history; controlled updates do not echo or enter history; undo to the saved source clears the dirty tab marker and re-enables close while revision stays monotonic.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/CodeEditor.language.test.tsx tests/ui/Workbench.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-10T05:19:57.0306887-06:00",
+        "outcome": "RED: the restored editor-session test failed before session caching existed; an earlier controlled-value test also observed that external updates echoed as user edits."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/documents/document-workspace.test.ts tests/ui/Workbench.test.tsx",
+        "observedAt": "2026-07-10T05:27:14-06:00",
+        "outcome": "GREEN: 20 focused tests passed after saved-source dirty comparison and CodeMirror session restoration; the tab was clean and closable after undo returned to the saved text."
+      }
+    },
+    {
+      "criterion": "FR-1.1 and N-3 isolated document-tab interactions",
+      "test": "Tabs expose truthful dirty and duplicate-path labels, pointer activation, a roving Arrow/Home/End tab stop, close buttons, middle-click clean close, native drag reorder, keyboard reorder, and filename-specific dirty announcements.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/DocumentTabBar.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-10T05:43:56.8881263-06:00",
+        "outcome": "RED after discarding the initial non-shipping spike: the compiling tablist stub collected normally and all 5 tests failed on behavioral queries for tabs, pointer/keyboard controls, reorder routes, duplicate-path labels, and dirty status announcements."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/DocumentTabBar.test.tsx tests/ui/editor/use-document-keybindings.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-10T05:45:47.6370600-06:00",
+        "outcome": "GREEN: the freshly rebuilt tab component and keybinding hook passed both files and all 7 tests, including every tab behavior that had failed against the compiling stub."
+      }
+    },
+    {
+      "criterion": "FR-1.7 and AC-1.e document shortcut routing",
+      "test": "Ctrl+Tab and Ctrl+Shift+Tab cycle documents, Mod+W routes close, and Mod+Shift+T routes reopen through the document command callbacks.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/use-document-keybindings.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-10T05:44:03.0078396-06:00",
+        "outcome": "RED after discarding the initial non-shipping spike: the compiling no-op hook collected normally and the routing test failed at the `defaultPrevented` assertion because Ctrl+Tab did not claim or route the event."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/DocumentTabBar.test.tsx tests/ui/editor/use-document-keybindings.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-10T05:45:47.6370600-06:00",
+        "outcome": "GREEN: both files and all 7 tests passed with next/previous, close, and reopen defaults routed through their callbacks."
+      }
+    },
+    {
+      "criterion": "N-3 document shortcut event ownership",
+      "test": "The global document shortcut hook ignores unrelated keystrokes and events already claimed by another control.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/use-document-keybindings.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-10T05:44:27.1973122-06:00",
+        "outcome": "RED: after routing was implemented, 1 of 2 tests still failed at assertion level because an already-prevented Ctrl+Tab event incorrectly called onActivate with `document-wheel`."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/DocumentTabBar.test.tsx tests/ui/editor/use-document-keybindings.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-10T05:45:47.6370600-06:00",
+        "outcome": "GREEN: both files and all 7 tests passed after already-prevented events were ignored before document shortcut matching."
+      }
+    },
+    {
+      "criterion": "N-3 dynamic-tab focus recovery",
+      "test": "Closing a focused tab and cycling from inside the editor deliberately focus the newly selected tab instead of leaving focus on the document body.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/Workbench.test.tsx -t \"wires clean close\" --reporter=verbose",
+        "observedAt": "2026-07-10T05:07:36.6650162-06:00",
+        "outcome": "RED: the original pre-implementation integration run collected normally and failed its focus assertion; the selected `wheel.scad` tab was expected to have focus but the document body retained focus."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/Workbench.test.tsx tests/ui/editor/CodeEditor.language.test.tsx tests/application/runtime/workbench-runtime.test.ts --reporter=dot",
+        "observedAt": "2026-07-10T05:45:55-06:00",
+        "outcome": "GREEN: all 3 focused integration files and 24 tests passed after the fresh tab/hook implementation, including close and editor-originated cycle focus recovery."
+      }
+    },
+    {
+      "criterion": "N-7 truthful menu behavior and Appendix D labels",
+      "test": "The File menu exposes working close/reopen routes, keeps persistence/project actions disabled, uses the shared default-keybinding catalog, permits only one open menu, and dismisses after a command, Escape, focus departure, or outside pointer input.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/layout/WebMenuBar.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-10T04:52:42.4057928-06:00",
+        "outcome": "RED: the File menu remained an unavailable button, so the required truthful disabled actions and working close/reopen commands were absent; later outside-dismissal coverage also failed until controlled menu state was added."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/documents/document-workspace.test.ts tests/application/runtime/workbench-runtime.test.ts tests/ui/Workbench.test.tsx tests/ui/editor/CodeEditor.language.test.tsx tests/ui/editor/DocumentTabBar.test.tsx tests/ui/editor/use-document-keybindings.test.tsx tests/ui/layout/WebMenuBar.test.tsx",
+        "observedAt": "2026-07-10T05:28:35.9458322-06:00",
+        "outcome": "GREEN: the independent correctness re-audit passed all 7 focused files and 43 tests with truthful disabled commands, centralized shortcut labels, controlled dismissal, and document command routing."
+      }
+    },
+    {
+      "criterion": "N-7 document- and snapshot-scoped render presentation",
+      "test": "Each render request contains every open source file and captures document id, path, revision, and source map; older jobs cannot overwrite newer state; inactive or stale results and diagnostics are withheld; background or stale failures cannot open the active console.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/runtime/workbench-runtime.test.ts tests/ui/Workbench.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-10T05:06:59.3718198-06:00",
+        "outcome": "RED: the UI still exposed geometry after a sibling source changed; the preceding runtime test also showed that entry revision alone did not detect a stale project-source snapshot."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/documents/document-workspace.test.ts tests/application/runtime/workbench-runtime.test.ts tests/ui/Workbench.test.tsx tests/ui/editor/CodeEditor.language.test.tsx tests/ui/editor/DocumentTabBar.test.tsx tests/ui/editor/use-document-keybindings.test.tsx tests/ui/layout/WebMenuBar.test.tsx",
+        "observedAt": "2026-07-10T05:28:35.9458322-06:00",
+        "outcome": "GREEN: the independent correctness re-audit passed all 7 focused files and 43 tests, including atomic render replacement, full source snapshots, stale/inactive withholding, out-of-order completion, and guarded failure side effects."
+      }
+    },
+    {
+      "criterion": "AC-1.d undo-to-saved dirty regression",
+      "test": "An edit increments revision and becomes dirty, then undo back to the exact saved source increments revision again but clears dirty state and enables the close control.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/documents/document-workspace.test.ts tests/ui/Workbench.test.tsx",
+        "observedAt": "2026-07-10T05:26:58-06:00",
+        "outcome": "RED: 2 of 20 focused tests failed because revision 2 differed from savedRevision 0 even though the source had returned to `cube(10);`; the tab remained marked unsaved and its close control stayed disabled."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/documents/document-workspace.test.ts tests/ui/Workbench.test.tsx",
+        "observedAt": "2026-07-10T05:27:14-06:00",
+        "outcome": "GREEN: both files and all 20 tests passed after dirty state was based on savedSource equality while revision remained monotonic."
+      }
+    },
+    {
+      "criterion": "V-1/V-2 widened regression and platform gate",
+      "test": "The complete JavaScript suite, production build, typecheck, lint/source policy, generated-parser freshness, browser acceptance, npm license/audit, both Rust fmt/check/clippy/test lanes, real OpenSCAD geometry path, and a non-printing high-confidence secret scan were exercised.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/documents/document-workspace.test.ts tests/ui/Workbench.test.tsx",
+        "observedAt": "2026-07-10T05:26:58-06:00",
+        "outcome": "RED: the widened focused run collected normally and failed 2 of 20 tests at behavioral assertions because undo-to-saved source still left the domain and integrated tab UI dirty."
+      },
+      "green": {
+        "command": "pnpm.cmd test\npnpm.cmd test:e2e\npnpm.cmd build\npnpm.cmd typecheck\npnpm.cmd lint\npnpm.cmd check:generated\npnpm.cmd check:provenance\npnpm.cmd check:licenses npm\npnpm.cmd audit --audit-level=high\ncargo fmt/check/clippy/test for both Cargo manifests\nread-only high-confidence secret scan",
+        "observedAt": "2026-07-10T05:47:29.0203562-06:00",
+        "outcome": "GREEN: Vitest passed 33 files and 318 tests; Playwright passed 3 tests; Vite built 79 modules; typecheck, lint/source policy, generated-parser freshness, and baseline provenance validation passed; npm licenses passed for 117 packages and audit found no known vulnerabilities; both Rust manifests passed fmt, check, warning-denying clippy, and tests, including 5 native-engine tests with real nonuniform geometry; 191 tracked/untracked nonignored files produced zero high-confidence credential matches. The separate Rust license policy failed exactly the 19 already-recorded Unicode-3.0 packages under Q-0001."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "Q-0012 remains open: Save and Save All stay visibly disabled, so the saved-source baseline proves dirty/undo behavior but this slice does not claim final AC-1.d save persistence.",
+    "Q-0015 remains open: browser-reserved Mod+W and Ctrl+Tab handlers are implemented where delivered by the host, but universal web shortcut conformance is not claimed.",
+    "Q-0016 remains open: stale diagnostics are currently withheld for safety; the owner-final stale-versus-cleared inline diagnostic presentation remains parked.",
+    "Q-0018 was appended under Section 2.7: dirty close is refused until Save / Discard / Cancel, persistence refusal, or crash-recovery behavior is selected.",
+    "Q-0019 was appended under Section 2.7: final clean-tab close is refused until empty-editor versus new-scratch behavior is selected.",
+    "FR-2.9 last-good-mesh caching and its dimmed failure presentation remain with C2; this C1 slice only prevents stale or inactive render attribution.",
+    "The in-app Browser webview timed out while attaching to the local dev target, and the Browser skill prohibits retrying the same action through another surface; no alternate browser-control surface was used. Playwright's 3-test browser acceptance lane passed, but an interactive pixel-level and narrow-overflow inspection remains unverified in this slice.",
+    "Q-0001 remains open: the Rust license-policy run failed exactly the previously recorded 19 Unicode-3.0 transitive package records; no dependency or policy was changed to conceal that block."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

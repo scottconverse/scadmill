@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-mcp-controller-aggregate-green",
+  "createdAt": "2026-07-17T04:36:45-06:00",
+  "summary": "Record the bounded aggregate verification after the MCP stdio lifecycle controller: 171 files and 1266 tests pass.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "verifier" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "C11", "FR-11.4", "AC-11.c", "N-7 evidence and status honesty"],
+  "filesTouched": [{ "path": "provenance/entries/2026-07-17-m4-mcp-controller-aggregate-green.json", "status": "added" }],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [{ "id": "D-0357", "topic": "Bounded controller aggregate verification", "decision": "Run one aggregate suite after the stdio controller crossed framing, dispatch, and lifecycle seams; stop while green.", "rationale": "The controller's focused tests, lint, and build were green; this single aggregate run falsifies regressions without a repeated test loop.", "specBasis": ["C11", "N-7"] }],
+  "testEvidence": [{ "criterion": "Existing application behavior remains green after the MCP lifecycle controller addition.", "test": "Run the complete Vitest suite once after the controller commit.", "red": { "command": "pnpm.cmd test -- --reporter=dot", "observedAt": "2026-07-17T04:36:19-06:00", "outcome": "No red run was required; focused controller/handler, lint, and build gates were green before this bounded aggregate." }, "green": { "command": "pnpm.cmd test -- --reporter=dot", "observedAt": "2026-07-17T04:36:39-06:00", "outcome": "GREEN: 171 test files passed and 1266 tests passed in 19.40s." } }],
+  "nearMisses": [],
+  "questions": ["The actual desktop child process, settings toggle, process inspection proof, and hosted AC-11.c evidence remain pending."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

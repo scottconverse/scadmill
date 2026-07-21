@@ -1,0 +1,10 @@
+{
+  "parameterSets": {
+    "Compact": {
+      "width": "25",
+      "height": "4",
+      "enabled": "true"
+    }
+  },
+  "fileFormatVersion": "1"
+}

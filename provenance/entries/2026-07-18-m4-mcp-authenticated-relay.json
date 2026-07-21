@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-18-m4-mcp-authenticated-relay",
+  "createdAt": "2026-07-18T10:57:21-06:00",
+  "summary": "Complete the Windows desktop MCP transport as an authenticated exact-executable stdio relay, enforce MCP lifecycle and single-use mutation permissions, retain packaged-process evidence, and close the scoped adversarial review at literal zero.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "C11", "FR-11.4", "FR-11.6", "AC-11.b", "AC-11.c", "Appendix B", "N-7"],
+  "filesTouched": [
+    { "path": "docs/FAQ.md", "status": "modified" },
+    { "path": "docs/USER-GUIDE.md", "status": "modified" },
+    { "path": "scripts/lib/packaged-desktop-evidence.d.mts", "status": "modified" },
+    { "path": "scripts/lib/packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "scripts/run-packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "scripts/windows/run-packaged-desktop-evidence.ps1", "status": "modified" },
+    { "path": "src/application/mcp/mcp-dispatcher.ts", "status": "modified" },
+    { "path": "src/application/mcp/mcp-stdio-controller.ts", "status": "modified" },
+    { "path": "src/application/mcp/mcp-stdio.ts", "status": "modified" },
+    { "path": "src/application/mcp/workbench-mcp-handler.ts", "status": "modified" },
+    { "path": "src/application/platform/scadmill-platform.ts", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/src/lib.rs", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/src/main.rs", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/src/mcp_stdio.rs", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/tests/mcp_stdio_cli.rs", "status": "added" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/platform-desktop/tauri-mcp-port.ts", "status": "modified" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/layout/WorkbenchStatusBar.tsx", "status": "modified" },
+    { "path": "src/ui/mcp/use-mcp-stdio.ts", "status": "modified" },
+    { "path": "tests/application/mcp/mcp-dispatcher.test.ts", "status": "modified" },
+    { "path": "tests/application/mcp/mcp-stdio-controller.test.ts", "status": "modified" },
+    { "path": "tests/application/mcp/mcp-stdio.test.ts", "status": "modified" },
+    { "path": "tests/application/mcp/workbench-mcp-handler.test.ts", "status": "modified" },
+    { "path": "tests/platform-desktop/tauri-mcp-port.test.ts", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" },
+    { "path": "tests/ui/layout/WorkbenchStatusBar.mcp.test.tsx", "status": "added" },
+    { "path": "tests/ui/mcp/use-mcp-stdio.test.tsx", "status": "modified" },
+    { "path": "tests/ui/Workbench.editor-settings.test.tsx", "status": "modified" },
+    { "path": "provenance/entries/2026-07-18-m4-mcp-authenticated-relay.json", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0371", "topic": "Exact executable MCP stdio relay", "decision": "Run the GUI-owned MCP server on an ephemeral authenticated 127.0.0.1 relay only while the Settings toggle is on, and make the exact installed executable's sole --mcp-stdio mode bridge stdin/stdout to that relay.", "rationale": "A desktop GUI cannot safely repurpose its own process stdin/stdout after startup. The loopback relay preserves the normative client stdio surface while binding it to an enabled GUI, OS-random bearer token, exact executable identity, process creation identity, bounded frames, one client, and fail-closed lifecycle.", "specBasis": ["FR-11.4", "FR-11.6", "AC-11.c", "N-7"] },
+    { "id": "D-0372", "topic": "MCP lifecycle and mutation authorization", "decision": "Implement MCP 2025-11-25 initialization per authenticated connection, serialize all received frames, consume allow-once atomically, default mutations to deny, and return ordinary tool failures as CallToolResult isError responses.", "rationale": "Per-connection negotiation and serialized grants prevent clients from inheriting protocol state or racing one authorization into multiple mutation reviews.", "specBasis": ["Appendix B", "FR-11.4", "FR-11.6", "AC-11.b"] },
+    { "id": "D-0373", "topic": "MCP packaged evidence boundary", "decision": "Inspect the isolated Sandbox process table, exact deterministic endpoint path, GUI-owned listener, exact application hashes, real child relay transcript, in-app pending diff, and complete off-state teardown without retaining the bearer token.", "rationale": "Unit tests cannot prove that the packaged executable exposes the promised CLI mode or that disabling it removes every endpoint, listener, and relay process.", "specBasis": ["AC-11.b", "AC-11.c", "N-7"] }
+  ],
+  "testEvidence": [
+    { "criterion": "The MCP protocol, relay, permission, UI, and packaged-evidence helpers reject concurrency, lifecycle, stale-identity, framing, and accessibility defects.", "test": "Run one integrated focused TypeScript/UI/helper gate, TypeScript compilation, scoped Biome, and focused Rust relay tests; then run the successive-client and updated process-identity regressions.", "red": { "command": "Independent adversarial MCP audit", "observedAt": "2026-07-18T10:30:14-06:00", "outcome": "RED: B0/C1/M4/m1/n0. Two concurrent mutations consumed one allow-once grant; initialization was not enforced; tool failures used the protocol-error channel; stale manifests were trusted and ignored by evidence; public docs were stale; connection status was visual-only." }, "green": { "command": "pnpm.cmd exec vitest run focused MCP/UI/helper/parity-support files; pnpm.cmd typecheck; pnpm.cmd exec biome check changed files; cargo test --manifest-path src/desktop-shell/src-tauri/Cargo.toml mcp -- --nocapture; focused successive-client and helper regressions", "observedAt": "2026-07-18T10:56:51-06:00", "outcome": "GREEN: integrated focused gate passed 10 files/57 tests; tsc and scoped Biome passed; Rust relay passed 6 tests and the exact CLI fail-closed test passed; successive-client hook passed 5/5; packaged helper passed 30/30. Final independent targeted review was B0/C0/M0/m0/n0." } }
+  ],
+  "nearMisses": [
+    { "url": "local://src/application/mcp/mcp-stdio-controller.ts", "sought": "Single-use authorization under concurrent frames", "confirmation": "The first review demonstrated two same-chunk write_file calls both observed allow-once. The repaired controller serializes chunks and frames and maintains an internal consumed-grant guard." },
+    { "url": "local://src/desktop-shell/src-tauri/src/mcp_stdio.rs", "sought": "Crash-stale manifest rejection", "confirmation": "Exact path and live PID alone left a PID-reuse window. The manifest now binds an exact 16-hex process creation identity and the CLI validates path and creation time from one Windows handle before sending the token." }
+    ,{ "url": "local://scripts/windows/run-packaged-desktop-evidence.ps1", "sought": "One exact package-manager executable", "confirmation": "The first exact-candidate preflight exposed two pnpm.cmd applications on PATH and PowerShell coerced both Source values into one invalid filename. The wrapper now deliberately selects the first resolved application before version probing and invocation." }
+  ],
+  "questions": ["AC-11.a reversible command history remains a separate release-blocking M4 unit; this entry closes the MCP transport and packaged-walkthrough implementation, not the complete C11 capability."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

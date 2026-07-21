@@ -1,0 +1,282 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-c2-model-viewer",
+  "createdAt": "2026-07-11T09:40:30.9512445Z",
+  "summary": "Deliver the coherent M2 C2 3D-model-viewer slice on verified C9 parent 19899e6: controlled per-document camera and last-good presentation, orbit/pan/zoom and axis/fit/projection controls, themed and degradable scene furniture, off-thread cancellable STL decoding with atomic replacement and accessible fallbacks, point measurements and exact bounds, bounded project/file annotation persistence, render progress/cancel/error presentation, and scene PNG capture through the C6 artifact destination. Q-0025, Q-0026, and Q-0028 remain scoped; FR-2.5 device-class performance and visible annotation-persistence failure remain evidence/product debt. Missing original historical RED transcripts remain disclosed separately from retained reconstruction RED/GREEN evidence.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 questions, discretion, capability-sized unit of work, test-first evidence, and green CI",
+    "Section 3 A-3 unified command bus",
+    "Section 4.2 C2 3D model viewer",
+    "Section 4.2 FR-2.1 through FR-2.10",
+    "Section 4.2 AC-2.a through AC-2.e",
+    "Section 4.9 C9 viewer settings consumed as the persistence authority",
+    "Section 4.12 C12 viewer theme tokens",
+    "Section 7 N-3 keyboard accessibility and N-7 honesty",
+    "Section 8 M2 C2 viewer-complete milestone scope",
+    "Appendix D viewer camera and screenshot keybindings"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "PRIVACY.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-11-c2-model-viewer.json", "status": "added" },
+    { "path": "spec/QUESTIONS.md", "status": "modified" },
+    { "path": "src/app/App.tsx", "status": "modified" },
+    { "path": "src/application/engine/contracts.ts", "status": "modified" },
+    { "path": "src/application/geometry/stl-parser-worker-client.ts", "status": "added" },
+    { "path": "src/application/geometry/stl-parser.worker.ts", "status": "added" },
+    { "path": "src/application/geometry/stl.ts", "status": "modified" },
+    { "path": "src/application/runtime/project-transition.ts", "status": "modified" },
+    { "path": "src/application/runtime/workbench-runtime-contracts.ts", "status": "modified" },
+    { "path": "src/application/runtime/workbench-runtime.ts", "status": "modified" },
+    { "path": "src/application/viewer/annotation-persistence.ts", "status": "added" },
+    { "path": "src/application/viewer/camera.ts", "status": "added" },
+    { "path": "src/application/viewer/measurements.ts", "status": "added" },
+    { "path": "src/application/viewer/viewer-state.ts", "status": "added" },
+    { "path": "src/main.tsx", "status": "modified" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/native-engine/tests/project_runtime.rs", "status": "modified" },
+    { "path": "src/platform-desktop/desktop-project-metadata.ts", "status": "modified" },
+    { "path": "src/platform-desktop/tauri-bridge.ts", "status": "modified" },
+    { "path": "src/platform-web/browser-project-metadata.ts", "status": "modified" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/LegacyViewerPane.tsx", "status": "deleted" },
+    { "path": "src/ui/viewer/ModelViewer.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/ViewerDetailsPanel.tsx", "status": "added" },
+    { "path": "src/ui/viewer/ViewerPane.tsx", "status": "added" },
+    { "path": "src/ui/viewer/ViewerPaneConnector.tsx", "status": "added" },
+    { "path": "src/ui/viewer/ViewerToolbar.tsx", "status": "added" },
+    { "path": "src/ui/viewer/active-viewer-presentation.ts", "status": "added" },
+    { "path": "src/ui/viewer/model-viewer-overlays.tsx", "status": "added" },
+    { "path": "src/ui/viewer/model-viewer-runtime.ts", "status": "added" },
+    { "path": "src/ui/viewer/viewer-furniture.ts", "status": "added" },
+    { "path": "src/ui/viewer/viewer-theme.ts", "status": "modified" },
+    { "path": "src/ui/workbench.css", "status": "modified" },
+    { "path": "tests/application/geometry/stl-parser-worker-client.test.ts", "status": "added" },
+    { "path": "tests/application/geometry/stl.test.ts", "status": "modified" },
+    { "path": "tests/application/runtime/workbench-runtime-projects.test.ts", "status": "modified" },
+    { "path": "tests/application/runtime/workbench-runtime.test.ts", "status": "modified" },
+    { "path": "tests/application/viewer/annotation-persistence.test.ts", "status": "added" },
+    { "path": "tests/application/viewer/camera.test.ts", "status": "added" },
+    { "path": "tests/application/viewer/measurements.test.ts", "status": "added" },
+    { "path": "tests/application/viewer/viewer-state.test.ts", "status": "added" },
+    { "path": "tests/e2e/c2-screenshot.e2e.ts", "status": "added" },
+    { "path": "tests/e2e/fixtures/c2-screenshot.html", "status": "added" },
+    { "path": "tests/platform-desktop/desktop-project-metadata.test.ts", "status": "modified" },
+    { "path": "tests/platform-desktop/tauri-bridge.test.ts", "status": "modified" },
+    { "path": "tests/platform-web/browser-project-metadata.test.ts", "status": "modified" },
+    { "path": "tests/ui/viewer/ModelViewer.theme.test.tsx", "status": "modified" },
+    { "path": "tests/ui/viewer/ViewerDetailsPanel.test.tsx", "status": "added" },
+    { "path": "tests/ui/viewer/ViewerPane.test.tsx", "status": "added" },
+    { "path": "tests/ui/viewer/ViewerPaneConnector.test.tsx", "status": "added" },
+    { "path": "tests/ui/viewer/ViewerToolbar.test.tsx", "status": "added" },
+    { "path": "tests/ui/viewer/active-viewer-presentation.test.ts", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0103",
+      "topic": "Per-document viewer state and fixed-size geometry identity",
+      "decision": "Keep camera, furniture, last-good presentation, point measurements, and annotations in a viewer store keyed by document id; preserve camera and annotations across new geometry, clear measurements only when model identity changes, and compare an optional bridge-computed SHA-256 geometry identity instead of scanning full STL bytes on the UI thread.",
+      "rationale": "FR-2.2 and FR-2.9 require per-document continuity and last-good behavior, while high-facet STL byte comparison on the renderer thread conflicts with the responsiveness intent of FR-2.5.",
+      "specBasis": ["FR-2.2", "FR-2.5", "FR-2.6", "FR-2.7", "FR-2.9", "AC-2.b"]
+    },
+    {
+      "id": "D-0104",
+      "topic": "Demand-driven Three.js lifecycle and off-thread STL ownership",
+      "decision": "Lazy-load the 3D runtime, render only on state/control/resize changes, parse defensive STL bytes in a terminable Worker, atomically replace geometry only after parsing succeeds, terminate superseded work, dispose controls and GPU resources explicitly, and use a bounded main-thread fallback only when worker construction is unavailable.",
+      "rationale": "This keeps ordinary rendering interactive, avoids endless animation and stale-worker accumulation, preserves the last good mesh during replacement, and makes WebGL/worker absence an honest accessible state rather than a crash.",
+      "specBasis": ["FR-2.1", "FR-2.5", "FR-2.9", "AC-2.d", "N-2", "N-3", "N-7"]
+    },
+    {
+      "id": "D-0105",
+      "topic": "Controlled camera commands and C9 viewer-preference authority",
+      "decision": "Represent camera position, target, up, zoom, and projection as controlled state; derive reset, six axis views, fit, and projection toggles as pure bounded commands; let C9 profile settings remain the sole durable authority for projection, mouse mapping, furniture defaults, and mesh-color override.",
+      "rationale": "A controlled camera makes AC-2.b exact and prevents rerenders from refitting user navigation, while one settings authority avoids divergent persistent and in-memory furniture/projection state.",
+      "specBasis": ["FR-2.1", "FR-2.2", "FR-2.3", "FR-2.4", "FR-2.8", "AC-2.b", "FR-9.1", "FR-9.2"]
+    },
+    {
+      "id": "D-0106",
+      "topic": "Scene furniture and performance honesty",
+      "decision": "Provide independent grid, RGB axes, edges, and ground-shadow controls; hot-apply theme/viewer colors; automatically suppress requested edges and shadow above the large-mesh threshold and disclose the degradation in the viewer; do not claim FR-2.5's 2M-triangle device-class frame rate without a retained hardware run.",
+      "rationale": "The implementation can reduce known expensive furniture deterministically, but N-7 forbids converting structural safeguards into an unmeasured performance claim.",
+      "specBasis": ["FR-2.4", "FR-2.5", "FR-2.8", "N-7"]
+    },
+    {
+      "id": "D-0107",
+      "topic": "Measurement and annotation scope under open semantics",
+      "decision": "Deliver point-to-point distance, exact bounding-box dimensions, labeled/deletable measurement and annotation lists, pointer picking, and model-change clearing; limit annotation text to 240 characters; park edge/face semantics and final keyboard geometry picking under Q-0025/Q-0028 rather than inventing STL topology rules.",
+      "rationale": "Point distance and bounds are unambiguous and machine-testable. STL does not preserve authored edge/face topology, and the spec does not define keyboard arbitrary-point selection.",
+      "specBasis": ["FR-2.6", "FR-2.7", "AC-2.a", "AC-2.c", "Q-0025", "Q-0028", "N-3"]
+    },
+    {
+      "id": "D-0108",
+      "topic": "Bounded workspace annotation persistence",
+      "decision": "Persist only annotations in a strict version-1 profile document keyed by exact project identity and normalized project-relative file path; cap the document at 1 MiB, 2,048 file records, 256 annotations per file, reject malformed/case-colliding identities, move/copy/delete keys with C6 file operations, and keep measurements transient.",
+      "rationale": "FR-2.7 requires per-file durability outside source. A separate bounded metadata document avoids modifying `.scad`, recovery, or project bytes and supports browser and desktop-WebView profiles uniformly.",
+      "specBasis": ["FR-2.7", "FR-6.1", "FR-6.2", "N-6"]
+    },
+    {
+      "id": "D-0109",
+      "topic": "Last-good render, progress, cancellation, and error presentation",
+      "decision": "Keep the last successful per-document result visible and dim it while replacement work is active or failed; overlay elapsed time and cancel during a current run; link a non-cancelled failure badge to Console; never let a late background/stale result replace the active document presentation.",
+      "rationale": "This encodes FR-2.9 without hiding useful geometry or confusing a stale/background operation with the active document, and reuses the existing C4/C8 cancellation and diagnostic boundaries.",
+      "specBasis": ["FR-2.9", "AC-2.d", "FR-4.4", "FR-4.8", "FR-8.1", "N-7"]
+    },
+    {
+      "id": "D-0110",
+      "topic": "Scene-only PNG capture and later MCP boundary",
+      "decision": "Capture the rendered WebGL canvas as decodable PNG bytes and save through the C6 ArtifactDestination; park DOM-overlay composition under Q-0026 and MCP exposure until C11, while retaining a real Chromium dominant-background acceptance test.",
+      "rationale": "Canvas capture is deterministic and covers the rendered viewport/theme. Rasterizing DOM labels/status would require unspecified typography/layout behavior, and C11 owns the MCP surface.",
+      "specBasis": ["FR-2.10", "AC-2.e", "Q-0026", "FR-11.2", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "FR-2.1, FR-2.2, FR-2.5, FR-2.6, FR-2.7, AC-2.b, and AC-2.c pure geometry/state boundaries",
+      "test": "STL parsing and worker ownership, bounded annotation metadata, all axis/fit/projection camera commands, exact point distance/bounds, per-document isolation, same-geometry identity, last-good presentation, and model-change measurement clearing.",
+      "red": {
+        "command": "node_modules\\.bin\\vitest.cmd run tests/application/geometry/stl.test.ts tests/platform-desktop/tauri-bridge.test.ts tests/ui/viewer/ModelViewer.theme.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-11T09:24:17Z",
+        "outcome": "RECONSTRUCTION RED (partial criterion): 3 files failed; 15 tests failed and 14 passed in 2.97 s. Both STL-normal assertions failed because normals were absent, and the bridge assertion failed because geometryIdentity was absent. The broader original camera/annotation/worker-state RED transcript was not retained and is not inferred from file absence."
+      },
+      "green": {
+        "command": "node_modules\\.bin\\vitest.cmd run tests/application/geometry/stl-parser-worker-client.test.ts tests/application/geometry/stl.test.ts tests/application/viewer/annotation-persistence.test.ts tests/application/viewer/camera.test.ts tests/application/viewer/measurements.test.ts tests/application/viewer/viewer-state.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T09:39:36.6901320Z",
+        "outcome": "RECONSTRUCTED C2 GREEN: 6 files and 25 tests passed in 603 ms on the 3D-only C2 stack."
+      }
+    },
+    {
+      "criterion": "FR-2.1, FR-2.3, FR-2.4, FR-2.5, FR-2.6, FR-2.7, FR-2.8, and FR-2.10 pure 3D UI",
+      "test": "ModelViewer, toolbar, details, overlays, camera control, theme hot-apply, atomic mesh replacement, demand rendering, WebGL/worker fallback, point picking, annotation entry, PNG bytes, and superseded-worker termination.",
+      "red": {
+        "command": "node_modules\\.bin\\vitest.cmd run tests/application/geometry/stl.test.ts tests/platform-desktop/tauri-bridge.test.ts tests/ui/viewer/ModelViewer.theme.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-11T09:24:17Z",
+        "outcome": "RECONSTRUCTION RED (partial criterion): 3 files failed; 15 tests failed and 14 passed in 2.97 s. ModelViewer failures covered accessible WebGL fallback, stable resize ownership, atomic replacement, demand rendering, controlled camera, picking, PNG capture, worker transfer/fallback, and supersession. Original toolbar/details feature RED output was not retained."
+      },
+      "green": {
+        "command": "node_modules\\.bin\\vitest.cmd run tests/ui/viewer/ModelViewer.theme.test.tsx tests/ui/viewer/ViewerDetailsPanel.test.tsx tests/ui/viewer/ViewerToolbar.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-11T09:39:42.2803298Z",
+        "outcome": "RECONSTRUCTED C2 GREEN: 3 files and 20 tests passed in 1.37 s on the C2 stack."
+      }
+    },
+    {
+      "criterion": "FR-2.7 project/file annotation durability through C6 lifecycle integration",
+      "test": "Annotations survive runtime restart, remain isolated by project and path, move with a renamed/moved file, delete durably, do not persist measurements, and remain usable in memory when metadata writes fail.",
+      "red": {
+        "command": "node_modules\\.bin\\vitest.cmd run tests/application/runtime/workbench-runtime-projects.test.ts --reporter=verbose -t annotation",
+        "observedAt": "2026-07-11T09:40:30.9512445Z",
+        "outcome": "HISTORICAL EVIDENCE GAP: remediation notes confirm these cases were originally observed RED, but their exact output/timestamps were not retained. The reconstruction did not mutate the verified C9 parent merely to fabricate a retrospective failure; persistence rejection remains nonfatal and still lacks a visible user warning."
+      },
+      "green": {
+        "command": "node_modules\\.bin\\vitest.cmd run tests/application/runtime/workbench-runtime-projects.test.ts --reporter=verbose -t annotation",
+        "observedAt": "2026-07-11T09:39:50.8859072Z",
+        "outcome": "RECONSTRUCTED C2 GREEN: 4 annotation tests passed and 6 unrelated C6 tests were skipped in 650 ms."
+      }
+    },
+    {
+      "criterion": "FR-2.1, FR-2.4, FR-2.8, FR-2.10 and FR-9.1/9.2 C9-to-C2 authority seam",
+      "test": "ViewerPaneConnector uses C9 projection, furniture, mouse, and mesh-color preferences as the live/durable authority and sends captured PNG bytes through the C6 ArtifactDestination.",
+      "red": {
+        "command": "node_modules\\.bin\\vitest.cmd run tests/ui/viewer/ViewerPaneConnector.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-11T09:40:30.9512445Z",
+        "outcome": "HISTORICAL EVIDENCE GAP: no original connector RED transcript was retained. The connector file did not exist on the verified C9 parent, but structural absence is not claimed as an assertion-level RED."
+      },
+      "green": {
+        "command": "node_modules\\.bin\\vitest.cmd run tests/ui/viewer/ViewerPaneConnector.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-11T09:39:56.9554880Z",
+        "outcome": "RECONSTRUCTED C2 GREEN: 1 file and 2 tests passed in 979 ms on the C9-to-C2 stack."
+      }
+    },
+    {
+      "criterion": "AC-2.a Workbench render-to-viewer integration",
+      "test": "A known 10 mm cube render reaches the composed Workbench viewer, reports 10 × 10 × 10 mm, and discloses preview quality.",
+      "red": {
+        "command": "node_modules\\.bin\\vitest.cmd run tests/ui/Workbench.test.tsx --reporter=verbose -t \"renders preview geometry and its measured engine bounds\"",
+        "observedAt": "2026-07-11T09:23:27Z",
+        "outcome": "NO VALID C2 RED: this acceptance assertion already existed and passed on parent 19899e6, so tests/ui/Workbench.test.tsx is supporting regression evidence and is correctly absent from filesTouched. The production composition changes from LegacyViewerPane to ViewerPaneConnector are covered directly by the C2 pane/connector tests."
+      },
+      "green": {
+        "command": "node_modules\\.bin\\vitest.cmd run tests/ui/Workbench.test.tsx --reporter=verbose -t \"renders preview geometry and its measured engine bounds\"",
+        "observedAt": "2026-07-11T09:39:58.3650454Z",
+        "outcome": "SUPPORTING RECONSTRUCTED-C2 REGRESSION: 1 test passed and 14 unrelated tests were skipped in 1.41 s after the real C2 Workbench composition landed."
+      }
+    },
+    {
+      "criterion": "AC-2.e real Chromium WebGL viewport PNG",
+      "test": "A real WebGL canvas capture produces decodable PNG bytes whose dominant color matches the active theme background.",
+      "red": {
+        "command": "node_modules\\.bin\\playwright.cmd test c2-screenshot.e2e.ts --workers=1 --retries=0",
+        "observedAt": "2026-07-11T09:40:30.9512445Z",
+        "outcome": "HISTORICAL EVIDENCE GAP: no original assertion-level browser RED transcript was retained. The C2 E2E and fixture were absent on the parent, but file absence is not claimed as a test failure."
+      },
+      "green": {
+        "command": "node_modules\\.bin\\playwright.cmd test c2-screenshot.e2e.ts --workers=1 --retries=0",
+        "observedAt": "2026-07-11T09:40:06.1646381Z",
+        "outcome": "RECONSTRUCTED C2 GREEN: 1 Chromium WebGL test passed in 1.8 s with one worker and no retries; it decoded PNG bytes and verified the active theme background dominated the viewport."
+      }
+    },
+    {
+      "criterion": "AC-2.d exact-engine cancellation and recovery",
+      "test": "A deliberately slow $fn=400 minkowski is cancelled in under two seconds, its process is reaped, and the next cube render succeeds.",
+      "red": {
+        "command": "$env:SCADMILL_OPENSCAD='C:\\Users\\Scott\\AppData\\Local\\Temp\\scadmill-openscad-2026.06.12\\OpenSCAD-2026.06.12-x86-64\\openscad.exe'; cargo test --manifest-path src/native-engine/Cargo.toml --test project_runtime cancels_a_slow_minkowski_within_two_seconds_and_allows_the_next_render -- --exact --nocapture",
+        "observedAt": "2026-07-11T09:40:30.9512445Z",
+        "outcome": "HISTORICAL EVIDENCE GAP: the original cancellation assertion RED was not retained. A separate unpinned audit selected PATH OpenSCAD 2021.01 and failed a 2D --summary case; that environment mismatch is explicitly not C2 RED."
+      },
+      "green": {
+        "command": "$env:SCADMILL_OPENSCAD='C:\\Users\\Scott\\AppData\\Local\\Temp\\scadmill-openscad-2026.06.12\\OpenSCAD-2026.06.12-x86-64\\openscad.exe'; cargo test --manifest-path src/native-engine/Cargo.toml --test project_runtime cancels_a_slow_minkowski_within_two_seconds_and_allows_the_next_render -- --exact --nocapture",
+        "observedAt": "2026-07-11T09:40:17.2259934Z",
+        "outcome": "RECONSTRUCTED C2 GREEN: 1 test passed, 0 failed, and 10 were filtered; the cancellation/recovery body finished in 0.38 s using the probed OpenSCAD 2026.06.12 executable with SHA-256 DE9A0C732C23C3FEB0B49CF938777AA0AEE3E206DB9E98571672CACC4816C524."
+      }
+    },
+    {
+      "criterion": "C2-only ViewerPane tests are independent of C3 test order",
+      "test": "The first C2 pane assertion waits for the genuinely lazy ModelViewer module rather than depending on an earlier C3 routing test to warm it.",
+      "red": {
+        "command": "node_modules\\.bin\\vitest.cmd run tests/ui/viewer/ViewerPane.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-11T09:31:10Z",
+        "outcome": "RECONSTRUCTION RED: 1 file failed; 1 test failed and 5 passed. The first case synchronously queried data-testid=model-viewer while Suspense still showed Loading model viewer, proving the C2-only test-order dependency."
+      },
+      "green": {
+        "command": "node_modules\\.bin\\vitest.cmd run tests/ui/viewer/ViewerPane.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-11T09:31:23Z",
+        "outcome": "RECONSTRUCTED C2 GREEN: 1 file and all 6 C2-only ViewerPane tests passed in 1.05 s after the first case became async and awaited findByTestId without preloading production code or weakening behavior."
+      }
+    },
+    {
+      "criterion": "V-1/V-2 widened C2 regression and policy accounting",
+      "test": "Full TypeScript, Chromium, exact-pinned native, desktop Rust, typecheck, lint/source-policy, build, generated-parser, npm-license, Rust formatting, and Rust clippy checks preserve the C9 parent while Q-0001 remains explicit.",
+      "red": {
+        "command": "pnpm.cmd check:licenses",
+        "observedAt": "2026-07-11T09:37:30Z",
+        "outcome": "EXPECTED POLICY RED: npm license policy passed for 117 packages, then the command exited 1 because 19 Rust packages carry Unicode-3.0. The checker identifies spec/QUESTIONS.md Q-0001; C2 does not waive or conceal the result."
+      },
+      "green": {
+        "command": "pnpm.cmd test\npnpm.cmd exec playwright test --workers=1 --retries=0\n$env:SCADMILL_OPENSCAD='<PINNED_2026.06.12_EXE>'; cargo test --manifest-path src/native-engine/Cargo.toml\ncargo test --manifest-path src/desktop-shell/src-tauri/Cargo.toml\npnpm.cmd typecheck\npnpm.cmd lint\npnpm.cmd build\npnpm.cmd check:generated\ncargo fmt --manifest-path src/native-engine/Cargo.toml -- --check\ncargo fmt --manifest-path src/desktop-shell/src-tauri/Cargo.toml -- --check\ncargo clippy --manifest-path src/native-engine/Cargo.toml --all-targets -- -D warnings\ncargo clippy --manifest-path src/desktop-shell/src-tauri/Cargo.toml --all-targets -- -D warnings",
+        "observedAt": "2026-07-11T09:40:30.9512445Z",
+        "outcome": "RECONSTRUCTED C2 GREEN OUTSIDE Q-0001: Vitest 92 files/652 tests; Chromium 8/8 with one worker/no retries; exact-pinned native 39/39; desktop Rust 24/24; typecheck, Biome/source-policy, production build, generated parser, both cargo fmt checks, and both all-target clippy runs passed. The npm portion of the license check passed for 117 packages; the separate 19-package Rust policy RED remains recorded above."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "Q-0025 remains open: edge-length and face-to-face semantics for triangle meshes are parked; point-to-point distance, bounding-box dimensions, labels, deletion, and model-change clearing continue.",
+    "Q-0026 remains open: PNG DOM-overlay composition is parked; deterministic Three.js canvas-scene capture, browser decoding, and C6 desktop/web saving continue. MCP exposure remains C11.",
+    "Q-0028 remains open: final keyboard-only arbitrary geometry picking is parked; keyboard camera/screenshot commands, labeled lists, deletion, and pointer picking continue.",
+    "FR-2.5's two-million-triangle / 2020-class integrated-GPU >=30 fps target has no retained device-class benchmark. Do not claim it verified; retain it as explicit performance evidence debt.",
+    "Annotation metadata write failure is currently nonfatal but silent to the user. Before public release, expose a persistent unsaved-metadata warning/retry state and test denial, recovery, and restart restoration.",
+    "The ViewerPane test-order dependency was reproduced as 1 failed / 5 passed and corrected without changing product behavior: the first C2 case now awaits lazy ModelViewer resolution, after which the C2-only file passes 6/6.",
+    "Exact reconstructed-stack GREEN outcomes are recorded above. Missing original historical RED transcripts remain disclosed and are not inferred from file absence.",
+    "C2 deletes C6's temporary src/ui/viewer/LegacyViewerPane.tsx. C9 separately owns deletion of LegacyWorkbenchStatusBar, which is correctly absent from this entry."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

@@ -71,11 +71,6 @@ function audit(label, packages) {
   for (const candidate of failures) {
     console.error(`- ${candidate.name}@${candidate.version}: ${candidate.license ?? "<missing>"}`);
   }
-  if (label === "Rust" && failures.every((candidate) => candidate.license?.includes("Unicode-3.0"))) {
-    console.error(
-      "Blocked by spec/QUESTIONS.md Q-0001: Unicode-3.0 is not in the §6 permitted-license list.",
-    );
-  }
   return false;
 }
 

@@ -1,0 +1,116 @@
+// @vitest-environment happy-dom
+import { renderHook } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+
+import { createDocumentWorkspace } from "../../../src/application/documents/document-workspace";
+import { useDocumentKeybindings } from "../../../src/ui/editor/use-document-keybindings";
+import { createKeybindingSettings } from "../../../src/application/commands/default-keybindings";
+
+const workspace = createDocumentWorkspace([
+  { id: "document-main", path: "main.scad", source: "cube(10);" },
+  { id: "document-wheel", path: "parts/wheel.scad", source: "cylinder(4);" },
+], "document-main");
+
+describe("useDocumentKeybindings", () => {
+  it("routes close, reopen, and next/previous tab defaults", () => {
+    const onActivate = vi.fn();
+    const onClose = vi.fn();
+    const onReopen = vi.fn();
+    renderHook(() => useDocumentKeybindings({ workspace, onActivate, onClose, onReopen }));
+
+    const next = new KeyboardEvent("keydown", { key: "Tab", ctrlKey: true, cancelable: true });
+    window.dispatchEvent(next);
+    expect(next.defaultPrevented).toBe(true);
+    expect(onActivate).toHaveBeenLastCalledWith("document-wheel");
+
+    const previous = new KeyboardEvent("keydown", {
+      key: "Tab",
+      ctrlKey: true,
+      shiftKey: true,
+      cancelable: true,
+    });
+    window.dispatchEvent(previous);
+    expect(previous.defaultPrevented).toBe(true);
+    expect(onActivate).toHaveBeenLastCalledWith("document-wheel");
+
+    const close = new KeyboardEvent("keydown", { key: "w", ctrlKey: true, cancelable: true });
+    window.dispatchEvent(close);
+    expect(close.defaultPrevented).toBe(true);
+    expect(onClose).toHaveBeenCalledWith("document-main");
+
+    const reopen = new KeyboardEvent("keydown", {
+      key: "t",
+      ctrlKey: true,
+      shiftKey: true,
+      cancelable: true,
+    });
+    window.dispatchEvent(reopen);
+    expect(reopen.defaultPrevented).toBe(true);
+    expect(onReopen).toHaveBeenCalledTimes(1);
+  });
+
+  it("routes every global File command binding", () => {
+    const onSave = vi.fn();
+    const onSaveAll = vi.fn();
+    const onNewFile = vi.fn();
+    const onOpenProject = vi.fn();
+    const onExport = vi.fn();
+    renderHook(() => useDocumentKeybindings({
+      workspace,
+      onActivate: vi.fn(),
+      onClose: vi.fn(),
+      onReopen: vi.fn(),
+      onSave,
+      onSaveAll,
+      onNewFile,
+      onOpenProject,
+      onExport,
+    }));
+
+    for (const event of [
+      new KeyboardEvent("keydown", { key: "s", ctrlKey: true, cancelable: true }),
+      new KeyboardEvent("keydown", { key: "s", ctrlKey: true, altKey: true, cancelable: true }),
+      new KeyboardEvent("keydown", { key: "n", ctrlKey: true, cancelable: true }),
+      new KeyboardEvent("keydown", { key: "o", ctrlKey: true, cancelable: true }),
+      new KeyboardEvent("keydown", { key: "e", ctrlKey: true, cancelable: true }),
+    ]) window.dispatchEvent(event);
+
+    expect(onSave).toHaveBeenCalledOnce();
+    expect(onSaveAll).toHaveBeenCalledOnce();
+    expect(onNewFile).toHaveBeenCalledOnce();
+    expect(onOpenProject).toHaveBeenCalledOnce();
+    expect(onExport).toHaveBeenCalledOnce();
+  });
+
+  it("ignores unrelated or already-handled key events", () => {
+    const onActivate = vi.fn();
+    const onClose = vi.fn();
+    const onReopen = vi.fn();
+    renderHook(() => useDocumentKeybindings({ workspace, onActivate, onClose, onReopen }));
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "w" }));
+    const handled = new KeyboardEvent("keydown", { key: "Tab", ctrlKey: true, cancelable: true });
+    handled.preventDefault();
+    window.dispatchEvent(handled);
+
+    expect(onActivate).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(onReopen).not.toHaveBeenCalled();
+  });
+
+  it("uses an injected close-tab binding", () => {
+    const onClose = vi.fn();
+    renderHook(() => useDocumentKeybindings({
+      workspace,
+      keybindings: createKeybindingSettings({ closeTab: "Alt+Q" }),
+      onActivate: vi.fn(),
+      onClose,
+      onReopen: vi.fn(),
+    }));
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "w", ctrlKey: true }));
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "q", altKey: true }));
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(onClose).toHaveBeenCalledWith("document-main");
+  });
+});

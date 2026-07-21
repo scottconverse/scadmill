@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-m4-native-cache-probe-invoke-boundary",
+  "createdAt": "2026-07-20T21:51:07-06:00",
+  "summary": "Preserve the Tauri invoke receiver and avoid WebDriver error-envelope collisions in the cache probe.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "FR-15.1", "AC-15.a", "V-5 release gate", "V-6 honesty rule"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-m4-native-cache-probe-invoke-boundary.json", "status": "added" },
+    { "path": "scripts/lib/m4-packaged-walkthrough.mjs", "status": "modified" },
+    { "path": "tests/scripts/m4-packaged-walkthrough.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0473",
+      "topic": "Native cache diagnostic invocation boundary",
+      "decision": "Call the page-owned Tauri invoke function with its owning internals object as receiver, and name retained probe failures diagnosticError so WebDriver does not mistake a successful diagnostic value for a remote protocol error envelope.",
+      "rationale": "The first diagnostic Sandbox run at df6db80 stopped at the before-close snapshot with render-cache-list-rejected because the probe detached invoke from its owner. Returning an error string then caused the WebDriver client to promote the diagnostic object to a remote error. Host cleanup passed and no product cache conclusion was possible from that run.",
+      "specBasis": ["FR-15.1", "AC-15.a", "V-5 release gate", "V-6 honesty rule"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The cache snapshot must preserve the Tauri invoke receiver and retain a non-protocol diagnostic field.",
+      "test": "Run the complete focused M4 harness suite with a fake invoke function that records its receiver, followed by TypeScript no-emit.",
+      "red": {
+        "command": "Exact clean Sandbox run df6db80",
+        "observedAt": "2026-07-20T21:49:41-06:00",
+        "outcome": "RED: the bounded probe stopped before restart with render-cache-list-rejected; exact Sandbox cleanup passed."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/m4-packaged-walkthrough.test.ts --reporter=dot; pnpm.cmd run typecheck",
+        "observedAt": "2026-07-20T21:50:34-06:00",
+        "outcome": "GREEN: 22/22 harness tests passed, the invoke receiver was the Tauri internals object, and TypeScript no-emit passed."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-df6db80-sandbox-m4-cache-diagnostic-20260720/evidence.json",
+      "sought": "Bounded native cache-record lifecycle evidence",
+      "confirmation": "The added diagnostic itself rejected at the before-close boundary; no product cache record result was inferred, and host cleanup passed."
+    }
+  ],
+  "questions": ["No owner decision is required; this repairs the diagnostic boundary exposed by its first exact execution."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

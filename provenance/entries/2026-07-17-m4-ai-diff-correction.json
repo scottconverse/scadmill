@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-ai-diff-correction",
+  "createdAt": "2026-07-17T03:45:20-06:00",
+  "summary": "Correct the AI panel proposal presentation to reuse the existing per-hunk CodeMirror diff flow, so Apply edit requires explicit hunk choices and returns the exact merged source.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "FR-1.9", "FR-10.4", "AC-10.b", "N-7 evidence and status honesty"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-17-m4-ai-diff-correction.json", "status": "added" },
+    { "path": "src/ui/ai/AiConversationPanel.tsx", "status": "modified" },
+    { "path": "tests/ui/ai/AiConversationPanel.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0324", "topic": "AI proposal diff review", "decision": "Pending AI code proposals use ExternalChangeDiff's inline per-hunk accept/reject controls; the panel marks the proposal accepted only after the merged source is applied and passes that exact source to onApplyEdit.", "rationale": "The prior panel button directly accepted a whole proposal and did not satisfy FR-10.4's diff-review requirement. Reusing the already tested local diff component preserves one review authority and exact merged-buffer semantics.", "specBasis": ["FR-1.9", "FR-10.4", "AC-10.b"] }
+  ],
+  "testEvidence": [
+    { "criterion": "The panel's diff review test fails before the final interaction sequence is corrected and passes after explicit hunk acceptance.", "test": "Run the focused AI panel suite once after adding ExternalChangeDiff and correcting its interaction sequence.", "red": { "command": "pnpm.cmd exec vitest run tests/ui/ai/AiConversationPanel.test.tsx tests/ui/files/ProjectLifecycleControls.test.tsx", "observedAt": "2026-07-17T03:44:02-06:00", "outcome": "RED: 1 of 41 tests failed because the test attempted Apply hunk choices before accepting the inline diff hunk." }, "green": { "command": "pnpm.cmd exec vitest run tests/ui/ai/AiConversationPanel.test.tsx", "observedAt": "2026-07-17T03:44:42-06:00", "outcome": "GREEN: Test Files 1 passed (1); Tests 2 passed (2); Duration 1.03s." } },
+    { "criterion": "The diff-integrated panel remains type-safe and source-policy clean.", "test": "Run TypeScript and repository lint/source policy once after the bounded correction.", "red": { "command": "pnpm.cmd exec vitest run tests/ui/ai/AiConversationPanel.test.tsx", "observedAt": "2026-07-17T03:44:02-06:00", "outcome": "RED: the first inline interaction assertion failed; the implementation and existing diff component rendered successfully." }, "green": { "command": "pnpm.cmd exec tsc --noEmit --pretty false; pnpm.cmd lint", "observedAt": "2026-07-17T03:44:55-06:00", "outcome": "GREEN: TypeScript exited 0; Checked 424 files in 211ms with source policy passed." } }
+  ],
+  "nearMisses": [],
+  "questions": ["The panel is still not wired to WorkbenchRuntime's current source and async provider context; hosted AC-10.b remains pending until that runtime seam is connected."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

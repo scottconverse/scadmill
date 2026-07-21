@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-m2-parameter-set-runtime-validation",
+  "createdAt": "2026-07-11T18:03:51-06:00",
+  "summary": "Reject malformed runtime named-set replacement values before cloning them into Customizer state.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 test-first evidence and milestone gates",
+    "FR-5.4 stock parameter-set interchange",
+    "FR-5.5 parameter value preservation"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-11-m2-parameter-set-runtime-validation.json", "status": "added" },
+    { "path": "src/application/parameters/customizer-schema.ts", "status": "modified" },
+    { "path": "tests/application/parameters/parameter-state.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0213",
+      "topic": "Runtime validation at the parameter-value clone boundary",
+      "decision": "Validate every ParameterValue before cloning it: accept strings, booleans, finite numbers, or nonempty dense arrays whose every own indexed value is a finite number; reject all other runtime values before a replacement state can be returned.",
+      "rationale": "The production file-import caller decodes stock JSON before dispatch, but reduceParameterState is an independently callable runtime boundary. TypeScript types disappear at runtime, and the prior clone converted sparse holes to own undefined elements while retaining Infinity or NaN unchanged. Central validation in cloneParameterValue protects replace-sets and every other clone caller without duplicating the vector invariant or adding a component ceiling.",
+      "specBasis": [
+        "FR-5.4 stock parameter-set interchange",
+        "FR-5.5 parameter value preservation"
+      ]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Malformed runtime replacement values cannot enter parameter state",
+      "test": "Dispatch typed-at-compile-time but malformed runtime replace-sets actions containing a sparse six-component vector, a vector ending in Infinity, or scalar NaN; require each reduction to throw and the original document state to remain empty.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/parameters/parameter-state.test.ts -t \"runtime replace-sets\"",
+        "observedAt": "2026-07-11T18:02:32-06:00",
+        "outcome": "ASSERTION-LEVEL RED: Test Files 1 failed (1); Tests 3 failed | 10 skipped (13). None of the sparse-vector, nonfinite-vector, or nonfinite-scalar actions threw; all three malformed values were accepted by the reducer."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/parameters/parameter-state.test.ts -t \"runtime replace-sets\"",
+        "observedAt": "2026-07-11T18:03:04-06:00",
+        "outcome": "GREEN: Test Files 1 passed (1); Tests 3 passed | 10 skipped (13); Duration 754ms."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "Caller trace: the only production replace-sets dispatch is ParameterPanel's ParameterSetExchange callback, whose file path first uses decodeParameterSets; direct reducer invocation nevertheless reproduced the independent runtime-invariant hole.",
+    "Baseline: pnpm.cmd exec vitest run tests/application/parameters/customizer-schema.test.ts tests/application/parameters/parameter-state.test.ts tests/application/parameters/parameter-overrides.test.ts tests/application/parameters/parameter-set-codec.test.ts tests/ui/parameters/ParameterPanel.test.tsx produced Test Files 5 passed (5), Tests 49 passed (49), Duration 1.21s.",
+    "Widened verification: the same command produced Test Files 5 passed (5), Tests 52 passed (52), Duration 1.20s.",
+    "Verification: pnpm.cmd typecheck exited 0 with $ tsc --noEmit.",
+    "Verification: pnpm.cmd lint exited 0; Biome checked 303 files in 144ms with no fixes, and source policy passed.",
+    "Verification: pnpm.cmd build exited 0; Vite transformed 183 modules and built production assets successfully in 330ms.",
+    "Verification: pnpm.cmd check:provenance exited 0 with Provenance ledger passed validation (baseline mode; no PR base supplied).",
+    "No arbitrary vector cap, dependency, owner-gate access, comparison-repository access, or M3 work was introduced."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

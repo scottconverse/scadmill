@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-mcp-stdio-framing",
+  "createdAt": "2026-07-17T04:05:20-06:00",
+  "summary": "Add bounded newline-delimited MCP stdio framing with partial-line carry, JSON-RPC shape checks, one-megabyte frame rejection, and newline response encoding.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "C11", "FR-11.4", "AC-11.b", "AC-11.c", "N-2", "N-7 evidence and status honesty"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-17-m4-mcp-stdio-framing.json", "status": "added" },
+    { "path": "src/application/mcp/mcp-stdio.ts", "status": "added" },
+    { "path": "tests/application/mcp/mcp-stdio.test.ts", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0338", "topic": "MCP stdio frame safety", "decision": "Treat stdio as newline-delimited JSON-RPC frames with carry for partial reads, reject malformed/oversized frames without throwing, and encode exactly one JSON response per line.", "rationale": "The future desktop server needs deterministic framing and a hard input bound before process integration; this seam is transport-neutral and does not enable a socket or pipe by itself.", "specBasis": ["FR-11.4", "AC-11.b", "AC-11.c", "N-2"] }
+  ],
+  "testEvidence": [
+    { "criterion": "The stdio framing tests pass for partial lines, multiple frames, exact response encoding, malformed JSON, and oversized-frame rejection.", "test": "Run the focused MCP stdio suite once after implementation.", "red": { "command": "pnpm.cmd exec tsc --noEmit --pretty false", "observedAt": "2026-07-17T04:04:40-06:00", "outcome": "RED: the stdio framing module was not yet present before this unit began." }, "green": { "command": "pnpm.cmd exec vitest run tests/application/mcp/mcp-stdio.test.ts", "observedAt": "2026-07-17T04:04:17-06:00", "outcome": "GREEN: Test Files 1 passed (1); Tests 2 passed (2); Duration 415ms." } },
+    { "criterion": "The framing implementation remains type-safe and source-policy clean after the bounded lint correction.", "test": "Run TypeScript and repository lint/source policy once after implementation.", "red": { "command": "pnpm.cmd lint", "observedAt": "2026-07-17T04:04:17-06:00", "outcome": "RED: the first test spelling used a fixable string-concatenation lint diagnostic." }, "green": { "command": "pnpm.cmd exec tsc --noEmit --pretty false; pnpm.cmd lint", "observedAt": "2026-07-17T04:05:00-06:00", "outcome": "GREEN: TypeScript exited 0; Checked 437 files in 212ms with source policy passed." } }
+  ],
+  "nearMisses": [],
+  "questions": ["No desktop process owns this framing yet; stdio lifecycle, initialize handshake, platform feature toggle, and AC-11.c process-off proof remain pending."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-m4-native-textarea-input",
+  "createdAt": "2026-07-20T10:25:11-06:00",
+  "summary": "Commit the AI Message textarea from native input events after exact clean WebView2 evidence proved the browser editing command changed the DOM but React's change compatibility path did not retain state.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "AC-10.b", "AC-10.c", "N-7 evidence honesty"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-m4-native-textarea-input.json", "status": "added" },
+    { "path": "src/ui/ai/AiConversationPanel.tsx", "status": "modified" },
+    { "path": "tests/ui/ai/AiConversationPanel.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0451",
+      "topic": "Packaged WebView2 controlled-textarea state commitment",
+      "decision": "Preserve the existing React onChange handler and add the native input-event handler to the controlled AI Message textarea, both setting the same local state from currentTarget.value. Keep the exact validated browser editing command and two-read state oracle unchanged.",
+      "rationale": "The exact clean 30617e1 run proved Runtime.evaluate reached the exact focused textarea, Chromium accepted insertText, and the immediate DOM value matched. React then restored the value to empty and the mock received zero requests. Handling the native input event directly fixes the now-isolated component boundary without weakening automation, changing provider behavior, or adding a test-only product bridge.",
+      "specBasis": ["AC-10.b", "AC-10.c", "N-3 keyboard operability", "N-7 evidence honesty"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "A native input event must commit the controlled Message value, enable Send, and deliver the exact user message to the configured request stream.",
+      "test": "Render a configured AI conversation, dispatch a native input event with an exact value, require Send to enable, submit, and inspect the final request message.",
+      "red": {
+        "command": "Exact clean packaged Windows Sandbox run bound to commit 30617e199b2fb7c75b09663859d1e247d08fefcc and tree 0071eef832ce2c558602d369e4a48de81ff1e5b7",
+        "observedAt": "2026-07-20T10:23:25-06:00",
+        "outcome": "RUNTIME RED: the exact browser editing command returned accepted=true, targetReady=true, and valueMatches=true, but later committed reads remained empty and the safe mock received zero requests. Thirteen prior packaged events, the release build, Sandbox exit, and host cleanup passed. This is failed evidence, not a packaged pass."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/ai/AiConversationPanel.test.tsx",
+        "observedAt": "2026-07-20T10:24:49-06:00",
+        "outcome": "GREEN: the exact AI conversation component suite passed 18/18. The new regression proves native input commits the controlled value, enables Send, and supplies the exact final user message; existing change-driven conversation, context, model, persistence, proposal, error, and agent behaviors remain green."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-30617e1-sandbox-m4-edit-command-20260720/evidence.json",
+      "sought": "Exact clean packaged M4 walkthrough on candidate 30617e199b2fb7c75b09663859d1e247d08fefcc",
+      "confirmation": "The release build and thirteen pre-message guest events passed. The exact browser editing operation immediately changed the focused textarea, but React did not retain the state and the mock received zero requests. Sandbox exit code was 1; exact host session and staging cleanup passed."
+    }
+  ],
+  "questions": ["No owner decision is required. The isolated component fix is locally proven; one distinct exact clean source-bound Sandbox run will decide packaged WebView2 state commitment and will not be blindly retried."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

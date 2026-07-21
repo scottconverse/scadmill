@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-18-m4-sandbox-listener-diagnostics",
+  "createdAt": "2026-07-18T17:43:00-06:00",
+  "summary": "Retain token-free observed and expected MCP listener identities when packaged listener validation times out.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "AC-11.c", "N-7"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-18-m4-sandbox-listener-diagnostics.json", "status": "added" },
+    { "path": "scripts/run-packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0383",
+      "topic": "Packaged MCP listener failure diagnostics",
+      "decision": "On a listener mismatch, throw the latest observed listener rows, the sanitized expected endpoint identity, and the validator reason so the bounded wait retains them in evidence; never retain the bearer token or raw manifest.",
+      "rationale": "The exact guest proved the authenticated manifest existed but the listener did not validate, while the prior catch converted every mismatch into an undifferentiated false value. Evidence must distinguish zero rows, extra rows, ownership/address mismatch, and shape mismatch without exposing credentials or triggering blind reruns.",
+      "specBasis": ["AC-11.c", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Listener failures must preserve actionable identity evidence without preserving secrets.",
+      "test": "Run the packaged helper suite with a static token-free diagnostic contract.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts",
+        "observedAt": "2026-07-18T17:42:58-06:00",
+        "outcome": "RED: 1/33 failed because the listener wait swallowed every validator error and retained no observed or sanitized expected identity."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts; pnpm.cmd exec biome check scripts/run-packaged-desktop-evidence.mjs tests/scripts/packaged-desktop-evidence.test.ts; node --check scripts/run-packaged-desktop-evidence.mjs; git diff --check",
+        "observedAt": "2026-07-18T17:43:30-06:00",
+        "outcome": "GREEN: 33/33 focused tests passed; Biome, Node syntax, and diff checks passed. The diagnostic uses sanitizeMcpEndpointManifest and never serializes the raw authenticated manifest."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://scripts/run-packaged-desktop-evidence.mjs",
+      "sought": "Exact guest listener mismatch details",
+      "confirmation": "The previous probe returned false from catch, so waitFor retained no latest Error and could report only the generic timeout."
+    }
+  ],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

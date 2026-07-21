@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-m4-main-world-input-event",
+  "createdAt": "2026-07-20T10:33:20-06:00",
+  "summary": "Dispatch the native input event from the same validated CDP main-world editing expression after two exact clean runs proved immediate DOM mutation without React event delivery.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "AC-10.b", "AC-10.c", "N-7 evidence honesty"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-m4-main-world-input-event.json", "status": "added" },
+    { "path": "scripts/lib/packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "tests/e2e/m4-hosted-journey.e2e.ts", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0452",
+      "topic": "Main-world native input delivery after packaged editing",
+      "decision": "After Chromium's insertText editing operation changes the exact focused textarea, dispatch one bubbling composed InputEvent with insertText metadata from the same validated CDP Runtime.evaluate main world. Require command acceptance, event dispatch, retained focus, and immediate value equality before closing CDP, then retain the independent two-read React state oracle. Exercise this exact entry path in the hosted M4 journey before another clean build.",
+      "rationale": "The 30617e1 and dd27933 exact clean runs both proved immediate DOM equality but later React state remained empty. The dd27933 component already consumed native input events and its focused regression passed, isolating the remaining gap to event generation. A same-main-world InputEvent is the minimal causal completion and avoids another WebDriver, keyboard, setter, or product test-bridge route.",
+      "specBasis": ["AC-10.b", "AC-10.c", "N-3 keyboard operability", "N-7 evidence honesty"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The exact browser editing plus native InputEvent path must commit the controlled Message value and complete the real hosted M4 AI journey before a clean packaged build is permitted.",
+      "test": "Use the same insertText, InputEvent, fixed-shape result, and retained-value sequence in real Chromium, then execute proposal, agent, cache, animation, thumbnail, and cleanup assertions.",
+      "red": {
+        "command": "Exact clean packaged Windows Sandbox run bound to commit dd27933053fc0e9c273c60a89ddb46d5d544f862 and tree bfdf418cc579f3a529ac05c3ae11be5c284b142d",
+        "observedAt": "2026-07-20T10:30:14-06:00",
+        "outcome": "RUNTIME RED: the release build and thirteen pre-message events passed. Chromium insertText again returned accepted, focused, immediate value equality, but no input event reached React; committed reads returned empty and the safe mock received zero requests. Exact Sandbox and staging cleanup passed."
+      },
+      "green": {
+        "command": "pnpm.cmd test:e2e:m4-hosted",
+        "observedAt": "2026-07-20T10:32:29-06:00",
+        "outcome": "GREEN: the one-worker real Chromium hosted M4 journey passed 1/1 in 36.4 seconds. The exact editing-plus-InputEvent path retained the Message value and completed the AI proposal, agent loop, bounded loop, and all downstream M4 assertions."
+      }
+    },
+    {
+      "criterion": "The packaged helper must emit and require InputEvent dispatch while preserving every existing transport, redaction, focus, timeout, cleanup, and React-commit invariant.",
+      "test": "Run the packaged helper and AI component suites together, then isolate the sole unrelated timing failure instead of rerunning the aggregate.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts tests/ui/ai/AiConversationPanel.test.tsx",
+        "observedAt": "2026-07-20T10:32:44-06:00",
+        "outcome": "MIXED: the packaged helper file passed all 55 tests and 72/73 assertions passed overall. One pre-existing rotated-key persistence timing test failed under the two-file concurrent load; the exact textarea visibly retained its value. This aggregate is not called green."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/ai/AiConversationPanel.test.tsx -t \"reloads a rotated provider key\" --maxWorkers=1",
+        "observedAt": "2026-07-20T10:33:15-06:00",
+        "outcome": "GREEN DIAGNOSTIC: the exact previously failing test passed 1/1 in isolation in 1.17 seconds, confirming concurrency timing rather than a textarea regression. The changed packaged helper file had already passed 55/55 in the preceding mixed command."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-dd27933-sandbox-m4-native-input-20260720/evidence.json",
+      "sought": "Exact clean packaged M4 walkthrough on candidate dd27933053fc0e9c273c60a89ddb46d5d544f862",
+      "confirmation": "The release build and thirteen pre-message guest events passed. The main-world editing operation changed the DOM, but without explicit event dispatch React retained empty state and the mock received zero requests. Cleanup passed."
+    }
+  ],
+  "questions": ["No owner decision is required. The exact browser path passed real Chromium before the single distinct clean WebView2 run; that run will not be blindly retried."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

@@ -1,0 +1,345 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-10-m1-native-runtime-console",
+  "createdAt": "2026-07-10T09:14:47.5235227-06:00",
+  "summary": "Freeze the M1 native-runtime candidate: stage normalized multi-file text/binary projects; render real 3D STL or 2D SVG geometry; provide full-quality native exports; stream and retain ordered engine output; cancel and reap process trees; debounce and supersede renders; expose truthful engine recovery, preview/full controls, console history, editor settings, focus-aware Appendix D bindings, and working Edit-menu actions; and record the remaining owner decisions and formal gate blockers without advancing M1.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.2 permitted inputs",
+    "Section 2.4 provenance ledger",
+    "Section 2.7 questions, decisions, and milestone boundary",
+    "Section 3 A-3 command bus",
+    "Section 3 A-6 modularity caps",
+    "Section 4.0 C0 layout",
+    "Section 4.1 C1 editor settings and keybindings",
+    "Section 4.4 C4 native engine path",
+    "Section 4.8 C8 diagnostics and console",
+    "Section 4.12 C12 theming core",
+    "Section 5 N-2 long-session reliability",
+    "Section 5 N-3 keyboard accessibility",
+    "Section 5 N-7 truthful UI claims",
+    "Section 7 V-1 test-first verification",
+    "Section 7 V-2 dependency and license policy",
+    "Section 8 M1 exit gate",
+    "Appendix A EngineService request and result contracts",
+    "Appendix D default keybindings"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "package.json", "status": "modified" },
+    { "path": "pnpm-lock.yaml", "status": "modified" },
+    { "path": "provenance/entries/2026-07-10-m1-native-runtime-console.json", "status": "added" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "spec/QUESTIONS.md", "status": "modified" },
+    { "path": "src/app/App.tsx", "status": "modified" },
+    { "path": "src/application/commands/default-keybindings.ts", "status": "modified" },
+    { "path": "src/application/commands/editor-commands.ts", "status": "added" },
+    { "path": "src/application/diagnostics/console-state.ts", "status": "added" },
+    { "path": "src/application/engine/contracts.ts", "status": "modified" },
+    { "path": "src/application/engine/engine-path-configuration.ts", "status": "added" },
+    { "path": "src/application/engine/native-engine-service.ts", "status": "modified" },
+    { "path": "src/application/engine/unavailable-engine-service.ts", "status": "modified" },
+    { "path": "src/application/runtime/deferred-action.ts", "status": "added" },
+    { "path": "src/application/runtime/render-settings.ts", "status": "added" },
+    { "path": "src/application/runtime/same-layout.ts", "status": "added" },
+    { "path": "src/application/runtime/workbench-runtime.ts", "status": "modified" },
+    { "path": "src/application/runtime/workbench-runtime-contracts.ts", "status": "added" },
+    { "path": "src/desktop-shell/src-tauri/Cargo.lock", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/src/lib.rs", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/src/tests.rs", "status": "added" },
+    { "path": "src/main.tsx", "status": "modified" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/native-engine/Cargo.lock", "status": "modified" },
+    { "path": "src/native-engine/Cargo.toml", "status": "modified" },
+    { "path": "src/native-engine/src/discovery.rs", "status": "added" },
+    { "path": "src/native-engine/src/lib.rs", "status": "modified" },
+    { "path": "src/native-engine/src/parameters.rs", "status": "added" },
+    { "path": "src/native-engine/src/process.rs", "status": "added" },
+    { "path": "src/native-engine/src/project.rs", "status": "added" },
+    { "path": "src/native-engine/src/project_layout.rs", "status": "added" },
+    { "path": "src/native-engine/src/stl.rs", "status": "added" },
+    { "path": "src/native-engine/tests/export_runtime.rs", "status": "added" },
+    { "path": "src/native-engine/tests/project_runtime.rs", "status": "added" },
+    { "path": "src/platform-desktop/engine-path-configuration.ts", "status": "added" },
+    { "path": "src/platform-desktop/tauri-bridge.ts", "status": "modified" },
+    { "path": "src/ui/diagnostics/DiagnosticConsole.tsx", "status": "modified" },
+    { "path": "src/ui/editor/CodeEditor.tsx", "status": "modified" },
+    { "path": "src/ui/editor/editor-command-execution.ts", "status": "added" },
+    { "path": "src/ui/editor/use-document-keybindings.ts", "status": "modified" },
+    { "path": "src/ui/editor/use-editor-command-coordinator.ts", "status": "added" },
+    { "path": "src/ui/engine/EngineUnavailableBanner.tsx", "status": "added" },
+    { "path": "src/ui/layout/use-layout-keybindings.ts", "status": "modified" },
+    { "path": "src/ui/layout/WebMenuBar.tsx", "status": "modified" },
+    { "path": "src/ui/layout/web-menu-keyboard.ts", "status": "added" },
+    { "path": "src/ui/render/RenderControls.tsx", "status": "added" },
+    { "path": "src/ui/render/use-render-keybindings.ts", "status": "added" },
+    { "path": "src/ui/render/use-workbench-render-commands.ts", "status": "added" },
+    { "path": "src/ui/viewer/ModelViewer.tsx", "status": "modified" },
+    { "path": "src/ui/workbench.css", "status": "modified" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/workbench-status.ts", "status": "added" },
+    { "path": "tests/app/App.test.tsx", "status": "modified" },
+    { "path": "tests/e2e/c0-responsive.e2e.ts", "status": "modified" },
+    { "path": "tests/application/commands/default-keybindings.test.ts", "status": "added" },
+    { "path": "tests/application/diagnostics/console-state.test.ts", "status": "added" },
+    { "path": "tests/application/diagnostics/parse-engine-log.test.ts", "status": "modified" },
+    { "path": "tests/application/engine/native-engine-service.test.ts", "status": "modified" },
+    { "path": "tests/application/runtime/render-settings.test.ts", "status": "added" },
+    { "path": "tests/application/runtime/workbench-runtime.test.ts", "status": "modified" },
+    { "path": "tests/application/runtime/workbench-runtime-layout.test.ts", "status": "modified" },
+    { "path": "tests/platform-desktop/tauri-bridge.test.ts", "status": "modified" },
+    { "path": "tests/ui/diagnostics/DiagnosticConsole.test.tsx", "status": "added" },
+    { "path": "tests/ui/editor/CodeEditor.language.test.tsx", "status": "modified" },
+    { "path": "tests/ui/editor/CodeEditor.settings.test.tsx", "status": "added" },
+    { "path": "tests/ui/editor/use-document-keybindings.test.tsx", "status": "modified" },
+    { "path": "tests/ui/layout/use-layout-keybindings.test.tsx", "status": "modified" },
+    { "path": "tests/ui/layout/WebMenuBar.test.tsx", "status": "modified" },
+    { "path": "tests/ui/render/use-render-keybindings.test.tsx", "status": "added" },
+    { "path": "tests/ui/viewer/ModelViewer.theme.test.tsx", "status": "modified" },
+    { "path": "tests/ui/workbench-status.test.ts", "status": "added" },
+    { "path": "tests/ui/Workbench.editor-settings.test.tsx", "status": "added" },
+    { "path": "tests/ui/Workbench.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/openscad/openscad/releases",
+      "accessedOn": "2026-07-10",
+      "purpose": "Verify that OpenSCAD 2021.01 remains the latest official stable release rather than silently switching the M1 engine pin to a development snapshot."
+    },
+    {
+      "url": "https://openscad.org/downloads.html",
+      "accessedOn": "2026-07-10",
+      "purpose": "Confirm the official site still separates the 2021.01 stable artifacts from nightly/development builds."
+    },
+    {
+      "url": "https://en.wikibooks.org/wiki/OpenSCAD_User_Manual/Using_OpenSCAD_in_a_command_line_environment",
+      "accessedOn": "2026-07-10",
+      "purpose": "Check official command-line export and camera behavior used to isolate the lossless CameraPose question."
+    },
+    {
+      "url": "https://manpages.ubuntu.com/manpages/xenial/man1/openscad.1.html",
+      "accessedOn": "2026-07-10",
+      "purpose": "Cross-check the documented OpenSCAD CLI camera forms before rejecting rather than truncating explicit camera requests."
+    },
+    {
+      "url": "https://registry.npmjs.org/@codemirror/commands",
+      "accessedOn": "2026-07-10",
+      "purpose": "Resolve and pin the approved official CodeMirror command extension used by C1 editor actions."
+    },
+    {
+      "url": "https://registry.npmjs.org/@codemirror/search",
+      "accessedOn": "2026-07-10",
+      "purpose": "Resolve and pin the approved official CodeMirror search extension used by find, replace, and go-to-line actions."
+    },
+    {
+      "url": "https://crates.io/crates/tempfile",
+      "accessedOn": "2026-07-10",
+      "purpose": "Use the approved Rust ecosystem crate already present transitively as a direct dependency for RAII project workspaces and anonymous complete-log spooling."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0073",
+      "topic": "Normalized project staging boundary",
+      "decision": "Validate every logical project path before engine start, reject platform aliases and file/directory collisions, create one isolated project root, and write text or binary bytes without coercion before invoking OpenSCAD with that root as CWD.",
+      "rationale": "The engine must resolve include/use and imported assets exactly from the request map without path traversal, silent overwrites, encoding damage, or dependence on the user's real project directory.",
+      "specBasis": ["FR-4.5", "Appendix A RenderRequest.files", "A-3", "N-7"]
+    },
+    {
+      "id": "D-0074",
+      "topic": "Native geometry and export result selection",
+      "decision": "Use engine-produced binary STL for 3D results, fall back to engine-produced SVG only for the pinned engine's explicit 2D top-level response, calculate typed bounds from the selected artifact, and permit exports only through full-quality commands.",
+      "rationale": "Both quality levels must return real rendered geometry, 2D/3D selection must follow engine output, and exports must never reuse preview overrides.",
+      "specBasis": ["A-1", "A-2", "FR-3.1", "FR-4.2", "FR-4.3"]
+    },
+    {
+      "id": "D-0075",
+      "topic": "Lossless PNG camera boundary",
+      "decision": "Export default-camera PNG through the pinned CLI but reject an explicit CameraPose with a typed invalid-project failure while Q-0021 is open; never discard CameraPose.up or invent an Euler/projection conversion.",
+      "rationale": "The stable CLI cannot represent all normative camera fields losslessly, so an explicit failure is more truthful than a plausibly valid but incorrectly framed image.",
+      "specBasis": ["FR-4.2", "Appendix A CameraPose", "Q-0021", "N-7"]
+    },
+    {
+      "id": "D-0076",
+      "topic": "Native process lifecycle and output capture",
+      "decision": "Read stdout/stderr concurrently in fixed chunks with incremental UTF-8 carry, assign one monotonic event sequence, spool each subprocess's complete interleaved output to an anonymous file, bound its live replay with explicit limit/cancel/timeout markers, poll cancellation/timeouts independently of consumer speed through final drain, preserve logs through artifact failures, and kill and reap the complete process tree before returning or unwinding.",
+      "rationale": "This preserves the normative complete rawLog while preventing ordinary streaming/UI memory growth and ensuring a slow consumer cannot defeat supersession or timeout cleanup; Q-0022 isolates the remaining complete-string materialization tension.",
+      "specBasis": ["FR-4.8", "FR-4.9", "AC-4.c", "Appendix A rawLog", "Q-0022", "N-2"]
+    },
+    {
+      "id": "D-0077",
+      "topic": "Tauri native job ownership",
+      "decision": "Keep cancellation tokens in a synchronized job registry keyed by request id, make cancellation idempotent, preserve early cancellation until registration, cancel a same-id predecessor, remove only the exact completed token, and clean up registry state after worker join failure.",
+      "rationale": "The desktop boundary must not lose rapid supersession, cancel the wrong replacement job, or leave a completed/join-failed job reachable indefinitely.",
+      "specBasis": ["FR-4.2", "FR-4.4", "FR-4.9", "AC-4.c", "AC-4.e"]
+    },
+    {
+      "id": "D-0078",
+      "topic": "Render scheduling and stale completion",
+      "decision": "Debounce automatic preview by the typed default of 800 ms, cancel an in-flight job when a newer source snapshot supersedes it, retain every run in console history, and allow only the current source/job identity to replace the active geometry or current diagnostics.",
+      "rationale": "Rapid editing must produce one current completion without hiding cancelled evidence or allowing an older native result to overwrite newer source state.",
+      "specBasis": ["FR-4.4", "AC-4.e", "FR-8.1", "FR-8.4"]
+    },
+    {
+      "id": "D-0079",
+      "topic": "Console stream and clear semantics",
+      "decision": "Retain per-run ordered output and diagnostics under one global 10,000-line UI cap, reconstruct rawLog only when no stream event was received, preserve the live run shell on Clear, suppress cleared fallback resurrection, and keep subsequent events visible.",
+      "rationale": "The console must be useful during and after a run without unbounded scrollback, duplicated fallback logs, stale resurrection after a user clear, or loss of later output.",
+      "specBasis": ["FR-4.8", "FR-8.1", "FR-8.4", "FR-8.5", "N-2"]
+    },
+    {
+      "id": "D-0080",
+      "topic": "Engine discovery and recovery truth",
+      "decision": "Preserve the mandated bundled/configured/environment/PATH discovery order and model checking, unavailable, invalid-config, and ready as explicit UI states; retry one configured path with pending and rejected-path feedback while labeling the editor buffer temporary until Q-0012 is resolved.",
+      "rationale": "Dependency recovery must not show contradictory checking/unavailable states, silently swallow an invalid path, or promise save capability that the M1 owner boundary has not defined.",
+      "specBasis": ["FR-4.6", "AC-4.d", "Q-0012", "N-7"]
+    },
+    {
+      "id": "D-0081",
+      "topic": "Editor settings and focus-aware bindings",
+      "decision": "Apply typed editor defaults through live CodeMirror compartments, keep the complete Appendix D registry centrally rebindable, canonicalize binding collisions with a platform-specific primary modifier, and prevent handled editor/viewer events from falling through to global commands.",
+      "rationale": "M1 can provide the C1 configuration seam before the M2 settings UI while ensuring one keystroke has one focus-appropriate meaning on Windows/Linux and macOS.",
+      "specBasis": ["FR-1.5", "FR-1.7", "FR-1.8", "AC-1.e", "Appendix D", "Q-0010", "Q-0011"]
+    },
+    {
+      "id": "D-0082",
+      "topic": "Deferred editor-command honesty",
+      "decision": "Route implemented Edit-menu and keyboard actions through one typed CodeMirror execution path, perform real multi-selection for the Appendix D pointer binding, and surface go-to-definition as a visible typed unavailable outcome until its owning project-symbol capability lands.",
+      "rationale": "A routed command is not acceptance evidence if it is a silent no-op; supported actions must mutate editor state and deferred actions must say why they are unavailable.",
+      "specBasis": ["FR-1.5", "AC-1.e", "AC-15.f", "Appendix D", "Q-0010", "N-7"]
+    },
+    {
+      "id": "D-0083",
+      "topic": "Official-stable engine pin",
+      "decision": "Retain OpenSCAD 2021.01 as the M1 engine pin because it remains the latest official stable release; treat 2026 development artifacts as nightlies and change the pin only through A-5 when parity, color export, or a confirmed engine defect requires it.",
+      "rationale": "Using a newer date-stamped development artifact merely because it is newer would violate the default stable-release rule and weaken reproducibility before an A-5 trigger is demonstrated.",
+      "specBasis": ["A-5", "ENGINE_VERSION", "Section 2.7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "FR-4.5 project staging, AC-4.b parameters, and 2D/3D/export artifact behavior",
+      "test": "Real-engine fixtures cover nested include resolution, byte-exact imported STL, cross-file errors, typed parameter geometry changes, 2D SVG bounds, 3D STL, default-camera PNG, export mappings, and hostile/colliding logical paths.",
+      "red": {
+        "command": "cargo test --manifest-path src/native-engine/Cargo.toml",
+        "observedAt": "2026-07-10T09:14:47.5235227-06:00",
+        "outcome": "RED evidence recorded during implementation (original execution timestamps not retained): collision, parameter, camera, export, and multi-file assertions initially failed or reached the wrong error boundary before staging, typed definitions, artifact selection, and typed rejection were implemented."
+      },
+      "green": {
+        "command": "cargo test --locked --manifest-path src/native-engine/Cargo.toml",
+        "observedAt": "2026-07-10T09:40:21-06:00",
+        "outcome": "GREEN: 24 unit, 2 export-integration, and 10 project-integration tests passed (36 total), including Win32 ADS/trailing/reserved-name safety and complete-log preservation through a malformed engine artifact."
+      }
+    },
+    {
+      "criterion": "FR-4.8/FR-4.9 bounded streaming, complete rawLog, timeout, and cancellation",
+      "test": "High-volume helpers emit a 2 MiB newline-free record, 5,120 small records, split Unicode, malformed/missing artifacts, slow callbacks, cancellation, descendants, and a following successful process.",
+      "red": {
+        "command": "cargo test --manifest-path src/native-engine/Cargo.toml process::tests -- --nocapture",
+        "observedAt": "2026-07-10T09:14:47.5235227-06:00",
+        "outcome": "RED evidence recorded during implementation: 2,097,308 bytes were retained live, 5,120 records had no truncation signal, and a slow consumer delayed cancellation to 6.3877676 seconds; review also reproduced split-code-point and post-artifact rawLog gaps."
+      },
+      "green": {
+        "command": "cargo test --locked --manifest-path src/native-engine/Cargo.toml",
+        "observedAt": "2026-07-10T09:40:21-06:00",
+        "outcome": "GREEN: all 36 native tests passed, including fixed-chunk/spool budgets, split UTF-8, final-drain cancellation/timeout, slow-consumer responsiveness, callback-unwind process-tree reaping, truthful markers, complete artifact-failure logs, descendant cleanup, and immediate following-process success."
+      }
+    },
+    {
+      "criterion": "FR-4.4/AC-4.e scheduling and C8 console retention",
+      "test": "Runtime tests exercise 800 ms debounce, one completion after rapid edits, in-flight cancellation, stale-result suppression, per-run output ordering, waiting/clear/fallback behavior, and the 10,000-line cap.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/runtime/workbench-runtime.test.ts tests/application/diagnostics/console-state.test.ts --reporter=verbose",
+        "observedAt": "2026-07-10T09:21:02-06:00",
+        "outcome": "RED: implementation assertions initially lacked waiting-state behavior; the final falsification test also proved that clearing a quiet in-flight run resurrected its complete rawLog on finish."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/diagnostics/console-state.test.ts --reporter=verbose",
+        "observedAt": "2026-07-10T09:21:24-06:00",
+        "outcome": "GREEN: all 5 focused console-state tests passed, including no resurrection after Clear, later-event visibility, genuine no-event rawLog fallback, ordering, and global retention."
+      }
+    },
+    {
+      "criterion": "Appendix D focus-aware keybindings and truthful deferred commands",
+      "test": "Editor/global collision tests, explicit Control/Meta platform tests, actual editor outcomes, and Workbench status/history assertions cover F12, render/layout fallthrough, and pointer multi-selection.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/commands/default-keybindings.test.ts tests/ui/Workbench.editor-settings.test.tsx",
+        "observedAt": "2026-07-10T09:14:47.5235227-06:00",
+        "outcome": "RED recorded by the focused TDD pass: 3 assertions failed for missing F12 status, duplicate console dispatch, and Control incorrectly satisfying macOS Mod; a separate render test proved an allowed cancel/preview collision swallowed F5."
+      },
+      "green": {
+        "command": "pnpm.cmd test",
+        "observedAt": "2026-07-10T09:40:21-06:00",
+        "outcome": "GREEN after final UI falsification: all 42 files / 391 tests passed; the focused command/app/keybinding set passed 7 files / 35 tests after typed outcomes, canonical collision checks, platform/fallthrough routing, cancelled-status truth, stable recovery drafts, and visible Edit actions."
+      }
+    },
+    {
+      "criterion": "Appendix D real multi-cursor pointer behavior",
+      "test": "A real Chromium flow Alt+Clicks a second editor location and asserts two selections while a native CodeMirror Control-click still adds a third selection.",
+      "red": {
+        "command": "pnpm.cmd test:e2e",
+        "observedAt": "2026-07-10T09:40:21-06:00",
+        "outcome": "RED: the new Chromium assertion remained at one cursor because Alt+Click emitted only a handled command outcome and did not modify CodeMirror selection state."
+      },
+      "green": {
+        "command": "pnpm.cmd test:e2e",
+        "observedAt": "2026-07-10T09:40:21-06:00",
+        "outcome": "GREEN: 4 Playwright flows passed, including Alt+Click producing two cursors and native Control-click producing three without regressing the responsive C0 cases."
+      }
+    },
+    {
+      "criterion": "FR-4.6 engine recovery and accessible C1 Edit-menu actions",
+      "test": "App and menu tests cover checking/unavailable/invalid/ready states, pending/rejected retry, truthful temporary-buffer copy, runtime binding labels, pointer activation, arrow/Home/End traversal, and real CodeMirror action outcomes.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/app/App.test.tsx tests/ui/layout/WebMenuBar.test.tsx tests/ui/Workbench.editor-settings.test.tsx tests/application/diagnostics/parse-engine-log.test.ts --reporter=verbose",
+        "observedAt": "2026-07-10T09:14:47.5235227-06:00",
+        "outcome": "RED recorded by the focused TDD pass: engine checking simultaneously showed unavailable, invalid paths had no feedback, retries had no pending state, and Edit was disabled despite implemented commands."
+      },
+      "green": {
+        "command": "pnpm.cmd test",
+        "observedAt": "2026-07-10T09:40:21-06:00",
+        "outcome": "GREEN: all 42 files / 391 tests passed, including explicit engine health/retry, temporary-buffer honesty, stable path drafts, working keyboard-navigable Edit actions, and diagnostic near-miss fuzz cases."
+      }
+    },
+    {
+      "criterion": "Desktop IPC project bytes, job cleanup, and typed failures",
+      "test": "Rust shell tests decode text/binary project files, map typed failures, keep cancellation idempotent, preserve same-id replacements, honor cancellation before registration, and remove registry entries after join failure.",
+      "red": {
+        "command": "cargo test --manifest-path src/desktop-shell/src-tauri/Cargo.toml",
+        "observedAt": "2026-07-10T09:14:47.5235227-06:00",
+        "outcome": "RED evidence recorded during implementation/review: the join-failure cleanup and same-id replacement cases initially failed, and final falsification found cancel-before-register was discarded."
+      },
+      "green": {
+        "command": "cargo test --locked --manifest-path src/desktop-shell/src-tauri/Cargo.toml",
+        "observedAt": "2026-07-10T09:40:21-06:00",
+        "outcome": "GREEN: all 9 desktop-shell tests passed, including cancel-before-register consumption, bounded tombstone eviction, same-id token identity, join cleanup, and complete artifact rawLog mapping."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "urn:scadmill:owner-supplied:ci-similarity-gate",
+      "sought": "Inspect ordinary repository workflow status while continuing to exclude the owner-supplied similarity system from local review.",
+      "confirmation": "A later broad workflow wildcard accidentally printed the owner-supplied similarity workflow once. It was not executed, modified, used to derive product behavior, or inspected further; no comparison repository or prohibited editor source was accessed. All subsequent workflow checks used exact allowed paths or status-only exclusions."
+    }
+  ],
+  "questions": [
+    "Q-0001 remains the M1 CI policy blocker: Rust Unicode-3.0 license expressions require the owner's allowlist or dependency-pin decision.",
+    "Q-0003 remains the M1 render-policy blocker: the preview-only $fn seam is not claimed as a true maximum until the owner defines cap semantics.",
+    "Q-0004/Q-0005/Q-0006 continue to park only final custom-theme import and contrast/color-policy ownership.",
+    "Q-0008 continues to park the final desktop per-project layout storage identity/location.",
+    "Q-0010/Q-0011/Q-0013/Q-0014/Q-0015/Q-0017 continue to define final command/settings/language/cross-file/web-binding acceptance boundaries while implemented seams remain usable and truthful.",
+    "Q-0012 is a formal M1 blocker: the temporary editor buffer cannot satisfy AC-1.d or AC-4.d until the owner decides whether M1 introduces a save port before C6.",
+    "Q-0016/Q-0018/Q-0019/Q-0020 continue to park stale-diagnostic, dirty/final-close, and unopened-file navigation behavior only.",
+    "Q-0021 parks explicit-camera PNG only; default-camera PNG and non-PNG native exports continue.",
+    "Q-0022 parks a hard bound for complete rawLog string materialization/spill growth while complete logs remain preserved and live replay is bounded.",
+    "GauntletGate all ran with valid first-run isolation and all five Full roles; its verdict is DO NOT ADVANCE until the blocker/critical owner decisions clear and the gate is rerun."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

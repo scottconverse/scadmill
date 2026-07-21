@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-mcp-review-queue",
+  "createdAt": "2026-07-17T04:43:00-06:00",
+  "summary": "Add a bounded in-memory pending-review queue and have MCP mutations publish review records without applying them.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "FR-10.5", "FR-11.6", "Appendix B", "N-7 evidence and status honesty"],
+  "filesTouched": [
+    { "path": "src/application/mcp/mcp-review-queue.ts", "status": "added" },
+    { "path": "src/application/mcp/workbench-mcp-handler.ts", "status": "modified" },
+    { "path": "tests/application/mcp/mcp-review-queue.test.ts", "status": "added" },
+    { "path": "tests/application/mcp/workbench-mcp-handler.test.ts", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-17-m4-mcp-review-queue.json", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [{ "id": "D-0360", "topic": "MCP pending-review queue", "decision": "Bound pending mutations to 64 entries by default, replace duplicate command ids, and remove entries atomically on approve or deny; approval execution remains a later runtime/UI seam.", "rationale": "The queue makes review state durable within a session and fail-closed without silently applying external-agent edits or allowing unbounded memory growth.", "specBasis": ["FR-10.5", "FR-11.6", "Appendix B", "N-7"] }],
+  "testEvidence": [{ "criterion": "MCP mutations publish bounded pending reviews and queue operations remain deterministic.", "test": "Run focused queue/handler tests once after fixing the interface syntax, lint once, and build once.", "red": { "command": "pnpm.cmd exec vitest run tests/application/mcp/mcp-review-queue.test.ts tests/application/mcp/workbench-mcp-handler.test.ts --reporter=dot", "observedAt": "2026-07-17T04:42:14-06:00", "outcome": "RED: the first queue interface used readonly on a method signature; 3 tests passed and the queue suite could not transform." }, "green": { "command": "pnpm.cmd exec vitest run tests/application/mcp/mcp-review-queue.test.ts tests/application/mcp/workbench-mcp-handler.test.ts --reporter=dot; pnpm.cmd lint; pnpm.cmd build", "observedAt": "2026-07-17T04:42:34-06:00", "outcome": "GREEN: 2 files and 5 tests passed; lint/source policy passed; TypeScript/Vite build passed with 236 modules transformed." } }],
+  "nearMisses": [],
+  "questions": ["Desktop review UI, approval-to-runtime-dispatch path, MCP process/toggle integration, and hosted AC-11.b/c evidence remain pending."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

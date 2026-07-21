@@ -1,0 +1,219 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-10-c1-completion",
+  "createdAt": "2026-07-10T04:14:30.9816813-06:00",
+  "summary": "Deliver the next M1 C1 editor slice: context-aware completion for the version-labeled provisional OpenSCAD 2021.01 built-in corpus and lexically visible current-file declarations, completion-list signatures and paraphrased help, themed CodeMirror completion surfaces, namespace-safe user shadowing, and a deterministic provisional cube call skeleton. Q-0013, Q-0014, and Q-0017 continue to bound the final exhaustive corpus, cross-file adapter, insertion policy, and persistent call-site-help claims.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.2 permitted inputs",
+    "Section 2.4 provenance ledger",
+    "Section 2.7 questions, decisions, and unit of work",
+    "Section 3 A-6 modularity caps",
+    "Section 4.1 C1 code editor with OpenSCAD language support",
+    "Section 4.1 FR-1.3 built-in completion and signature hints",
+    "Section 4.1 FR-1.4 current-file user-symbol completion",
+    "Section 4.1 AC-1.b cube completion path",
+    "Section 5 N-3 keyboard accessibility",
+    "Section 5 N-4 English message catalog",
+    "Section 7 V-1 and V-2",
+    "Section 8 M1 C1 excluding diff view",
+    "Appendix C completion-surface theme tokens"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "package.json", "status": "modified" },
+    { "path": "pnpm-lock.yaml", "status": "modified" },
+    {
+      "path": "provenance/entries/2026-07-10-c1-completion.json",
+      "status": "added"
+    },
+    { "path": "spec/QUESTIONS.md", "status": "modified" },
+    { "path": "src/language/openscad-signatures.json", "status": "added" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/ui/editor/code-editor-theme.ts", "status": "modified" },
+    { "path": "src/ui/editor/generated/openscad-parser.ts", "status": "modified" },
+    { "path": "src/ui/editor/openscad-builtins.ts", "status": "modified" },
+    { "path": "src/ui/editor/openscad-completion.ts", "status": "added" },
+    { "path": "src/ui/editor/openscad-language.ts", "status": "modified" },
+    { "path": "src/ui/editor/openscad-symbols.ts", "status": "added" },
+    { "path": "src/ui/editor/openscad.grammar", "status": "modified" },
+    { "path": "tests/ui/editor/openscad-completion.test.ts", "status": "added" },
+    { "path": "tests/ui/editor/openscad-language.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://openscad.org/documentation.html",
+      "accessedOn": "2026-07-10",
+      "purpose": "Use the official OpenSCAD documentation index as the permitted route to language-reference material."
+    },
+    {
+      "url": "https://openscad.org/cheatsheet/",
+      "accessedOn": "2026-07-10",
+      "purpose": "Confirm the public v2021.01 built-in module, function, special-form, and special-variable corpus and representative signatures."
+    },
+    {
+      "url": "https://github.com/openscad/openscad/blob/openscad-2021.01/src/primitives.cc",
+      "accessedOn": "2026-07-10",
+      "purpose": "Cross-check release-tag primitive parameter names and defaults rather than treating call-tip examples as defaults."
+    },
+    {
+      "url": "https://github.com/openscad/openscad/blob/openscad-2021.01/src/func.cc",
+      "accessedOn": "2026-07-10",
+      "purpose": "Cross-check the official 2021.01 built-in function registrations and callable signatures."
+    },
+    {
+      "url": "https://github.com/openscad/openscad/blob/openscad-2021.01/src/import.cc",
+      "accessedOn": "2026-07-10",
+      "purpose": "Confirm the official 2021.01 import parameter order and the origin, scale, and convexity defaults."
+    },
+    {
+      "url": "https://codemirror.net/docs/ref/",
+      "accessedOn": "2026-07-10",
+      "purpose": "Use the official Completion, CompletionContext, CompletionSource, language-data, and completion-theme integration contracts."
+    },
+    {
+      "url": "https://registry.npmjs.org/@codemirror%2fautocomplete",
+      "accessedOn": "2026-07-10",
+      "purpose": "Resolve and pin the approved direct autocomplete runtime dependency at version 6.20.3."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0046",
+      "topic": "Version-labeled completion catalog",
+      "decision": "Keep the existing `openscad-2021.01-official-reference` name corpus as the completion pin, add all eleven documented special variables, keep signatures in neutral JSON language data, and keep paraphrased visible descriptions in the English message catalog.",
+      "rationale": "One shared version label prevents the live manual from silently changing behavior; separating code-like signatures from visible prose satisfies language-data reuse, localization, and the component color policy without weakening any gate.",
+      "specBasis": ["FR-1.3", "N-4", "Q-0013"]
+    },
+    {
+      "id": "D-0047",
+      "topic": "Completion context model",
+      "decision": "Use the authored Lezer tree plus a lightweight lexical-state pass to suppress completion inside closed or unfinished comments, strings, include/use paths, callable names, and parameter-name declarations; separate statement and expression candidates; and use a small preceding-token fallback only where an incomplete tree has no decisive ancestor.",
+      "rationale": "Syntax context avoids offering modules where values are required, while the lexical-state pass covers unfinished constructs that intentionally have no closed syntax node yet.",
+      "specBasis": ["FR-1.3", "FR-1.4", "AC-1.b"]
+    },
+    {
+      "id": "D-0048",
+      "topic": "Current-file symbol boundary",
+      "decision": "Extract document declarations plus the cursor's lexical chain of module/function parameters, block declarations, and for/let bindings from the current incremental syntax tree; retain callable parameter text; keep function, module, and variable namespaces distinct; and let a same-namespace user declaration replace its built-in completion.",
+      "rationale": "This delivers the unblocked current-file half of FR-1.4 without inventing the C6 project-source adapter, leaking nested declarations outside their scope, or hiding a function merely because a variable shares its label.",
+      "specBasis": ["FR-1.4", "Q-0014"]
+    },
+    {
+      "id": "D-0049",
+      "topic": "Provisional cube insertion",
+      "decision": "Offer `cube(size = 1, center = false)` as the completion detail and provisionally replace `cub` with `cube(size = 1, center = false);` when accepted.",
+      "rationale": "The source is valid, deterministic, explicit about defaults, and directly exercises AC-1.b while Q-0013 continues to reserve the owner-final named-versus-positional insertion policy.",
+      "specBasis": ["AC-1.b", "Q-0013"]
+    },
+    {
+      "id": "D-0050",
+      "topic": "Completion presentation",
+      "decision": "Register the source through OpenSCAD language data so the existing keyboard-accessible CodeMirror completion machinery owns interaction, verify list selection and Enter acceptance in a live EditorView, and style its list, selection, details, and info surfaces exclusively with Appendix C-derived CSS variables.",
+      "rationale": "The editor retains standard completion keyboard behavior and live theme switching without a parallel popup implementation or hardcoded presentation colors.",
+      "specBasis": ["N-3", "FR-12.2", "FR-12.3"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "FR-1.3 and AC-1.b built-in completion foundation",
+      "test": "The OpenSCAD language source offers `cube` for `cub`, exposes signature and paraphrased help, supplies the provisional deterministic insertion text, covers every name in the provisional corpus, and is registered with live language support.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-completion.test.ts --reporter=verbose",
+        "observedAt": "2026-07-10T03:57:33.4386679-06:00",
+        "outcome": "RED: suite failed before test collection because the required openscad-completion module did not exist."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-completion.test.ts tests/ui/editor/openscad-language.test.ts tests/ui/editor/CodeEditor.language.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-10T04:31:14.9231232-06:00",
+        "outcome": "GREEN: 3 files and 21 tests passed, including catalog integrity, provisional acceptance text, live language-source registration, and Enter-key acceptance in an EditorView."
+      }
+    },
+    {
+      "criterion": "FR-1.3 context and release-default accuracy",
+      "test": "Completion distinguishes statement, expression, and special-variable positions, handles an expression after let bindings, removes display whitespace, and preserves release-accurate representative defaults.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-completion.test.ts --reporter=verbose",
+        "observedAt": "2026-07-10T04:05:03.5703230-06:00",
+        "outcome": "RED: 3 of 6 tests failed; let-expression completion returned modules, one signature had trailing whitespace, and linear_extrude/text defaults were inaccurate."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-completion.test.ts tests/ui/editor/openscad-language.test.ts tests/ui/editor/CodeEditor.language.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-10T04:31:14.9231232-06:00",
+        "outcome": "GREEN: 3 files and 21 tests passed after syntax-tree context selection, unfinished-region suppression, and official-release default corrections."
+      }
+    },
+    {
+      "criterion": "FR-1.4 current-file declaration completion",
+      "test": "Current-file modules, functions, variables, parameters, block locals, and for/let bindings appear only in valid lexical contexts; callable signatures preserve parameters; user modules replace same-name built-ins; and nested assignments do not leak to top level.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-completion.test.ts --reporter=verbose",
+        "observedAt": "2026-07-10T04:12:17.1487501-06:00",
+        "outcome": "RED: 2 of 9 tests failed because current-file declarations were absent and a user-defined cube did not replace the built-in candidate."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-completion.test.ts tests/ui/editor/openscad-language.test.ts tests/ui/editor/CodeEditor.language.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-10T04:31:14.9231232-06:00",
+        "outcome": "GREEN: 3 files and 21 tests passed with lexical-scope current-file symbol extraction and same-namespace shadowing."
+      }
+    },
+    {
+      "criterion": "FR-1.4 namespace-safe built-in spelling declarations",
+      "test": "A variable sharing the `sin` label remains a variable candidate without deleting the built-in function, and built-in spellings are valid user variable-binding identifiers in the grammar.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-completion.test.ts -t \"keeps function and variable namespaces distinct\" --reporter=verbose",
+        "observedAt": "2026-07-10T04:15:20.4619163-06:00",
+        "outcome": "RED: the single focused test failed because only one `sin` candidate remained; the grammar had not parsed the built-in spelling as an assignment declaration."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-completion.test.ts tests/ui/editor/openscad-language.test.ts tests/ui/editor/CodeEditor.language.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-10T04:31:14.9231232-06:00",
+        "outcome": "GREEN: 3 files and 21 tests passed after binding-position grammar support, generated-parser refresh, and namespace-keyed deduplication."
+      }
+    },
+    {
+      "criterion": "FR-1.3/FR-1.4 adversarial completion boundaries",
+      "test": "Unfinished comments, strings, and include paths stay silent; simple and nested-default declaration parameter names stay silent; let is present in both valid forms; current lexical scopes are complete; and corrected import/parent_module/polygon/polyhedron signatures retain release defaults.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-completion.test.ts --reporter=verbose",
+        "observedAt": "2026-07-10T04:25:17.8137713-06:00",
+        "outcome": "RED: 4 of 11 tests failed; let was absent, unfinished block comments leaked candidates, four signatures were incomplete, and parameters/locals/iterator bindings were missing from lexical scope."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-completion.test.ts tests/ui/editor/openscad-language.test.ts tests/ui/editor/CodeEditor.language.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-10T04:31:14.9231232-06:00",
+        "outcome": "GREEN: 3 files and 21 tests passed; independent adversarial re-review also passed 14 targeted contexts with no remaining release blocker."
+      }
+    },
+    {
+      "criterion": "V-1/V-2 widened JavaScript regression gate",
+      "test": "The complete repository unit and integration suite remains green after completion, grammar, scoped-symbol, message-catalog, and theme changes.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-completion.test.ts --reporter=verbose",
+        "observedAt": "2026-07-10T03:57:33.4386679-06:00",
+        "outcome": "RED: the new completion slice could not collect tests because its product module did not exist."
+      },
+      "green": {
+        "command": "pnpm.cmd test -- --reporter=dot",
+        "observedAt": "2026-07-10T04:33:05-06:00",
+        "outcome": "GREEN: all 30 test files and 288 tests passed; the subsequent production build, lint/source-policy gate, and 3-test E2E lane also passed."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "Q-0013 remains open: the v2021.01 catalog and named-argument cube insertion are explicitly provisional, not an owner-final exhaustive corpus or skeleton policy.",
+    "Q-0014 remains open: this slice analyzes the current buffer's lexical scopes and does not invent the include/use project-source adapter owned with C6.",
+    "Q-0017 was appended under Section 2.7: completion-list signatures proceed, while persistent active-parameter call-site help remains parked pending its required behavior.",
+    "The in-app browser rejected fresh tabs from its active session during the completion-popup QA attempt; no alternate browser-control surface was used, so rendered popup appearance remains unverified in this slice while automated integration and theme-policy checks continue.",
+    "Q-0001 remains open: the final Rust license-policy run is expected to fail exactly the previously recorded Unicode-3.0 transitive package records; no dependency or policy is changed to conceal that block."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

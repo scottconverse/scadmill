@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-16-m3-associated-file-single-instance",
+  "createdAt": "2026-07-16T14:55:00-06:00",
+  "summary": "Register .scad files with the desktop shell and route all launch paths through a race-proof single-instance exact-entry workflow.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 M3 delivery protocol",
+    "FR-13.1 typed platform boundary",
+    "FR-13.2 file associations and single instance",
+    "AC-13.b open in running instance",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-16-m3-associated-file-single-instance.json", "status": "added" },
+    { "path": "src/app/App.tsx", "status": "modified" },
+    { "path": "src/application/files/project-file-service.ts", "status": "modified" },
+    { "path": "src/application/platform/scadmill-platform.ts", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/Cargo.lock", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/Cargo.toml", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/src/associated_files.rs", "status": "added" },
+    { "path": "src/desktop-shell/src-tauri/src/lib.rs", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/src/project_storage.rs", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/tauri.conf.json", "status": "modified" },
+    { "path": "src/platform-desktop/desktop-platform.ts", "status": "modified" },
+    { "path": "src/platform-desktop/tauri-associated-file-source.ts", "status": "added" },
+    { "path": "src/platform-desktop/tauri-project-storage.ts", "status": "modified" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/files/ProjectLifecycleControls.tsx", "status": "modified" },
+    { "path": "src/ui/files/ProjectSessionHost.tsx", "status": "modified" },
+    { "path": "src/ui/files/use-project-open-queue.ts", "status": "added" },
+    { "path": "src/ui/files/use-requested-project.ts", "status": "added" },
+    { "path": "src/ui/workbench-props.ts", "status": "modified" },
+    { "path": "tests/helpers/test-platform.ts", "status": "modified" },
+    { "path": "tests/platform-desktop/desktop-platform.test.ts", "status": "modified" },
+    { "path": "tests/platform-desktop/tauri-associated-file-source.test.ts", "status": "added" },
+    { "path": "tests/platform-desktop/tauri-project-storage.test.ts", "status": "modified" },
+    { "path": "tests/scripts/file-association-contract.test.ts", "status": "added" },
+    { "path": "tests/ui/files/ProjectLifecycleControls.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://crates.io/crates/tauri-plugin-single-instance/2.4.3",
+      "accessedOn": "2026-07-16",
+      "purpose": "Pin the official Tauri single-instance plugin at 2.4.3 and verify its Apache-2.0 OR MIT license and callback contract."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0269",
+      "topic": "Race-proof associated-file lifecycle",
+      "decision": "Treat an associated file's immediate parent as its project root and its exact filename as the preferred entry. Canonicalize and filter .scad paths in Rust, deduplicate identical pending requests while preserving FIFO order, retain them until the typed frontend drains them, and cover first-launch arguments, secondary Windows/Linux instances, and macOS RunEvent::Opened. Auto-open only a clean workspace; dirty work or pending recovery stays behind the existing replacement safety flow.",
+      "rationale": "A wake event alone can be lost before the webview subscribes, and React state can collapse bursts. A Rust-owned queue plus serialized typed drains preserves lifecycle races and request order. The parent-directory project rule gives the opened model its sibling includes/assets, while the clean-only shortcut satisfies existing-window opening without discarding unsaved or recoverable work. The official tauri-plugin-single-instance 2.4.3 dependency is permissively licensed Apache-2.0 OR MIT.",
+      "specBasis": ["FR-13.1", "FR-13.2", "AC-13.b", "N-7"]
+    },
+    {
+      "id": "D-0271",
+      "topic": "Bounded dependency snapshots for associated files",
+      "decision": "Keep the associated file's canonical parent as its containment and project-identity root, but pass the exact entry through the ProjectStorage snapshot contract. The native snapshot follows only lexically valid include/use references relative to each declaring source, preserves cycles and dot-segment containment safely, and excludes unrelated siblings from the in-memory render snapshot. Normal folder opens omit the entry and retain the complete-project snapshot behavior.",
+      "rationale": "Treating a Downloads, Desktop, or filesystem-root parent as an eager recursive project can ingest hundreds of MiB of unrelated content or fail on an unrelated symlink. A dependency-closure snapshot preserves exact-entry rendering and nested include/use behavior without widening the trusted/read set. Missing external-library references remain absent so OpenSCAD can resolve them through its normal library paths.",
+      "specBasis": ["FR-4.5", "FR-13.2", "AC-13.b", "N-1", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Associated files survive startup/subscription races, remain FIFO, open the exact requested entry when clean, and cannot replace dirty/recovery work silently.",
+      "test": "Run focused desktop-source, composition, config-contract, and project-lifecycle tests plus the Rust queue unit test.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/platform-desktop/tauri-associated-file-source.test.ts tests/ui/files/ProjectLifecycleControls.test.tsx",
+        "observedAt": "2026-07-16T14:44:14-06:00",
+        "outcome": "RED: the Tauri source module did not exist, the clean request stopped at confirmation, and both clean and dirty paths selected main.scad instead of preferred.scad."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/platform-desktop/tauri-associated-file-source.test.ts tests/platform-desktop/desktop-platform.test.ts tests/scripts/file-association-contract.test.ts tests/ui/files/ProjectLifecycleControls.test.tsx; cargo test associated_files --locked",
+        "observedAt": "2026-07-16T14:52:30-06:00",
+        "outcome": "GREEN before final review repair: 4 focused TypeScript files passed 42/42 after one replacement for an over-specific empty-drain call-count expectation; the Rust associated-file queue passed 1/1 with the complete desktop shell compiled. The subsequent deduplication and malformed-wire hardening awaits the root combined static gate. A manual installed AC-13.b double-click remains correctly required at the release gate."
+      }
+    },
+    {
+      "criterion": "Opening one OS-associated model loads the exact entry and its nested include/use dependency closure without recursively ingesting an unrelated oversized file, ordinary sibling, or Unix symlink in the parent tree.",
+      "test": "Exercise the native targeted snapshot with a sparse file larger than the normal per-file limit plus nested include/use references, then verify the typed storage adapter and clean associated-open UI pass the exact preferred entry into that command.",
+      "red": {
+        "command": "$tsLog = & pnpm.cmd exec vitest run tests/platform-desktop/tauri-project-storage.test.ts tests/ui/files/ProjectLifecycleControls.test.tsx; $rustLog = & cargo test entry_snapshot_follows_include_and_use_without_ingesting_unrelated_content --locked --manifest-path src/desktop-shell/src-tauri/Cargo.toml",
+        "observedAt": "2026-07-16T20:26:30-06:00",
+        "outcome": "RED: the two TypeScript boundary assertions failed because preferredEntryFile was not passed to storage and the Tauri invoke omitted entryFile; Rust failed to compile the focused test because no targeted snapshot function existed. Exit codes were TypeScript 1 and Rust 101."
+      },
+      "green": {
+        "command": "$rustLog = & cargo test entry_snapshot_follows_include_and_use_without_ingesting_unrelated_content --locked --manifest-path src/desktop-shell/src-tauri/Cargo.toml; $tsLog = & pnpm.cmd exec vitest run tests/platform-desktop/tauri-project-storage.test.ts tests/ui/files/ProjectLifecycleControls.test.tsx",
+        "observedAt": "2026-07-16T20:30:10-06:00",
+        "outcome": "TARGETED GREEN: the Rust dependency-closure test passed 1/1; the complete Tauri project-storage file passed 7/7; and the clean exact-associated-open assertion passed among 37 passing lifecycle assertions. The combined Vitest process exited 1 only because a concurrently added, separately owned dirty-open save-all UX assertion was not yet implemented; that unrelated assertion is excluded from this bounded storage unit and will be rerun by its owner. No replacement run was spent on it."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

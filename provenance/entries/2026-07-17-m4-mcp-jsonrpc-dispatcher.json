@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-mcp-jsonrpc-dispatcher",
+  "createdAt": "2026-07-17T04:02:30-06:00",
+  "summary": "Add a transport-neutral MCP JSON-RPC dispatcher that validates tools, returns protocol errors, holds denied mutations as pending_review, and delegates allowed calls to an application handler.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "C11", "FR-11.4", "FR-11.6", "AC-11.b", "N-7 evidence and status honesty"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-17-m4-mcp-jsonrpc-dispatcher.json", "status": "added" },
+    { "path": "src/application/mcp/mcp-dispatcher.ts", "status": "added" },
+    { "path": "tests/application/mcp/mcp-dispatcher.test.ts", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0336", "topic": "MCP JSON-RPC boundary", "decision": "Keep JSON-RPC dispatch independent of stdio and desktop process code; validate tools through mcp-tools, return -32601/-32602 protocol errors, hold denied mutations as pending_review, and delegate only permitted calls.", "rationale": "This creates a testable command-bus seam without inventing transport lifecycle behavior before the desktop stdio integration is designed and gated.", "specBasis": ["FR-11.4", "FR-11.6", "AC-11.b", "N-7"] }
+  ],
+  "testEvidence": [
+    { "criterion": "The dispatcher tests pass for tools/list, unknown-method protocol errors, denied mutation review status, and allowed handler delegation.", "test": "Run the focused MCP contract and dispatcher suites once after implementation.", "red": { "command": "pnpm.cmd exec tsc --noEmit --pretty false", "observedAt": "2026-07-17T04:00:50-06:00", "outcome": "RED: the dispatcher module and its handler contract were not yet present before this unit began." }, "green": { "command": "pnpm.cmd exec vitest run tests/application/mcp/mcp-tools.test.ts tests/application/mcp/mcp-dispatcher.test.ts", "observedAt": "2026-07-17T04:01:41-06:00", "outcome": "GREEN: Test Files 2 passed (2); Tests 5 passed (5); Duration 438ms." } },
+    { "criterion": "The dispatcher remains type-safe and source-policy clean.", "test": "Run TypeScript and repository lint/source policy once after implementation.", "red": { "command": "pnpm.cmd lint", "observedAt": "2026-07-17T04:00:50-06:00", "outcome": "RED: the dispatcher module was not yet present before this unit began." }, "green": { "command": "pnpm.cmd exec tsc --noEmit --pretty false; pnpm.cmd lint", "observedAt": "2026-07-17T04:01:41-06:00", "outcome": "GREEN: TypeScript exited 0; Checked 435 files in 209ms with source policy passed." } }
+  ],
+  "nearMisses": [],
+  "questions": ["The dispatcher currently returns an empty tools/list and has no stdio framing, initialize handshake, desktop handler registry, or process-off proof; AC-11.b/c remain open."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

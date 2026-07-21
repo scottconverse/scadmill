@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-m4-cold-cache-quality-transition",
+  "createdAt": "2026-07-20T20:55:19-06:00",
+  "summary": "Observe cached preview-to-full transitions even when the status text remains unchanged.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "FR-4.3", "FR-15.1", "AC-15.a", "V-5 release gate", "V-6 honesty rule"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-m4-cold-cache-quality-transition.json", "status": "added" },
+    { "path": "scripts/lib/m4-packaged-walkthrough.mjs", "status": "modified" },
+    { "path": "tests/application/runtime/workbench-runtime.test.ts", "status": "modified" },
+    { "path": "tests/scripts/m4-packaged-walkthrough.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0466",
+      "topic": "Cached preview-to-full presentation oracle",
+      "decision": "For packaged cached-full evidence, observe the document body and accept completion only when the status is cached and the Preview-quality badge is absent. Probe immediately after the click as well as on DOM mutations. Retain zero added Console runs and the under-100-ms painted-frame requirement. Add a runtime restart regression proving the disk-tier result is returned without invoking the engine.",
+      "rationale": "After project reopen, an automatic preview can already be a cache hit. A subsequent full-quality cache hit then leaves the text 'Rendered ... (3d, cached)' unchanged and truthfully removes only the Preview-quality badge. Watching the status node alone times out despite a successful full cache transition. The badge is the product's normative FR-4.3 quality disclosure, while the independent runtime test prevents the broader oracle from masking an engine invocation.",
+      "specBasis": ["FR-4.3", "FR-15.1", "AC-15.a", "V-5 release gate", "V-6 honesty rule"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "A cached preview followed by a cached full render must complete when only the Preview-quality badge changes.",
+      "test": "Execute the real cachedPaint DOM script in happy-dom with a pre-existing cached status, visible Preview-quality badge, and a Full render control that removes only the badge.",
+      "red": {
+        "command": "npm.cmd test -- --run tests/scripts/m4-packaged-walkthrough.test.ts -t \"observes a cached full render when only the preview-quality badge changes\"",
+        "observedAt": "2026-07-20T20:54:30-06:00",
+        "outcome": "RED: 1 failed by the five-second test bound because the oracle observed only the unchanged status node."
+      },
+      "green": {
+        "command": "npm.cmd test -- --run tests/scripts/m4-packaged-walkthrough.test.ts -t \"observes a cached full render when only the preview-quality badge changes\"",
+        "observedAt": "2026-07-20T20:54:58-06:00",
+        "outcome": "GREEN: 1/1 passed in 13 ms after observing the body, quality badge, and immediate post-click state."
+      }
+    },
+    {
+      "criterion": "The broader cached-transition oracle must not hide a real cold-start engine invocation.",
+      "test": "Share disk storage and persisted project consent between two workbench runtimes; render in the first, then request the same preview in the restarted runtime.",
+      "red": {
+        "command": "Not applicable: this is an independent characterization guard following the behavioral oracle's recorded RED.",
+        "observedAt": "2026-07-20T20:53:26-06:00",
+        "outcome": "No synthetic product failure was created; the test confirms the cache layer was already correct."
+      },
+      "green": {
+        "command": "npm.cmd test -- --run tests/application/runtime/workbench-runtime.test.ts",
+        "observedAt": "2026-07-20T20:53:26-06:00",
+        "outcome": "GREEN characterization: 31/31 passed; the restarted runtime returned cached success and made zero engine render calls."
+      }
+    },
+    {
+      "criterion": "The combined M4 harness and runtime cache regressions remain green.",
+      "test": "Run the three M4 harness suites plus the workbench runtime suite once.",
+      "red": {
+        "command": "Not applicable: this is the combined verification gate following the recorded behavioral RED/GREEN cycle.",
+        "observedAt": "2026-07-20T20:55:14-06:00",
+        "outcome": "No synthetic aggregate failure was created."
+      },
+      "green": {
+        "command": "npm.cmd test -- --run tests/scripts/m4-packaged-walkthrough.test.ts tests/scripts/m4-packaged-verifier.test.ts tests/scripts/packaged-desktop-evidence.test.ts tests/application/runtime/workbench-runtime.test.ts",
+        "observedAt": "2026-07-20T20:55:14-06:00",
+        "outcome": "GREEN: 108/108 tests passed."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-595914c-sandbox-m4-native-split-20260720/evidence.json",
+      "sought": "Exact clean packaged native M4 cold-start cache evidence",
+      "confirmation": "The run passed target-identity thumbnail selection and restart persistence, then timed out only because cached preview and cached full shared the same status text; host cleanup passed."
+    }
+  ],
+  "questions": ["No owner decision is required; the change binds the oracle to the existing Preview-quality disclosure and retains an independent zero-engine-call proof."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-readme-status-correction",
+  "createdAt": "2026-07-17T03:35:00-06:00",
+  "summary": "Correct the README M4 progress table so the thumbnail and AI rows distinguish implemented focused foundations from still-pending UI and hosted acceptance evidence.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "N-7 evidence and status honesty"],
+  "filesTouched": [
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-17-m4-readme-status-correction.json", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0318", "topic": "M4 status honesty", "decision": "State the completed thumbnail and AI foundations explicitly while naming the remaining UI, hosted-walkthrough, and acceptance-gate work instead of labeling either slice complete.", "rationale": "N-7 requires visitor-facing status claims to match retained evidence and to avoid both stale under-reporting and premature completion claims.", "specBasis": ["N-7", "FR-15.13", "C10"] }
+  ],
+  "testEvidence": [
+    { "criterion": "The status correction is a clean documentation-only change with valid provenance.", "test": "Run repository diff and provenance validation after the README edit.", "red": { "command": "git diff --check", "observedAt": "2026-07-17T03:34:30-06:00", "outcome": "RED: the stale README row was identified during review; no executable test was expected to fail for this documentation-only correction." }, "green": { "command": "git diff --check; pnpm.cmd check:provenance", "observedAt": "2026-07-17T03:35:00-06:00", "outcome": "GREEN: diff check exited 0; provenance ledger passed validation." } }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

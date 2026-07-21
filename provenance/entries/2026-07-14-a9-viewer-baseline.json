@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-14-a9-viewer-baseline",
+  "createdAt": "2026-07-14T22:44:15-06:00",
+  "summary": "Record owner amendment A-9, remove the obsolete 2020-class viewer minimum, designate AMD Radeon 780M as the disclosed FR-2.5 benchmark baseline, and define fail-closed source-bound qualification without predeclaring a candidate verdict.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Amendment A-9",
+    "FR-2.5 two-million-triangle interactive viewer performance",
+    "N-7 evidence honesty",
+    "M2-R04 viewer performance evidence"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "package.json", "status": "modified" },
+    { "path": "provenance/entries/2026-07-11-m2-five-zero-review-closure.json", "status": "added" },
+    { "path": "provenance/entries/2026-07-14-a9-viewer-baseline.json", "status": "added" },
+    { "path": "scripts/run-viewer-performance-profile.mjs", "status": "added" },
+    { "path": "spec/QUESTIONS.md", "status": "modified" },
+    { "path": "spec/scadmill-spec-v0.6.md", "status": "modified" },
+    { "path": "tests/performance/fixtures/m2-viewer-performance.tsx", "status": "modified" },
+    { "path": "tests/performance/m2-viewer-performance.perf.ts", "status": "modified" },
+    { "path": "tests/performance/viewer-performance-evidence.test.ts", "status": "added" },
+    { "path": "tests/performance/viewer-performance-evidence.ts", "status": "added" },
+    { "path": "tests/scripts/m2-boundary-docs.test.ts", "status": "added" },
+    { "path": "tests/scripts/viewer-performance-runner.test.mjs", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0225",
+      "topic": "Owner-designated FR-2.5 benchmark hardware",
+      "decision": "Remove the 2020-class integrated-GPU minimum and use AMD Radeon 780M as the owner-designated hardware-disclosing benchmark baseline for the exact two-million-triangle, at-least-30-fps orbit profile. Treat the benchmark as acceptance evidence rather than a minimum supported-hardware claim, and require the qualifying label to match the unmasked renderer.",
+      "rationale": "The owner determined that the former 2020-class target no longer represents the intended present-day baseline. Review found that earlier Radeon checkpoints were not bound to the exact candidate tree, profiler harness, timestamps, workload, and raw page/console observations. Those checkpoints are diagnostic only; this entry does not predeclare current-candidate qualification.",
+      "specBasis": ["Amendment A-9", "FR-2.5", "N-7", "M2-R04"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Current requirements and boundary documentation contain the A-9 baseline and no live 2020-class minimum",
+      "test": "Require the canonical specification, question queue, README, CHANGELOG, and performance harness to agree on AMD Radeon 780M as an evidence baseline rather than minimum supported hardware.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/m2-boundary-docs.test.ts --reporter=verbose",
+        "observedAt": "2026-07-14T22:40:18-06:00",
+        "outcome": "RED: 1 test failed and 3 passed because the canonical specification still contained the 2020-class integrated-GPU requirement and the A-9 baseline records did not yet exist."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/m2-boundary-docs.test.ts --reporter=verbose",
+        "observedAt": "2026-07-15T09:23:48-06:00",
+        "outcome": "GREEN: 1 test file and all 5 tests passed, including the A-9 cross-document, qualifying-renderer, source-bound external-evidence, and no-stale-verdict contracts."
+      }
+    },
+    {
+      "criterion": "Owner-baseline publication is bound to the exact candidate source and profiler harness",
+      "test": "Require the owner label to carry a pre-sample source identity, reject unstaged, untracked, changed, or tree-absent harness files, retain commit/tree/branch and independent harness hashes, validate canonical ordered timestamps, and prove a fully staged candidate's recorded tree becomes the committed HEAD tree.",
+      "red": {
+        "command": "NOT_RETAINED",
+        "observedAt": "2026-07-15T00:02:00-06:00",
+        "outcome": "EVIDENCE RED: adversarial review proved that the prior hardware profile lacked candidate source/tree identity, profiler-harness hashes, execution timestamps, expected workload, and retained page/console observations, so it could not qualify the current candidate."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/performance/viewer-performance-evidence.test.ts tests/scripts/viewer-performance-runner.test.mjs tests/ui/settings/SettingsDialog.test.tsx --reporter=verbose --maxWorkers=1",
+        "observedAt": "2026-07-15T10:42:01-06:00",
+        "outcome": "GREEN: 3 test files and all 37 tests passed, including all 17 performance helper and wrapper cases. Clean and fully staged source identities are recorded; a fully staged candidate tree matches the tree after commit; missing, lexically-first unstaged, untracked, changed, ignored/tree-absent, or working-tree-divergent sources cannot publish; and the evidence envelope retains exact source, harness, workload, timestamps, immutable observations, and an immutable profile snapshot. This unit green proves the fail-closed publication contract, not owner-hardware acceptance."
+      }
+    },
+    {
+      "criterion": "Rejected or stale performance output cannot masquerade as qualifying evidence",
+      "test": "Remove prior qualifying JSON before every preflight; recompute animation FPS, rendered FPS, and camera delta from raw observations; assess triangle count, degradation, renderer, trusted pointer moves, page errors, and console errors; and publish an explicit pass record only after all validation.",
+      "red": {
+        "command": "NOT_RETAINED",
+        "observedAt": "2026-07-15T00:02:00-06:00",
+        "outcome": "SOURCE RED: the earlier harness wrote viewer-performance-profile.json before its acceptance assertions, allowing a failing run or reused output directory to retain a qualifying-looking JSON file."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/performance/viewer-performance-evidence.test.ts tests/scripts/viewer-performance-runner.test.mjs tests/ui/settings/SettingsDialog.test.tsx --reporter=verbose --maxWorkers=1",
+        "observedAt": "2026-07-15T10:42:01-06:00",
+        "outcome": "GREEN: 3 test files and all 37 tests passed, including all 17 performance helper and wrapper cases. Stale evidence is invalidated by the wrapper before Playwright configuration, discovery, web-server, or browser work and again before workload preflight; whitespace artifact-directory input resolves to the same default used by Playwright; and the wrapper forwards arguments without pnpm's separator. Non-finite, fractional, slow, short, wrong-count, rejected, and caller-spoofed evidence cannot publish; contradictory reported FPS and camera-delta values are rejected against raw observations; late mutations cannot alter the frozen accepted observation or profile snapshots; the owner label forces exactly 2,000,000 triangles; and output is written only after internal reassessment with explicit pass status and an empty acceptance-error list."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "Historical committed ledger entries remain immutable and accurately describe the earlier policy; A-9 and this append-only entry supersede only their hardware-qualification conclusion.",
+    "A-9 resolves the hardware policy only. The prior Radeon checkpoint is diagnostic; current-candidate FR-2.5 acceptance requires a retained external source-bound artifact. M2 also remains open until its provenance, review, package, and hosted similarity gates complete.",
+    "No owner similarity gate, comparison repository, workflow content, or prohibited source was opened or executed."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

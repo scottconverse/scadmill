@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-m4-cdp-text-insertion",
+  "createdAt": "2026-07-20T09:20:00-06:00",
+  "summary": "Replace accepted-but-ineffective WebDriver keyboard Actions with one bounded loopback CDP Input.insertText command after an exact clean run proved focus but still retained an empty controlled Message textarea.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "M4 release candidate", "N-7 evidence honesty"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-m4-cdp-text-insertion.json", "status": "added" },
+    { "path": "scripts/lib/packaged-desktop-evidence.d.mts", "status": "modified" },
+    { "path": "scripts/lib/packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "scripts/run-packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://chromedevtools.github.io/devtools-protocol/",
+      "accessedOn": "2026-07-20",
+      "purpose": "Verify official loopback target discovery, page WebSocket endpoints, multiple-client behavior, and the compatibility warning for tip-of-tree CDP."
+    },
+    {
+      "url": "https://chromedevtools.github.io/devtools-protocol/tot/Input/",
+      "accessedOn": "2026-07-20",
+      "purpose": "Verify the official experimental Input.insertText command and its single text parameter; support remains bound to the exact pinned WebView2 150 runtime and exact clean evidence."
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/microsoft-edge/webview2/how-to/webdriver",
+      "accessedOn": "2026-07-20",
+      "purpose": "Verify Microsoft's official WebView2 automation relationship between Edge WebDriver and the embedded WebView runtime."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0449",
+      "topic": "Packaged controlled-textarea input transport",
+      "decision": "After exact focus and full selection, read the current WebDriver page URL and insert textarea text with exactly one Input.insertText command over the exact session's validated loopback CDP page socket. Refuse HTTP redirects; require one URL-matching page target and the same debugger port; canonicalize the socket host to 127.0.0.1; bound target, outbound text, response bytes, events, command time, and acknowledged close time; retain a timed-out socket for authoritative session teardown; keep errors secret-free and preserve the unchanged two-read React commit oracle. Replace WebDriver Actions rather than falling back after them, and do not change production React input behavior.",
+      "rationale": "The exact e5c9b9e clean Sandbox run proved the selected textarea was connected, enabled, and document.activeElement; WebDriver accepted and released keyboard Actions without error, yet two value reads remained empty and the AI mock received zero requests. Direct CDP insertion is the smallest distinct pinned-WebView text-input boundary and avoids duplicate or causally ambiguous Actions-plus-fallback behavior.",
+      "specBasis": ["M4 C10 AI assist", "Section 2.7 delivery protocol", "N-7 evidence honesty"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The packaged textarea path must use one bounded, same-session loopback CDP text insertion after exact focus, reject unsafe or ambiguous discovery, close its socket, redact text and protocol messages from errors, and retain the two-read React commit oracle.",
+      "test": "Exercise exact Unicode command payload, loopback and same-port validation, redirect refusal, exact current-page matching, ambiguous-target refusal, outbound byte cap, malformed and valid protocol errors, protocol-error hashing, acknowledged and timed-out socket close, session teardown wiring, focus ordering, CDP failure propagation, invalid-option preconditions, and two committed reads with injected transports.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts -t CDP --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T09:16:36-06:00",
+        "outcome": "RED: 0/6 selected tests passed. The CDP helper and runner wiring did not exist, and the textarea adapter still rejected clients without WebDriver Actions methods."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T09:39:17-06:00",
+        "outcome": "GREEN: the exact current packaged evidence helper suite passed 54/54, including current-page binding, redirect refusal, canonical loopback socket selection, outbound byte bounds, malformed-error refusal, acknowledged close, behavioral teardown retention, direct CDP insertion, secret-free errors, focus, failure propagation, and committed reads."
+      }
+    },
+    {
+      "criterion": "A socket created before listener registration fails must still be closed exactly once with a sanitized error.",
+      "test": "Inject a socket whose listener registration throws and count close calls.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts -t \"socket listener setup\" --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T09:23:17-06:00",
+        "outcome": "RED: the focused regression failed 0/1 because the created socket was not closed when listener registration threw."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts -t \"socket listener setup\" --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T09:32:50-06:00",
+        "outcome": "GREEN: the exact current focused regression passed 1/1; listener setup failure is sanitized, excludes the injected secret marker, and closes the created socket exactly once."
+      }
+    },
+    {
+      "criterion": "CDP insertion must not target a different page, follow redirects, accept malformed errors, exceed the outbound bound, or resolve before bounded close acknowledgement.",
+      "test": "Falsify the pre-hardening helper with an unrelated sole page, missing redirect policy, malformed error plus result, and unacknowledged close; then run the hardened current-page, malformed-error, byte-cap, and close-acknowledgement regressions.",
+      "red": {
+        "command": "Independent inline Node falsification against insertTextThroughCdp; the exact command text was not retained.",
+        "observedAt": "2026-07-20T09:26:00-06:00",
+        "outcome": "RED retained from independent adversarial review: {\"verdict\":\"FALSE_SUCCESS\",\"redirectMode\":null,\"openedUnrelatedTarget\":true}; a separate injected socket reported closeRequested true and closeAcknowledged false while the promise resolved. The original exact command text and execution instant were not retained."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T09:39:17-06:00",
+        "outcome": "GREEN: the exact current helper suite passed 54/54, including wrong-sole-page refusal, redirect:error, canonical 127.0.0.1 socket use, malformed-error refusal, pre-discovery outbound byte refusal, promise-pending-until-close proof, close timeout, and behavioral session-teardown retention."
+      }
+    },
+    {
+      "criterion": "A close-timed-out socket must remain leased for authoritative session teardown, and teardown must clear the lease even when the socket close call throws.",
+      "test": "Drive the real CDP callback contract through close timeout, assert the exact socket lease remains active, close it through the lease, then inject a throwing close and prove the lease clears before propagating the failure.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts -t \"retained CDP socket\" --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T09:38:26-06:00",
+        "outcome": "RED: the focused lifecycle regression failed 0/1 because the behavioral CDP socket lease did not exist."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts -t \"retained CDP socket\" --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T09:38:54-06:00",
+        "outcome": "GREEN: the focused lifecycle regression passed 1/1; authoritative close clears the retained socket lease before propagating a close error, allowing a later session to start without stale CDP state."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-e5c9b9e-sandbox-m4-focus-20260720/evidence.json",
+      "sought": "Exact clean packaged M4 walkthrough on candidate e5c9b9edaa8c007634f513978c1c18b2fe959d21",
+      "confirmation": "The source-bound build succeeded, all pre-AI-message phases passed, and the exact focus gate allowed keyboard Actions to execute. The Message textarea still did not retain the requested value and the local mock received zero requests. Cleanup removed staging and left no exact Sandbox session. This artifact is failed evidence and is not a packaged pass."
+    }
+  ],
+  "questions": ["No owner decision is required. The direct CDP contract is locally proven against injected transports; support and React retention remain explicitly unproven until one exact-source clean run passes on the pinned WebView2 150 runtime."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

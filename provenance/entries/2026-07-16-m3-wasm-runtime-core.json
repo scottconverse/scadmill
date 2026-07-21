@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-16-m3-wasm-runtime-core",
+  "createdAt": "2026-07-16T07:19:00-06:00",
+  "summary": "Implement the artifact-independent OpenSCAD WebAssembly runtime core for validated virtual project staging, native-aligned CLI execution, output capture, result parsing, exports, and complete cleanup.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 M3 delivery protocol",
+    "Architecture A-2 dedicated WebAssembly worker and virtual file system",
+    "FR-4.1 WebAssembly EngineService implementation",
+    "FR-4.2 render, export, and version operations",
+    "FR-4.3 preview and full render semantics",
+    "FR-4.5 multi-file virtual file system",
+    "FR-4.8 verbatim engine output and diagnostics",
+    "AC-4.b parameter overrides",
+    "Appendix A normative request and result types",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-16-m3-wasm-runtime-core.json", "status": "added" },
+    { "path": "src/platform-web/openscad-wasm-module.ts", "status": "added" },
+    { "path": "src/platform-web/openscad-wasm-runtime.ts", "status": "added" },
+    { "path": "tests/platform-web/openscad-wasm-runtime.test.ts", "status": "added" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29495964243",
+      "accessedOn": "2026-07-16",
+      "purpose": "Inspect the generated official-source Emscripten module boundary and confirm noInitialRun/noExitRuntime options, byte output hooks, callMain, and the exposed virtual filesystem methods used by the fresh adapter."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0248",
+      "topic": "Artifact-independent OpenSCAD WASM runtime core",
+      "decision": "Decode only a generated-module default factory that resolves a complete callMain and filesystem surface, then implement render, export, and version behavior against that injected boundary so native-aligned VFS and CLI logic is exhaustively testable without executing or bundling GPL artifact bytes.",
+      "rationale": "The generated JavaScript is a separately fetched engine artifact and must never be statically imported into the application bundle. An injected runtime core proves ScadMill-owned behavior independently, keeps the worker glue small, and leaves the real artifact, caching, progress, and license boundary for explicit integration gates.",
+      "specBasis": ["Architecture A-2", "FR-4.1", "FR-4.2", "FR-4.5", "Appendix A"]
+    },
+    {
+      "id": "D-0249",
+      "topic": "Private monotonic WASM workspaces and cleanup",
+      "decision": "Stage every operation beneath a private monotonic /scadmill/jobs root, validate portable normalized layouts and a UTF-8 text entry before callMain, and recursively remove all partial or complete workspace nodes after success, CLI failure, parse failure, or staging failure while preserving the original error.",
+      "rationale": "A reused Emscripten filesystem otherwise leaks assets between renders and can accumulate partial files after a failed write. Private roots plus fault-injected cleanup proof prevent stale-project influence and keep sequential worker reuse safe for the real integration test.",
+      "specBasis": ["FR-4.5", "AC-4.c", "N-7"]
+    },
+    {
+      "id": "D-0250",
+      "topic": "Output observers and adapter failures",
+      "decision": "Contain output-observer exceptions outside the engine lifecycle, flush unterminated streams by first-pending-byte order, and append an explicitly labeled ScadMill adapter error to prior verbatim engine output while adding a structured adapter diagnostic.",
+      "rationale": "A UI observer must not reject an engine promise or skip VFS cleanup. Engine output must remain visible when a later artifact read or parse fails, and the adapter cause must be distinguishable from engine stderr rather than silently discarded or misattributed.",
+      "specBasis": ["FR-4.8", "Appendix A", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The injected runtime mirrors native staging, deterministic parameters, preview/full arguments, render fallback, output capture, parsing, exports, and ordinary cleanup",
+      "test": "Run the focused fake-module and in-memory-filesystem runtime suite against behavioral stubs, then implement the complete pure runtime boundary.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/platform-web/openscad-wasm-runtime.test.ts",
+        "observedAt": "2026-07-16T06:41:03-06:00",
+        "outcome": "RED: 1 test file failed and all 8 behavioral tests failed against the compilable stubs."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/platform-web/openscad-wasm-runtime.test.ts",
+        "observedAt": "2026-07-16T06:43:53-06:00",
+        "outcome": "GREEN: 1 test file and all 8 tests passed in 505 ms after the first runtime implementation."
+      }
+    },
+    {
+      "criterion": "Version and PNG behavior are proven, multibyte mixed-stream output remains intact, and partial staging never leaves virtual filesystem residue",
+      "test": "Add version outcome cases, exact PNG argument/refusal cases, interleaved UTF-8 output, and fault-injected mkdir/write failures that assert an empty root and the original error.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/platform-web/openscad-wasm-runtime.test.ts",
+        "observedAt": "2026-07-16T07:17:31-06:00",
+        "outcome": "RED: 2 of 15 tests failed and 13 passed; both partial-stage fault injections left /scadmill residue."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/platform-web/openscad-wasm-runtime.test.ts",
+        "observedAt": "2026-07-16T07:18:08-06:00",
+        "outcome": "GREEN: 1 test file and all 15 tests passed in 554 ms after best-effort recursive partial-workspace cleanup was added. TypeScript and focused Biome checks also exited 0."
+      }
+    },
+    {
+      "criterion": "Output observers cannot break settlement or cleanup, adapter causes remain visible after engine output, and partial stream events retain observed order",
+      "test": "Inject throwing complete-line and finish-time observers, corrupt STL and summary outputs after warning text, and leave both streams unterminated in reverse lexical order.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/platform-web/openscad-wasm-runtime.test.ts",
+        "observedAt": "2026-07-16T07:43:19-06:00",
+        "outcome": "RED: 4 of 19 tests failed and 15 passed, reproducing the two Major and one Minor independent-audit findings."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/platform-web/openscad-wasm-runtime.test.ts",
+        "observedAt": "2026-07-16T07:44:01-06:00",
+        "outcome": "GREEN: 1 test file and all 19 tests passed in 543 ms. TypeScript and focused Biome checks also exited 0 with no further cycles."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

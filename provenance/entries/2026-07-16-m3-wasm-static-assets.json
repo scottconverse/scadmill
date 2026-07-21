@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-16-m3-wasm-static-assets",
+  "createdAt": "2026-07-16T12:57:00-06:00",
+  "summary": "Validate and quarantine the exact retained source-built OpenSCAD JavaScript, WebAssembly, and manifest bytes at the browser worker's versioned static URLs without adding them to the public candidate.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 M3 delivery protocol",
+    "Architecture A-2 dedicated Web Worker boundary",
+    "FR-4.1 WebAssembly EngineService implementation",
+    "FR-4.7 separate fetch, cache, progress, and offline operation",
+    "AC-13.c static web host",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": ".gitignore", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-16-m3-wasm-static-assets.json", "status": "added" },
+    { "path": "spec/QUESTIONS.md", "status": "modified" },
+    { "path": "tests/platform-web/openscad-wasm-static-assets.test.ts", "status": "added" },
+    { "path": "tests/scripts/wasm-publication-quarantine.test.ts", "status": "added" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29529789154",
+      "purpose": "Retrieve GPL-2.0-or-later OpenSCAD artifact 8388445492 from the corrected exact-source build that explicitly pins and verifies the embedded 2026.06.12 version.",
+      "accessedOn": "2026-07-16"
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0260",
+      "topic": "Local quarantine and versioned validation of the verified OpenSCAD WebAssembly artifact pair",
+      "decision": "Keep the exact retained openscad.js and openscad.wasm bytes plus their unmodified source-build manifest under the ignored public/openscad-engine/2026.06.12 path for local validation only. Bind those local bytes to loader constants and source provenance with automated length, SHA-256, source-commit, and Emscripten-version checks, and fail a separate policy test if the public engine directory stops being ignored before Q-0033 is resolved.",
+      "rationale": "The worker's versioned separately fetched URLs can be validated locally without publishing GPL-covered engine bytes. Quarantine preserves exact-byte technical evidence while preventing the candidate from silently distributing artifacts before owner counsel approves the required license and source-offer materials.",
+      "specBasis": ["Architecture A-2", "FR-4.1", "FR-4.7", "AC-13.c", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "All three locally retained source-build files exist at the ignored versioned validation paths with the exact recorded bytes and manifest identity.",
+      "test": "Read each ignored local file from the worker's versioned path, assert exact length and SHA-256, and decode the manifest to bind its official source commit, Emscripten version, and artifact hashes to the loader trust anchors.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/platform-web/openscad-wasm-static-assets.test.ts",
+        "observedAt": "2026-07-16T12:56:21-06:00",
+        "outcome": "RED: 3 tests failed because openscad.js, openscad.wasm, and manifest.json did not exist under public/openscad-engine/2026.06.12."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/platform-web/openscad-wasm-static-assets.test.ts",
+        "observedAt": "2026-07-16T12:56:51-06:00",
+        "outcome": "GREEN locally: after replacing the first runner-date build with corrected artifact 8388445492, the focused exact-byte file passed all 3 tests. The ignored manifest, JavaScript, and WASM lengths are 599, 100,027, and 10,760,714 bytes; SHA-256 values are AB195992B8316002D07D7630AE33CE276EB86A06BE320BE9F1604CA81A8787C4, E458673D46D506D77B780C526D6E5492250F353D582057C6F912724A9586D86E, and F908AAFA32FEBE9A3A20F76ACA6B8101051BF2FC7655F094F18C6D99B52683EA. The manifest records OpenSCAD 2026.06.12 and the exact official source commit. These bytes are not tracked or publicly deployed."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": ["Q-0033"],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

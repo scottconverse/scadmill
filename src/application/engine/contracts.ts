@@ -11,6 +11,7 @@ export interface RenderRequest {
   parameters: Readonly<Record<string, ParamValue>>;
   quality: Quality;
   timeoutMs: number;
+  previewFacetLimit?: number;
 }
 
 export interface Diagnostic {
@@ -30,7 +31,7 @@ export interface RenderStats {
 
 export interface RenderSuccess3D {
   kind: "3d";
-  mesh: { format: MeshFormat; bytes: Uint8Array };
+  mesh: { format: MeshFormat; bytes: Uint8Array; geometryIdentity?: string };
   stats: RenderStats;
   diagnostics: Diagnostic[];
   rawLog: string;
@@ -39,6 +40,7 @@ export interface RenderSuccess3D {
 export interface RenderSuccess2D {
   kind: "2d";
   svg: string;
+  geometryIdentity?: string;
   boundingBox: { min: [number, number]; max: [number, number] };
   diagnostics: Diagnostic[];
   rawLog: string;
@@ -77,11 +79,21 @@ export interface EngineInfo {
   version: string;
   path: "native" | "wasm";
   features: string[];
+  /** Verified artifact or executable digest; absent means cache reuse is disabled. */
+  buildIdentity?: string;
+}
+
+export interface EngineOutputEvent {
+  sequence: number;
+  elapsedMs: number;
+  stream: "stdout" | "stderr";
+  raw: string;
 }
 
 export interface RenderJob<T> {
   jobId: string;
   done: Promise<T>;
+  subscribeOutput(listener: (event: EngineOutputEvent) => void): () => void;
 }
 
 export interface EngineService {

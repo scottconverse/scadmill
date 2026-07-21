@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-m4-native-cache-record-diagnostic",
+  "createdAt": "2026-07-20T21:45:32-06:00",
+  "summary": "Retain bounded native cache-record state when the exact cold-cache walkthrough fails.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "FR-15.1", "AC-15.a", "V-5 release gate", "V-6 honesty rule"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-m4-native-cache-record-diagnostic.json", "status": "added" },
+    { "path": "scripts/lib/m4-packaged-walkthrough.mjs", "status": "modified" },
+    { "path": "scripts/run-packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "tests/scripts/m4-packaged-walkthrough.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0472",
+      "topic": "Cold-cache native record diagnostics",
+      "decision": "On the exact cold-cache path, capture the enabled preference count and a maximum of 32 opaque native cache record hashes, sizes, and access timestamps immediately before close, after process restart, and after project reopen. Include that fixed-shape state only when the bounded cached-paint transition fails.",
+      "rationale": "Exact clean evidence at 369f1a8 still missed the full cache after successful completion ordering was corrected. The prior DOM-only state cannot distinguish a rejected write, process-loss, corrupt-record removal, or a different lookup key. The new diagnostic preserves that distinction without retaining source, project path, or the opaque project identity.",
+      "specBasis": ["FR-15.1", "AC-15.a", "V-5 release gate", "V-6 honesty rule"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "A cached-paint timeout must retain the bounded cache diagnostic supplied by the clean restart boundary.",
+      "test": "Inject fixed-shape before-close, after-restart, and after-open record counts into the DOM fixture and force the 15-second timeout through the bounded timer shim.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/m4-packaged-walkthrough.test.ts -t \"retains the final cached-paint DOM state when the transition times out\" --reporter=dot",
+        "observedAt": "2026-07-20T21:44:02-06:00",
+        "outcome": "RED: 1/1 failed because the timeout omitted the supplied native cache diagnostic."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/m4-packaged-walkthrough.test.ts -t \"retains the final cached-paint DOM state when the transition times out\" --reporter=dot",
+        "observedAt": "2026-07-20T21:44:45-06:00",
+        "outcome": "GREEN: 1/1 passed with the fixed-shape diagnostic retained."
+      }
+    },
+    {
+      "criterion": "The native snapshot must list records through Tauri without retaining the project identity, and the full harness boundary must typecheck.",
+      "test": "Exercise the snapshot against a fake Tauri invoke boundary, then run the entire M4 harness unit file and TypeScript no-emit once.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/m4-packaged-walkthrough.test.ts --reporter=dot",
+        "observedAt": "2026-07-20T21:45:05-06:00",
+        "outcome": "RED: 1/22 failed because the new fixture initially omitted the explicit Vitest spy import."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/m4-packaged-walkthrough.test.ts --reporter=dot; pnpm.cmd run typecheck",
+        "observedAt": "2026-07-20T21:45:22-06:00",
+        "outcome": "GREEN: 22/22 harness tests passed, the project identity was absent from the retained snapshot, and TypeScript no-emit passed."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-369f1a8-sandbox-m4-native-split-20260720/evidence.json",
+      "sought": "Exact clean packaged native M4 cold-start cache evidence after the durability-ordering fix",
+      "confirmation": "The full click still launched exactly one new engine run after restart; clickStarted=true, consoleRunsBefore=2, consoleRunsAfter=3, and host cleanup passed. This disproved completion ordering as the sole cause."
+    }
+  ],
+  "questions": ["No owner decision is required; this is bounded evidence needed to localize the remaining M4 cache miss."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

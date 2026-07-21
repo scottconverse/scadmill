@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-q0001-decision-id-correction",
+  "createdAt": "2026-07-11T13:20:00-06:00",
+  "summary": "Correct the Q-0001 Unicode-3.0 policy decision identifier without rewriting the immutable source entry: D-0131 is the authoritative identifier because D-0130 was already assigned to the C6 File-shortcut correction.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 immutable provenance ledger",
+    "Owner resolution of Q-0001",
+    "Section 6 dependency license policy"
+  ],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-11-q0001-decision-id-correction.json", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0131",
+      "topic": "Unicode-3.0 dependency-license policy identifier correction",
+      "decision": "Treat D-0131 as the authoritative identifier for the Unicode-3.0 allow-list decision recorded in 2026-07-11-q0001-unicode-license; its accidental D-0130 label is superseded because D-0130 already identifies the C6 File-shortcut correction.",
+      "rationale": "Decision identifiers must remain unambiguous across the append-only clean-room record. Appending this correction preserves the immutable original entry while restoring a unique identifier.",
+      "specBasis": [
+        "Section 2.4 immutable ledger corrections",
+        "Owner resolution of Q-0001"
+      ]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Unique append-only decision identity",
+      "test": "Search the complete ledger for D-0130 and append a correction rather than modifying either committed historical record.",
+      "red": {
+        "command": "rg -n \"D-0130\" provenance/entries -g \"*.json\"",
+        "observedAt": "2026-07-11T13:18:00-06:00",
+        "outcome": "RED: D-0130 appeared in both the existing C6 File-shortcut correction and the new Q-0001 policy entry."
+      },
+      "green": {
+        "command": "node scripts/check-provenance.mjs --base 58b8e53d0589c1c90f07875257aa312f6647f54d",
+        "observedAt": "2026-07-11T13:22:00-06:00",
+        "outcome": "GREEN: Provenance ledger passed validation in PR append mode with the immutable correction and UI residual entries reconciling the exact 15-path commit diff."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "This entry changes no policy or product behavior; it only supplies the unique authoritative identifier D-0131 for the already-resolved Q-0001 decision."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

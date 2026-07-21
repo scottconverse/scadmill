@@ -1,0 +1,267 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-10-c4-native-diagnostics",
+  "createdAt": "2026-07-10T06:30:19.1997872-06:00",
+  "summary": "Deliver a coupled M1 C4/C8 native-render slice: deterministic and validated typed -D parameter overrides through the TypeScript/Tauri/Rust boundary, empirical OpenSCAD 2021.01 diagnostic fixtures, tolerant structured log parsing with logical entry-path mapping, typed native engine and missing-engine failures, and a console that retains both structured diagnostics and the raw engine log. This proves AC-4.b plus the AC-8.a/AC-8.c/AC-8.d foundations without claiming the still-pending complete C4 or C8 milestone scope.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.2 permitted inputs",
+    "Section 2.4 provenance ledger",
+    "Section 2.7 questions, decisions, and unit of work",
+    "Section 3 A-2 out-of-process engine boundary",
+    "Section 4.4 C4 engine abstraction",
+    "Section 4.4 FR-4.3 parameter definitions",
+    "Section 4.4 FR-4.8 captured engine output",
+    "Section 4.4 AC-4.b parameter overrides",
+    "Section 4.8 C8 diagnostics and console",
+    "Section 4.8 FR-8.2 structured diagnostics",
+    "Section 4.8 FR-8.3 echo presentation",
+    "Section 4.8 AC-8.a fixture parsing",
+    "Section 4.8 AC-8.c echo classification",
+    "Section 4.8 AC-8.d tolerant raw-line handling",
+    "Section 5 N-4 English message catalog",
+    "Section 7 V-1 test-first verification",
+    "Section 8 M1 native C4 and C8",
+    "Appendix A EngineService contracts"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    {
+      "path": "provenance/entries/2026-07-10-c4-native-diagnostics.json",
+      "status": "added"
+    },
+    { "path": "src/application/diagnostics/parse-engine-log.ts", "status": "added" },
+    { "path": "src/desktop-shell/src-tauri/src/lib.rs", "status": "modified" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/native-engine/src/lib.rs", "status": "modified" },
+    { "path": "src/platform-desktop/tauri-bridge.ts", "status": "modified" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/diagnostics/DiagnosticConsole.tsx", "status": "added" },
+    {
+      "path": "tests/application/diagnostics/parse-engine-log.test.ts",
+      "status": "added"
+    },
+    {
+      "path": "tests/fixtures/diagnostics/openscad-2021.01-echo.txt",
+      "status": "added"
+    },
+    {
+      "path": "tests/fixtures/diagnostics/openscad-2021.01-error-warning.txt",
+      "status": "added"
+    },
+    { "path": "tests/platform-desktop/tauri-bridge.test.ts", "status": "modified" },
+    { "path": "tests/ui/Workbench.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/openscad/openscad/releases",
+      "accessedOn": "2026-07-10",
+      "purpose": "Reconfirm that OpenSCAD 2021.01 remains the official repository's latest stable release rather than selecting a newer development snapshot by date alone."
+    },
+    {
+      "url": "https://openscad.org/downloads.html",
+      "accessedOn": "2026-07-10",
+      "purpose": "Confirm the official distinction between stable release downloads and nightly development builds under amendment A-5."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0058",
+      "topic": "Pinned-engine diagnostic parsing boundary",
+      "decision": "Characterize OpenSCAD 2021.01 error, warning, echo, and trace output with repository fixtures and parse it in a pure TypeScript adapter that preserves every raw line, removes only the severity prefix from Diagnostic.message, extracts a reported trailing file/line location, and optionally maps temporary engine filenames to logical project paths.",
+      "rationale": "A pure parser makes the empirically observed engine shapes deterministic and fuzz-testable while leaving the complete raw log available for unrecognized or garbled output as FR-8.2 and AC-8.d require.",
+      "specBasis": ["FR-4.8", "FR-8.2", "AC-8.a", "AC-8.c", "AC-8.d", "Appendix A"]
+    },
+    {
+      "id": "D-0059",
+      "topic": "Typed native failure transport",
+      "decision": "Return a discriminated native success-or-failure response from the Tauri command, map engine process failures and missing-engine discovery to the normative failure reasons, retain the optional native exit code and captured raw log, and run the same diagnostic parser for successful and failed renders.",
+      "rationale": "The application receives one stable RenderResult path with actionable diagnostics instead of losing engine stderr in a rejected invoke call, while unexpected adapter faults remain caught by NativeEngineService's existing never-reject contract.",
+      "specBasis": ["FR-4.1", "FR-4.8", "AC-4.d", "Appendix A"]
+    },
+    {
+      "id": "D-0060",
+      "topic": "Typed native parameter definitions",
+      "decision": "Deserialize the normative number, boolean, string, and numeric-vector parameter values in Rust; validate ordinary and $-prefixed OpenSCAD identifiers plus finite numbers; escape string literals; order definitions through BTreeMap; and pass each definition as its own -D argument before the preview-only quality override.",
+      "rationale": "Typed process arguments avoid source rewriting and shell interpolation, deterministic ordering supports reproducible commands, and a real-engine bounds test proves that the override changes geometry rather than only exercising serialization.",
+      "specBasis": ["FR-4.3", "AC-4.b", "Appendix A"]
+    },
+    {
+      "id": "D-0061",
+      "topic": "Raw and structured console coexistence",
+      "decision": "Extract the diagnostic console from Workbench and render structured items and the non-empty raw engine log together, retaining the prior empty-state behavior and severity-specific presentation tokens.",
+      "rationale": "Structured items support diagnosis while the verbatim run text remains available for unknown lines and empirical troubleshooting; neither representation should hide the other.",
+      "specBasis": ["FR-4.8", "FR-8.1", "FR-8.2", "FR-8.3", "AC-8.d", "N-4"]
+    },
+    {
+      "id": "D-0062",
+      "topic": "Native parser-error exit-code characterization",
+      "decision": "Record the direct OpenSCAD 2021.01 parser-error process result as exit code 1 and keep the failure transport generic for any optional integer code; discard the earlier apparent exit code 0 observation because a PowerShell output pipeline had masked the native process status before it was read.",
+      "rationale": "Direct invocation and the Rust process API independently report 1 for the retained cube-without-semicolon probe, so fixtures and tests must encode the verified engine behavior rather than the shell-pipeline artifact.",
+      "specBasis": ["FR-4.8", "FR-8.2", "Section 7 V-1"]
+    },
+    {
+      "id": "D-0063",
+      "topic": "M1 slice boundary",
+      "decision": "Claim AC-4.b and the parser/console foundations of AC-8.a, AC-8.c, and AC-8.d only; leave multi-file native staging, timeout/cancellation/supersession, export and 2D output, complete discovery UX, streaming run history, diagnostic navigation, filters/search/copy/clear/capping, and inline editor markers for subsequent M1 slices.",
+      "rationale": "The coupled transport/parser/UI work is a coherent Section 2.7 cluster, but it does not satisfy the complete C4 native path or C8 capability exit gates by itself.",
+      "specBasis": ["Section 2.7", "FR-4.4", "FR-4.5", "FR-4.6", "FR-4.9", "FR-8.1", "FR-8.4", "FR-8.6", "AC-8.b"]
+    },
+    {
+      "id": "D-0064",
+      "topic": "Engine stable-release pin validation",
+      "decision": "Retain OpenSCAD 2021.01 because the official release channel still marks it as the latest stable release; do not switch to a date-newer nightly without one of amendment A-5's parity, color-export, or confirmed-defect reasons.",
+      "rationale": "A-5 prefers the latest official stable release, not the artifact with the newest calendar date. Development snapshots are available, but this slice has established no qualifying reason to accept their additional reproducibility and compatibility risk.",
+      "specBasis": ["Amendment A-5", "ENGINE_VERSION", "Section 2.2 permitted inputs"]
+    },
+    {
+      "id": "D-0065",
+      "topic": "Native render workspace identity",
+      "decision": "Run the native subprocess with the isolated render workspace as its current directory and pass relative main.scad and model.stl names instead of host-absolute temporary paths.",
+      "rationale": "The engine then reports the stable main.scad identity that the platform bridge can map to the logical entry path, and private host temporary-directory paths do not leak into user diagnostics; full project-file staging remains the later FR-4.5 slice.",
+      "specBasis": ["FR-4.5", "FR-8.2", "Appendix A"]
+    },
+    {
+      "id": "D-0066",
+      "topic": "Optional exit-code wire normalization",
+      "decision": "Omit a Rust None exit code during serialization and defensively accept either null or an absent field at the TypeScript wire boundary, forwarding only actual numbers into the normative RenderFailure.",
+      "rationale": "Serde otherwise emits null for Option::None while Appendix A defines an optional number; normalizing at both sides prevents a transport representation detail from narrowing or violating the public contract.",
+      "specBasis": ["FR-4.1", "FR-4.8", "Appendix A"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "AC-8.a and AC-8.d pinned diagnostic fixtures and tolerant parsing",
+      "test": "The pure parser produces exactly one error and two warnings with source locations from the pinned fixture, preserves unknown and control-character lines raw, and retains 128 deterministic fuzz inputs without crashing or inventing diagnostics.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/diagnostics/parse-engine-log.test.ts --reporter=verbose",
+        "observedAt": "2026-07-10T05:54:48.3957724-06:00",
+        "outcome": "RED: all 3 initial tests failed at assertions; diagnostics and raw-line collections were empty for the golden, garbled, and fuzz inputs."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/diagnostics/parse-engine-log.test.ts tests/platform-desktop/tauri-bridge.test.ts tests/ui/Workbench.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-10T06:27:02-06:00",
+        "outcome": "GREEN: all 3 focused files and 23 tests passed, including the six parser cases and their checked-in .txt fixtures."
+      }
+    },
+    {
+      "criterion": "AC-8.c echo and trace classification",
+      "test": "Pinned echo output is classified as echo rather than warning, and trace output retains its message and optional location.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/diagnostics/parse-engine-log.test.ts --reporter=verbose",
+        "observedAt": "2026-07-10T05:55:45.0790654-06:00",
+        "outcome": "RED: the two new echo and trace assertion cases failed because neither prefix was recognized."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/diagnostics/parse-engine-log.test.ts --reporter=verbose",
+        "observedAt": "2026-07-10T05:56:00.9738082-06:00",
+        "outcome": "GREEN: all 5 parser tests passed after adding echo and trace recognition."
+      }
+    },
+    {
+      "criterion": "FR-4.8 and Appendix A typed native failure transport",
+      "test": "Engine process errors and missing-engine discovery cross the Rust/Tauri boundary as typed RenderFailure values, while the TypeScript bridge retains exit code and raw log and supplies parsed diagnostics.",
+      "red": {
+        "command": "cargo test --manifest-path src/desktop-shell/src-tauri/Cargo.toml maps_an_engine_process_error_to_the_typed_failure_wire_shape -- --nocapture",
+        "observedAt": "2026-07-10T06:02:24.7732394-06:00",
+        "outcome": "RED: the focused assertion received Err with the formatted engine error instead of the expected typed failure response."
+      },
+      "green": {
+        "command": "cargo test --manifest-path src/desktop-shell/src-tauri/Cargo.toml --all-targets",
+        "observedAt": "2026-07-10T06:21:14-06:00",
+        "outcome": "GREEN: both desktop-shell unit tests passed, covering process-error and missing-engine failure mapping."
+      }
+    },
+    {
+      "criterion": "FR-4.3 parameter serialization and input safety",
+      "test": "Every normative parameter type reaches the native command, deterministic Rust definitions escape strings, and unsafe names or non-finite numeric values are rejected.",
+      "red": {
+        "command": "cargo test --manifest-path src/native-engine/Cargo.toml parameter -- --nocapture",
+        "observedAt": "2026-07-10T06:05:57.6717002-06:00",
+        "outcome": "RED: both focused tests failed because the compiling stub emitted no definitions and accepted an unsafe parameter name."
+      },
+      "green": {
+        "command": "cargo test --manifest-path src/native-engine/Cargo.toml --all-targets",
+        "observedAt": "2026-07-10T06:27:02-06:00",
+        "outcome": "GREEN: all 9 native-engine tests passed, including deterministic formatting, injection boundaries, finite-number validation, and the pinned parser-error characterization."
+      }
+    },
+    {
+      "criterion": "AC-4.b real parameter override behavior",
+      "test": "A size=20 numeric override applied to source whose default is size=10 changes the pinned engine's measured geometry bounds to 20 by 20 by 20 without editing source.",
+      "red": {
+        "command": "cargo test --manifest-path src/native-engine/Cargo.toml applies_parameter_overrides_to_real_engine_geometry -- --nocapture",
+        "observedAt": "2026-07-10T06:06:58.5666836-06:00",
+        "outcome": "RED: the compiling render stub ignored parameters and returned 10 by 10 by 10 bounds instead of 20 by 20 by 20."
+      },
+      "green": {
+        "command": "cargo test --manifest-path src/native-engine/Cargo.toml applies_parameter_overrides_to_real_engine_geometry -- --nocapture",
+        "observedAt": "2026-07-10T06:07:31.5137206-06:00",
+        "outcome": "GREEN: the focused real-engine test passed with 20 by 20 by 20 measured bounds."
+      }
+    },
+    {
+      "criterion": "FR-4.8 raw log remains visible beside structured diagnostics",
+      "test": "A failed render with errors, warnings, and an extra raw footer shows both structured diagnostic rows and the complete raw text in the console while preserving the status count.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/Workbench.test.tsx -t \"reports structured render diagnostics\" --reporter=verbose",
+        "observedAt": "2026-07-10T06:08:26.5626567-06:00",
+        "outcome": "RED: the focused assertion could not find the raw compiler footer because the existing console hid raw output whenever structured items existed."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/diagnostics/parse-engine-log.test.ts tests/platform-desktop/tauri-bridge.test.ts tests/ui/Workbench.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-10T06:27:02-06:00",
+        "outcome": "GREEN: all 23 focused tests passed, including simultaneous structured and raw console content."
+      }
+    },
+    {
+      "criterion": "FR-8.2 logical diagnostic paths from the native workspace",
+      "test": "A real pinned-engine parser failure reports in file main.scad rather than leaking the host's temporary render-workspace path, enabling deterministic logical entry-file mapping.",
+      "red": {
+        "command": "cargo test --manifest-path src/native-engine/Cargo.toml tests::reports_a_parser_error_with_the_raw_engine_log -- --exact --nocapture",
+        "observedAt": "2026-07-10T06:36:49.3336013-06:00",
+        "outcome": "RED observed moments earlier; exact start time was not retained. The assertion showed ../../../../AppData/Local/Temp/.tmp.../main.scad in the engine log instead of main.scad."
+      },
+      "green": {
+        "command": "cargo test --manifest-path src/native-engine/Cargo.toml tests::reports_a_parser_error_with_the_raw_engine_log -- --exact --nocapture",
+        "observedAt": "2026-07-10T06:36:49.3336013-06:00",
+        "outcome": "GREEN observed immediately after making the render workspace the subprocess CWD: the focused real-engine test passed with the stable main.scad location."
+      }
+    },
+    {
+      "criterion": "Appendix A optional exit code and FR-4.3 special-variable identifier boundaries",
+      "test": "A null native exit code is omitted from RenderFailure, and incomplete or digit-starting special-variable keys ($ and $1) are rejected before engine invocation.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/platform-desktop/tauri-bridge.test.ts -t \"omits a null native exit code\" --reporter=verbose; cargo test --manifest-path src/native-engine/Cargo.toml tests::rejects_unsafe_parameter_names_and_non_finite_numbers -- --exact --nocapture",
+        "observedAt": "2026-07-10T06:35:20-06:00",
+        "outcome": "RED: the bridge returned exitCode:null, and the Rust assertion showed that $ was accepted as an identifier."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/platform-desktop/tauri-bridge.test.ts -t \"omits a null native exit code\" --reporter=verbose; cargo test --manifest-path src/native-engine/Cargo.toml tests::rejects_unsafe_parameter_names_and_non_finite_numbers -- --exact --nocapture",
+        "observedAt": "2026-07-10T06:35:44-06:00",
+        "outcome": "GREEN: both focused regressions passed; null is normalized away and $/$1 are rejected while valid identifiers remain covered by the formatting test."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "urn:scadmill:owner-supplied:ci-similarity-gate",
+      "sought": "Exclude the owner-supplied similarity-gate workflow from a read-only repository audit.",
+      "confirmation": "A failed exclusion glob printed that workflow once. It was not executed, modified, used to derive product behavior, or inspected further; no comparison repository or prohibited editor source was accessed."
+    }
+  ],
+  "questions": [
+    "Q-0001 remains open: the unchanged Rust dependency graph still reports the same 19 Unicode-3.0 license-policy exceptions, while npm's 117-package license gate passes.",
+    "Q-0003 remains open: the preview/full seam is retained, but this slice does not finalize the owner-selected facet-cap algorithm.",
+    "Q-0016 remains open: diagnostics are tied to the current source snapshot in the workbench, while the final stale-versus-clear inline-marker policy remains parked.",
+    "No new owner question was required for this slice; subsequent M1 work continues on the explicitly unclaimed C4 and C8 requirements listed in D-0063."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

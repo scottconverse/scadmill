@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-18-windows-portability-measurement-window",
+  "createdAt": "2026-07-18T18:15:03-06:00",
+  "summary": "Exclude pre-window fixture setup from the Windows project-portability long-task measurement without weakening encode/decode observation.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "N-1", "N-7"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-18-windows-portability-measurement-window.json", "status": "added" },
+    { "path": "tests/e2e/fixtures/m2-portability-profile.ts", "status": "modified" },
+    { "path": "tests/scripts/portability-profile-contract.test.ts", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0386",
+      "topic": "Project-portability long-task measurement window",
+      "decision": "Observe non-buffered browser long-task entries after the near-limit random asset and cancellation fixtures are prepared and before the timed encode/decode operations begin; retain the exact zero-long-task and heartbeat assertions during the product operations.",
+      "rationale": "The observer was created after fixture setup but requested buffered entries, so Windows replayed one earlier setup task while Ubuntu and the local browser replayed none. That cross-host result measured browser history outside the intended product-operation window. Non-buffered observation still begins before encode and remains active until 50 ms after decode, while the independent heartbeat continues to detect main-thread delay.",
+      "specBasis": ["N-1", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The near-limit profile must measure the real ZIP encode/decode window and continue failing on any long task or 50 ms heartbeat gap within that window.",
+      "test": "Run the source-window regression and the one real 92 MiB Playwright portability profile, then strict types and scoped lint.",
+      "red": {
+        "command": "GitHub Actions run 29666335068 job 88137259000; pnpm.cmd exec vitest run tests/scripts/portability-profile-contract.test.ts",
+        "observedAt": "2026-07-18T18:13:44-06:00",
+        "outcome": "RED: hosted Windows browser acceptance completed the byte/cancellation journey but reported longTaskCount=1 from buffered history; the new regression failed 1/1 because non-buffered observation did not exist. Ubuntu passed the same product journey."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/portability-profile-contract.test.ts; pnpm.cmd exec playwright test tests/e2e/m2-portability-profile.e2e.ts; pnpm.cmd run typecheck; pnpm.cmd exec biome lint tests/e2e/fixtures/m2-portability-profile.ts tests/scripts/portability-profile-contract.test.ts",
+        "observedAt": "2026-07-18T18:14:30-06:00",
+        "outcome": "GREEN: 1/1 regression and 1/1 real browser profile passed. The 92 MiB artifact round-tripped exactly with longTaskCount=0, longestLongTaskMs=0, maximumHeartbeatGapMs=17.4, cancellationMs=13.8, peakHeapDeltaBytes=192388246, and exact source/decoded asset checks; TypeScript and scoped Biome passed. Independent review confirmed the observer and heartbeat span the complete encode/decode window plus delivery drain and returned strict 0/0/0/0/0."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://tests/e2e/fixtures/m2-portability-profile.ts",
+      "sought": "Why only hosted Windows reported a long task while product byte and cancellation assertions remained green",
+      "confirmation": "PerformanceObserver was started after fixture setup with buffered=true, allowing the browser to replay pre-window long tasks into the encode/decode result."
+    }
+  ],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

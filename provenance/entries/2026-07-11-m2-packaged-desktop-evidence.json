@@ -1,0 +1,195 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-m2-packaged-desktop-evidence",
+  "createdAt": "2026-07-11T15:40:00-06:00",
+  "summary": "Close the M2-R02 and M2-R03 evidence gaps with a cryptographically bound, fail-closed Windows Sandbox journey through the release Tauri executable: exact pinned-engine first use, real cube render and binary-STL export, normal restart, forced-process recovery, production Windows Credential Manager save/load/clear, recursive secret scans while set and after clear, and exact guest and host cleanup.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 test-first evidence and milestone gates",
+    "FR-4.3 rendered preview and full geometry",
+    "FR-6.4 crash recovery",
+    "FR-6.7 export",
+    "FR-9.3 per-user settings",
+    "AC-6.d live kill and relaunch recovery",
+    "AC-9.c operating-system credential storage and secret exclusion",
+    "M2-R02 packaged desktop evidence",
+    "M2-R03 production credential evidence",
+    "N-2 reliability",
+    "N-7 UI honesty"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-11-m2-packaged-desktop-evidence.json", "status": "added" },
+    { "path": "scripts/lib/packaged-desktop-evidence.d.mts", "status": "added" },
+    { "path": "scripts/lib/packaged-desktop-evidence.mjs", "status": "added" },
+    { "path": "scripts/run-packaged-desktop-evidence.mjs", "status": "added" },
+    { "path": "scripts/windows/credential-probe.ps1", "status": "added" },
+    { "path": "scripts/windows/run-packaged-desktop-evidence.ps1", "status": "added" },
+    { "path": "scripts/windows/run-packaged-desktop-sandbox.ps1", "status": "added" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "added" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://v2.tauri.app/develop/tests/webdriver/",
+      "accessedOn": "2026-07-11",
+      "purpose": "Use the official Tauri WebDriver architecture and tauri-driver boundary for a release-executable journey."
+    },
+    {
+      "url": "https://v2.tauri.app/develop/tests/webdriver/example/selenium/",
+      "accessedOn": "2026-07-11",
+      "purpose": "Confirm the official direct-session capability shape before implementing the dependency-free WebDriver client."
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/microsoft-edge/webdriver/capabilities-edge-options",
+      "accessedOn": "2026-07-11",
+      "purpose": "Configure the fixed WebView2 browser folder and user-data folder using documented Edge WebDriver capabilities."
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2environmentoptions?view=webview2-1.0.3856.49",
+      "accessedOn": "2026-07-11",
+      "purpose": "Apply the documented host-app --edge-webview-switches override for test-only remote debugging."
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution",
+      "accessedOn": "2026-07-11",
+      "purpose": "Use an official fixed WebView2 runtime only as a disposable evidence prerequisite when a fresh Sandbox has no registered runtime."
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/microsoft-edge/web-platform/devtools-mcp-server",
+      "accessedOn": "2026-07-11",
+      "purpose": "Confirm that WebView2 appends EBWebView to the configured user-data folder and places the debugger endpoint beneath it."
+    },
+    {
+      "url": "https://developer.microsoft.com/en-us/microsoft-edge/tools/webdriver/",
+      "accessedOn": "2026-07-11",
+      "purpose": "Obtain the official Microsoft EdgeDriver matching fixed WebView2 version 150.0.4078.65."
+    },
+    {
+      "url": "https://developer.microsoft.com/en-us/microsoft-edge/webview2/",
+      "accessedOn": "2026-07-11",
+      "purpose": "Obtain the official fixed WebView2 150.0.4078.65 runtime archive."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0170",
+      "topic": "Disposable packaged Windows evidence boundary",
+      "decision": "Run the release executable in a fresh Windows Sandbox with networking, clipboard, audio, video, and printer redirection disabled; map the staged app, harness, engine, and fixed runtime read-only; expose only the evidence output mapping as writable; retain and hash the exact config and harness manifest; and create the final PASS marker only after exact Sandbox-session and staging cleanup succeeds on the host.",
+      "rationale": "R02 requires real packaged behavior without contaminating the developer profile. A retained, structurally validated config plus fail-closed guest and host markers prevents a permissive or partially cleaned run from being called green.",
+      "specBasis": ["Section 2.7", "M2-R02", "N-2", "N-7"]
+    },
+    {
+      "id": "D-0171",
+      "topic": "Production Windows Credential Manager evidence without secret disclosure",
+      "decision": "Generate a unique synthetic secret only inside the guest, save and reload it through the release UI, verify the exact generic-credential target with native CredReadW without reading its blob, scan AppData, LocalAppData, Downloads, and evidence output for the raw bytes while the credential is set and again after clear, and require CredReadW ERROR_NOT_FOUND 1168 after clear.",
+      "rationale": "The UI round trip proves exact secret value recovery while the native probe proves production OS-store presence and deletion. Hash-only reporting and two recursive scans prove that neither app files nor retained evidence contain the raw sentinel, including a write-then-delete false negative.",
+      "specBasis": ["FR-9.3", "AC-9.c", "M2-R03", "N-2", "N-7"]
+    },
+    {
+      "id": "D-0172",
+      "topic": "Test-only fixed WebView2 and EdgeDriver bridge",
+      "decision": "Use official fixed WebView2 and matching Microsoft EdgeDriver 150.0.4078.65 only in the evidence guest, pass Microsoft's documented --edge-webview-switches=--remote-debugging-port=0 through tauri:options.args, and mirror the fresh EBWebView DevToolsActivePort file to the parent path expected by EdgeDriver before each session.",
+      "rationale": "A pristine Sandbox has no registered WebView2 runtime, and EdgeDriver did not propagate its additional-browser-arguments environment there. The documented host switch activates remote debugging; the narrow port-file bridge addresses the observed upstream path mismatch without changing ScadMill, OpenSCAD, normal desktop launches, or M3 packaging.",
+      "specBasis": ["Section 2.2 approved upstream tooling", "M2-R02", "N-2"]
+    },
+    {
+      "id": "D-0173",
+      "topic": "Fail-closed source, tool, harness, and process binding",
+      "decision": "Bind every retained run to the source branch and commit plus release-app hash; assert exact hashes or versions for Node, Visual C++ runtime, tauri-driver, EdgeDriver, fixed WebView2, and OpenSCAD; validate staged and executed harness hashes; immediately revalidate PID, executable path, and app hash before forced kill; require zero exact guest app, engine, tauri-driver, EdgeDriver, and WebView2 processes; and require the exact host Windows Sandbox session and staging directory to be gone before host PASS.",
+      "rationale": "A behavior screenshot alone cannot prove which executable, harness, isolation policy, or cleanup state produced it. Complete cryptographic and exact-process binding removes stale-binary, substituted-harness, PID-reuse, and orphan-process false greens.",
+      "specBasis": ["Section 2.4", "Section 2.7", "AC-6.d", "M2-R02", "M2-R03", "N-2"]
+    },
+    {
+      "id": "D-0174",
+      "topic": "Truthful packaged crash-recovery oracle",
+      "decision": "Exercise AC-6.d with a real project buffer because scratch autosave deliberately makes the primary scratch buffer clean; prove the saved project file remains unchanged; re-read the exact recovery JSON immediately before killing the revalidated release PID; and treat only the new packaged process's recovery prompt plus exact restored dirty text as durability evidence. A small local-storage sentinel is sequencing-only, and no raw-LevelDB or file-size claim is made.",
+      "rationale": "Real RED runs showed that scratch mode does not represent an unsaved buffer and that browser-owned LevelDB representation is not a supported durability oracle. The relaunch behavior required by AC-6.d is both stricter and directly observable.",
+      "specBasis": ["Section 2.7", "AC-6.d", "N-2", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Strict packaged-evidence helper contracts",
+      "test": "Unit tests falsify and then enforce binary-STL structure, WebDriver envelopes, native credential-probe shape, cross-chunk sentinel scans, WebView debugger bridging, source metadata, manifest hashes, structural Sandbox isolation, and signal-based process exit.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T15:31:07-06:00",
+        "outcome": "ASSERTION-LEVEL RED sequence retained across the slice: the initial five helper contracts failed against stubs; the WebView port bridge, documented host switch, source binding, BOM-tolerant parser, manifest/config validators, comment-decoy falsification, and signal-exit predicate each failed before implementation. The last focused RED was 1 failed | 11 passed because processHasExited did not yet exist."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T16:26:40-06:00",
+        "outcome": "GREEN: Test Files 1 passed (1); Tests 12 passed (12)."
+      }
+    },
+    {
+      "criterion": "Real release first use, restart, recovery, credential, scan, and cleanup journey",
+      "test": "The host orchestrator stages exact inputs into an isolated Windows Sandbox, drives the release executable through official tauri-driver, retains screenshots/STL/JSON/config/manifest/cleanup artifacts, and refuses host PASS on any guest, manifest, process, or cleanup failure.",
+      "red": {
+        "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/windows/run-packaged-desktop-evidence.ps1 ...",
+        "observedAt": "2026-07-11T15:30:11-06:00",
+        "outcome": "REAL-ENVIRONMENT RED sequence retained outside the repository: missing VC runtime, absent registered WebView2, DevToolsActivePort mismatch, a UTF-8 BOM metadata parse failure, driver signal misclassified as a live process, and separate launches stalled before guest bootstrap under concurrent Sandbox contention. Recovery falsification then proved that scratch autosave correctly makes the primary scratch buffer clean, so it cannot qualify AC-6.d; that an already-open Files rail must not be toggled closed before project selection; and that raw bytes or file-size growth are not truthful storage-precondition claims for a browser-owned LevelDB. The final lane uses a real unsaved project buffer and makes the new packaged process's prompt plus exact restored text the sole durability oracle. Completed guest failures have exit 1; no failed run has GUEST_PASS or host PASS; host cleanup remained clean."
+      },
+      "green": {
+        "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\windows\\run-packaged-desktop-evidence.ps1 -EngineDirectory 'C:\\Users\\Scott\\Documents\\Codex\\2026-07-09\\read\\work\\openscad-2026.06.12\\extracted\\OpenSCAD-2026.06.12-x86-64' -TauriDriver 'C:\\Users\\Scott\\Documents\\Codex\\2026-07-09\\read\\work\\scadmill-m2-r02-r03-tools\\bin\\tauri-driver.exe' -VisualCppRuntime 'C:\\Users\\Scott\\Documents\\Codex\\2026-07-09\\read\\work\\scadmill-m2-r02-r03-stage-20260711T142054Z\\tools\\vcruntime140.dll' -EdgeDriver 'C:\\Users\\Scott\\Documents\\Codex\\2026-07-09\\read\\work\\scadmill-m2-r02-r03-stage-20260711T142054Z\\tools\\msedgedriver.exe' -FixedWebViewDirectory 'C:\\Users\\Scott\\Documents\\Codex\\2026-07-09\\read\\work\\scadmill-webview-fixed-150.0.4078.65\\extracted\\Microsoft.WebView2.FixedVersionRuntime.150.0.4078.65.x64' -OutputDirectory 'C:\\Users\\Scott\\Documents\\Codex\\2026-07-09\\read\\outputs\\gate-scadmill-2026-07-10\\artifacts\\m2-packaged-desktop-windows-20260711T222704Z' -TimeoutSeconds 600",
+        "observedAt": "2026-07-11T16:28:29-06:00",
+        "outcome": "GREEN: guest evidence status passed with 17 checks; Sandbox exit code 0; GUEST_PASS and host PASS present; host cleanup retained zero exact Sandbox sessions and removed the staging directory. Evidence SHA-256 27F637AAF096DC461AA380F79D31C11D168E06ACF6F7E94E2B4E9917C21399B6."
+      }
+    },
+    {
+      "criterion": "Focused and complete TypeScript regression",
+      "test": "Run the helper with desktop bridge/settings/secret/recovery consumers, then the complete Vitest and production-build suites.",
+      "red": {
+        "command": "pnpm.cmd lint",
+        "observedAt": "2026-07-11T15:17:42-06:00",
+        "outcome": "RED: Biome rejected two control-character-regex diagnostics in the new source-metadata validator; the validator was rewritten with explicit code-point checks."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts tests/platform-desktop/tauri-bridge.test.ts tests/platform-desktop/tauri-secret-store.test.ts tests/platform-desktop/tauri-settings-persistence.test.ts tests/ui/settings/SettingsDialog.test.tsx tests/ui/files/WorkbenchRecoveryIntegration.test.tsx --reporter=verbose; pnpm.cmd test; pnpm.cmd build",
+        "observedAt": "2026-07-11T16:31:10-06:00",
+        "outcome": "GREEN: focused Test Files 6 passed (6), Tests 47 passed (47); full Test Files 104 passed (104), Tests 766 passed (766); TypeScript and Vite production build passed with 174 modules transformed."
+      }
+    },
+    {
+      "criterion": "Adversarial false-green and five-severity audit",
+      "test": "An independent read-only reviewer first attempts to falsify credential exclusion, tool identity, source/harness binding, Sandbox isolation, forced-kill identity, guest/host markers, and process cleanup; later recovery refinements receive primary review plus the real packaged falsification sequence.",
+      "red": {
+        "command": "Independent read-only packaged-review lane",
+        "observedAt": "2026-07-11T15:24:00-06:00",
+        "outcome": "RED: review found two major false-green paths plus minor/nit issues: scan-after-clear-only, hard-coded tool identity, non-structural config policy, unbound harness/config, ambiguous PASS, unsafe PID kill, incomplete orphan inventory, and hard-coded severity counts."
+      },
+      "green": {
+        "command": "Independent read-only packaged-review lane after remediation; primary post-review recovery audit; final local falsification pass",
+        "observedAt": "2026-07-11T16:28:29-06:00",
+        "outcome": "GREEN: the independent core-harness audit reached zero; primary review and the final real-environment recovery pass then closed the later refinements at 0 blocker / 0 critical / 0 major / 0 minor / 0 nit."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "https://github.com/MicrosoftEdge/EdgeWebDriver/issues/109",
+      "sought": "A supported reason for EdgeDriver timing out although the WebView2 browser stayed alive.",
+      "confirmation": "The official issue records the same EBWebView DevToolsActivePort parent-path mismatch. The evidence bridge copies only that fresh endpoint file and deletes stale copies before every session."
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2environmentoptions?view=webview2-1.0.3856.49",
+      "sought": "A registry-only way to inject remote debugging into the pristine Sandbox WebView2 host.",
+      "confirmation": "The per-executable registry attempt did not affect the Sandbox browser command line. The documented host-app --edge-webview-switches argument did, so the registry mutation was removed and never became product behavior."
+    }
+  ],
+  "questions": [
+    "No new specification question was opened. The fixed WebView2 runtime, EdgeDriver, remote-debugging switch, and port-file bridge are evidence-only fixtures, not product or M3 installer inputs.",
+    "This R02/R03 lane release executable is bound to branch agent/m2-r02-r03 at base commit e6671e182ad70788c19228deabc0dd29afd02a4f with app SHA-256 8260B57909DA6EBFE894C80C9A921E16B9781EEB74C2D40ECA0A484200D9C1ED. The combined M2 tree requires its own rebuild and integration rerun after cherry-pick.",
+    "FR-2.5 device-class frame-rate evidence remains outside R02/R03 and is not claimed here.",
+    "No owner similarity gate, comparison repository, or workflow content was opened, modified, or executed."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-19-one-hour-n2-amendment",
+  "createdAt": "2026-07-19T10:41:47-06:00",
+  "summary": "Apply owner amendment A-10: replace the Windows public-beta eight-hour N-2 reliability soak with a release-eligible one-hour soak while retaining the cadence, midpoint crash recovery, exact memory accounting, and 1.5x growth ceiling.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.7 delivery protocol", "N-2 reliability", "V-5 release gate", "M4 first public release", "A-10"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "docs/RELEASE-ROLLBACK.md", "status": "modified" },
+    { "path": "docs/WINDOWS-BETA.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-19-one-hour-n2-amendment.json", "status": "added" },
+    { "path": "scripts/lib/n2-soak-evidence.mjs", "status": "modified" },
+    { "path": "scripts/lib/n2-soak-evidence.d.mts", "status": "modified" },
+    { "path": "scripts/lib/n2-soak-verifier.mjs", "status": "modified" },
+    { "path": "scripts/run-packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "scripts/windows/run-packaged-desktop-evidence.ps1", "status": "modified" },
+    { "path": "spec/scadmill-spec-v0.6.md", "status": "modified" },
+    { "path": "tests/scripts/n2-soak-evidence.test.ts", "status": "modified" },
+    { "path": "tests/scripts/n2-soak-runner.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0408",
+      "topic": "Reduce the literal Windows beta reliability soak to one hour",
+      "decision": "Supersede D-0399's 28,800-second literal contract with a 3,600-second release contract using a 30-second cadence, 300-second warmup, 300-900-second memory baseline, one verified engine kill at 1,800 seconds, at least 113 successful cycles, 60-second memory samples, the unchanged 1.5x growth ceiling, and the distinct N-2-LITERAL-1-HOUR evidence identity.",
+      "rationale": "The owner explicitly reduced the beta gate for a hobbyist-oriented product. Keeping the prior 900-of-960 nominal success ratio requires ceil(0.9375 x 120) = 113 successful cycles in one hour. A new label and event identity prevent historical eight-hour evidence or duration-only accelerated diagnostics from being misclassified as current release evidence.",
+      "specBasis": ["Section 2.7 owner amendment protocol", "N-2", "V-5", "A-10"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Only the exact one-hour literal configuration is release-eligible; accelerated or historical eight-hour identities remain ineligible, and emitter, verifier, PowerShell wrapper, documentation, and spec agree.",
+      "test": "Change the focused tests first, observe them fail against the old eight-hour constants and event contract, then implement the one-hour contract and rerun the same bounded test lane once.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/n2-soak-evidence.test.ts tests/scripts/n2-soak-runner.test.ts --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-19T10:38:27-06:00",
+        "outcome": "RED: 2 files failed with 3 failed and 10 passed tests. Failures showed the old N-2-LITERAL-8-HOUR label, 28,800-second duration, 14,400-second crash point, eight-hour minimum-duration error, and old PowerShell contract."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/n2-soak-evidence.test.ts tests/scripts/n2-soak-runner.test.ts --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-19T10:51:00-06:00",
+        "outcome": "GREEN: 2 files and all 13 tests passed in 1.18 seconds. The tests bind every literal timing and memory parameter, reject the historical label, prove a valid 3,600-second accelerated configuration remains non-release, prove the 113-cycle boundary and 90-second crash/recovery boundaries, bind the numeric timeout guard, and require the renamed emitter/verifier event."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://scripts/lib/n2-soak-evidence.mjs",
+      "sought": "A duration-only reduction",
+      "confirmation": "One hour equals the accelerated lane's maximum duration, so duration alone cannot establish release eligibility. Mode, exact configuration, eligibility flag, label, event name, manifest hashes, and verifier checks remain mandatory."
+    },
+    {
+      "url": "local://provenance/entries/2026-07-18-m4-release-candidate-hardening.json",
+      "sought": "Correction of the old eight-hour decision",
+      "confirmation": "The historical provenance entry is immutable. This new entry explicitly supersedes D-0399 instead of rewriting earlier evidence."
+    }
+  ],
+  "questions": ["A-10 is resolved by the owner's direct instruction. Q-0038 and Q-0039 remain the only owner decisions blocking public release."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

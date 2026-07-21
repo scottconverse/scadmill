@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ScadMill viewer screenshot fixture</title>
+    <style>
+      html, body, #root { width: 320px; height: 240px; margin: 0; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module">
+      import { createElement, createRef } from "react";
+      import { createRoot } from "react-dom/client";
+      import { ModelViewer } from "/src/ui/viewer/ModelViewer.tsx";
+
+      const viewer = createRef();
+      createRoot(document.getElementById("root")).render(createElement(ModelViewer, {
+        ref: viewer,
+        colors: { background: "#123456", mesh: "#f4c542" },
+        furniture: { grid: false, axes: false, edges: false, shadow: false },
+      }));
+
+      window.captureViewerPng = async () => {
+        for (let attempt = 0; attempt < 120; attempt += 1) {
+          try {
+            if (viewer.current) return Array.from(await viewer.current.capturePng());
+          } catch (error) {
+            if (attempt === 119) throw error;
+          }
+          await new Promise(requestAnimationFrame);
+        }
+        throw new Error("The real WebGL viewer did not become ready.");
+      };
+    </script>
+  </body>
+</html>

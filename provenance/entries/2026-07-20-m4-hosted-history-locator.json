@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-m4-hosted-history-locator",
+  "createdAt": "2026-07-20T00:03:39-06:00",
+  "summary": "Make the hosted M4 journey locate History through its real activity-pending accessible name instead of waiting on an impossible exact label.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "FR-15.3", "M4 hosted evidence", "N-7"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-20-m4-hosted-history-locator.json", "status": "added" },
+    { "path": "tests/e2e/m4-hosted-journey.e2e.ts", "status": "modified" },
+    { "path": "tests/scripts/m4-hosted-config.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29720077976/job/88281157042",
+      "accessedOn": "2026-07-20",
+      "purpose": "Inspect the exact-head retained M4 failure, page accessibility snapshot, and trace location after all preceding Ubuntu browser checks passed."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0420",
+      "topic": "Hosted History rail locator",
+      "decision": "Locate the History activity-rail button by the complete allowed accessible names 'History' or 'History, activity pending' instead of requiring only exact 'History'.",
+      "rationale": "The agent proposal intentionally raises the activity-pending state immediately before the journey opens History. The retained accessibility snapshot proves the product correctly exposed that state in the button name; the old locator waited for a label that could not exist until the pending work was reviewed. Accepting only the base name plus the documented pending suffix preserves semantic role/name selection without weakening the product assertion.",
+      "specBasis": ["FR-15.3", "M4 hosted evidence", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The stateful journey must open the History control whether or not its documented pending-activity suffix is present, while rejecting the obsolete exact-base-name locator.",
+      "test": "Pin the exact semantic locator in the hosted-config structural contract, observe it fail against the retained exact-name source, then replace the one journey locator.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/m4-hosted-config.test.ts --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T00:03:07-06:00",
+        "outcome": "RED: 1 file and 1 test failed because the journey still required exact 'History'. Hosted job 88281157042 independently failed after eight minutes while its page snapshot exposed 'History, activity pending'."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/m4-hosted-config.test.ts --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T00:03:27-06:00",
+        "outcome": "GREEN locally: the focused file and its 1 structural test passed in 796 ms. Exact hosted journey confirmation remains required."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://tests/e2e/m4-hosted-journey.e2e.ts",
+      "sought": "A larger timeout or product-label workaround",
+      "confirmation": "Rejected. The retained snapshot proves the button was present under its correct stateful accessible name. The repair changes one semantic locator and does not increase the eight-minute outer bound, add retries, remove an assertion, or change product UI behavior."
+    }
+  ],
+  "questions": ["No owner decision is required. Exact hosted M4 confirmation remains pending."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

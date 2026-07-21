@@ -1,0 +1,127 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-c0-first-run-correction",
+  "createdAt": "2026-07-11T12:23:35-06:00",
+  "summary": "Correct the composed M2 C0 first-run and responsive presentation: a fresh profile starts with Console collapsed, qualifying render failures still open it exactly once per job, the wide viewer retains useful height, and compact titlebar controls remain contained.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 questions, discretion, capability-sized work, test-first evidence, and green CI",
+    "Section 4.0 C0 workspace layout and interaction model",
+    "Section 4.0 FR-0.1, FR-0.4, FR-0.6, and FR-0.7",
+    "Section 4.0 AC-0.a, AC-0.c, and AC-0.d",
+    "Section 5 N-3 accessibility and N-7 honesty",
+    "Section 8 M2 milestone boundary correction"
+  ],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-11-c0-first-run-correction.json", "status": "added" },
+    { "path": "src/application/layout/workspace-layout.ts", "status": "modified" },
+    { "path": "src/ui/workbench.css", "status": "modified" },
+    { "path": "tests/app/App.test.tsx", "status": "modified" },
+    { "path": "tests/application/layout/workspace-layout.test.ts", "status": "modified" },
+    { "path": "tests/application/runtime/workbench-runtime-layout.test.ts", "status": "modified" },
+    { "path": "tests/application/runtime/workbench-runtime.test.ts", "status": "modified" },
+    { "path": "tests/e2e/c0-responsive.e2e.ts", "status": "modified" },
+    { "path": "tests/ui/Workbench.test.tsx", "status": "modified" },
+    { "path": "tests/ui/layout/WorkspaceFrame.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0123",
+      "topic": "Fresh-profile Console default",
+      "decision": "Interpret FR-0.4's explicit auto-open-on-first-render-error rule to mean a fresh profile starts with Console collapsed; preserve explicit persisted or user-open state, never open for success or cancellation, and open at most once for each qualifying failed job.",
+      "rationale": "An initially open Console is an automatic open without an error and consumes most of the first-run viewer height. The corrected default makes FR-0.4 and AC-0.d operational while leaving explicit user and persistence behavior intact.",
+      "specBasis": ["FR-0.4", "AC-0.a", "AC-0.d", "N-7"]
+    },
+    {
+      "id": "D-0124",
+      "topic": "Responsive containment after M2 capability composition",
+      "decision": "Retain the composed workbench, titlebar, action, and engine-banner containment rules, broaden the 399 px auto-render label selector to its component class, and require the 1280x720 fresh viewer surface to retain at least 260 px height while Console is collapsed.",
+      "rationale": "C6, C9, C2, C3, and C5 add controls to the C0 shell. The general C0 containment already present on the C6 parent remains authoritative; the selector correction and browser geometry assertion cover the remaining composed edge cases without absorbing capability-specific styling.",
+      "specBasis": ["FR-0.1", "FR-0.3", "FR-0.6", "AC-0.a", "AC-0.c"]
+    },
+    {
+      "id": "D-0125",
+      "topic": "Correction-hunk ownership and full-suite reconciliation",
+      "decision": "Apply the C0 correction only to the layout default, directly related C0 CSS, browser and unit assertions, and the App and WorkspaceFrame fixtures proven stale by the full suite. Preserve all C2, C3, C5, C6, and C9 product composition.",
+      "rationale": "The correction started from clean C6 commit 0c125b54d066c4d94a88a79cac20f8d7879b092b. The preflight path list omitted two tests whose old implicit open-Console precondition failed under the corrected default; expanding transparently to nine modified paths plus this ledger keeps the full suite honest without test-environment exceptions or unrelated product changes.",
+      "specBasis": ["Section 2.7 unit of work", "FR-0.4", "FR-0.6", "AC-0.c", "AC-0.d"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "AC-0.a and AC-0.d exact fresh layout and once-per-error transition",
+      "test": "The pure layout snapshot starts with Console collapsed; reset and malformed persistence return that default; success and cancellation never open it; one qualifying failed job opens it once; user dismissal remains respected for that job; and a later failed job may open it.",
+      "red": {
+        "command": "node node_modules/vitest/vitest.mjs run tests/application/layout/workspace-layout.test.ts tests/application/runtime/workbench-runtime-layout.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T12:15:54-06:00",
+        "outcome": "RED: 2 files failed; 3 tests failed and 10 passed in 798 ms. Fresh layout, transient narrow-sheet persistence, and cancelled-render assertions each received consoleOpen true instead of false."
+      },
+      "green": {
+        "command": "node node_modules/vitest/vitest.mjs run tests/application/layout/workspace-layout.test.ts tests/application/runtime/workbench-runtime-layout.test.ts --reporter=verbose",
+        "observedAt": "2026-07-11T12:17:15-06:00",
+        "outcome": "GREEN: 2 files and all 13 tests passed in 890 ms."
+      }
+    },
+    {
+      "criterion": "FR-0.4 composed runtime and Workbench behavior",
+      "test": "A fresh Workbench hides Console and exposes three splitters; stale source, background-tab, edit-revert, and cancelled failures do not auto-open the active Console; a current qualifying failure opens it and reports structured diagnostics without a manual setup toggle.",
+      "red": {
+        "command": "node node_modules/vitest/vitest.mjs run tests/application/runtime/workbench-runtime.test.ts tests/ui/Workbench.test.tsx --reporter=verbose -t \"source revision|background-tab failure|edit-revert|binds the C0 layout shell\"",
+        "observedAt": "2026-07-11T12:15:54-06:00",
+        "outcome": "RED: 2 files failed; 4 tests failed, 1 passed, and 30 were skipped in 1.62 s. The fresh Workbench Console lacked hidden state, and three runtime paths retained consoleOpen true."
+      },
+      "green": {
+        "command": "node node_modules/vitest/vitest.mjs run tests/application/runtime/workbench-runtime.test.ts tests/ui/Workbench.test.tsx --reporter=verbose -t \"source revision|background-tab failure|edit-revert|binds the C0 layout shell\"; node node_modules/vitest/vitest.mjs run tests/ui/Workbench.test.tsx --reporter=verbose -t \"reports structured render diagnostics\"",
+        "observedAt": "2026-07-11T12:22:33-06:00",
+        "outcome": "GREEN: the composed selection passed 5 tests with 30 skipped in 1.91 s; after removing the stale manual Console toggle, the qualifying-failure diagnostics test passed independently with 1 test passed and 16 skipped in 1.49 s."
+      }
+    },
+    {
+      "criterion": "AC-0.a and AC-0.c real-browser first-run hierarchy",
+      "test": "At 1280x720, Console starts hidden and the visible viewer surface remains at least 260 px high before a render error.",
+      "red": {
+        "command": "pnpm.cmd exec playwright test tests/e2e/c0-responsive.e2e.ts --workers=1 --retries=0 -g \"fresh wide viewer\"",
+        "observedAt": "2026-07-11T12:16:35-06:00",
+        "outcome": "RED: 1 Chromium test failed after 5.5 s because the Console region was visible instead of hidden."
+      },
+      "green": {
+        "command": "pnpm.cmd exec playwright test tests/e2e/c0-responsive.e2e.ts --workers=1 --retries=0 -g \"fresh wide viewer\"",
+        "observedAt": "2026-07-11T12:17:15-06:00",
+        "outcome": "GREEN: the focused Chromium test passed in 2.1 s with Console hidden and the viewer-height bound satisfied."
+      }
+    },
+    {
+      "criterion": "V-1 and V-2 widened C0-correction regression",
+      "test": "All unit, component, and browser tests plus typecheck, lint and source policy, production build, generated parser freshness, and npm license policy remain green; test fixtures that need Console explicitly open establish that precondition honestly.",
+      "red": {
+        "command": "pnpm.cmd test",
+        "observedAt": "2026-07-11T12:18:02-06:00",
+        "outcome": "REGRESSION RED: 102 files ran; 3 tests failed and 726 passed. Two WorkspaceFrame tests assumed the default Console was visible, and the App splitter-persistence test tried to drag a Console splitter before opening Console. They were corrected to assert the new fresh default or establish an explicit real precondition."
+      },
+      "green": {
+        "command": "pnpm.cmd test; pnpm.cmd test:e2e -- --workers=1 --retries=0; pnpm.cmd typecheck; pnpm.cmd lint; pnpm.cmd build; pnpm.cmd check:generated; pnpm.cmd check:licenses npm",
+        "observedAt": "2026-07-11T12:23:28-06:00",
+        "outcome": "GREEN: isolated final Vitest passed 102 files and 729 tests in 10.74 s; final Playwright passed all 10 tests in 24.5 s; typecheck passed; lint checked 268 files and source policy passed; Vite built 173 modules; generated parser freshness passed; npm license policy passed for 117 packages. One resource-saturated concurrent Vitest attempt timed out waiting for CodeMirror while Playwright and TypeScript ran; the same suite passed immediately in isolation, and an independent full run also passed 102 files and 729 tests."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "Q-0008 remains open: final desktop per-project layout-storage ownership is parked; browser-profile persistence, the injected desktop seam, and the corrected fresh default continue.",
+    "No C0 behavior question blocks this correction: FR-0.4's first-error-only auto-open rule and the observed first-run geometry support the collapsed fresh default.",
+    "The correction is based on clean C6 commit 0c125b54d066c4d94a88a79cac20f8d7879b092b and changes exactly nine behavior or test paths plus this ledger.",
+    "The initial eight-path preflight list omitted App and WorkspaceFrame fixtures with implicit open-Console assumptions. The full regression RED justified their inclusion; no test-environment workaround was used.",
+    "Q-0001 remains the separate Rust Unicode-3.0 license-policy block; this correction changes no dependency or Rust source.",
+    "No README or CHANGELOG edit is required because this repairs already-specified C0 behavior and introduces no setup or compatibility change.",
+    "No owner similarity gate, comparison repository, or prohibited source was opened or executed."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

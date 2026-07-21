@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-ai-build-verification",
+  "createdAt": "2026-07-17T03:38:30-06:00",
+  "summary": "Record the bounded production web build after the M4 AI provider, conversation, persistence, readiness, and panel units.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "verifier" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "N-7 evidence and status honesty"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-17-m4-ai-build-verification.json", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0320", "topic": "AI build evidence boundary", "decision": "Record the production build as evidence for the committed AI foundations while retaining the explicit pending runtime wiring and hosted acceptance caveats in the README and prior entries.", "rationale": "A successful bundle proves the additions compile and package; it does not prove provider credentials, network behavior, or editor diff integration in a clean host.", "specBasis": ["N-7", "C10"] }
+  ],
+  "testEvidence": [
+    { "criterion": "The committed M4 AI foundations compile and bundle in the production web target.", "test": "Run the production build once after the bounded AI panel unit.", "red": { "command": "pnpm.cmd build", "observedAt": "2026-07-17T03:37:40-06:00", "outcome": "RED: no failed build was observed; this red slot records that the production build was not yet run before verification." }, "green": { "command": "pnpm.cmd build", "observedAt": "2026-07-17T03:38:06-06:00", "outcome": "GREEN: tsc exited 0; Vite transformed 226 modules and completed the production build in 360ms." } }
+  ],
+  "nearMisses": [],
+  "questions": ["This build does not close the hosted browser walkthrough, owner similarity gate, or C10 runtime/provider-context integration."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

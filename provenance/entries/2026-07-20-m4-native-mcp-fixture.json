@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-m4-native-mcp-fixture",
+  "createdAt": "2026-07-20T19:12:30-06:00",
+  "summary": "Prepare the native-only M4 MCP source fixture explicitly after the hosted/package evidence split removed the preceding AI mutation.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "AC-11.a", "V-5 release gate", "V-6 honesty rule"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-m4-native-mcp-fixture.json", "status": "added" },
+    { "path": "scripts/lib/m4-packaged-walkthrough.mjs", "status": "modified" },
+    { "path": "tests/scripts/m4-packaged-walkthrough.test.ts", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0456",
+      "topic": "Native-only MCP fixture precondition",
+      "decision": "When aiConversationMode is hosted-plus-manual, replace the editor source with the declared agentSource through the normal automation adapter and verify that exact source before beginning the unchanged MCP default-deny/allow-session journey.",
+      "rationale": "The former monolithic journey reached MCP after the AI agent applied agentSource. The split correctly skips packaged AI automation but initially left the source at initialSource, causing the unchanged exact MCP diff oracle to reject its fixture. Explicit normal-editor setup restores the precondition without weakening the diff, proposal, approval, or source-restoration assertions.",
+      "specBasis": ["AC-11.a", "V-5 release gate", "V-6 honesty rule"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Native-only mode must establish agentSource before MCP, must not start the AI mock, and must restore initialSource after a downstream failure.",
+      "test": "Run the focused M4 walkthrough, verifier, and packaged runner contract suites with a branch-specific MCP-precondition test.",
+      "red": {
+        "command": "Exact clean packaged Windows Sandbox run bound to commit a3efc09230a6ec355423b4c9874cf3ff09fc7edc and tree ba82614c864e83d4371805ec60c88dcd36bf7235",
+        "observedAt": "2026-07-20T19:10:16-06:00",
+        "outcome": "RUNTIME RED: the native-only split reached MCP, whose exact diff oracle observed local cube(10) instead of the historical post-AI cube(14) fixture. The failure occurred before mutation approval; exact Sandbox cleanup passed."
+      },
+      "green": {
+        "command": "npm.cmd test -- --run tests/scripts/m4-packaged-walkthrough.test.ts tests/scripts/m4-packaged-verifier.test.ts tests/scripts/packaged-desktop-evidence.test.ts",
+        "observedAt": "2026-07-20T19:11:59-06:00",
+        "outcome": "GREEN: 75/75 tests passed. The branch-specific test proves agentSource is present at MCP entry, the AI mock is never started, and initialSource is restored after the injected downstream failure."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-a3efc09-sandbox-m4-native-split-20260720/evidence.json",
+      "sought": "Exact clean native-only packaged M4 walkthrough",
+      "confirmation": "The split bypassed packaged Message injection and reached MCP. The retained assertion exposed only the missing fixture transition; all earlier native events and exact cleanup passed."
+    }
+  ],
+  "questions": ["No owner decision is required; this restores an existing exact test precondition."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

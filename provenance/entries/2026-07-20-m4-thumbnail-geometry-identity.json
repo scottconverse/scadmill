@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-m4-thumbnail-geometry-identity",
+  "createdAt": "2026-07-20T20:13:51-06:00",
+  "summary": "Align packaged M4 thumbnail evidence with the canonical prefixed geometry-identity contract.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "FR-15.13", "V-5 release gate", "V-6 honesty rule"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-m4-thumbnail-geometry-identity.json", "status": "added" },
+    { "path": "scripts/lib/m4-packaged-verifier.mjs", "status": "modified" },
+    { "path": "scripts/lib/m4-packaged-walkthrough.mjs", "status": "modified" },
+    { "path": "tests/scripts/m4-packaged-verifier.test.ts", "status": "modified" },
+    { "path": "tests/scripts/m4-packaged-walkthrough.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0462",
+      "topic": "Canonical thumbnail geometry identity",
+      "decision": "Require thumbnail renderIdentity values to match exactly sha256:[a-f0-9]{64} in both live walkthrough validation and retained-artifact revalidation; keep raw artifact digests as bare 64-character hex values.",
+      "rationale": "The application geometry-identity contract, render cache, viewer, and thumbnail persistence all use the algorithm-prefixed form. Exact clean evidence reached the thumbnail phase and retained a valid prefixed identity, while the M4 harness alone expected the wrong bare shape. Separating geometry identities from raw file digests preserves both contracts and rejects algorithm-confusion lookalikes.",
+      "specBasis": ["FR-15.13", "V-5 release gate", "V-6 honesty rule"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The M4 walkthrough and retained verifier must accept only the product's exact prefixed SHA-256 geometry identity.",
+      "test": "Use canonical prefixed identities in both fixtures and explicitly tamper the retained identity to sha512 with the same digest length.",
+      "red": {
+        "command": "npm.cmd test -- --run tests/scripts/m4-packaged-walkthrough.test.ts tests/scripts/m4-packaged-verifier.test.ts",
+        "observedAt": "2026-07-20T20:13:01-06:00",
+        "outcome": "RED: 3 failed, 18 passed. Both validators rejected the product's canonical sha256-prefixed fixture identity."
+      },
+      "green": {
+        "command": "npm.cmd test -- --run tests/scripts/m4-packaged-walkthrough.test.ts tests/scripts/m4-packaged-verifier.test.ts tests/scripts/packaged-desktop-evidence.test.ts",
+        "observedAt": "2026-07-20T20:13:34-06:00",
+        "outcome": "GREEN: 76/76 tests passed, including rejection of the sha512-prefixed tamper."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-22fd75b-sandbox-m4-native-split-20260720/evidence.json",
+      "sought": "Exact clean packaged native M4 thumbnail evidence",
+      "confirmation": "The run passed volume delta and animation, then failed solely because the harness rejected the retained canonical sha256-prefixed thumbnail identity; cleanup passed."
+    }
+  ],
+  "questions": ["No owner decision is required; this restores the already-established application geometry-identity contract in release evidence."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

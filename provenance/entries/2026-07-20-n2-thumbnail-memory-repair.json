@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-n2-thumbnail-memory-repair",
+  "createdAt": "2026-07-20T01:42:00-06:00",
+  "summary": "Remove two per-render WebView allocation churn paths after the exact-candidate literal N-2 soak exposed irreversible growth concentrated in one WebView process.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "N-2", "M4 release candidate"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-n2-thumbnail-memory-repair.json", "status": "added" },
+    { "path": "src/application/geometry/stl-parser-worker-client.ts", "status": "modified" },
+    { "path": "src/ui/viewer/ModelViewer.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/model-viewer-defaults.ts", "status": "modified" },
+    { "path": "src/ui/viewer/model-viewer-runtime.ts", "status": "modified" },
+    { "path": "src/ui/viewer/use-mesh-parser.ts", "status": "added" },
+    { "path": "tests/application/geometry/stl-parser-worker-client.test.ts", "status": "modified" },
+    { "path": "tests/ui/viewer/ModelViewer.theme.test.tsx", "status": "modified" },
+    { "path": "tests/ui/viewer/model-viewer-runtime-thumbnail.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0423",
+      "topic": "Lifecycle-owned mesh parsing and stable automatic-thumbnail drawing buffer",
+      "decision": "Give each default ModelViewer one lazy reusable STL parser worker that survives successful sequential mesh replacements, retires on abort/error, and terminates on viewer disposal. Also render the live WebGL viewport once at its existing size and downsample into a fresh bounded 240x160 2D canvas for automatic project thumbnails. Retain the existing resize-and-restore behavior only for explicit sized PNG requests.",
+      "rationale": "The retained exact-candidate soak concentrated all material growth in one WebView process while the native shell, engine-orphan count, and other WebView processes stayed stable. From the first complete memory sample through termination, that process grew approximately 5 MiB per render cycle. Each distinct result constructed and terminated one parser worker and resized the full live WebGL drawing buffer down and back for its automatic thumbnail, implicating both repeated allocation paths without proving either one as the sole cause. Once the complete 5-15 minute baseline established a roughly 487.0 MiB hard ceiling, a retained 554.7 MiB raw sample made the release run mathematically unable to pass. Reusing the worker and downsampling a stable frame remove both per-cycle allocation churn sources without weakening the gate, abandoning off-thread parsing, or changing requested screenshot semantics.",
+      "specBasis": ["N-2", "M4 release candidate"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Automatic thumbnails must remain 240x160 and encode the current scene without resizing the live WebGL renderer, including the failure path; explicit sized screenshots must retain their requested-size restore contract.",
+      "test": "Run the focused viewer runtime thumbnail contract first RED, then with the implementation, followed by the surrounding viewer and thumbnail integration files.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/viewer/model-viewer-runtime-thumbnail.test.ts --reporter=verbose --maxWorkers=1",
+        "observedAt": "2026-07-20T01:41:15-06:00",
+        "outcome": "RED: both new automatic-thumbnail assertions failed against the prior implementation because it encoded the live canvas and called renderer.setSize for the thumbnail and again for restoration. The existing explicit sized-PNG test stayed green."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/viewer/model-viewer-runtime-thumbnail.test.ts tests/ui/viewer/ViewerPaneThumbnail.test.tsx tests/ui/viewer/ModelViewer.theme.test.tsx tests/ui/viewer/ViewerPane.test.tsx tests/ui/viewer/ViewerPaneConnector.test.tsx --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T01:42:07-06:00",
+        "outcome": "GREEN: 5 focused files and all 46 tests passed in 6.78 seconds. The automatic path rendered, downsampled, and encoded without any WebGL setSize call; its failure path also avoided resizing; the explicit sized-PNG restore test and surrounding viewer/thumbnail contracts passed."
+      }
+    },
+    {
+      "criterion": "Sequential successful meshes in one viewer must reuse one parser worker, while abort, worker error, invalid response, and viewer disposal must fail closed and terminate the owned worker.",
+      "test": "Add reusable-parser lifecycle tests and a ModelViewer integration regression, then run them with the thumbnail contract.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/geometry/stl-parser-worker-client.test.ts --reporter=verbose --maxWorkers=1",
+        "observedAt": "2026-07-20T01:45:57-06:00",
+        "outcome": "RED: both new lifecycle tests failed because createReusableBinaryStlParser did not exist; all five pre-existing one-shot parser safety tests remained green."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/geometry/stl-parser-worker-client.test.ts tests/ui/viewer/ModelViewer.theme.test.tsx tests/ui/viewer/model-viewer-runtime-thumbnail.test.ts --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T02:03:53-06:00",
+        "outcome": "GREEN: all 3 focused files and 36 tests passed in 3.14 seconds. The reusable client directly proved sequential reuse, overlap rejection without disturbance, abort/error/invalid-response/postMessage-failure retirement and replacement, active idempotent disposal, parse-after-dispose rejection, and stale retired-callback isolation without weakening the current request's concurrency lock. ModelViewer reused one worker across successful replacements, survived StrictMode rehearsal, placed the live parsed mesh into the scene, and terminated the live worker on unmount; existing supersession, unavailable-worker, transfer, appearance, thumbnail, and screenshot behaviors passed."
+      }
+    },
+    {
+      "criterion": "React StrictMode effect rehearsal must retire the rehearsal parser, create a fresh live default parser, display the mesh without an alert, and dispose the live worker only on real unmount.",
+      "test": "Mount the default ModelViewer with a real result inside StrictMode and observe both rehearsal and live worker identities.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/geometry/stl-parser-worker-client.test.ts tests/ui/viewer/ModelViewer.theme.test.tsx --reporter=verbose --maxWorkers=1",
+        "observedAt": "2026-07-20T01:58:19-06:00",
+        "outcome": "RED: the StrictMode regression timed out with only the disposed rehearsal worker, and the rendered viewer showed the mesh-display alert; the other 31 tests passed."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/geometry/stl-parser-worker-client.test.ts tests/ui/viewer/ModelViewer.theme.test.tsx tests/ui/viewer/model-viewer-runtime-thumbnail.test.ts --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T02:03:53-06:00",
+        "outcome": "GREEN within the final 3-file 36-test run: the stable lazy parser proxy retired the rehearsal worker, created a distinct live worker, displayed without an alert, and terminated the live worker exactly once on real unmount."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-53d8540-sandbox-20260719/n2-soak-samples.jsonl",
+      "sought": "Release-eligible one-hour N-2 evidence for exact candidate 53d8540",
+      "confirmation": "Stopped at 22 minutes rather than spending the remaining 38 minutes on a mathematically impossible pass. Using the repository's even-sample median rule, the complete baseline median was approximately 324.662 MiB, its 1.5x ceiling approximately 486.993 MiB, and the retained raw maximum 554.7 MiB. The source-bound build and pre-soak packaged journey had passed; this evidence is retained as a failed diagnostic and is not cited as release evidence."
+    },
+    {
+      "url": "local://src/application/geometry/stl-parser-worker-client.ts",
+      "sought": "Keeping the one-shot worker lifecycle and changing only automatic thumbnail rendering",
+      "confirmation": "Rejected after independent process/source correlation found the hot renderer grew approximately 5 MiB per distinct-render cycle and the default parser constructed one fresh worker for every such result. The reusable worker remains viewer-local rather than module-global and preserves fail-closed retirement on abort/error."
+    },
+    {
+      "url": "local://scripts/lib/n2-soak-evidence.mjs",
+      "sought": "Raising the 1.5x memory ceiling, dropping the raw-maximum check, or relabeling failed evidence",
+      "confirmation": "Rejected. The release gate and literal evidence contract remain unchanged."
+    },
+    {
+      "url": "local://src/ui/viewer/ModelViewer.tsx",
+      "sought": "Final static-policy compliance",
+      "confirmation": "The first static pass found ModelViewer at 405 lines and the initial extraction left 402. Moving worker ownership into a dedicated hook and removing two local blank separators restored the exact 400-line ceiling; TypeScript, lint/source policy across 524 files, provenance validation, and diff hygiene then passed."
+    }
+  ],
+  "questions": ["No owner decision is required. A fresh exact-head literal one-hour N-2 run remains required after hosted and isolated exact-head gates pass."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

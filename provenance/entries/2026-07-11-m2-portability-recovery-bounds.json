@@ -1,0 +1,127 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-m2-portability-recovery-bounds",
+  "createdAt": "2026-07-11T13:54:00-06:00",
+  "summary": "Close M2-R05 with cancellable worker-backed project ZIP encode/decode, streamed bounded imports, a retained real-Chromium 92 MiB near-limit profile, and bounded coalesced crash-recovery persistence.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 test-first evidence and milestone gates",
+    "FR-6.2 web project ZIP import and export",
+    "FR-6.7 crash recovery",
+    "N-1 performance",
+    "N-3 accessibility",
+    "N-7 UI honesty",
+    "M2-R05 near-limit ZIP and recovery verification"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "playwright.config.ts", "status": "modified" },
+    { "path": "provenance/entries/2026-07-11-m2-portability-recovery-bounds.json", "status": "added" },
+    { "path": "src/application/files/project-portability.ts", "status": "modified" },
+    { "path": "src/application/files/project-zip.ts", "status": "modified" },
+    { "path": "src/application/files/project-zip.worker.ts", "status": "added" },
+    { "path": "src/application/files/recovery-state.ts", "status": "modified" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/ui/files/ProjectLifecycleControls.tsx", "status": "modified" },
+    { "path": "src/ui/files/ProjectPortabilityPanel.tsx", "status": "modified" },
+    { "path": "tests/application/files/project-portability.test.ts", "status": "modified" },
+    { "path": "tests/application/files/project-zip.test.ts", "status": "modified" },
+    { "path": "tests/application/files/recovery-state.test.ts", "status": "modified" },
+    { "path": "tests/e2e/fixtures/m2-portability-profile.html", "status": "added" },
+    { "path": "tests/e2e/fixtures/m2-portability-profile.ts", "status": "added" },
+    { "path": "tests/e2e/m2-browser-gate.e2e.ts", "status": "modified" },
+    { "path": "tests/e2e/m2-gate.playwright.config.ts", "status": "modified" },
+    { "path": "tests/e2e/m2-portability-profile.e2e.ts", "status": "added" },
+    { "path": "tests/ui/files/ProjectLifecycleControls.test.tsx", "status": "modified" },
+    { "path": "tests/ui/files/ProjectPortabilityPanel.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0138",
+      "topic": "Near-limit project archive execution and cancellation",
+      "decision": "Run complete ZIP compression and expansion in a dedicated module worker, prepare non-detaching transferable inputs in cooperative 1 MiB chunks, read imports through File.stream when available, and expose one AbortSignal/progress contract through the portability controller and UI.",
+      "rationale": "The installed approved fflate 0.8.3 asynchronous helper still computes CRCs and assembles the final archive on its caller thread. Reading its installed permissive dependency implementation showed that merely selecting that helper would not substantiate a no-long-task claim near the 100 MiB production archive bound. The dedicated worker keeps the full codec workload off the UI thread while cooperative copies preserve live project asset buffers and make cancellation prompt.",
+      "specBasis": ["FR-6.2", "N-1", "N-3", "N-7", "M2-R05"]
+    },
+    {
+      "id": "D-0139",
+      "topic": "Crash-recovery size and write-rate bounds",
+      "decision": "Limit serialized crash-recovery data to 4 MiB of UTF-8 JSON and coalesce workspace changes for 300 ms so only the latest state is persisted after a rapid edit burst.",
+      "rationale": "Browser and desktop recovery persistence currently share a synchronous local durable slot. A concrete byte bound prevents unbounded main-thread serialization/storage, while a short latest-only delay avoids a synchronous write for every keystroke and still supplies frequent abnormal-exit checkpoints. Overflow remains visible instead of silently claiming protection.",
+      "specBasis": ["FR-6.7", "AC-6.d", "N-1", "N-7", "M2-R05"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Archive work uses the asynchronous boundary, streamed reads, and user cancellation",
+      "test": "Add controller and UI regressions requiring codec delegation, File.stream use without arrayBuffer fallback, AbortSignal cancellation, and return to an enabled idle surface.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/files/project-portability.test.ts tests/ui/files/ProjectPortabilityPanel.test.tsx tests/application/files/recovery-state.test.ts tests/ui/files/ProjectLifecycleControls.test.tsx --reporter=verbose -t \"delegates project ZIP encoding|reads import files through|cancels an in-flight|rejects recovery snapshots beyond|coalesces rapid recovery\"",
+        "observedAt": "2026-07-11T13:37:00-06:00",
+        "outcome": "ASSERTION-LEVEL RED: Test Files 4 failed (4); Tests 5 failed and 29 skipped. Encoding never called the injected async codec, import never called stream, no Cancel control appeared, the oversized recovery did not throw, and rapid edits saved synchronously twice."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/files/project-portability.test.ts tests/ui/files/ProjectPortabilityPanel.test.tsx tests/application/files/recovery-state.test.ts tests/ui/files/ProjectLifecycleControls.test.tsx --reporter=verbose -t \"delegates project ZIP encoding|reads import files through|cancels an in-flight|rejects recovery snapshots beyond|coalesces rapid recovery\"",
+        "observedAt": "2026-07-11T13:42:24-06:00",
+        "outcome": "GREEN: Test Files 4 passed (4); Tests 5 passed and 29 skipped; Duration 1.57s."
+      }
+    },
+    {
+      "criterion": "Near-production-limit ZIP round trip stays responsive, bounded, cancellable, and byte-safe in real Chromium",
+      "test": "Use the production module-worker codec with a 92 MiB random binary asset, retain the source buffer, round-trip the resulting near-100-MiB archive, observe long tasks and a 10 ms heartbeat, sample precise main-heap use, and cancel a competing operation.",
+      "red": {
+        "command": "Pre-implementation targeted RED command recorded above, plus inspection of the installed approved fflate 0.8.3 implementation used by the then-current synchronous controller path.",
+        "observedAt": "2026-07-11T13:43:00-06:00",
+        "outcome": "The controller's RED codec-delegation test proved ZIP encoding remained on the synchronous path. The approved dependency implementation also showed synchronous CRC and final archive assembly in its nominal async helper, so that helper alone could not satisfy the near-limit UI-thread criterion."
+      },
+      "green": {
+        "command": "pnpm.cmd exec playwright test tests/e2e/m2-portability-profile.e2e.ts --config playwright.config.ts --reporter=list",
+        "observedAt": "2026-07-11T13:51:34-06:00",
+        "outcome": "GREEN: 1 passed (5.0s). The retained profile records a 96,489,071-byte archive for a 96,468,992-byte asset, exact endpoint/size recovery, attached source bytes, 13.2 ms cancellation, zero long tasks, 18.7 ms maximum heartbeat gap, and 192,395,630 bytes of peak main-heap growth. Evidence directory: outputs/gate-scadmill-2026-07-10/artifacts/m2-r05-portability-20260711T195134Z; command-output SHA-256 5FF62EA6B6D3DDF9C89911BE667A57CE0CAA82D4C9CEE283AB8D833E914FE009; profile SHA-256 5B68510DCFCD84FC4313C7E83941FAF97D2D7654AE9839F31D5B7EB843F857C0."
+      }
+    },
+    {
+      "criterion": "Crash-recovery persistence is bounded and latest-only under rapid edits",
+      "test": "Reject serialized recovery beyond 4 MiB before persistence and use fake timers to require zero immediate writes followed by exactly one latest-source write at 300 ms.",
+      "red": {
+        "command": "Same five-case targeted RED command recorded above.",
+        "observedAt": "2026-07-11T13:37:00-06:00",
+        "outcome": "The 4 MiB payload persisted instead of throwing, and two rapid source updates caused two synchronous persistence calls."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/files/recovery-state.test.ts tests/ui/files/ProjectLifecycleControls.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-11T13:42:59-06:00",
+        "outcome": "GREEN within the widened focused run: recovery limit and latest-only coalescing passed alongside all surrounding recovery lifecycle cases."
+      }
+    },
+    {
+      "criterion": "Archive bounds and cancellation copy remain honest at commit transitions, and clean work cannot leave stale recovery",
+      "test": "Require encoded exports to respect the same 100 MiB archive bound before destination save, remove cancellation once save/install commit begins, and clear a prior recovery slot immediately for a clean workspace.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/files/project-portability.test.ts tests/ui/files/ProjectPortabilityPanel.test.tsx tests/ui/files/ProjectLifecycleControls.test.tsx --reporter=verbose -t \"rejects an oversized encoded export|does not offer cancellation after|clears stale recovery immediately\"",
+        "observedAt": "2026-07-11T13:56:32-06:00",
+        "outcome": "ASSERTION-LEVEL RED: Test Files 3 failed (3); Tests 3 failed and 31 skipped. An oversized encoded archive reached the destination, Cancel remained visible during the non-cancellable save phase, and clean startup deferred recovery clearing."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/files/project-zip.test.ts tests/application/files/project-portability.test.ts tests/application/files/recovery-state.test.ts tests/ui/files/ProjectPortabilityPanel.test.tsx tests/ui/files/ProjectLifecycleControls.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-11T13:57:43-06:00",
+        "outcome": "GREEN: Test Files 5 passed (5); Tests 44 passed (44); Duration 2.81s. The accompanying typecheck, zero-warning lint/source-policy run, provenance validation, and retained real-browser profile also exited 0."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "M2-R05 is closed by unit, component, and retained real-Chromium near-limit evidence; the live packaged process-kill/relaunch portion remains separately tracked under M2-R02.",
+    "No owner similarity gate, comparison repository, workflow content, or prohibited source was opened or executed."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

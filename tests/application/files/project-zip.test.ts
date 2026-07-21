@@ -1,0 +1,115 @@
+import { describe, expect, it } from "vitest";
+import { strToU8, zipSync } from "fflate";
+
+import {
+  ProjectZipError,
+  decodeProjectZip,
+  decodeProjectZipAsync,
+  encodeProjectZip,
+  encodeProjectZipAsync,
+} from "../../../src/application/files/project-zip";
+import {
+  createProjectSnapshot,
+  type ProjectFileContent,
+} from "../../../src/application/files/project-snapshot";
+
+describe("project ZIP interchange", () => {
+  it("round-trips nested text and binary project files byte-identically", () => {
+    const original = createProjectSnapshot("source-project", new Map<string, ProjectFileContent>([
+      ["main.scad", "include <parts/rim.scad>\ncube(10);\n"],
+      ["parts/rim.scad", "difference() { circle(10); circle(8); }\n"],
+      ["assets/logo.png", new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0, 255])],
+    ]));
+
+    const archive = encodeProjectZip(original);
+    const decoded = decodeProjectZip("imported-project", archive);
+
+    expect(decoded.projectId).toBe("imported-project");
+    expect(decoded.files.get("main.scad" as never)).toBe(original.files.get("main.scad" as never));
+    expect(decoded.files.get("parts/rim.scad" as never)).toBe(original.files.get("parts/rim.scad" as never));
+    expect(decoded.files.get("assets/logo.png" as never)).toEqual(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0, 255]));
+  });
+
+  it("round-trips paths that match object prototype property names", () => {
+    const original = createProjectSnapshot("prototype-paths", new Map<string, ProjectFileContent>([
+      ["__proto__", "cube(1);"],
+      ["constructor", new Uint8Array([0, 1, 2, 255])],
+      ["toString", "sphere(2);"],
+    ]));
+
+    const decoded = decodeProjectZip("imported", encodeProjectZip(original));
+
+    expect(decoded.files.get("__proto__" as never)).toBe("cube(1);");
+    expect(decoded.files.get("constructor" as never)).toEqual(new Uint8Array([0, 1, 2, 255]));
+    expect(decoded.files.get("toString" as never)).toBe("sphere(2);");
+  });
+
+  it("accepts harmless explicit directory records added by ZIP tools", () => {
+    const archive = zipSync({
+      "parts/": new Uint8Array(),
+      "parts/main.scad": strToU8("cube(3);"),
+      ".scadmill-project-v1.json": strToU8(JSON.stringify({
+        version: 1,
+        textPaths: ["parts/main.scad"],
+      })),
+    });
+
+    const decoded = decodeProjectZip("rezipped", archive);
+
+    expect(decoded.files.get("parts/main.scad" as never)).toBe("cube(3);");
+    expect(decoded.files).toHaveLength(1);
+  });
+
+  it("rejects path traversal, missing manifests, and decompressed-size overages", () => {
+    const traversal = zipSync({
+      ".scadmill-project-v1.json": strToU8(JSON.stringify({ version: 1, textPaths: ["../escape.scad"] })),
+      "../escape.scad": strToU8("cube(1);"),
+    });
+    const noManifest = zipSync({ "main.scad": strToU8("cube(1);") });
+    const large = encodeProjectZip(createProjectSnapshot("large", new Map([
+      ["main.scad", "cube(1);".repeat(1_000)],
+    ])));
+
+    expect(() => decodeProjectZip("target", traversal)).toThrow(/path|invalid/u);
+    expect(() => decodeProjectZip("target", noManifest)).toThrow(/manifest/u);
+    expect(() => decodeProjectZip("target", large, { decompressedByteLimit: 100 })).toThrow(/large/u);
+  });
+
+  it("rejects the reserved manifest path in user content", () => {
+    const snapshot = createProjectSnapshot("project", new Map([
+      [".scadmill-project-v1.json", "user data"],
+    ]));
+    expect(() => encodeProjectZip(snapshot)).toThrow(ProjectZipError);
+  });
+
+  it("asynchronously round-trips deterministic bytes without detaching project assets", async () => {
+    const binary = new Uint8Array([0, 255, 12, 34]);
+    const snapshot = createProjectSnapshot("async", new Map<string, ProjectFileContent>([
+      ["main.scad", "cube(8);"],
+      ["asset.bin", binary],
+    ]));
+
+    const first = await encodeProjectZipAsync(snapshot);
+    const second = await encodeProjectZipAsync(snapshot);
+    const decoded = await decodeProjectZipAsync("decoded", first);
+
+    expect(first).toEqual(second);
+    expect(binary).toEqual(new Uint8Array([0, 255, 12, 34]));
+    expect(decoded.files.get("main.scad" as never)).toBe("cube(8);");
+    expect(decoded.files.get("asset.bin" as never)).toEqual(binary);
+  });
+
+  it("cancels asynchronous archive work and enforces the expanded-size bound", async () => {
+    const snapshot = createProjectSnapshot("cancel", new Map([
+      ["main.scad", "cube(1);".repeat(1_000)],
+    ]));
+    const cancelled = new AbortController();
+    cancelled.abort();
+
+    await expect(encodeProjectZipAsync(snapshot, { signal: cancelled.signal }))
+      .rejects.toMatchObject({ name: "AbortError" });
+    const archive = await encodeProjectZipAsync(snapshot);
+    await expect(decodeProjectZipAsync("target", archive, { decompressedByteLimit: 100 }))
+      .rejects.toThrow(/large/u);
+  });
+});

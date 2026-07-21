@@ -1,0 +1,208 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-10-c12-theme-schema",
+  "createdAt": "2026-07-10T00:05:42.6332973-06:00",
+  "summary": "Establish the M1 C12 schema-and-gates slice with complete shipped theme tokens, strict custom-theme schema parsing, a conservative WCAG contrast oracle, and strengthened hardcoded-color enforcement.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "§2.2 item 4 public standards",
+    "§2.4 provenance ledger",
+    "§2.7 questions, decisions, and unit of work",
+    "§4.12 FR-12.1 shipped-theme portion",
+    "§4.12 FR-12.2 token-set and component-gate foundation",
+    "§4.12 FR-12.4 parser and validation foundation",
+    "§4.12 FR-12.5 shipped-theme contrast gate",
+    "§4.12 AC-12.a, AC-12.b, and AC-12.c",
+    "§7 V-1 and V-2",
+    "§8 M1 C12 theming core",
+    "Appendix C theme token schema"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    {
+      "path": "provenance/entries/2026-07-10-c12-theme-schema.json",
+      "status": "added"
+    },
+    { "path": "scripts/lib/source-policy.mjs", "status": "modified" },
+    { "path": "spec/QUESTIONS.md", "status": "modified" },
+    { "path": "src/application/theme/shipped-themes.ts", "status": "added" },
+    { "path": "src/application/theme/theme-contrast.ts", "status": "added" },
+    { "path": "src/application/theme/theme-loader.ts", "status": "added" },
+    { "path": "src/application/theme/theme-schema.ts", "status": "added" },
+    { "path": "src/theme/themes/dark.json", "status": "added" },
+    { "path": "src/theme/themes/high-contrast.json", "status": "added" },
+    { "path": "src/theme/themes/light.json", "status": "added" },
+    { "path": "tests/application/theme/shipped-themes.test.ts", "status": "added" },
+    { "path": "tests/application/theme/theme-contrast.test.ts", "status": "added" },
+    { "path": "tests/application/theme/theme-loader.test.ts", "status": "added" },
+    { "path": "tests/application/theme/theme-schema.test.ts", "status": "added" },
+    { "path": "tests/scripts/source-policy.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html",
+      "accessedOn": "2026-07-09",
+      "purpose": "Confirm the WCAG 2.2 normal-text 4.5:1 threshold, unrounded threshold comparison, and contrast-ratio definition."
+    },
+    {
+      "url": "https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast.html",
+      "accessedOn": "2026-07-09",
+      "purpose": "Confirm the WCAG 2.2 non-text control and focus-boundary contrast basis used by the conservative matrix."
+    },
+    {
+      "url": "https://threejs.org/docs/pages/MeshPhongMaterial.html",
+      "accessedOn": "2026-07-10",
+      "purpose": "Confirm that Three.js material specular values are colors and constructor color properties accept Color.set representations for source-policy coverage."
+    },
+    {
+      "url": "https://www.w3.org/TR/css-color-5/",
+      "accessedOn": "2026-07-10",
+      "purpose": "Confirm light-dark() and related CSS Color Level 5 functions for component color-literal gate coverage."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0016",
+      "topic": "Canonical theme format",
+      "decision": "Store each shipped theme as an individual Appendix C JSON file and validate exact keys, nesting, metadata values, and string token types at runtime.",
+      "rationale": "A single normative artifact per theme prevents partial token sets and makes completeness independently testable without relying on TypeScript import inference.",
+      "specBasis": ["FR-12.1", "FR-12.2", "AC-12.a", "Appendix C"]
+    },
+    {
+      "id": "D-0017",
+      "topic": "Shipped color representation",
+      "decision": "Use opaque six-digit sRGB hex for every shipped token while keeping the custom-theme parser's color validator injectable.",
+      "rationale": "Opaque sRGB yields deterministic luminance arithmetic for shipped themes. Appendix C's broader custom CSS-color meaning remains parked under Q-0006 rather than silently narrowed.",
+      "specBasis": ["FR-12.4", "FR-12.5", "Appendix C", "Q-0006"]
+    },
+    {
+      "id": "D-0018",
+      "topic": "Provisional contrast policy",
+      "decision": "Until Q-0005 is amended, audit 88 explicit foreground/background relationships at 4.5:1 for readable text and 3:1 for non-text controls, focus indicators, and viewer marks; compare unrounded ratios.",
+      "rationale": "The explicit conservative matrix is reviewable and deterministic while avoiding an unsupported claim that the owner has finalized the normative pairing policy.",
+      "specBasis": ["FR-12.5", "AC-12.c", "§2.7 discretion", "Q-0005"]
+    },
+    {
+      "id": "D-0019",
+      "topic": "Selected editor text",
+      "decision": "Audit editor.text against editor.selection and require the runtime slice to normalize selected syntax to editor.text; audit syntax tokens against normal and active-line backgrounds.",
+      "rationale": "Appendix C has no selection-specific syntax palette. A single selected-text foreground gives the defined tokens a testable contrast relationship without inventing schema keys.",
+      "specBasis": ["FR-12.2", "FR-12.5", "Appendix C", "§2.7 discretion"]
+    },
+    {
+      "id": "D-0020",
+      "topic": "Custom-theme slice boundary",
+      "decision": "Deliver exact JSON parsing plus structured schema and injected color diagnostics now; park the settings-facing import control under Q-0004 and make no end-to-end FR-12.4 claim.",
+      "rationale": "The parser is independent of settings UI, while the milestone ownership of the visible import control is genuinely ambiguous.",
+      "specBasis": ["FR-12.4", "§2.7", "Q-0004"]
+    },
+    {
+      "id": "D-0021",
+      "topic": "Component color-literal gate",
+      "decision": "Scan product JavaScript, TypeScript, JSX, TSX, and CSS outside the canonical token files; use the TypeScript lexer for JS/TS comments and a string-aware CSS comment scanner; reject non-fragment hex broadly while requiring semantic color contexts for ambiguous named and numeric forms.",
+      "rationale": "The wider scan closes root-file, gradient, CSS fallback, SVG, canvas, and Three.js numeric bypasses without treating identifiers, URL fragments, selectors, or custom-property names as palette literals.",
+      "specBasis": ["FR-12.2", "AC-12.b", "§7 V-2"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "AC-12.a and Appendix C exact schema",
+      "test": "The runtime guard accepts only the complete normative object and rejects every missing required path, unknown key, wrong metadata value, wrong token type, and non-object root.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/theme/theme-schema.test.ts --reporter=verbose",
+        "observedAt": "2026-07-09T23:33:47-06:00",
+        "outcome": "Test Files 1 failed (1); Tests 97 failed | 4 passed (101). The deliberately incomplete guard returned true for missing, extra, wrong-typed, and non-object cases."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/theme/theme-schema.test.ts --reporter=verbose",
+        "observedAt": "2026-07-09T23:34:48-06:00",
+        "outcome": "Test Files 1 passed (1); Tests 101 passed (101)."
+      }
+    },
+    {
+      "criterion": "FR-12.1 shipped themes and AC-12.a completeness",
+      "test": "Exactly one complete, uniquely named Light, Dark, and High Contrast theme ships, and every color leaf is opaque six-digit sRGB.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/theme/shipped-themes.test.ts --reporter=verbose",
+        "observedAt": "2026-07-09T23:36:29-06:00",
+        "outcome": "Test Files 1 failed (1); Tests 1 failed | 1 passed (2). The empty shipped-theme stub had length zero instead of three."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/theme/shipped-themes.test.ts --reporter=verbose",
+        "observedAt": "2026-07-10T00:05:42.6332973-06:00",
+        "outcome": "Retained GREEN transcript reviewed at ledger time; original start time was not retained. Test Files 1 passed (1); Tests 2 passed (2)."
+      }
+    },
+    {
+      "criterion": "FR-12.4 parser and validation foundation",
+      "test": "Custom-theme parsing returns a typed theme or ordered structured issues for malformed JSON, exact-schema failure, and each rejected color token.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/theme/theme-loader.test.ts --reporter=verbose",
+        "observedAt": "2026-07-09T23:43:48-06:00",
+        "outcome": "Test Files 1 failed (1); Tests 4 failed (4). The initial stub always returned an empty failure result."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/theme/theme-loader.test.ts --reporter=verbose",
+        "observedAt": "2026-07-10T00:05:42.6332973-06:00",
+        "outcome": "Retained GREEN transcript reviewed at ledger time; original start time was not retained. Test Files 1 passed (1); Tests 4 passed (4)."
+      }
+    },
+    {
+      "criterion": "FR-12.5 and AC-12.c shipped-theme contrast",
+      "test": "The exact WCAG sRGB oracle audits all 88 declared pairs, all shipped themes pass, and a deliberately collapsed foreground produces the expected 1:1 failure.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/theme/theme-contrast.test.ts --reporter=verbose",
+        "observedAt": "2026-07-10T00:15:49.4169531-06:00",
+        "outcome": "Retained RED transcripts reviewed at ledger time. The initial oracle stub produced 2 failed | 3 passed tests. After the broader pair assertions were added, 2 tests failed for missing pairs; the first complete matrix then produced 3 failed | 4 passed tests and listed six Dark, seven Light, and three High Contrast palette failures. A controlled `auditThemeContrast` no-op mutation later made the negative-oracle test fail at 2026-07-10T00:03:17-06:00."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/theme/theme-contrast.test.ts --reporter=verbose",
+        "observedAt": "2026-07-10T00:05:29-06:00",
+        "outcome": "Test Files 1 passed (1); Tests 8 passed (8), including all three shipped palettes and the negative-oracle falsification case."
+      }
+    },
+    {
+      "criterion": "FR-12.2, AC-12.b, and V-2 component color gate",
+      "test": "The source scanner rejects literal colors across product source and distinguishes comments, fragments, selectors, URLs, identifiers, and token references.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/source-policy.test.ts --reporter=dot",
+        "observedAt": "2026-07-10T00:21:02-06:00",
+        "outcome": "Retained full-suite RED transcripts reviewed at ledger time. Successive adversarial cycles produced 17 failed | 15 passed (32), 5 failed | 32 passed (37), 8 failed | 38 passed (46), 9 failed | 46 passed (55), and finally 2 failed | 55 passed (57). Failures covered root and generated paths, short and separated numeric Three.js forms, light/fog/material/color methods, gradients, multiline and CSS Color Level 5 functions, color-mix, fallbacks, React camel-case properties, CSS custom properties and shorthands, system colors, SVG/canvas, CSS comment boundaries, and fragment/token false positives."
+      },
+      "green": {
+        "command": "cmd /c \"pnpm.cmd exec vitest run tests/scripts/source-policy.test.ts --reporter=dot && pnpm.cmd lint\"",
+        "observedAt": "2026-07-10T00:21:28-06:00",
+        "outcome": "Test Files 1 passed (1); Tests 57 passed (57); duration 948ms. Biome checked 50 files with no fixes, and the repository source-policy scan passed."
+      }
+    },
+    {
+      "criterion": "AC-12.b canonical-token exemption precision",
+      "test": "Only the canonical token stylesheet is exempt from literal-color checks; generated, fixture, theme-component, and nested theme-directory source remains covered.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/source-policy.test.ts -t \"applies color policy\" --reporter=verbose",
+        "observedAt": "2026-07-10T00:16:27-06:00",
+        "outcome": "Test Files 1 failed (1); Tests 1 failed | 45 skipped (46). The nested src/theme/themes/ThemePreview.tsx fixture was incorrectly exempt."
+      },
+      "green": {
+        "command": "cmd /c \"pnpm.cmd exec vitest run tests/scripts/source-policy.test.ts --reporter=dot && pnpm.cmd lint\"",
+        "observedAt": "2026-07-10T00:21:28-06:00",
+        "outcome": "The complete source-policy suite passed 57 tests and the repository lint/source scan passed after narrowing the exemption to src/theme/tokens.css."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "Q-0001 remains open: the owner must resolve Unicode-3.0 before the repository-wide Rust license-policy CI lane and any PR can be fully green.",
+    "Q-0004 remains open: only the visible settings-facing custom-theme import control is parked.",
+    "Q-0005 remains open: the explicit conservative contrast matrix is implemented but not claimed as the owner's final normative matrix.",
+    "Q-0006 remains open: full custom-theme CSS color syntax, normalization, compositing, and contrast acceptance are parked."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

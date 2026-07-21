@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-16-m3-final-review-repairs",
+  "createdAt": "2026-07-16T21:38:01-06:00",
+  "summary": "Close the M3 review findings around native menu resilience, bounded associated-file snapshots, production-static evidence isolation, and exact Windows installer lifecycle proof.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 M3 delivery protocol",
+    "FR-13.1 typed platform boundary",
+    "FR-13.2 desktop lifecycle integration",
+    "AC-13.a platform isolation",
+    "AC-13.b associated-file lifecycle",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": ".github/workflows/ci.yml", "status": "modified" },
+    { "path": "package.json", "status": "modified" },
+    { "path": "playwright.config.ts", "status": "modified" },
+    { "path": "provenance/entries/2026-07-16-m3-final-review-repairs.json", "status": "added" },
+    { "path": "scripts/run-production-static-evidence.mjs", "status": "added" },
+    { "path": "scripts/windows/test-installed-lifecycle.ps1", "status": "added" },
+    { "path": "src/desktop-shell/src-tauri/src/native_menu.rs", "status": "added" },
+    { "path": "src/desktop-shell/src-tauri/src/project_storage.rs", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/tauri.conf.json", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/windows/installer-hooks.nsh", "status": "added" },
+    { "path": "src/ui/files/ProjectLifecycleControls.tsx", "status": "modified" },
+    { "path": "src/ui/files/ProjectReplacementDialog.tsx", "status": "added" },
+    { "path": "src/ui/files/use-requested-project.ts", "status": "added" },
+    { "path": "src/ui/layout/use-native-menu-state.ts", "status": "added" },
+    { "path": "tests/e2e/m3-production-static.e2e.ts", "status": "added" },
+    { "path": "tests/scripts/ci-workflow.test.ts", "status": "modified" },
+    { "path": "tests/scripts/production-static-browser.test.ts", "status": "added" },
+    { "path": "tests/scripts/windows-installer.test.ts", "status": "modified" },
+    { "path": "tests/ui/layout/WebMenuBar.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://crates.io/crates/muda/0.19.3",
+      "accessedOn": "2026-07-16",
+      "purpose": "Read the locally pinned MIT OR Apache-2.0 muda 0.19.3 accelerator parser source to keep ScadMill's conservative native-menu key grammar aligned with the dependency boundary."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0273",
+      "topic": "Exact Windows setup payload identity",
+      "decision": "Extract scadmill.exe from the exact NSIS setup, hash and inspect that payload, and compare the installed executable to those bytes. Do not compare the installed payload to target/release/scadmill.exe after bundling because Tauri's NSIS pipeline mutates the release-path executable after capturing the setup payload.",
+      "rationale": "A local lifecycle run proved the setup-contained and installed executable are byte-identical while the post-bundle target path has the same length but different bytes. Binding the lifecycle to the setup payload proves what users receive and prevents a false failure against a non-authoritative intermediate.",
+      "specBasis": ["FR-13.2", "AC-13.b", "N-7"]
+    },
+    {
+      "id": "D-0274",
+      "topic": "Production-static evidence isolation",
+      "decision": "Exclude the subpath-only browser case from the ordinary root-path Playwright suite and make its dedicated command build a fresh artifact with the same configured base path before serving it. After reload, explicitly request a preview to prove cached engine execution rather than assuming render output persists across process restart.",
+      "rationale": "Root and subpath deployments require mutually exclusive base URLs. A self-contained evidence runner prevents stale dist output, and an explicit post-reload render tests the cache capability directly without inventing an auto-render product contract.",
+      "specBasis": ["FR-13.1", "AC-13.a", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Static, license, Rust, and production build gates reject drift and compile the complete M3 candidate against the pinned engine policy.",
+      "test": "Run each bounded static or aggregate gate once, using one focused replacement only after a concrete failure.",
+      "red": {
+        "command": "pnpm.cmd typecheck; pnpm.cmd test; cargo fmt --manifest-path src/desktop-shell/src-tauri/Cargo.toml -- --check; cargo test --manifest-path src/native-engine/Cargo.toml",
+        "observedAt": "2026-07-16T21:24:00-06:00",
+        "outcome": "Typecheck first found one stale PendingProject import after component extraction; the 1,139-test aggregate passed 1,138 and found one stale Help-copy assertion; rustfmt found formatting-only drift; native acceptance rejected the machine's obsolete OpenSCAD 2021.01 as required. Each cause was repaired without repeating the complete aggregate."
+      },
+      "green": {
+        "command": "pnpm.cmd typecheck; pnpm.cmd lint; pnpm.cmd check:generated; pnpm.cmd check:wasm-workflow; pnpm.cmd check:provenance; pnpm.cmd check:licenses rust; pnpm.cmd check:licenses all; pnpm.cmd exec vitest run tests/ui/layout/WebMenuBar.test.tsx; cargo clippy and cargo test for both manifests; pnpm.cmd build:desktop",
+        "observedAt": "2026-07-16T21:29:00-06:00",
+        "outcome": "GREEN: TypeScript, Biome/source policy, generated parser, WASM workflow, baseline provenance, 120 npm and 494 Rust license records, focused Help regression 6/6, both clippy lanes, desktop Rust 37/37, native Rust 24/24, exact pinned-engine acceptance 1/1 against SHA256 DE9A0C732C23C3FEB0B49CF938777AA0AEE3E206DB9E98571672CACC4816C524, and desktop Vite build all exited 0."
+      }
+    },
+    {
+      "criterion": "The production-static and Windows installer evidence lanes validate the exact artifacts they exercise and retain honest red status until their post-repair hosted runs complete.",
+      "test": "Run the ordinary browser aggregate once, the dedicated freshly built static lane under a bounded retry cap, one NSIS package build, static import inspection, and one clean-host lifecycle invocation.",
+      "red": {
+        "command": "pnpm.cmd test:e2e; pnpm.cmd test:e2e:production-static; pnpm.cmd exec tauri build --bundles nsis --ci -- --locked; powershell.exe -ExecutionPolicy Bypass -File scripts/windows/test-installed-lifecycle.ps1",
+        "observedAt": "2026-07-16T21:35:00-06:00",
+        "outcome": "HONEST RED AFTER PARTIAL GREEN: ordinary browser acceptance passed 24/25 before exposing wrong collection of the subpath-only case. The freshly built static candidate loaded and rendered once from OpenSCAD 2026.06.12, then correctly restored the engine cache without network but the test incorrectly expected automatic post-reload rendering; that assertion is repaired but was not rerun under the anti-loop cap. NSIS built successfully; the app payload had no VCRUNTIME140 imports. The lifecycle verified a clean host, then exposed comparison against Tauri's non-authoritative post-bundle target and later showed Tauri leaves an empty association backup key. Both defects are repaired; the partial install and empty test key were removed, leaving no app, association, or process."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/windows-installer.test.ts tests/scripts/ci-workflow.test.ts tests/scripts/production-static-browser.test.ts; pnpm.cmd exec vitest run tests/scripts/ci-workflow.test.ts",
+        "observedAt": "2026-07-16T21:37:00-06:00",
+        "outcome": "CONTRACT GREEN / HOSTED RUNTIME PENDING: the installer, CI, and static-runner contract batches exposed and repaired stale hash-order and redundant-build assertions; focused replacements passed CI 5/5 and production-static 3/3. The pre-hook-repair local setup was 209355429 bytes with SHA256 E7C8B9F40C25918B359300C7F87BAED72C27085737801E620DFC51D19AD64C92; it is evidence of the diagnosed payload mismatch, not the final candidate. Independent re-audits of the corrected payload identity, conditional association restoration hook, sentinel lifecycle proof, and production-static isolation reached literal 0/0/0/0/0. A fresh hosted Windows lifecycle and production-static run remain required before M3 can be called green."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": ["Q-0033", "Q-0034"],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

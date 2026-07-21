@@ -1,0 +1,137 @@
+import { describe, expect, it, vi } from "vitest";
+
+import { createBrowserRenderThumbnailPersistence, createDesktopRenderThumbnailPersistence } from "../../src/platform-desktop/desktop-thumbnail-persistence";
+
+class MemoryStorage {
+  readonly values = new Map<string, string>();
+  getItem(key: string) { return this.values.get(key) ?? null; }
+  setItem(key: string, value: string) { this.values.set(key, value); }
+  removeItem(key: string) { this.values.delete(key); }
+}
+
+const workspaceIdentity = `desktop-project:${"a".repeat(64)}`;
+const renderIdentity = `sha256:${"b".repeat(64)}`;
+const png = (suffix: number) => new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, suffix]);
+
+describe("desktop render thumbnail persistence", () => {
+  it("round-trips cloned binary records under an app-owned opaque workspace key", () => {
+    const storage = new MemoryStorage();
+    const persistence = createDesktopRenderThumbnailPersistence(storage);
+    expect(persistence.supportsWorkspace?.("scratch")).toBe(false);
+    expect(persistence.supportsWorkspace?.(workspaceIdentity)).toBe(true);
+    const bytes = png(1);
+    persistence.save(workspaceIdentity, {
+      documentPath: "parts/gear.scad",
+      renderIdentity,
+      capturedAt: "2026-07-17T00:00:00.000Z",
+      pngBytes: bytes,
+    });
+    bytes[4] = 9;
+
+    const loaded = createDesktopRenderThumbnailPersistence(storage).load(workspaceIdentity);
+    expect(loaded).toEqual([{
+      documentPath: "parts/gear.scad",
+      renderIdentity,
+      capturedAt: "2026-07-17T00:00:00.000Z",
+      pngBytes: png(1),
+    }]);
+    loaded[0].pngBytes[0] = 0;
+    expect(persistence.load(workspaceIdentity)[0].pngBytes[0]).toBe(137);
+    expect([...storage.values.keys()]).toEqual([
+      `scadmill.desktop-render-thumbnails.v1:${workspaceIdentity}`,
+    ]);
+  });
+
+  it("replaces only the matching document and clears the workspace atomically", () => {
+    const storage = new MemoryStorage();
+    const persistence = createDesktopRenderThumbnailPersistence(storage);
+    persistence.save(workspaceIdentity, {
+      documentPath: "main.scad",
+      renderIdentity,
+      capturedAt: "2026-07-17T00:00:00.000Z",
+      pngBytes: png(1),
+    });
+    persistence.save(workspaceIdentity, {
+      documentPath: "main.scad",
+      renderIdentity: `sha256:${"c".repeat(64)}`,
+      capturedAt: "2026-07-17T01:00:00.000Z",
+      pngBytes: png(2),
+    });
+
+    expect(persistence.load(workspaceIdentity)).toHaveLength(1);
+    expect(persistence.load(workspaceIdentity)[0].pngBytes).toEqual(png(2));
+    persistence.clear(workspaceIdentity);
+    expect(persistence.load(workspaceIdentity)).toEqual([]);
+  });
+
+  it("notifies once after save and clear, and stops after unsubscribe", () => {
+    const persistence = createDesktopRenderThumbnailPersistence(new MemoryStorage());
+    const listener = vi.fn();
+    const unsubscribe = persistence.subscribe?.(listener);
+
+    persistence.save(workspaceIdentity, {
+      documentPath: "main.scad",
+      renderIdentity,
+      capturedAt: "2026-07-17T00:00:00.000Z",
+      pngBytes: png(1),
+    });
+    persistence.clear(workspaceIdentity);
+
+    expect(listener).toHaveBeenCalledTimes(2);
+    unsubscribe?.();
+    persistence.clear(workspaceIdentity);
+    expect(listener).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not notify when durable storage rejects a save or clear", () => {
+    const storage = new MemoryStorage();
+    const persistence = createDesktopRenderThumbnailPersistence(storage);
+    const listener = vi.fn();
+    persistence.subscribe?.(listener);
+    storage.setItem = () => { throw new Error("storage full"); };
+
+    expect(() => persistence.save(workspaceIdentity, {
+      documentPath: "main.scad",
+      renderIdentity,
+      capturedAt: "2026-07-17T00:00:00.000Z",
+      pngBytes: png(1),
+    })).toThrow("storage full");
+    expect(listener).not.toHaveBeenCalled();
+
+    storage.removeItem = () => { throw new Error("storage locked"); };
+    expect(() => persistence.clear(workspaceIdentity)).toThrow("storage locked");
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it("fails closed on malformed data and never accepts a source path as workspace identity", () => {
+    const storage = new MemoryStorage();
+    const persistence = createDesktopRenderThumbnailPersistence(storage);
+    const key = `scadmill.desktop-render-thumbnails.v1:${workspaceIdentity}`;
+    storage.setItem(key, '{"version":1,"records":[],"extra":true}');
+    expect(persistence.load(workspaceIdentity)).toEqual([]);
+    expect(persistence.load("C:\\Models\\Secret")).toEqual([]);
+    expect(() => persistence.save("C:\\Models\\Secret", {
+      documentPath: "main.scad",
+      renderIdentity,
+      capturedAt: "2026-07-17T00:00:00.000Z",
+      pngBytes: png(1),
+    })).toThrow(/opaque desktop project identity/iu);
+    expect([...storage.values.keys()].join("\n")).not.toContain("Models");
+  });
+
+  it("provides a durable browser-profile namespace for non-path workspace identities", () => {
+    const storage = new MemoryStorage();
+    const persistence = createBrowserRenderThumbnailPersistence(storage);
+    expect(persistence.supportsWorkspace?.("scratch")).toBe(true);
+    persistence.save("web-import-project", {
+      documentPath: "main.scad",
+      renderIdentity,
+      capturedAt: "2026-07-17T00:00:00.000Z",
+      pngBytes: png(3),
+    });
+    expect(persistence.load("web-import-project")[0].pngBytes).toEqual(png(3));
+    expect([...storage.values.keys()]).toEqual([
+      "scadmill.browser-render-thumbnails.v1:web-import-project",
+    ]);
+  });
+});

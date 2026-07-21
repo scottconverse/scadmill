@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-m4-ai-panel-selector",
+  "createdAt": "2026-07-20T06:04:32-06:00",
+  "summary": "Target the semantic AI panel section in the packaged unconfigured-state probe instead of an earlier control with the same accessible label.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "AC-10.a", "M4 release candidate", "N-7 evidence honesty"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-m4-ai-panel-selector.json", "status": "added" },
+    { "path": "scripts/lib/m4-packaged-walkthrough.mjs", "status": "modified" },
+    { "path": "tests/scripts/m4-packaged-walkthrough.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0436",
+      "topic": "Unconfigured-AI packaged DOM target",
+      "decision": "Select `section[aria-label=\"AI\"]` for the unconfigured workbench assertion rather than the first arbitrary element carrying the shared AI label.",
+      "rationale": "The exact adc66b9 Sandbox run proved the corrected security sentence still evaluated false because the broad selector matched an earlier AI navigation control. The production unconfigured conversation is a semantic section with the same accessible label; constraining the element type binds the text and button assertions to that panel.",
+      "specBasis": ["AC-10.a", "N-7 evidence honesty", "M4 release candidate"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The actual injected probe must ignore an earlier AI-labeled control and inspect the semantic AI panel containing production guidance and no Send button.",
+      "test": "Execute M4_DOM_SCRIPTS.aiUnconfigured against a DOM fixture whose broad AI selector resolves to a decoy control and whose section selector resolves to the current production messages.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/m4-packaged-walkthrough.test.ts -t \"recognizes the current unconfigured-AI security guidance\" --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T06:04:12-06:00",
+        "outcome": "RED: the broad selector read the earlier control and returned guidanceVisible false with sendCount zero."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/m4-packaged-walkthrough.test.ts -t \"recognizes the current unconfigured-AI security guidance\" --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T06:04:27-06:00",
+        "outcome": "GREEN: the semantic section selector ignored the decoy and returned guidanceVisible true with sendCount zero."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-adc66b9-sandbox-m4-final-20260720/evidence.json",
+      "sought": "Exact clean packaged M4 walkthrough on candidate adc66b9",
+      "confirmation": "Clean build, WebView2 startup including the corrected port mirror, cube render/export, MCP walkthrough, process inspection, and N-2-disabled boundary passed. M4 then failed at the unconfigured guidance assertion because its broad selector targeted the earlier AI control; no later M4 assertions ran. Host cleanup removed the exact Sandbox session and staging directory."
+    }
+  ],
+  "questions": ["No owner decision is required. Do not repeat the clean Sandbox lane until this selector correction passes bounded local review."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-m4-presentation-readiness",
+  "createdAt": "2026-07-20T02:42:00-06:00",
+  "summary": "Make rendered status, animation cadence, and thumbnail visibility follow a bounded, tokenized presentation lifecycle after exact hosted evidence exposed a pre-presentation status race and a late-persistence UI race.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "AC-15.a", "FR-15.13", "M4 release candidate", "N-1"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-m4-presentation-readiness.json", "status": "added" },
+    { "path": "src/application/render-cache/render-thumbnail-persistence.ts", "status": "modified" },
+    { "path": "src/application/runtime/workbench-runtime-contracts.ts", "status": "modified" },
+    { "path": "src/application/runtime/workbench-runtime.ts", "status": "modified" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/platform-desktop/desktop-thumbnail-persistence.ts", "status": "modified" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/animation/AnimationBar.tsx", "status": "modified" },
+    { "path": "src/ui/files/ProjectPanel.tsx", "status": "modified" },
+    { "path": "src/ui/files/use-thumbnail-persistence-revision.ts", "status": "added" },
+    { "path": "src/ui/render/RenderStatusText.tsx", "status": "modified" },
+    { "path": "src/ui/render/index.ts", "status": "modified" },
+    { "path": "src/ui/render/render-state-view.ts", "status": "modified" },
+    { "path": "src/ui/viewer/ModelViewer.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/SvgViewer.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/ViewerPane.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/ViewerPaneConnector.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/model-viewer-runtime.ts", "status": "modified" },
+    { "path": "src/ui/viewer/use-model-frame-report.ts", "status": "added" },
+    { "path": "src/ui/viewer/use-presentation-readiness.ts", "status": "added" },
+    { "path": "src/ui/viewer/use-viewer-thumbnail.ts", "status": "modified" },
+    { "path": "tests/application/runtime/workbench-runtime.test.ts", "status": "modified" },
+    { "path": "tests/platform-desktop/desktop-thumbnail-persistence.test.ts", "status": "modified" },
+    { "path": "tests/ui/animation/AnimationBar.test.tsx", "status": "modified" },
+    { "path": "tests/ui/Workbench.test.tsx", "status": "modified" },
+    { "path": "tests/ui/files/ProjectPanel.test.tsx", "status": "modified" },
+    { "path": "tests/ui/render/RenderStatusText.test.tsx", "status": "modified" },
+    { "path": "tests/ui/WorkbenchPresentation.test.tsx", "status": "added" },
+    { "path": "tests/ui/viewer/presentation-readiness.test.tsx", "status": "added" },
+    { "path": "tests/ui/viewer/ModelViewer.theme.test.tsx", "status": "modified" },
+    { "path": "tests/ui/viewer/SvgViewer.test.tsx", "status": "modified" },
+    { "path": "tests/ui/viewer/ViewerPaneThumbnail.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29727651663/job/88304356882",
+      "accessedOn": "2026-07-20",
+      "purpose": "Inspect exact fee7eb2 hosted failures: AC-15.a measured 118.9 ms because Rendered preceded the first viewer frame, and the M4 journey could not see a thumbnail saved after its one-time hover lookup."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0425",
+      "topic": "Presentation-ready rendered status",
+      "decision": "Assign an opaque command token to each new engine or cold-cache presentation. Treat the result as Presenting until the matching sanitized SVG image loads or the matching 3D frame is submitted by the renderer; terminate explicitly on display failure, timeout, or a disclosed pinned-mode skip. Reject stale tokens, cancel waiters on pause, scrub, supersession, or unmount, and retain readiness only for a fast cache touch of the already-presented result.",
+      "rationale": "Rendered is a user-visible claim that the viewer accepted the matching display work, not merely that engine bytes arrived and not a claim about compositor paint. Geometry hashes can be unavailable or repeat in an X-to-Y-to-X sequence, so a unique presentation token is required. The prior ordering let cache interaction and animation race outstanding STL parsing and WebGL work on slower hosted graphics, producing misleading status and overlapping presentation work.",
+      "specBasis": ["AC-15.a", "N-1"]
+    },
+    {
+      "id": "D-0426",
+      "topic": "Observable bounded thumbnail persistence",
+      "decision": "Retain the 250 ms quiet preference, add a one-second hard deadline during continuous frame bursts, and let thumbnail persistence notify Files-panel consumers after successful save or clear.",
+      "rationale": "A pure trailing debounce can starve under continuous interaction, while a delayed save after the Files panel's one-time hover lookup remains invisible without a persistence notification. The bounded observable design preserves interaction headroom and guarantees eventual visible progress.",
+      "specBasis": ["FR-15.13", "N-1"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Continuous frames cannot starve automatic capture and a thumbnail saved after hover becomes visible without re-hovering.",
+      "test": "Exercise the production thumbnail scheduler and ProjectPanel against repeated frames and an observable late save.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/viewer/ViewerPaneThumbnail.test.tsx tests/ui/files/ProjectPanel.test.tsx --reporter=verbose --maxWorkers=1",
+        "observedAt": "2026-07-20T02:31:57-06:00",
+        "outcome": "RED: 2 of 11 tests failed. Repeated 100 ms frames postponed capture past the one-second bound, and the already-hovered ProjectPanel never reloaded a thumbnail saved afterward."
+      },
+      "green": {
+        "command": "pnpm.cmd test",
+        "observedAt": "2026-07-20T03:25:53-06:00",
+        "outcome": "GREEN on the frozen diff: 207 files and 1,518 tests passed, including bounded thumbnail scheduling, production persistence notifications, late refresh, authoritative terminal presentation failures, lifecycle timeout, pinned-mode skip, pending-dispatch cancellation, stale rejection, X-to-Y-to-X token separation, no premature Rendered claim, background-tab withholding, and immediate animation engine-failure termination."
+      }
+    },
+    {
+      "criterion": "Rendered status and animation progress must follow the matching bounded presentation lifecycle without weakening AC-15.a.",
+      "test": "Falsify premature status at component level, then run the unchanged production-static cache oracle and complete hosted M4 journey.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/render/RenderStatusText.test.tsx tests/ui/viewer/SvgViewer.test.tsx --reporter=verbose --maxWorkers=1",
+        "observedAt": "2026-07-20T02:36:02-06:00",
+        "outcome": "RED: 2 of 6 tests failed because success was labeled Rendered before presentation readiness and SVG load emitted no readiness identity."
+      },
+      "green": {
+        "command": "pnpm.cmd test:e2e:production-static && pnpm.cmd test:e2e:m4-hosted",
+        "observedAt": "2026-07-20T03:26:35-06:00",
+        "outcome": "GREEN on the frozen diff in bounded individual runs: the unchanged one-sample, zero-retry AC-15.a oracle measured 9.1 ms against its strict <100 ms limit, and the full hosted M4 journey passed in 9.3 seconds after animation cadence was bound to presentation readiness."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://tests/e2e/m4-cache-paint.e2e.ts",
+      "sought": "Relaxing the 100 ms limit, removing either post-mutation animation frame, adding retries, or selecting a faster sample",
+      "confirmation": "Rejected. The production-static oracle and threshold are unchanged."
+    },
+    {
+      "url": "local://tests/e2e/m4-hosted-journey.e2e.ts",
+      "sought": "Adding a sleep before thumbnail hover or tolerating animation overlap",
+      "confirmation": "Rejected. Persistence became observable and animation now waits for the actual presentation boundary."
+    }
+  ],
+  "questions": ["No owner decision is required. Exact hosted confirmation and a new exact-head release evidence envelope remain required after commit."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

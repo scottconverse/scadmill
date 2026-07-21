@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-mcp-aggregate-green",
+  "createdAt": "2026-07-17T04:01:00-06:00",
+  "summary": "Record the aggregate suite after adding the C11 MCP contract foundation: all 166 test files and 1252 tests pass.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "verifier" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "C11", "N-7 evidence and status honesty"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-17-m4-mcp-aggregate-green.json", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0335", "topic": "MCP foundation aggregate proof", "decision": "Retain one bounded aggregate run after MCP contract addition; do not infer stdio-server readiness from local unit counts.", "rationale": "The contract module crosses application boundaries but is not the server. Aggregate green is necessary regression evidence, not AC-11.b completion.", "specBasis": ["C11", "N-7"] }
+  ],
+  "testEvidence": [
+    { "criterion": "The full local repository suite remains green after the MCP contract foundation.", "test": "Run one bounded aggregate test command after the focused MCP suite.", "red": { "command": "pnpm.cmd test -- --reporter=dot", "observedAt": "2026-07-17T03:52:37-06:00", "outcome": "RED: the earlier aggregate run was blocked by a scheduler-sensitive timing assertion later corrected; no MCP behavior failure was observed." }, "green": { "command": "pnpm.cmd test -- --reporter=dot", "observedAt": "2026-07-17T04:00:08-06:00", "outcome": "GREEN: Test Files 166 passed (166); Tests 1252 passed (1252); Duration 19.47s." } }
+  ],
+  "nearMisses": [],
+  "questions": ["The stdio server and AC-11.b/c remain pending."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

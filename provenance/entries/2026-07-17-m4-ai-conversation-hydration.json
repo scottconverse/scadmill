@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-ai-conversation-hydration",
+  "createdAt": "2026-07-17T04:22:30-06:00",
+  "summary": "Wire document-scoped bounded AI conversation persistence into the panel with startup hydration, fail-safe local storage, and an explicit clear action.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "FR-10.6", "AC-10.d", "N-2", "N-7 evidence and status honesty"],
+  "filesTouched": [
+    { "path": "src/application/ai/conversation-persistence.ts", "status": "modified" },
+    { "path": "src/ui/ai/AiConversationPanel.tsx", "status": "modified" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "tests/application/ai/conversation-persistence.test.ts", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-17-m4-ai-conversation-hydration.json", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0349", "topic": "Conversation storage adapter", "decision": "Use a document-scoped local-storage adapter with guarded get/set/remove operations and keep the panel fail-safe when storage is unavailable; the strict bounded serializer remains the only persisted format.", "rationale": "The current desktop webview and web target both expose local storage, while guarding every operation preserves editing if quotas or privacy modes reject persistence.", "specBasis": ["FR-10.6", "N-2", "N-7"] },
+    { "id": "D-0350", "topic": "Conversation deletion", "decision": "Expose an explicit Clear conversation action that removes the document key and dispatches the reducer clear action in the same event.", "rationale": "FR-10.6 requires deletable per-project conversations; a single visible action prevents stale persisted context from surviving user intent.", "specBasis": ["FR-10.6"] }
+  ],
+  "testEvidence": [{ "criterion": "Conversation hydration, bounded persistence, and deletion remain safe.", "test": "Run focused panel and persistence tests once, then lint/source policy once.", "red": { "command": "pnpm.cmd exec vitest run tests/ui/ai/AiConversationPanel.test.tsx tests/application/ai/conversation-persistence.test.ts", "observedAt": "2026-07-17T04:21:25-06:00", "outcome": "RED: no pre-change red test was required for the adapter-only integration; the new document-key/deletion test was written before implementation." }, "green": { "command": "pnpm.cmd exec vitest run tests/ui/ai/AiConversationPanel.test.tsx tests/application/ai/conversation-persistence.test.ts; pnpm.cmd lint", "observedAt": "2026-07-17T04:22:08-06:00", "outcome": "GREEN: 2 files and 7 tests passed; lint and source policy passed." } }],
+  "nearMisses": [],
+  "questions": ["Provider-secret hydration for redaction, project-export conversation policy, and hosted AC-10.d evidence remain pending; no claim is made that local storage is the final desktop keychain-backed persistence mechanism."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

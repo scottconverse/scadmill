@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-n2-failure-oracle",
+  "createdAt": "2026-07-20T04:16:11-06:00",
+  "summary": "Align the packaged N-2 midpoint engine-kill oracle with ScadMill's actual visible render-failure surfaces and remove two avoidable long-session allocation paths exposed by the first exact-candidate literal run.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "N-2", "M4 release candidate"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-n2-failure-oracle.json", "status": "added" },
+    { "path": "scripts/lib/n2-soak-runner.mjs", "status": "modified" },
+    { "path": "scripts/lib/n2-soak-runner.d.mts", "status": "modified" },
+    { "path": "scripts/lib/n2-soak-verifier.mjs", "status": "modified" },
+    { "path": "scripts/run-packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/ui/mcp/McpReviewPanel.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/ViewerPaneConnector.tsx", "status": "modified" },
+    { "path": "tests/scripts/n2-soak-evidence.test.ts", "status": "modified" },
+    { "path": "tests/scripts/n2-soak-runner.test.ts", "status": "modified" },
+    { "path": "tests/ui/Workbench.test.tsx", "status": "modified" },
+    { "path": "tests/ui/mcp/McpReviewPanel.test.tsx", "status": "modified" },
+    { "path": "tests/ui/viewer/ViewerPaneThumbnail.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0427",
+      "topic": "Truthful N-2 render-failure observation",
+      "decision": "The midpoint engine-kill probe must require one completed non-success full-render Console run plus the exact visible status-render text and the viewer error badge's exact text and accessible label. Retained crash evidence records these as named structured surfaces rather than claiming they are ARIA alerts.",
+      "rationale": "The exact candidate rendered successfully for 60 sequential cycles with zero engine leaks, then control flow reached the exact verified engine-process kill, confirmed that process exited, and timed out inside the combined UI oracle. Source inspection shows that normal render failure is represented by a completed Console run, status line, and viewer badge while the old oracle instead required an unrelated role=alert. The failed artifact does not retain which subcondition was present, so this is a source-supported diagnosis that requires the planned accelerated packaged confirmation before it becomes runtime evidence.",
+      "specBasis": ["N-2", "M4 release candidate"]
+    },
+    {
+      "id": "D-0428",
+      "topic": "Project-only automatic thumbnail capture",
+      "decision": "Schedule automatic render-thumbnail capture only while a saved project session is open; scratch documents remain renderable and screenshot-capable but do not perform a capture that desktop persistence will reject.",
+      "rationale": "Desktop thumbnail persistence intentionally accepts only opaque saved-project identities. The N-2 scratch journey nevertheless captured and encoded a fresh PNG after every distinct render, then caught the guaranteed persistence rejection. Skipping that impossible write removes repeated image allocation without weakening saved-project thumbnails or explicit screenshots.",
+      "specBasis": ["FR-15.13", "N-2"]
+    },
+    {
+      "id": "D-0429",
+      "topic": "Bounded mounted History rows",
+      "decision": "Keep the full session command collection and details in the runtime, but mount only the newest 200 History rows initially and reveal older commands in further pages of at most 200.",
+      "rationale": "The packaged walkthrough leaves History active before N-2, and WebDriver replacement can produce many CodeMirror edit transactions for one typed source. Rendering every retained command as a live button caused an avoidable DOM and React allocation multiplier. Paging bounds mounted UI work while preserving newest-first order, command identity, detail access, and reachability of every retained session command.",
+      "specBasis": ["FR-11.3", "N-2"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The packaged fault-injection oracle must inspect the two actual visible failure surfaces and preserve exact structured evidence.",
+      "test": "Add harness-wiring assertions before implementation, then run the runner and verifier unit contracts together.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/n2-soak-runner.test.ts --reporter=dot",
+        "observedAt": "2026-07-20T04:15:01-06:00",
+        "outcome": "RED: 1 of 2 tests failed because the packaged harness contained neither .viewer-error-badge nor .status-render and still described an alert-only wait."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/n2-soak-runner.test.ts tests/scripts/n2-soak-evidence.test.ts tests/ui/Workbench.test.tsx tests/ui/mcp/McpReviewPanel.test.tsx tests/ui/viewer/ViewerPaneThumbnail.test.tsx --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T04:34:09-06:00",
+        "outcome": "GREEN after strict-review corrections: all 5 files and 44 tests passed, including exact structured Console/status/badge proof, forged failure-proof rejection, integrated product surfaces, scratch-thumbnail suppression, and bounded History pages. TypeScript, provenance, and diff hygiene also passed immediately afterward."
+      }
+    },
+    {
+      "criterion": "Unsaved scratch renders must not perform automatic thumbnail capture that desktop persistence cannot accept.",
+      "test": "Render a scratch presentation frame through ViewerPaneConnector with thumbnail persistence installed.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/viewer/ViewerPaneThumbnail.test.tsx -t \"does not capture an automatic thumbnail for an unsaved scratch document\" --reporter=dot",
+        "observedAt": "2026-07-20T04:23:45-06:00",
+        "outcome": "RED: the scratch frame called captureThumbnailPng once."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/viewer/ViewerPaneThumbnail.test.tsx --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T04:24:10-06:00",
+        "outcome": "GREEN: all 6 thumbnail lifecycle tests passed; scratch skipped capture while saved-project capture, supersession, unmount cancellation, destination isolation, and bounded scheduling remained green."
+      }
+    },
+    {
+      "criterion": "A large retained session history must not mount every command at once, and every older command must remain reachable.",
+      "test": "Render 205 retained commands, verify the initial mounted row bound, then reveal the remaining page.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/mcp/McpReviewPanel.test.tsx -t \"keeps the mounted history DOM bounded\" --reporter=dot",
+        "observedAt": "2026-07-20T04:26:57-06:00",
+        "outcome": "RED: all 205 command buttons mounted instead of the 200-row bound."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/n2-soak-runner.test.ts tests/scripts/n2-soak-evidence.test.ts tests/ui/Workbench.test.tsx tests/ui/mcp/McpReviewPanel.test.tsx tests/ui/viewer/ViewerPaneThumbnail.test.tsx --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T04:34:09-06:00",
+        "outcome": "GREEN in the final 5-file, 44-test run: 405 retained commands traversed as pages of 200, 200, and 5 without ever mounting more than 200; newer navigation returned to a 200-row page; the integrated failure surfaces also passed."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-0410704-sandbox-literal-20260720/evidence.json",
+      "sought": "Literal one-hour N-2 release evidence for exact candidate 0410704",
+      "confirmation": "Not release evidence. The run passed 60 sequential render cycles through 1,778 seconds with zero engine processes after each render, reached the exact verified engine-process kill and exit confirmation, then timed out inside a combined oracle that required role=alert. It does not retain which UI subcondition was present. The failed artifact also independently exceeds the N-2 memory ceiling and remains retained as diagnostic evidence."
+    },
+    {
+      "url": "local://src/ui/viewer/ViewerPane.tsx",
+      "sought": "Changing the product UI to add role=alert solely to satisfy the evidence harness",
+      "confirmation": "Rejected. The status bar and keyboard-accessible viewer error badge already expose the failure; the harness must observe the product's real contract rather than mutate product semantics to satisfy a test assumption."
+    }
+  ],
+  "questions": ["No owner decision is required. Run one accelerated packaged recovery proof before a single fresh literal one-hour release-evidence run."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

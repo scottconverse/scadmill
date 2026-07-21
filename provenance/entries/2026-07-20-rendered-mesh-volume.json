@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-rendered-mesh-volume",
+  "createdAt": "2026-07-20T20:00:19-06:00",
+  "summary": "Derive native and WASM geometry volume from the rendered binary STL instead of a nonexistent OpenSCAD log statistic.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "FR-15.2", "AC-15.b", "Appendix A RenderResult", "V-5 release gate", "V-6 honesty rule"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-rendered-mesh-volume.json", "status": "added" },
+    { "path": "src/application/geometry/stl.ts", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/src/lib.rs", "status": "modified" },
+    { "path": "src/native-engine/src/stl.rs", "status": "modified" },
+    { "path": "src/platform-desktop/tauri-bridge.ts", "status": "modified" },
+    { "path": "src/platform-web/openscad-wasm-runtime.ts", "status": "modified" },
+    { "path": "tests/application/geometry/stl.test.ts", "status": "modified" },
+    { "path": "tests/platform-desktop/tauri-bridge.test.ts", "status": "modified" },
+    { "path": "tests/platform-web/openscad-wasm-runtime.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0461",
+      "topic": "Source of 3D volume statistics",
+      "decision": "For successful 3D renders, compute absolute enclosed volume from consistently oriented binary-STL triangles relative to the first vertex using compensated f64/number summation. Compute in Rust for native renders and transmit volumeMm3 explicitly; compute from parsed positions for WASM renders. Retain raw-log parsing only for statistics the engine actually reports, such as vertices.",
+      "rationale": "Official OpenSCAD 2026.06.12 does not emit the numeric Volume line assumed by the adapters, so native AC-15.b evidence reported volume unavailable even though bounds proved the cube changed. The rendered STL is the geometry being displayed and exported; deriving its enclosed volume gives both paths the same evidence source, is translation invariant, and avoids treating OpenSCAD's facet or shell counts as cubic units.",
+      "specBasis": ["FR-15.2", "AC-15.b", "Appendix A RenderResult", "V-6 honesty rule"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Mesh volume must be nonzero, translation invariant, and independent of an invented raw-log Volume line on both engine paths.",
+      "test": "Run focused STL, desktop bridge, and WASM runtime tests with a translated closed tetrahedron and a raw log containing facets but no numeric volume.",
+      "red": {
+        "command": "npm.cmd test -- --run tests/application/geometry/stl.test.ts tests/platform-desktop/tauri-bridge.test.ts",
+        "observedAt": "2026-07-20T19:55:26-06:00",
+        "outcome": "RED: 2 failed, 14 passed. No closedMeshVolumeMm3 function existed and the desktop adapter omitted the explicit wire volume when the raw log lacked Volume:."
+      },
+      "green": {
+        "command": "npm.cmd test -- --run tests/application/geometry/stl.test.ts tests/platform-desktop/tauri-bridge.test.ts tests/platform-web/openscad-wasm-runtime.test.ts",
+        "observedAt": "2026-07-20T19:58:43-06:00",
+        "outcome": "GREEN: 37/37 tests passed before the final hostile-buffer assertion was added."
+      }
+    },
+    {
+      "criterion": "Native mesh volume and its desktop wire must compile and remain warning-free.",
+      "test": "Run native STL tests, desktop Tauri library tests, rustfmt checks, and clippy with warnings denied.",
+      "red": {
+        "command": "cargo test --manifest-path src/native-engine/Cargo.toml stl::tests::derives_translation_invariant_enclosed_volume",
+        "observedAt": "2026-07-20T19:55:30-06:00",
+        "outcome": "RED: compilation failed because ParsedStl had no volume_mm3 field."
+      },
+      "green": {
+        "command": "cargo test --manifest-path src/native-engine/Cargo.toml stl::tests; cargo test --manifest-path src/desktop-shell/src-tauri/Cargo.toml --lib; cargo fmt --manifest-path src/native-engine/Cargo.toml --check; cargo fmt --manifest-path src/desktop-shell/src-tauri/Cargo.toml --check; cargo clippy --manifest-path src/native-engine/Cargo.toml --all-targets -- -D warnings; cargo clippy --manifest-path src/desktop-shell/src-tauri/Cargo.toml --all-targets -- -D warnings",
+        "observedAt": "2026-07-20T19:59:55-06:00",
+        "outcome": "GREEN: native STL 3/3, desktop Tauri library 59/59, both rustfmt checks, and both clippy runs passed with warnings denied."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://OpenSCAD-2026.06.12-x86-64/openscad.com",
+      "sought": "The official pinned engine's real CLI statistics for a successful binary-STL cube render",
+      "confirmation": "Exit 0 and a 684-byte STL; stderr reported cache, timing, PolySet, convexity, and 6 facets, but no numeric cubic-volume statistic."
+    },
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-e8ab85a-sandbox-m4-native-split-20260720/evidence.json",
+      "sought": "Exact clean packaged native M4 geometry-delta evidence",
+      "confirmation": "The run passed cache readiness and produced the exact +2/0/0 mm bounds change with zero triangle change, but correctly failed because volume was unavailable; cleanup passed."
+    }
+  ],
+  "questions": ["No owner decision is required; AC-15.b requires a non-zero volume delta and the displayed/exported mesh is the common native/WASM geometry source."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

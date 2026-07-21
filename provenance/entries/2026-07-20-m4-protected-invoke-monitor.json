@@ -1,0 +1,124 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-m4-protected-invoke-monitor",
+  "createdAt": "2026-07-20T05:22:48-06:00",
+  "summary": "Keep the packaged M4 unconfigured-AI network probe operational when the pinned Tauri runtime exposes a protected invoke bridge, and retain an explicit coverage status instead of reporting an unobserved native-invoke count.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "AC-10.a", "M4 release candidate", "N-7 evidence honesty"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-m4-protected-invoke-monitor.json", "status": "added" },
+    { "path": "scripts/lib/m4-packaged-verifier.mjs", "status": "modified" },
+    { "path": "scripts/lib/m4-packaged-walkthrough.d.mts", "status": "modified" },
+    { "path": "scripts/lib/m4-packaged-walkthrough.mjs", "status": "modified" },
+    { "path": "scripts/lib/n2-soak-verifier.mjs", "status": "modified" },
+    { "path": "tests/scripts/m4-packaged-verifier.test.ts", "status": "modified" },
+    { "path": "tests/scripts/m4-packaged-walkthrough.test.ts", "status": "modified" },
+    { "path": "tests/scripts/n2-soak-evidence.test.ts", "status": "modified" },
+    { "path": "tests/ui/ai/AiWorkbenchPanel.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0432",
+      "topic": "Protected packaged Tauri invoke observation",
+      "decision": "The M4 unconfigured-AI browser probe transactionally monitors renderer fetch and XMLHttpRequest and restores every patched descriptor after success or failure. It wraps the Tauri invoke bridge only when the runtime descriptor is writable or configurable, converts configurable accessors to a temporary valid data descriptor, and restores the exact original descriptor. Protected or failed native instrumentation reports a null invoke count and an explicit status; it never equates unavailable observation with zero.",
+      "rationale": "The exact committed packaged candidate completed its accelerated N-2 diagnostic, then the later M4 walkthrough failed before its AI journey because the harness tried to redefine Tauri's protected invoke property. Initial correction exposed two additional failure paths: configurable accessors produced an invalid mixed descriptor and mid-probe exceptions could leave globals patched. Transactional installation plus outer-finally cleanup removes both retry-poisoning paths. AC-10.a's network-mock assertion is now also exercised at the unconfigured AiWorkbenchPanel boundary with an injected transport factory that must remain untouched; packaged evidence truthfully scopes its supplemental black-box observation.",
+      "specBasis": ["AC-10.a", "N-7 evidence honesty", "M4 release candidate"]
+    },
+    {
+      "id": "D-0433",
+      "topic": "Accelerated final-cycle boundary verification",
+      "decision": "Independent verification allows an accelerated run's final successful cycle to precede the declared completion by at most its configured memory-sample interval, while literal evidence retains its existing cadence-only boundary. The final retained memory sample must still span the declared duration under the separate summary validator.",
+      "rationale": "The exact retained run completed its last successful cycle 1.905 seconds before the summary boundary because the runner performed exact-process memory sampling before recording completion. A one-second cadence-only cycle boundary rejected that otherwise internally valid artifact even though the final memory sample was 0.004 seconds from completion. The accelerated-only tolerance models this bounded post-cycle work without changing literal release evidence or removing memory-duration coverage.",
+      "specBasis": ["N-2", "N-7 evidence honesty", "M4 release candidate"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "A protected non-writable Tauri invoke descriptor must not crash the packaged monitor, and its unobserved native count must remain explicit rather than fabricated.",
+      "test": "Execute the exact injected install/snapshot scripts against a non-configurable, non-writable invoke fixture and verify the retained M4 schema and verifier.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/m4-packaged-walkthrough.test.ts -t \"keeps renderer monitoring usable\" --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T05:18:57-06:00",
+        "outcome": "RED: the fixture reproduced TypeError: Cannot redefine property: invoke."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/m4-packaged-walkthrough.test.ts tests/scripts/m4-packaged-verifier.test.ts --reporter=dot --maxWorkers=1; pnpm.cmd typecheck; pnpm.cmd exec biome check scripts/lib/m4-packaged-walkthrough.mjs scripts/lib/m4-packaged-walkthrough.d.mts scripts/lib/m4-packaged-verifier.mjs tests/scripts/m4-packaged-walkthrough.test.ts tests/scripts/m4-packaged-verifier.test.ts; git diff --check",
+        "observedAt": "2026-07-20T05:22:39-06:00",
+        "outcome": "GREEN after one TypeScript-only fixture cleanup correction: all 2 files and 8 tests passed; TypeScript exited 0; Biome checked all 5 implementation/test files with no fixes; diff hygiene passed."
+      }
+    },
+    {
+      "criterion": "Monitor installation and cleanup must be failure-safe for configurable accessors and mid-probe walkthrough exceptions.",
+      "test": "Execute the injected scripts against a configurable accessor and force a walkthrough failure immediately after installation.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/m4-packaged-walkthrough.test.ts -t \"restores a configurable|removes an installed\" --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T05:26:42-06:00",
+        "outcome": "RED: both tests failed; the accessor produced an invalid mixed descriptor and the forced failure never ran networkAttemptSnapshot."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/m4-packaged-walkthrough.test.ts -t \"restores a configurable|removes an installed\" --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T05:27:59-06:00",
+        "outcome": "GREEN: both focused lifecycle tests passed; the exact accessor descriptor was restored and the forced failure executed one cleanup snapshot and restored source."
+      }
+    },
+    {
+      "criterion": "A rejected first snapshot transport call must leave the monitor active so the outer cleanup path retries and restores every patched global.",
+      "test": "Force the normal networkAttemptSnapshot WebDriver call to reject once, then allow the outer-finally cleanup snapshot to execute and verify exact source restoration.",
+      "red": {
+        "command": "Focused adversarial review of runM4PackagedWalkthrough cleanup state",
+        "observedAt": "2026-07-20T05:35:00-06:00",
+        "outcome": "RED: networkMonitorActive was cleared in a finally block around the first snapshot call, preventing the outer cleanup path from retrying if WebDriver rejected before cleanup executed."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/m4-packaged-walkthrough.test.ts -t \"retries cleanup when the first network snapshot transport call rejects\" --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T05:37:19-06:00",
+        "outcome": "GREEN: 1 focused test passed; the first snapshot transport call rejected, the outer-finally path made a second cleanup call, and the monitor source was restored."
+      }
+    },
+    {
+      "criterion": "AC-10.a must have an explicit unconfigured workbench transport spy, and the exact retained accelerated artifacts must independently verify across bounded post-cycle sampling overhead.",
+      "test": "Render AiWorkbenchPanel with provider none and an injected transport factory, then verify synthetic and exact retained accelerated artifacts through the independent verifier.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/n2-soak-evidence.test.ts tests/ui/ai/AiWorkbenchPanel.test.tsx -t \"allows bounded accelerated|never constructs\" --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T05:29:34-06:00",
+        "outcome": "RED: the workbench transport spy passed untouched; the verifier rejected the synthetic 1.9-second post-cycle sampling overhead against its one-second accelerated cadence boundary."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/n2-soak-evidence.test.ts -t \"allows bounded accelerated\" --reporter=dot --maxWorkers=1; independent verifyN2SoakArtifacts on scadmill-beta-79c6e50-sandbox-accelerated-corrected-20260720 with requireFinalEvent false",
+        "observedAt": "2026-07-20T05:31:03-06:00",
+        "outcome": "GREEN: the bounded synthetic verifier test passed; exact retained accelerated artifacts independently verified status passed with 48 records, 8 memory samples, and hashes d39a372a/75585712/f0d65565. The overall packaged envelope remains honestly failed later in M4 and contains no final N-2 verification event."
+      }
+    },
+    {
+      "criterion": "The complete corrected harness slice remains behaviorally green, type-correct, provenance-valid, formatted, and diff-clean.",
+      "test": "Run the four affected suites and all bounded static gates once after the final corrections.",
+      "red": {
+        "command": "Final gate first pass at 2026-07-20T05:32:05-06:00",
+        "observedAt": "2026-07-20T05:32:05-06:00",
+        "outcome": "GATE RED only on import ordering after all 4 files and 25 tests, TypeScript, and provenance passed; Biome identified one safe import-order correction in AiWorkbenchPanel.test.tsx."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/m4-packaged-walkthrough.test.ts tests/scripts/m4-packaged-verifier.test.ts tests/scripts/n2-soak-evidence.test.ts tests/ui/ai/AiWorkbenchPanel.test.tsx --reporter=dot --maxWorkers=1; pnpm.cmd typecheck; pnpm.cmd check:provenance; pnpm.cmd exec biome check <8 affected files>; git diff --check",
+        "observedAt": "2026-07-20T05:38:11-06:00",
+        "outcome": "GREEN after the mechanical import-order correction and cleanup regression: 4 files and 26 tests passed; TypeScript exited 0; Biome checked all 8 affected JavaScript/TypeScript files. One const-only lint warning was then corrected and rechecked; diff hygiene passed."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-79c6e50-sandbox-accelerated-corrected-20260720/evidence.json",
+      "sought": "Exact-head accelerated packaged diagnostic and subsequent M4 walkthrough",
+      "confirmation": "The exact clean candidate 79c6e50 built and launched in Windows Sandbox. N-2 passed with 39 successful cycles, exact crash recovery, zero orphan engines, eight retained memory samples, and a 1.291 final memory ratio under the 1.5 ceiling. The envelope failed afterward at M4 monitor installation with Cannot redefine property: invoke; no M4 AI assertions ran."
+    },
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-79c6e50-sandbox-accelerated-20260720/evidence.json",
+      "sought": "First exact-head accelerated invocation",
+      "confirmation": "Operator-input failure before application launch: a WebView-bundled vcruntime140_1.dll was supplied instead of the retained approved companion, and the harness rejected its hash. Zero product or render cycles ran."
+    }
+  ],
+  "questions": ["No owner decision is required. The accelerated N-2 proof is retained and green; rerun only the post-N-2 packaged M4 path or the final literal envelope after this harness correction is committed."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

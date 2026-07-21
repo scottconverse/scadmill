@@ -1,0 +1,12 @@
+{
+  "parameterSets": {
+    "Compact": {
+      "width": "25",
+      "enabled": "true",
+      "title": "Carry-on",
+      "point": "[3, 4]",
+      "old": "9"
+    }
+  },
+  "fileFormatVersion": "1"
+}

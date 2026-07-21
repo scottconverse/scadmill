@@ -1,0 +1,159 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-render-cache-memory",
+  "createdAt": "2026-07-17T00:48:00-06:00",
+  "summary": "Deliver the application-layer FR-15.1 render-cache slice: a typed content-addressed key with verified engine build identity, success-only cloned 512 MiB LRU memory tier, zero-engine cache hits, bounded side indexing, atomic viewer publication before optional cache I/O, and truthful cached status labeling while leaving the opt-in desktop disk tier for its own adapter unit.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "FR-15.1", "AC-15.a", "N-1", "N-2", "N-7", "Q-0036"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-17-m4-render-cache-memory.json", "status": "added" },
+    { "path": "src/application/engine/contracts.ts", "status": "modified" },
+    { "path": "src/application/engine/engine-pin.ts", "status": "modified" },
+    { "path": "src/application/render-cache/render-cache.ts", "status": "added" },
+    { "path": "src/application/runtime/workbench-runtime-contracts.ts", "status": "modified" },
+    { "path": "src/application/runtime/workbench-runtime.ts", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/Cargo.lock", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/Cargo.toml", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/src/lib.rs", "status": "modified" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/platform-desktop/tauri-bridge.ts", "status": "modified" },
+    { "path": "src/platform-web/openscad-wasm-runtime.ts", "status": "modified" },
+    { "path": "src/platform-web/wasm-engine-validation.ts", "status": "modified" },
+    { "path": "src/ui/workbench-status.ts", "status": "modified" },
+    { "path": "tests/application/render-cache/render-cache.test.ts", "status": "added" },
+    { "path": "tests/application/runtime/workbench-runtime.test.ts", "status": "modified" },
+    { "path": "tests/platform-desktop/tauri-bridge.test.ts", "status": "modified" },
+    { "path": "tests/platform-web/openscad-wasm-runtime.test.ts", "status": "modified" },
+    { "path": "tests/ui/workbench-status.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0289",
+      "topic": "Typed render-cache identity",
+      "decision": "Hash sorted typed digests for every resolved render file, sorted parameter values, entry path, quality, preview facet policy, and the configured engine path plus reported version/path/features and a verified build identity. Cache key creation fails closed when build identity is absent. Timeout is excluded because it changes execution policy, not successful geometry output. Full renders ignore preview facet limits.",
+      "rationale": "The cache must not reuse a result across output-affecting project, parameter, quality, preview-policy, or exact engine-build changes, while avoiding needless misses when map or object insertion order changes. Native discovery hashes the actual executable; WASM uses the verified pinned artifact pair.",
+      "specBasis": ["FR-15.1", "AC-15.a", "Q-0036"]
+    },
+    {
+      "id": "D-0290",
+      "topic": "Memory-tier safety",
+      "decision": "Cache only accepted current successes, clone payloads on both write and read, and evict least-recently-used entries against a 512 MiB payload budget. Oversized entries are misses and failures/cancelled/timeouts/stale/superseded work never enters the tier.",
+      "rationale": "Caching a failure prevents a healthy retry, sharing mutable mesh buffers could corrupt the viewer, and unbounded geometry retention violates N-2.",
+      "specBasis": ["FR-15.1", "N-2", "N-7", "Q-0036"]
+    },
+    {
+      "id": "D-0291",
+      "topic": "Async cache race boundary",
+      "decision": "Keep the engine launch path synchronous for cold memory misses, use a bounded 256-entry session-local revision memo only to locate already-known cryptographic keys, publish the accepted viewer result before optional cache writes, and guard all asynchronous identity/cache work with a render-attempt generation. Cancellation or supersession can therefore not present a late hashed result or leave render and viewer state split while cache I/O is pending.",
+      "rationale": "WebCrypto is asynchronous, but existing cancellation and engine orchestration must remain responsive; the memo is only a bounded index to a key already derived from exact content and never replaces cryptographic key generation for storage. Viewer truth must not wait on cache persistence.",
+      "specBasis": ["AC-15.a", "N-1", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Stable typed keys distinguish output-affecting inputs, ignore map/order and timeout-only changes, and clone/evict bounded 2D/3D payloads.",
+      "test": "Run the dedicated cache unit tests covering key ordering, binary assets, parameter types, quality/facet policy, engine identity, LRU eviction, oversized entries, and 2D/3D clone isolation.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/render-cache/render-cache.test.ts tests/application/runtime/workbench-runtime.test.ts tests/ui/workbench-status.test.ts",
+        "observedAt": "2026-07-17T00:35:38-06:00",
+        "outcome": "RED: the cache module was absent; status had no cached label; unchanged renders invoked EngineService twice."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/render-cache/render-cache.test.ts tests/application/runtime/workbench-runtime.test.ts tests/ui/workbench-status.test.ts tests/platform-web/wasm-engine-service.test.ts tests/platform-web/openscad-wasm-runtime.test.ts tests/platform-desktop/tauri-bridge.test.ts",
+        "observedAt": "2026-07-17T01:05:15-06:00",
+        "outcome": "GREEN: Test Files 6 passed (6); Tests 80 passed (80); Duration 9.79s."
+      }
+    },
+    {
+      "criterion": "A cancellation during application hashing cannot present a late result, while the existing engine cancel path remains live.",
+      "test": "Hold the application digest, cancel the active render, release the digest, and assert the engine cancel call plus absent viewer presentation.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/runtime/workbench-runtime.test.ts -t \"cancellation during application hashing\"",
+        "observedAt": "2026-07-17T00:46:16-06:00",
+        "outcome": "RED: cancel-render did not advance the attempt generation, so the late digest still reached the viewer."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/runtime/workbench-runtime.test.ts -t \"cancellation during application hashing\"",
+        "observedAt": "2026-07-17T01:01:23-06:00",
+        "outcome": "GREEN within the 80-test focused batch: cancellation increments the generation, forwards engine cancellation, and suppresses late presentation."
+      }
+    },
+    {
+      "criterion": "A successful viewer presentation is not delayed or split by an optional cache write.",
+      "test": "Hold a supplied cache put promise, render a cacheable success, and observe the viewer presentation before releasing the cache write.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/runtime/workbench-runtime.test.ts -t \"publishes the viewer result before\"",
+        "observedAt": "2026-07-17T00:54:00-06:00",
+        "outcome": "RED in adversarial review: viewer publication was below awaited engine identity/key/cache work, allowing mixed render and viewer truth while cache I/O was pending."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/runtime/workbench-runtime.test.ts -t \"publishes the viewer result before\"",
+        "observedAt": "2026-07-17T01:01:23-06:00",
+        "outcome": "GREEN within the 80-test focused batch: viewer presentation and success layout publish before the deferred cache put resolves."
+      }
+    },
+    {
+      "criterion": "The changed TypeScript application remains type-correct and lint/source-policy clean.",
+      "test": "Run the repository typecheck and lint gates after the focused cache batch.",
+      "red": {
+        "command": "pnpm.cmd typecheck && pnpm.cmd lint",
+        "observedAt": "2026-07-17T00:38:52-06:00",
+        "outcome": "RED: lint rejected the unannotated cachedResult variable; typecheck also exposed missing RenderJob subscriptions in the new test fixtures."
+      },
+      "green": {
+        "command": "pnpm.cmd typecheck; pnpm.cmd lint",
+        "observedAt": "2026-07-17T01:06:00-06:00",
+        "outcome": "GREEN: tsc --noEmit exited 0; Biome lint and source policy passed for 397 files."
+      }
+    },
+    {
+      "criterion": "The changed native and WASM engine-info boundaries expose verified build identity without breaking their platform contracts.",
+      "test": "Run the native bridge identity assertion and the exact WASM version-information assertion.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/platform-web/openscad-wasm-runtime.test.ts -t \"returns exact WASM version information\"",
+        "observedAt": "2026-07-17T01:02:00-06:00",
+        "outcome": "RED: the existing WASM expectation omitted the newly required buildIdentity field."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/platform-web/openscad-wasm-runtime.test.ts -t \"returns exact WASM version information\"; pnpm.cmd exec vitest run tests/platform-desktop/tauri-bridge.test.ts -t \"preserves the native executable build identity\"",
+        "observedAt": "2026-07-17T01:03:03-06:00",
+        "outcome": "GREEN: WASM test file reported 3 passed and 16 skipped; native bridge identity assertion is included in the 61-test combined green batch."
+      }
+    },
+    {
+      "criterion": "Native desktop bindings remain formatted, tested, licensed, and provenance-valid after adding executable build identity hashing.",
+      "test": "Run the Rust formatting, offline test, license, and provenance gates once.",
+      "red": {
+        "command": "cargo fmt --manifest-path src/desktop-shell/src-tauri/Cargo.toml -- --check",
+        "observedAt": "2026-07-17T00:57:00-06:00",
+        "outcome": "RED: mechanical Rust formatting differed after the native identity implementation; cargo fmt was applied once before the final check."
+      },
+      "green": {
+        "command": "cargo fmt --manifest-path src/desktop-shell/src-tauri/Cargo.toml -- --check; cargo test --manifest-path src/desktop-shell/src-tauri/Cargo.toml --offline; pnpm.cmd check:licenses rust; pnpm.cmd check:provenance",
+        "observedAt": "2026-07-17T01:02:00-06:00",
+        "outcome": "GREEN: formatting passed; 37 Rust tests passed with 0 failures; Rust license policy passed for 494 packages; provenance ledger passed validation."
+      }
+    },
+    {
+      "criterion": "The production web bundle includes the cache slice and native identity bridge without build errors.",
+      "test": "Run the production build once.",
+      "red": {
+        "command": "pnpm.cmd build",
+        "observedAt": "2026-07-17T00:40:00-06:00",
+        "outcome": "RED: baseline build evidence was stale for the native identity and cache changes; a fresh candidate build was required."
+      },
+      "green": {
+        "command": "pnpm.cmd build",
+        "observedAt": "2026-07-17T01:02:00-06:00",
+        "outcome": "GREEN: Vite transformed 217 modules and built the production bundle in 369ms."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": ["Q-0036"],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

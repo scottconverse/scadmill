@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-mcp-permission-gate",
+  "createdAt": "2026-07-17T07:07:31-06:00",
+  "summary": "Add selectable, session-local MCP mutation permissions with real allow-once consumption and structured denial responses.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "C11", "FR-11.4", "FR-11.6", "AC-11.d", "N-7"],
+  "filesTouched": [{ "path": "src/application/mcp/mcp-dispatcher.ts", "status": "modified" }, { "path": "src/application/mcp/mcp-stdio-controller.ts", "status": "modified" }, { "path": "src/ui/mcp/use-mcp-stdio.ts", "status": "modified" }, { "path": "src/ui/settings/McpPermissionSettings.tsx", "status": "added" }, { "path": "README.md", "status": "modified" }, { "path": "provenance/entries/2026-07-17-m4-mcp-permission-gate.json", "status": "added" }],
+  "externalInputs": [], "providedInputs": [],
+  "decisions": [{ "id": "D-0367", "topic": "MCP mutation permission lifecycle", "decision": "Keep permissions session-local, expose the two mutating tools independently in Settings, consume allow-once after a protocol-accepted mutation request, and report deny as JSON-RPC -32001.", "rationale": "The user must see and control mutation permission rather than infer it from a pending review. A generic pending result for denial violates AC-11.d.", "specBasis": ["FR-11.6", "AC-11.d", "N-7"] }],
+  "testEvidence": [{ "criterion": "The dynamic permission gate consumes allow-once, exposes Settings controls, and denies mutations structurally.", "test": "Write focused controller, dispatcher, hook, and Settings assertions; run lint/build and one aggregate suite.", "red": { "command": "pnpm.cmd exec vitest run tests/application/mcp/mcp-stdio-controller.test.ts --reporter=dot", "observedAt": "2026-07-17T07:03:34-06:00", "outcome": "RED: the added allow-once assertion failed before dynamic permission resolution existed." }, "green": { "command": "pnpm.cmd exec vitest run tests/application/mcp/mcp-dispatcher.test.ts tests/application/mcp/mcp-stdio-controller.test.ts tests/ui/mcp/use-mcp-stdio.test.tsx tests/ui/settings/SettingsDialog.test.tsx --reporter=dot; pnpm.cmd lint; pnpm.cmd build; pnpm.cmd test -- --reporter=dot", "observedAt": "2026-07-17T07:07:31-06:00", "outcome": "GREEN: focused coverage passed 4 files/31 tests; lint/source policy and production build passed; aggregate passed 176 files and 1280 tests in 20.51 seconds." } }],
+  "nearMisses": [{ "url": "local://src/application/mcp/mcp-dispatcher.ts", "sought": "A denied mutation response that is visibly distinct from a reviewable mutation", "confirmation": "The former generic pending_review response was replaced with a structured -32001 error; only allowed requests reach the handler's review queue." }],
+  "questions": ["Real desktop subprocess walkthrough and hosted AC-11.b/c evidence remain pending."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-15-m2-sandbox-guest-process-identity",
+  "createdAt": "2026-07-15T15:16:00-06:00",
+  "summary": "Verify packaged-process identity inside Windows Sandbox without requiring the guest account to query Win32_Process through CIM.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 M2 exit gate",
+    "AC-0.b packaged Windows evidence",
+    "M2-R02 packaged desktop evidence",
+    "N-2 reliability",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-15-m2-sandbox-guest-process-identity.json", "status": "added" },
+    { "path": "scripts/run-packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0233",
+      "topic": "Unprivileged guest process identity",
+      "decision": "Enumerate same-user guest processes with Get-Process, select the exact executable name and path, fail closed if Path or StartTime cannot be read, and bind destructive cleanup to PID plus the immutable UTC start time. Retain the host-side CIM inspection used to identify the Sandbox session itself.",
+      "rationale": "The exact fresh Sandbox loaded the production application and attached WebDriver successfully, then the WDAGUtilityAccount received Access denied from Get-CimInstance Win32_Process at the first guest process check. Same-user Get-Process exposes the executable path and start time needed to prevent PID-reuse ambiguity without requiring the prohibited guest CIM access.",
+      "specBasis": ["AC-0.b packaged Windows evidence", "M2-R02", "N-2 reliability", "N-7 evidence honesty"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Guest process inspection works without elevated CIM access and destructive cleanup remains bound to one exact process lifetime",
+      "test": "Require guest Get-Process enumeration with terminating error behavior, exact process-name and path filtering, mandatory Path and StartTime fields, and PID plus UTC start-time matching before forced kill or final cleanup; preserve the host's exact CIM-based Sandbox-session inspection.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts --reporter=verbose --maxWorkers=1",
+        "observedAt": "2026-07-15T15:12:00-06:00",
+        "outcome": "RED: 1 test file failed; 2 tests failed and 21 passed. The guest still queried Win32_Process through CIM and did not bind cleanup to a process start time. The preceding retained full Sandbox run exited 1 after Get-CimInstance Win32_Process returned Access denied under WDAGUtilityAccount."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts --reporter=verbose --maxWorkers=1",
+        "observedAt": "2026-07-15T15:13:44-06:00",
+        "outcome": "GREEN: 1 test file passed and all 23 tests passed in 652 ms."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "The exact committed candidate still requires one fresh retained Windows Sandbox run; this entry does not predeclare that external guest result."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

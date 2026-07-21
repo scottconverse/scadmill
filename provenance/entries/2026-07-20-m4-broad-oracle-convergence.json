@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-m4-broad-oracle-convergence",
+  "createdAt": "2026-07-20T06:35:00-06:00",
+  "summary": "Converge the packaged M4 oracle after one bounded failed clean-Sandbox run by classifying local Tauri IPC separately from provider egress and correcting the remaining deterministic UI, animation, and thumbnail races before any rerun.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "AC-10.a", "M4 release candidate", "N-7 evidence honesty"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-m4-broad-oracle-convergence.json", "status": "added" },
+    { "path": "scripts/lib/m4-packaged-verifier.mjs", "status": "modified" },
+    { "path": "scripts/lib/m4-packaged-walkthrough.d.mts", "status": "modified" },
+    { "path": "scripts/lib/m4-packaged-walkthrough.mjs", "status": "modified" },
+    { "path": "scripts/run-packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "tests/scripts/m4-packaged-verifier.test.ts", "status": "modified" },
+    { "path": "tests/scripts/m4-packaged-walkthrough.test.ts", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0437",
+      "topic": "Application-boundary interpretation of zero unconfigured AI network requests",
+      "decision": "Count and retain every renderer fetch or XMLHttpRequest observation, but classify Tauri ipc.localhost commands, same-origin requests, and an explicit allow-list of local schemes separately from external provider egress. Require zero external, unknown-scheme, or unparseable renderer requests, zero dropped observations, and zero ai_http_request commands whether observed through a patchable invoke bridge or protected-bridge renderer IPC; do not misreport ordinary Tauri menu-state IPC as provider network access.",
+      "rationale": "The exact clean 6e8f601 Sandbox run reached the no-provider AI assertion and observed one POST to http://ipc.localhost/update_native_menu_state. Static trace confirmed this is Tauri's local invoke transport caused by the layout/menu-state synchronization when the AI rail opens, not an AI provider request. The prior scalar counter discarded the target and produced a false failure. Bounded sanitized observations preserve the evidence needed to distinguish these cases while unknown schemes, unparseable targets, overflow, and a protected-bridge ai_http_request still fail closed. The existing injected AiWorkbenchPanel transport test continues to prove that an unconfigured panel never constructs provider transport.",
+      "specBasis": ["AC-10.a", "N-7 evidence honesty", "M4 release candidate"]
+    },
+    {
+      "id": "D-0438",
+      "topic": "Deterministic packaged M4 UI and render evidence",
+      "decision": "Restrict packaged interactions to visible controls, activate activity rails idempotently and verify the visible dock heading, restore session-only AI tool consent after the History remount, assert the actual serialized play result at frame 52 and $t 0.51, and poll for at most five seconds for a thumbnail whose capturedAt is not older than the triggering render.",
+      "rationale": "Broad pre-rerun audit found that hidden controls could be selected, a second AI rail click could close an already-open dock, History remounting revoked the intentionally session-only consent, Play advances once beyond the scrubbed frame, and asynchronous thumbnail persistence could expose stale-but-valid image data. These are deterministic oracle defects and lifecycle conditions, so they were corrected together before permitting one further exact clean-Sandbox run.",
+      "specBasis": ["Section 2.7 delivery protocol", "M4 release candidate", "N-7 evidence honesty"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The injected packaged monitor must preserve enough sanitized evidence to distinguish local Tauri IPC from an external provider request and must fail closed on external traffic.",
+      "test": "Execute the real injected monitor around one Tauri IPC POST, one same-origin GET, and one external HTTPS POST, then validate exact counts and classifications.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/m4-packaged-walkthrough.test.ts -t \"classifies renderer transport\" --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T06:26:56-06:00",
+        "outcome": "RED: the prior monitor returned only rendererAttemptCount and had no rendererExternalAttemptCount or retained classification, so the assertion could not distinguish the local IPC from provider egress."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/m4-packaged-walkthrough.test.ts -t \"classifies renderer transport\" --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T06:29:08-06:00",
+        "outcome": "GREEN: the injected monitor retained three sanitized observations with exact 3 total, 1 external, and 2 internal counts and classified the native-menu command as Tauri IPC."
+      }
+    },
+    {
+      "criterion": "All broad-audit corrections must converge in one bounded local pass before another clean-Sandbox attempt.",
+      "test": "Run the three affected helper/verifier suites once, then run formatting and diff hygiene in parallel.",
+      "red": {
+        "command": "Initial combined local pass before narrowing the static M4 segment assertion",
+        "observedAt": "2026-07-20T06:31:00-06:00",
+        "outcome": "RED only because the static check searched the entire packaged runner and matched a legitimate pre-M4 baseline History interaction; 50 of 51 tests, TypeScript, and diff hygiene were otherwise green."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/m4-packaged-walkthrough.test.ts tests/scripts/m4-packaged-verifier.test.ts tests/scripts/packaged-desktop-evidence.test.ts --reporter=dot --maxWorkers=1; pnpm.cmd exec biome check <7 affected implementation/test files>; git diff --check",
+        "observedAt": "2026-07-20T06:34:21-06:00",
+        "outcome": "GREEN: all 3 files and 51 tests passed; Biome checked all 7 files with no fixes; diff hygiene passed."
+      }
+    },
+    {
+      "criterion": "A protected Tauri bridge and an unknown remote scheme must not create a retained no-provider false pass.",
+      "test": "Present an ai_http_request as renderer-observed Tauri IPC with native invoke monitoring unavailable, execute the injected monitor against an FTP target, and tamper retained passed evidence with the disguised broker command.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/m4-packaged-walkthrough.test.ts tests/scripts/m4-packaged-verifier.test.ts -t \"protected-bridge AI broker|classifies retained renderer|revalidates exact artifacts\" --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T06:41:08-06:00",
+        "outcome": "RED: all three falsifications failed their new assertions. The live validator accepted disguised ai_http_request IPC, the classifier reported FTP as local-scheme, and the retained verifier accepted the tampered broker command."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/m4-packaged-walkthrough.test.ts tests/scripts/m4-packaged-verifier.test.ts -t \"protected-bridge AI broker|classifies retained renderer|revalidates exact artifacts\" --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T06:41:49-06:00",
+        "outcome": "GREEN: all 3 focused tests passed. Protected-bridge ai_http_request is rejected live and in retained evidence, and FTP is classified external-scheme with the external count incremented."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-6e8f601-sandbox-m4-bounded-final-20260720/evidence.json",
+      "sought": "Exact clean packaged M4 walkthrough on candidate 6e8f601",
+      "confirmation": "The clean build, application launch, cube render, MCP journey, WebView port handling, current no-provider guidance, and semantic AI-panel targeting passed. The envelope then failed at the old scalar zero-renderer-request assertion because opening AI emitted exactly one local Tauri update_native_menu_state IPC request. Host cleanup completed. This run remains failed evidence and is not a packaged pass."
+    }
+  ],
+  "questions": ["No owner decision is required. Permit exactly one further clean M4-only Sandbox run only after this complete slice passes local gates and independent strict-zero review."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

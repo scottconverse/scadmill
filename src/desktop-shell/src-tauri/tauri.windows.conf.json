@@ -1,0 +1,11 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "build": {
+    "beforeBuildCommand": "pnpm --dir ../.. build:desktop:tauri-prebuild"
+  },
+  "bundle": {
+    "resources": {
+      "../../../THIRD-PARTY-NOTICES.txt": "THIRD-PARTY-NOTICES.txt"
+    }
+  }
+}

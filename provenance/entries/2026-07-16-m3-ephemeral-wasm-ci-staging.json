@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-16-m3-ephemeral-wasm-ci-staging",
+  "createdAt": "2026-07-16T21:49:48-06:00",
+  "summary": "Stage the retained source-built OpenSCAD WASM artifact only inside ephemeral verification runners while keeping public distribution quarantined behind Q-0033.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 M3 delivery protocol",
+    "A-5 official-source engine build permission",
+    "FR-13.1 web platform runtime",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": ".github/workflows/ci.yml", "status": "modified" },
+    { "path": "provenance/entries/2026-07-16-m3-ephemeral-wasm-ci-staging.json", "status": "added" },
+    { "path": "tests/platform-web/openscad-wasm-static-assets.test.ts", "status": "modified" },
+    { "path": "tests/scripts/ci-workflow.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29529789154",
+      "accessedOn": "2026-07-16",
+      "purpose": "Reuse the retained official-source WASM build artifact already recorded in ENGINE_VERSION for ephemeral byte, parity, and production-static verification."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0275",
+      "topic": "Legally quarantined WASM verification in clean CI",
+      "decision": "Download the exact retained source-build artifact from run 29529789154 into the ignored public engine path only inside the web, Linux production-static, and parity runners. A clean developer checkout skips the direct filesystem-byte test when the quarantined root is absent; hosted web CI stages the artifact first, so the byte and manifest assertions execute. Do not upload the staged web tree or add the engine bytes to Git.",
+      "rationale": "Q-0033 blocks public distribution, not technical validation of the permitted official-source engine build. Clean hosted checkouts cannot validate or execute ignored bytes unless CI explicitly stages the recorded artifact. Ephemeral staging preserves the legal quarantine while keeping byte-integrity, runtime, and parity evidence real.",
+      "specBasis": ["A-5", "FR-13.1", "N-7", "Q-0033"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Clean hosted verification obtains the exact retained source-built WASM bytes without committing or publishing them.",
+      "test": "Observe the first hosted candidate run, then exercise the static-asset and workflow contracts after adding ephemeral staging.",
+      "red": {
+        "command": "GitHub Actions CI run 29553179737, Web checks job 87799860653",
+        "observedAt": "2026-07-16T21:48:00-06:00",
+        "outcome": "RED: Web checks reached unit tests but three static-artifact assertions failed ENOENT because the legally ignored public/openscad-engine/2026.06.12 payload was absent from the clean checkout. Parity also failed before its result could distinguish missing WASM bytes from format parity."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/ci-workflow.test.ts tests/platform-web/openscad-wasm-static-assets.test.ts",
+        "observedAt": "2026-07-16T21:49:31-06:00",
+        "outcome": "FOCUSED GREEN / HOSTED REPLACEMENT PENDING: 2 files and 9 assertions passed. The contract requires the exact pinned download action, artifact name, run id, and ignored destination in web, Linux e2e, and parity jobs; local byte and manifest checks passed against the retained source-build bytes. A replacement hosted run must prove clean-runner download permissions and runtime behavior."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": ["Q-0033", "Q-0034"],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

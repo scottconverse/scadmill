@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-18-m4-sandbox-welcome-dismissal",
+  "createdAt": "2026-07-18T17:15:00-06:00",
+  "summary": "Make the clean-profile packaged walkthrough disable, persist, close, and verify the Welcome dialog before real interactions and across every restart.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "AC-2.a", "AC-11.c", "N-7"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-18-m4-sandbox-welcome-dismissal.json", "status": "added" },
+    { "path": "scripts/run-packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0380",
+      "topic": "Fresh-profile packaged interaction order",
+      "decision": "Require the Welcome layer to be visibly present with no pre-existing preference, use real WebDriver clicks to disable its startup checkbox and close it, verify the exact persisted preference, and re-verify absence after every application restart.",
+      "rationale": "A clean profile intentionally opens Welcome above the workbench. The evidence harness configured the engine through synthetic JavaScript behind that modal and then attempted a real editor click, which WebDriver correctly rejected as intercepted. Persistently disabling and closing the user-visible modal preserves realistic black-box interaction, keeps clickability assertions meaningful, and prevents later restart phases from being masked.",
+      "specBasis": ["AC-2.a", "AC-11.c", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The fresh-profile packaged walkthrough cannot edit through the Welcome modal.",
+      "test": "Run the packaged desktop evidence helper suite after adding an ordering regression.",
+      "red": {
+        "command": "Windows Sandbox packaged walkthrough for aff9fb46b736f4fc28543cc8d2babdd9ab524c05; pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts",
+        "observedAt": "2026-07-18T17:14:38-06:00",
+        "outcome": "RED: the exact packaged application and pinned engine started, but WebDriver rejected the editor click because the visible Welcome layer would receive it. The initial ordering regression failed 1/32 because no explicit Welcome dismissal existed; independent review then found one Major because a close-only fix would reopen Welcome on every later restart."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts",
+        "observedAt": "2026-07-18T17:19:28-06:00",
+        "outcome": "GREEN: 32/32 tests passed; the harness now fails closed unless the fresh-profile Welcome layer is visible, the startup preference is disabled through a real click and persisted exactly, the layer is removed before editor mutation, and the disabled state remains exact after all four later sessions."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://scripts/run-packaged-desktop-evidence.mjs",
+      "sought": "Reason for intercepted real editor click",
+      "confirmation": "The clean-profile Welcome modal remained above the workbench because earlier engine setup controls were invoked through JavaScript click semantics. The failure was retained in the immutable aff9fb4 Sandbox evidence directory."
+    }
+  ],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

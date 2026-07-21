@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-m4-geometry-fixture-terminal-newline",
+  "createdAt": "2026-07-20T19:26:30-06:00",
+  "summary": "Decouple the packaged geometry-delta editor fixture from the AI proposal's terminal newline.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "AC-15.d", "V-5 release gate", "V-6 honesty rule"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-m4-geometry-fixture-terminal-newline.json", "status": "added" },
+    { "path": "scripts/lib/m4-packaged-walkthrough.mjs", "status": "modified" },
+    { "path": "tests/scripts/m4-packaged-walkthrough.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0458",
+      "topic": "Terminal whitespace in packaged geometry-delta input",
+      "decision": "Retain the newline-bearing proposalSource for the hosted AI transcript contract, but use proposalSource.trimEnd() when that fixture is entered directly through packaged WebDriver for the independent geometry-delta phase.",
+      "rationale": "Exact clean evidence bound to commit 6f5168f passed build, launch, cube/STL, and the complete native MCP journey, then timed out only when WebDriver entered the first source ending in a newline. Earlier no-terminal-newline source replacements passed. Geometry is unchanged by removing trailing whitespace, and the geometry phase does not test AI transcript bytes.",
+      "specBasis": ["AC-15.d", "V-5 release gate", "V-6 honesty rule"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The independent geometry-delta phase must not require packaged WebDriver to retain terminal whitespace from the AI proposal fixture.",
+      "test": "Require the ordered walkthrough to pass a terminal-newline-free geometry source to replaceSource while retaining a newline-bearing AI proposal fixture.",
+      "red": {
+        "command": "npm.cmd test -- --run tests/scripts/m4-packaged-walkthrough.test.ts -t \"proves the ordered C10/C11/cache/delta/animation/thumbnail/restart journey without retaining secrets\"",
+        "observedAt": "2026-07-20T19:25:47-06:00",
+        "outcome": "RED: 1 failed, 17 skipped. The call list did not contain the trimmed proposal source."
+      },
+      "green": {
+        "command": "npm.cmd test -- --run tests/scripts/m4-packaged-walkthrough.test.ts tests/scripts/m4-packaged-verifier.test.ts tests/scripts/packaged-desktop-evidence.test.ts",
+        "observedAt": "2026-07-20T19:26:00-06:00",
+        "outcome": "GREEN: 75/75 tests passed."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-6f5168f-sandbox-m4-native-split-20260720/evidence.json",
+      "sought": "Exact clean packaged native M4 walkthrough",
+      "confirmation": "The retained run reached and passed the full native MCP journey, then failed at the later geometry-delta fixture's exact-source wait; cleanup passed with no Sandbox sessions remaining."
+    }
+  ],
+  "questions": ["No owner decision is required; terminal whitespace does not affect the OpenSCAD geometry used by AC-15.d."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

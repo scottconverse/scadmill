@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-m2-ready-engine-catalog",
+  "createdAt": "2026-07-11T17:12:40-06:00",
+  "summary": "Close the final M2 internationalization-catalog preflight finding by formatting the ready-engine version status through the English message catalog.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 test-first evidence and milestone gates",
+    "N-4 internationalization readiness"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-11-m2-ready-engine-catalog.json", "status": "added" },
+    { "path": "src/app/App.tsx", "status": "modified" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "tests/app/App.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0201",
+      "topic": "Ready-engine status localization boundary",
+      "decision": "Define the version-bearing ready status as an English-catalog formatter and require App composition to call it with the probed pinned-engine version.",
+      "rationale": "The version is runtime data, but the surrounding user-visible wording is product copy governed by N-4. Keeping the formatter in the existing catalog closes the remaining inline construction without changing the displayed text or engine-health behavior.",
+      "specBasis": ["N-4 internationalization readiness"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Ready-engine status is catalog-owned",
+      "test": "Spy on the catalog formatter while App transitions from checking to a ready pinned engine, then require the formatted status to be visible.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/app/App.test.tsx -t \"formats the ready engine status through the message catalog\" --reporter=verbose",
+        "observedAt": "2026-07-11T17:12:07-06:00",
+        "outcome": "ASSERTION-LEVEL RED: Test Files 1 failed; the focused test failed because the engineReady catalog property did not exist. Fifteen unrelated App tests were skipped by the name filter."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/app/App.test.tsx -t \"formats the ready engine status through the message catalog\" --reporter=verbose; pnpm.cmd typecheck; pnpm.cmd lint",
+        "observedAt": "2026-07-11T17:12:22-06:00",
+        "outcome": "GREEN: the focused App test passed with 15 skipped by the name filter; TypeScript exited 0; Biome checked 296 files with no fixes; source policy passed."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "This catalog correction changes no engine pin, readiness state, or visible English text.",
+    "No owner similarity gate, comparison repository, workflow content, or prohibited source was opened or executed."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

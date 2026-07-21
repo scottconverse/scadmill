@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-aggregate-green",
+  "createdAt": "2026-07-17T03:43:00-06:00",
+  "summary": "Record the single bounded post-repair aggregate Vitest run: all repository unit and UI tests are green after the M4 additions and regression repairs.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "verifier" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "N-7 evidence and status honesty"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-17-m4-aggregate-green.json", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0323", "topic": "Bounded aggregate verification", "decision": "After repairing the two observed aggregate failures, run exactly one repository-wide Vitest retry and retain its complete count as evidence; no watch mode or repeated loop is used.", "rationale": "The owner requires literal zero findings and explicitly prohibited unbounded test cycles; a single bounded retry directly falsifies the prior failures.", "specBasis": ["N-7", "Section 2.7 M4 delivery protocol"] }
+  ],
+  "testEvidence": [
+    { "criterion": "The complete Vitest repository suite is green after the M4 changes and regression fixes.", "test": "Run the one bounded aggregate test command after the focused repair checks.", "red": { "command": "pnpm.cmd test -- --reporter=dot", "observedAt": "2026-07-17T03:39:03-06:00", "outcome": "RED: 162 files ran; 1,243 of 1,245 tests passed and two regressions failed." }, "green": { "command": "pnpm.cmd test -- --reporter=dot", "observedAt": "2026-07-17T03:42:19-06:00", "outcome": "GREEN: Test Files 162 passed (162); Tests 1245 passed (1245); Duration 19.26s." } }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-ai-streaming-client",
+  "createdAt": "2026-07-17T03:32:00-06:00",
+  "summary": "Extend the M4 direct AI client with cancellable SSE-style streaming for OpenAI-compatible, Anthropic, and local response envelopes while preserving key redaction and provider-specific request headers.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "C10", "FR-10.7", "AC-10.d", "N-7 evidence and status honesty"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-17-m4-ai-streaming-client.json", "status": "added" },
+    { "path": "src/application/ai/ai-client.ts", "status": "modified" },
+    { "path": "tests/application/ai/ai-client.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0316", "topic": "Provider stream boundary", "decision": "Expose provider streaming as an async generator of text deltas, parse only data events, stop on [DONE], and cancel the reader in finally while passing the caller AbortSignal to fetch.", "rationale": "FR-10.7 requires streaming with cancel; keeping transport deltas application-owned allows the conversation reducer to remain provider-neutral and keeps malformed events fail-closed.", "specBasis": ["FR-10.7", "AC-10.d", "N-7"] }
+  ],
+  "testEvidence": [
+    { "criterion": "The streaming client test fails when its client module is absent and passes for two OpenAI deltas, [DONE] termination, stream=true request framing, and AbortSignal forwarding.", "test": "Run the focused AI client suite once against the deliberate missing-module RED state, then against the implementation.", "red": { "command": "pnpm.cmd exec vitest run tests/application/ai/ai-client.test.ts", "observedAt": "2026-07-17T03:31:13-06:00", "outcome": "RED: Test Files 1 failed; module ../../../src/application/ai/ai-client was not found; exit 1." }, "green": { "command": "pnpm.cmd exec vitest run tests/application/ai/ai-client.test.ts", "observedAt": "2026-07-17T03:30:58-06:00", "outcome": "GREEN: Test Files 1 passed (1); Tests 8 passed (8); Duration 568ms." } },
+    { "criterion": "The extended provider client remains type-safe and source-policy clean.", "test": "Run TypeScript and repository lint/source policy once after the streaming implementation.", "red": { "command": "pnpm.cmd exec tsc --noEmit --pretty false", "observedAt": "2026-07-17T03:32:42-06:00", "outcome": "RED: with ai-client.ts deliberately removed, TypeScript reported TS2307 for the AI client test import and exited 2." }, "green": { "command": "pnpm.cmd exec tsc --noEmit --pretty false; pnpm.cmd lint", "observedAt": "2026-07-17T03:31:02-06:00", "outcome": "GREEN: TypeScript exited 0; Checked 422 files in 234ms with source policy passed." } }
+  ],
+  "nearMisses": [],
+  "questions": ["Provider-specific retry/backoff and UI markdown rendering remain outside this transport unit; no claim is made that the full C10 UI exit gate is closed."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

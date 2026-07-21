@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-18-m4-history-inspector",
+  "createdAt": "2026-07-18T20:04:53-06:00",
+  "summary": "Add the selectable, origin-labeled M4 workspace History inspector with exact source-edit details.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "FR-11.3", "AC-11.a", "N-7"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "docs/USER-GUIDE.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-18-m4-history-inspector.json", "status": "added" },
+    { "path": "src/application/mcp/workbench-mcp-handler.ts", "status": "modified" },
+    { "path": "src/application/runtime/workbench-runtime-contracts.ts", "status": "modified" },
+    { "path": "src/application/runtime/workbench-runtime.ts", "status": "modified" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/mcp/McpReviewPanel.tsx", "status": "modified" },
+    { "path": "src/ui/mcp/history-panel.css", "status": "added" },
+    { "path": "src/ui/workbench.css", "status": "modified" },
+    { "path": "tests/application/mcp/workbench-mcp-handler.test.ts", "status": "modified" },
+    { "path": "tests/application/runtime/workbench-runtime-history.test.ts", "status": "modified" },
+    { "path": "tests/ui/Workbench.test.tsx", "status": "modified" },
+    { "path": "tests/ui/mcp/McpReviewPanel.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0390",
+      "topic": "Separate UI history detail from the public MCP history schema",
+      "decision": "Publish clone-safe source-edit details through a dedicated runtime store keyed by command ID, render the visible History list newest first with origin and full timestamp identifiers, and keep get_history restricted to the Appendix B entry schema without UI-only before/after source.",
+      "rationale": "FR-11.3 requires selectable source diffs and unambiguous command attribution, while the public MCP tool has a narrower normative response and should not gain undocumented source disclosure. A keyed detail store preserves atomic command publication without widening that external contract.",
+      "specBasis": ["FR-11.3", "AC-11.a", "Appendix B", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "History is selectable, newest first, origin-labeled, timestamped, and shows exact before/after source for user, AI-panel, and external-agent edits without widening get_history.",
+      "test": "Exercise runtime detail publication, MCP filtering/order, panel semantics and selection, and live Workbench wiring; correct only observed failures and rerun the affected bounded set.",
+      "red": {
+        "command": "pnpm.cmd vitest run tests/ui/mcp/McpReviewPanel.test.tsx tests/ui/Workbench.test.tsx --reporter=dot; independent FR-11.3 review",
+        "observedAt": "2026-07-18T19:58:00-06:00",
+        "outcome": "RED: a pre-existing Workbench history expectation did not account for two later chronological tab-activation commands. Independent review then found repeated same-summary rows insufficiently distinguishable and the outer landmark mislabeled as MCP pending reviews. After the product corrections, one test still used a singular User-badge query although two intentional User rows were present."
+      },
+      "green": {
+        "command": "pnpm.cmd vitest run tests/ui/mcp/McpReviewPanel.test.tsx --reporter=dot; pnpm.cmd vitest run tests/application/runtime/workbench-runtime-history.test.ts tests/application/mcp/workbench-mcp-handler.test.ts tests/ui/mcp/McpReviewPanel.test.tsx --reporter=dot; pnpm.cmd lint; pnpm.cmd typecheck; git diff --check",
+        "observedAt": "2026-07-18T20:04:34-06:00",
+        "outcome": "GREEN: the corrected panel passed 1/1; the bounded runtime, MCP, and UI proof passed 3 files/26 tests; Biome/source policy checked 469 files, TypeScript exited 0, diff hygiene passed, and independent re-review returned literal 0 blocker / 0 critical / 0 major / 0 minor / 0 nit."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://src/ui/mcp/McpReviewPanel.tsx",
+      "sought": "Adversarial FR-11.3 accessibility, attribution, ordering, and public-contract review",
+      "confirmation": "Review exposed ambiguity between repeated edit summaries and an incorrect outer landmark label. Full timestamps plus origin in both visible rows and accessible names, and independent History/MCP regions, closed both findings before the zero-severity verdict."
+    }
+  ],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

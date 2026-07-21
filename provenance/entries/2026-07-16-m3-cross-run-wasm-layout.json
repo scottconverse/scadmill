@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-16-m3-cross-run-wasm-layout",
+  "createdAt": "2026-07-16T21:53:52-06:00",
+  "summary": "Authorize cross-run artifact reads, normalize the retained WASM build hierarchy, and pass the exact native executable into the parity harness.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 M3 delivery protocol",
+    "A-5 official-source engine build permission",
+    "FR-13.1 web platform runtime",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": ".github/workflows/ci.yml", "status": "modified" },
+    { "path": "provenance/entries/2026-07-16-m3-cross-run-wasm-layout.json", "status": "added" },
+    { "path": "scripts/stage-openscad-wasm-artifact.mjs", "status": "added" },
+    { "path": "tests/scripts/ci-workflow.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/actions/download-artifact/blob/d3f86a106a0bac45b974a628896c90dbdf5c8093/README.md",
+      "accessedOn": "2026-07-16",
+      "purpose": "Confirm from the pinned action's primary documentation that downloading from another workflow run requires a token with actions:read and explicit repository/run identifiers."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0276",
+      "topic": "Cross-run WASM artifact permission and layout",
+      "decision": "Grant the CI workflow read-only Actions access, download the retained source-build artifact to runner temporary storage, and run one repository-owned staging script that verifies the exact length and SHA-256 of openscad.js, openscad.wasm, and the manifest before copying and renaming them into the ignored runtime path. Export the same checksum-verified native executable as both SCADMILL_OPENSCAD and the parity harness's required SCADMILL_AC4_OPENSCAD variable.",
+      "rationale": "Explicit workflow permissions otherwise reduce Actions access to none, and multi-path artifact upload preserves build-directory hierarchy that the runtime cannot consume directly. A fail-closed normalizer prevents permission and layout ambiguity without adding public distribution or trusting unverified downloaded bytes. Explicit parity wiring prevents the harness from failing before it can compare any output bytes.",
+      "specBasis": ["A-5", "FR-13.1", "N-7", "Q-0033"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The exact retained artifact can be downloaded, verified, flattened, and consumed at the runtime paths on both local and hosted runner layouts.",
+      "test": "Download the retained artifact by run and name into a temporary directory, execute the staging script, then run the workflow/static-asset contract files.",
+      "red": {
+        "command": "Independent hosted-CI repair audit of commit b37a195",
+        "observedAt": "2026-07-16T21:51:00-06:00",
+        "outcome": "RED before hosted execution: 2 blocker findings. Explicit workflow permissions omitted actions:read, and direct download to the runtime directory preserved openscad/build-web plus openscad-wasm-manifest.json rather than producing the three flat runtime paths. After those repairs, hosted parity run 29553578008 reached its test but failed before comparison because CI exported SCADMILL_OPENSCAD while the dedicated harness requires SCADMILL_AC4_OPENSCAD."
+      },
+      "green": {
+        "command": "gh run download 29529789154 -n openscad-wasm-0a66508c67374febcfc814a73b5b948dd84a1ca3; node scripts/stage-openscad-wasm-artifact.mjs <temp>; pnpm.cmd exec vitest run tests/scripts/ci-workflow.test.ts tests/platform-web/openscad-wasm-static-assets.test.ts; pnpm.cmd exec vitest run tests/scripts/ci-workflow.test.ts",
+        "observedAt": "2026-07-16T21:57:49-06:00",
+        "outcome": "FOCUSED GREEN / HOSTED REPLACEMENT PENDING: the real retained archive staged openscad.js (100027 bytes, E458673D...), openscad.wasm (10760714 bytes, F908AAFA...), and manifest.json (599 bytes, AB195992...) with exact full hashes verified by the script. The temporary archive was removed. The combined workflow/static files passed 9/9, and the parity-variable contract replacement passed 6/6."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": ["Q-0033", "Q-0034"],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

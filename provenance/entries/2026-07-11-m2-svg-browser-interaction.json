@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-m2-svg-browser-interaction",
+  "createdAt": "2026-07-11T13:31:00-06:00",
+  "summary": "Close M2-R09 with a production Workbench Chromium journey for automatic SVG presentation, real wheel zoom, pointer pan, exact fit restoration, and incompatible-mode recovery; the journey exposed and fixed a zero-height SVG row and passive-wheel console error.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 test-first evidence and milestone gates",
+    "FR-3.1 SVG pan, zoom, fit, and dimensions",
+    "FR-3.2 automatic and pinned viewer modes",
+    "FR-3.4 cursor-centered zoom and scale",
+    "N-3 accessibility",
+    "N-7 UI honesty"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-11-m2-svg-browser-interaction.json", "status": "added" },
+    { "path": "src/ui/viewer/SvgViewer.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/ViewerPane.tsx", "status": "modified" },
+    { "path": "src/ui/workbench.css", "status": "modified" },
+    { "path": "tests/e2e/m2-browser-gate.e2e.ts", "status": "modified" },
+    { "path": "tests/e2e/m2-gate.playwright.config.ts", "status": "modified" },
+    { "path": "tests/e2e/m2-svg-viewer.e2e.ts", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0136",
+      "topic": "Viewer grid rows with and without the 3D toolbar",
+      "decision": "Use a two-row heading/content grid for empty and 2D viewers, and add the auto-sized middle toolbar row only when 3D geometry actually renders the ViewerToolbar.",
+      "rationale": "The unconditional three-row grid placed 2D content in the toolbar's auto row and left the flexible row empty, producing a zero-height SVG interaction canvas despite a large viewer panel.",
+      "specBasis": ["FR-3.1", "FR-3.4", "N-7", "M2-R09"]
+    },
+    {
+      "id": "D-0137",
+      "topic": "Non-passive SVG wheel interaction",
+      "decision": "Attach the SVG wheel handler directly with passive:false and remove React's passive delegated onWheel binding; retain stateful cursor-centered zoom in the same component.",
+      "rationale": "The production browser reported that preventDefault was illegal inside the passive listener. A scoped non-passive listener prevents page scrolling and eliminates the error without changing zoom math.",
+      "specBasis": ["FR-3.1", "FR-3.4", "N-3", "M2-R09"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Production SVG interaction surface has real layout",
+      "test": "The dedicated Chromium journey loads the production Workbench/runtime/engine fixture and requires a visible 2D canvas before zoom, pan, fit, and mode actions.",
+      "red": {
+        "command": "pnpm.cmd exec playwright test tests/e2e/m2-svg-viewer.e2e.ts --workers=1 --retries=0",
+        "observedAt": "2026-07-11T13:27:20-06:00",
+        "outcome": "ASSERTION-LEVEL RED: 1 failed. The SVG button resolved but was hidden. Browser measurement showed viewer-panel height 638 px, viewer-content height 32 px, and svg-viewer height 0 px because content occupied the unconditional auto toolbar row."
+      },
+      "green": {
+        "command": "pnpm.cmd exec playwright test tests/e2e/m2-svg-viewer.e2e.ts --workers=1 --retries=0",
+        "observedAt": "2026-07-11T13:28:48-06:00",
+        "outcome": "The grid correction made the real SVG viewport visible and allowed every interaction assertion to execute; the widened run then exposed the separate passive-wheel console error recorded below."
+      }
+    },
+    {
+      "criterion": "Zoom, pan, fit, and mode interaction is error-free",
+      "test": "Use real Playwright mouse wheel and drag input, assert scale/transform changes, exact fit restoration, pinned-3D mismatch without stale SVG, Auto recovery, and empty page/console error arrays.",
+      "red": {
+        "command": "pnpm.cmd exec playwright test tests/e2e/m2-svg-viewer.e2e.ts --workers=1 --retries=0",
+        "observedAt": "2026-07-11T13:29:03-06:00",
+        "outcome": "ASSERTION-LEVEL RED after layout repair: all interaction behavior completed, but the final console assertion received 'Unable to preventDefault inside passive event listener invocation.' instead of an empty array."
+      },
+      "green": {
+        "command": "pnpm.cmd exec playwright test tests/e2e/m2-svg-viewer.e2e.ts --workers=1 --retries=0",
+        "observedAt": "2026-07-11T13:29:40-06:00",
+        "outcome": "GREEN: Running 1 test using 1 worker; 1 passed (2.3s). Zoom, pan, fit, pinned mismatch, Auto recovery, and zero page/console errors all passed without retries."
+      }
+    },
+    {
+      "criterion": "Existing SVG behavior and static policy remain green",
+      "test": "Run the focused SvgViewer component tests, complete typecheck, and lint/source-policy gates after replacing the wheel binding and viewer grid class.",
+      "red": {
+        "command": "Covered by the two real-browser assertion-level failures above; no test or policy was weakened.",
+        "observedAt": "2026-07-11T13:29:03-06:00",
+        "outcome": "The pre-change production surface was both non-interactive at zero height and console-red under wheel input."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/viewer/SvgViewer.test.tsx --reporter=verbose; pnpm.cmd typecheck; pnpm.cmd lint",
+        "observedAt": "2026-07-11T13:30:15-06:00",
+        "outcome": "GREEN: SvgViewer Test Files 1 passed (1), Tests 3 passed (3), Duration 884ms; TypeScript exited 0; Biome checked 274 files with no fixes; source policy passed with UI files within 400 lines and platform boundaries intact."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "M2-R09 is closed by this retained production-route Chromium interaction journey and the two resulting product corrections.",
+    "No owner similarity gate, comparison repository, workflow content, or prohibited source was opened or executed."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

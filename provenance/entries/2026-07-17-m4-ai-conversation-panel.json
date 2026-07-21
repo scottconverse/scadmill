@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-ai-conversation-panel",
+  "createdAt": "2026-07-17T03:37:20-06:00",
+  "summary": "Add the M4 AI conversation panel surface with streaming send, cancellation, fenced-code proposal presentation, explicit Apply edit review, and truthful unconfigured fallback.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "C10", "FR-10.4", "FR-10.7", "AC-10.b", "N-7 evidence and status honesty"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-17-m4-ai-conversation-panel.json", "status": "added" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/ui/ai/AiConversationPanel.tsx", "status": "added" },
+    { "path": "tests/ui/ai/AiConversationPanel.test.tsx", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0319", "topic": "Reviewable conversation UI", "decision": "The panel receives a provider-neutral streaming callback, renders assistant text as a transcript, extracts fenced blocks into pending proposals, and only invokes onApplyEdit after an explicit Apply edit action.", "rationale": "This keeps network/provider ownership outside the UI, preserves review-before-mutation, and gives AC-10.b a real tested surface without claiming the remaining runtime wiring.", "specBasis": ["FR-10.4", "FR-10.7", "AC-10.b", "N-7"] }
+  ],
+  "testEvidence": [
+    { "criterion": "The panel test fails before the implementation is complete and passes for streaming transcript, reviewable apply, and unconfigured setup behavior.", "test": "Run the focused AI panel suite once after the bounded implementation and assertion corrections.", "red": { "command": "pnpm.cmd exec vitest run tests/ui/ai/AiConversationPanel.test.tsx", "observedAt": "2026-07-17T03:36:06-06:00", "outcome": "RED: both tests failed: the initial exact copy/code assertions did not match rendered output and the panel module also had a useRef type diagnostic." }, "green": { "command": "pnpm.cmd exec vitest run tests/ui/ai/AiConversationPanel.test.tsx", "observedAt": "2026-07-17T03:36:59-06:00", "outcome": "GREEN: Test Files 1 passed (1); Tests 2 passed (2); Duration 830ms." } },
+    { "criterion": "The panel remains type-safe and source-policy clean.", "test": "Run TypeScript and repository lint/source policy after the bounded corrections.", "red": { "command": "pnpm.cmd exec tsc --noEmit --pretty false", "observedAt": "2026-07-17T03:36:06-06:00", "outcome": "RED: TS2554 and TS2322 were reported for the uninitialized AbortController ref before the bounded fix." }, "green": { "command": "pnpm.cmd exec tsc --noEmit --pretty false; pnpm.cmd lint", "observedAt": "2026-07-17T03:36:59-06:00", "outcome": "GREEN: TypeScript exited 0; Checked 424 files in 222ms with source policy passed." } }
+  ],
+  "nearMisses": [],
+  "questions": ["The panel is callback-driven and is not yet connected to WorkbenchRuntime's persisted secret loading, current-file context toggles, markdown renderer, or editor diff command; those remain the explicit C10 runtime integration gate."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

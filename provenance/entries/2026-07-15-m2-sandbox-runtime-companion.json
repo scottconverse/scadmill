@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-15-m2-sandbox-runtime-companion",
+  "createdAt": "2026-07-15T14:21:32-06:00",
+  "summary": "Require, hash, stage, and place both Visual C++ runtime DLLs imported by the release executable before launching it in a pristine Windows Sandbox.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 M2 exit gate",
+    "AC-0.b packaged Windows evidence",
+    "M2-R02 packaged desktop evidence",
+    "N-2 reliability",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-15-m2-sandbox-runtime-companion.json", "status": "added" },
+    { "path": "scripts/run-packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "scripts/windows/run-packaged-desktop-evidence.ps1", "status": "modified" },
+    { "path": "scripts/windows/run-packaged-desktop-sandbox.ps1", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0231",
+      "topic": "Complete Visual C++ runtime set for clean packaged evidence",
+      "decision": "Add a mandatory VisualCppRuntimeCompanion host input, pin vcruntime140_1.dll version 14.44.35211.0 by SHA-256 1F2D41C4AA5DB0BC33EBF7B66D72943A817D7CE6CBE880502A9403823633093F, stage it beside the already pinned vcruntime140.dll, independently verify both hashes inside the guest, and record both paths and hashes in retained evidence.",
+      "rationale": "The just-built scadmill.exe import table names both VCRUNTIME140.dll and VCRUNTIME140_1.dll. The clean guest advanced past the first missing DLL after D-0230 but still exited before WebView2 startup because the companion runtime remained absent. Requiring and hashing the complete imported pair removes host-installation dependence without weakening artifact identity.",
+      "specBasis": ["AC-0.b packaged Windows evidence", "M2-R02", "N-2 reliability", "N-7 evidence honesty"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Both Visual C++ runtime imports are explicit, pinned evidence inputs and are adjacent to the guest executable before launch",
+      "test": "Require the companion parameter and staging copy in the host wrapper, both adjacent guest copies before Node launch, and the exact companion hash check in the executed guest runner.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts --reporter=verbose --maxWorkers=1",
+        "observedAt": "2026-07-15T14:20:45-06:00",
+        "outcome": "RED: 1 test file failed; 1 test failed and 22 passed. No vcruntime140_1.dll guest copy, mandatory host input, staging copy, or hash check existed. The preceding exact clean Sandbox run retained exit code 1 and no PASS markers after the first runtime was added."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts --reporter=verbose --maxWorkers=1",
+        "observedAt": "2026-07-15T14:21:21-06:00",
+        "outcome": "GREEN: 1 test file passed and all 23 tests passed in 571 ms."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "The exact committed candidate still requires a fresh retained Windows Sandbox run; this entry does not predeclare that external guest result."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

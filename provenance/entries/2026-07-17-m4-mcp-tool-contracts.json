@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-mcp-tool-contracts",
+  "createdAt": "2026-07-17T04:00:20-06:00",
+  "summary": "Add the C11 MCP tool contract foundation: the ten normative tool names, strict project-relative request validation, mutating-tool classification, and deny-by-default permission state transitions.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "C11", "FR-11.4", "FR-11.6", "AC-11.b", "N-7 evidence and status honesty"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-17-m4-mcp-tool-contracts.json", "status": "added" },
+    { "path": "src/application/mcp/mcp-tools.ts", "status": "added" },
+    { "path": "tests/application/mcp/mcp-tools.test.ts", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0334", "topic": "MCP validation boundary", "decision": "Validate all tool names and project-relative path arguments in an application-owned contract module; classify write_file and set_parameters as mutating and deny them by default while read-only tools begin session-allowed.", "rationale": "Appendix B requires exact tool names and project-relative paths, while FR-11.6 requires per-tool permission gates with safe defaults before a stdio server can dispatch commands.", "specBasis": ["FR-11.4", "FR-11.6", "AC-11.b", "N-7"] }
+  ],
+  "testEvidence": [
+    { "criterion": "MCP contract tests fail before the new module and pass for read validation, traversal rejection, mutating payload validation, format validation, and permission transitions.", "test": "Run the focused MCP contract suite once after implementation.", "red": { "command": "pnpm.cmd exec tsc --noEmit --pretty false", "observedAt": "2026-07-17T03:58:40-06:00", "outcome": "RED: the MCP contract module was not yet present before this unit began." }, "green": { "command": "pnpm.cmd exec vitest run tests/application/mcp/mcp-tools.test.ts", "observedAt": "2026-07-17T03:59:23-06:00", "outcome": "GREEN: Test Files 1 passed (1); Tests 3 passed (3); Duration 405ms." } },
+    { "criterion": "The MCP foundation remains type-safe and source-policy clean.", "test": "Run TypeScript and repository lint/source policy once after implementation.", "red": { "command": "pnpm.cmd lint", "observedAt": "2026-07-17T03:58:40-06:00", "outcome": "RED: the MCP contract module was not yet present before this unit began." }, "green": { "command": "pnpm.cmd exec tsc --noEmit --pretty false; pnpm.cmd lint", "observedAt": "2026-07-17T03:59:23-06:00", "outcome": "GREEN: TypeScript exited 0; Checked 433 files in 222ms with source policy passed." } }
+  ],
+  "nearMisses": [],
+  "questions": ["The stdio MCP server, Appendix B response handlers, command-bus dispatch, diff-review integration, and process-inspection AC-11.c remain pending; this is contract groundwork only."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

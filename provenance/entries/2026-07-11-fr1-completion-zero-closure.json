@@ -1,0 +1,137 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-fr1-completion-zero-closure",
+  "createdAt": "2026-07-11T17:36:26-06:00",
+  "summary": "Close the independent FR-1.4 completion-worker findings by making editor ownership StrictMode-safe, matching nested use visibility and declaring-file-relative paths, and bounding cancellation state to active worker requests.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 test-first evidence and milestone gates",
+    "FR-1.4 cross-file completion",
+    "N-1 performance",
+    "N-2 reliability"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-11-fr1-completion-zero-closure.json", "status": "added" },
+    { "path": "src/ui/editor/CodeEditor.tsx", "status": "modified" },
+    { "path": "src/ui/editor/openscad-completion.ts", "status": "modified" },
+    { "path": "src/ui/editor/openscad-project-index.ts", "status": "modified" },
+    { "path": "src/ui/editor/openscad-project-index.worker.ts", "status": "modified" },
+    { "path": "src/ui/editor/openscad-symbols.ts", "status": "modified" },
+    { "path": "tests/ui/editor/CodeEditor.language.test.tsx", "status": "modified" },
+    { "path": "tests/ui/editor/openscad-completion.test.ts", "status": "modified" },
+    { "path": "tests/ui/editor/openscad-project-index.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://en.wikibooks.org/wiki/OpenSCAD_User_Manual/Include_Statement",
+      "accessedOn": "2026-07-11",
+      "purpose": "Confirm public OpenSCAD include/use visibility: a nested use remains usable in its parent-use context but does not re-export into the base file."
+    },
+    {
+      "url": "https://en.wikibooks.org/wiki/OpenSCAD_User_Manual/Libraries",
+      "accessedOn": "2026-07-11",
+      "purpose": "Confirm public OpenSCAD library path resolution relative to the source file containing each include/use statement."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0205",
+      "topic": "FR-1.4 completion lifecycle, visibility, path, and cancellation closure",
+      "decision": "Recreate and own the disposable project-index completion source in the same editor effect that creates each CodeMirror view; export a file reached through use plus declarations textually pulled by include but stop child-use re-export at the callable boundary; resolve every include/use from its declaring file with lexical dot-segment normalization constrained to valid portable project paths; and retain worker cancellation state only for request IDs that are still active.",
+      "rationale": "React StrictMode rehearses effect teardown before recreating the editor, OpenSCAD gives nested use a local parent context rather than base-file visibility, nested relative paths are interpreted from the declaring source, and cancellation arriving after completion must not accumulate request IDs during long editing sessions. The combined rules preserve responsive worker indexing without inventing symbols, losing valid project-local references, or growing protocol state after completion.",
+      "specBasis": [
+        "FR-1.4 cross-file completion",
+        "N-1 performance",
+        "N-2 reliability",
+        "Section 2.7 test-first evidence and milestone gates"
+      ]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "StrictMode recreates a live cross-file completion source",
+      "test": "Mount CodeEditor under React StrictMode, request completion for a referenced module, and require the project signature after the effect setup-cleanup-setup rehearsal.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/CodeEditor.language.test.tsx --reporter=verbose -t \"StrictMode effect rehearsal\"",
+        "observedAt": "2026-07-11T17:32:32-06:00",
+        "outcome": "ASSERTION-LEVEL RED: Test Files 1 failed; Tests 1 failed and 8 skipped. Completion status remained null instead of becoming active after StrictMode disposed the only project-index source."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/CodeEditor.language.test.tsx --reporter=verbose -t \"StrictMode effect rehearsal\"",
+        "observedAt": "2026-07-11T17:32:58-06:00",
+        "outcome": "GREEN: Test Files 1 passed; Tests 1 passed and 8 skipped. The rehearsed editor completed part(size = 6) from lib.scad."
+      }
+    },
+    {
+      "criterion": "Nested use visibility and declaring-file-relative path resolution match OpenSCAD",
+      "test": "Exercise root-use/child-use, include/use and use/include combinations; resolve root, sibling, dot, and parent references from their declaring files while rejecting a project-root escape.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-completion.test.ts --reporter=verbose -t \"child use|child include|declaring file\"",
+        "observedAt": "2026-07-11T17:32:41-06:00",
+        "outcome": "ASSERTION-LEVEL RED: Test Files 1 failed; Tests 2 failed, 2 passed, and 24 skipped. A child-use module leaked into the base file and declaring-file-relative modules were all absent."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-completion.test.ts --reporter=verbose -t \"child use|child include|declaring file|transitive project references\"",
+        "observedAt": "2026-07-11T17:33:51-06:00",
+        "outcome": "GREEN: Test Files 1 passed; Tests 5 passed and 23 skipped. Nested visibility, relative sibling/parent/dot paths, cycle handling, and escape rejection passed together."
+      }
+    },
+    {
+      "criterion": "Worker cancellation state exists only for active requests",
+      "test": "Cancel an active registry entry, finish it, then deliver a late cancel and require zero retained request IDs.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-project-index.test.ts --reporter=verbose -t \"retains cancellation only\"",
+        "observedAt": "2026-07-11T17:34:36-06:00",
+        "outcome": "ASSERTION-LEVEL RED: Test Files 1 failed; Tests 1 failed and 1 skipped. The late cancel changed a completed request back to cancelled and retained one ID."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-project-index.test.ts --reporter=verbose -t \"retains cancellation only\"",
+        "observedAt": "2026-07-11T17:34:51-06:00",
+        "outcome": "GREEN: Test Files 1 passed; Tests 1 passed and 1 skipped. Active cancellation remained observable and the completed late-cancel path retained zero IDs."
+      }
+    },
+    {
+      "criterion": "Non-exported child uses do not consume the traversal reference budget",
+      "test": "Reach a file through use after 511 valid includes, place a non-exported child use at the exact reference ceiling, and require the reached file's own later module without importing the hidden child.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-project-index.test.ts --reporter=verbose -t \"reference budget on non-exported\"",
+        "observedAt": "2026-07-11T17:38:58-06:00",
+        "outcome": "ASSERTION-LEVEL RED: Test Files 1 failed; Tests 1 failed and 3 skipped. The semantically ignored child use exhausted the reference budget and hid from_a."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-project-index.test.ts --reporter=verbose -t \"reference budget on non-exported\"",
+        "observedAt": "2026-07-11T17:39:12-06:00",
+        "outcome": "GREEN: Test Files 1 passed; Tests 1 passed and 3 skipped. from_a remained visible at the ceiling while the child-use symbol stayed hidden."
+      }
+    },
+    {
+      "criterion": "Completion closure preserves the prior worker, budget, editor, and Workbench surface",
+      "test": "Run all completion, worker-client, worker-budget, CodeEditor, project-lookup, runtime-map, and Workbench tests together.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-completion.test.ts tests/ui/editor/openscad-project-index-client.test.ts tests/ui/editor/openscad-project-index.test.ts tests/ui/editor/CodeEditor.language.test.tsx tests/ui/editor/use-project-completion-context.test.tsx tests/application/runtime/project-render-files.test.ts tests/ui/Workbench.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-11T17:30:02-06:00",
+        "outcome": "BASELINE GREEN BEFORE NEW REGRESSIONS: Test Files 7 passed; Tests 59 passed. This run isolates the subsequently added assertion-level RED cases from inherited failures."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-completion.test.ts tests/ui/editor/openscad-project-index-client.test.ts tests/ui/editor/openscad-project-index.test.ts tests/ui/editor/CodeEditor.language.test.tsx tests/ui/editor/use-project-completion-context.test.tsx tests/application/runtime/project-render-files.test.ts tests/ui/Workbench.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-11T17:39:39-06:00",
+        "outcome": "GREEN: Test Files 7 passed; Tests 67 passed, including all prior worker, aggregate-budget, cancellation, repeated-include, popup-freshness, renderer-cooperation, and non-exported-reference-budget cases."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "D-0205 refines D-0199/D-0200 without changing their worker, cache, traversal, or textual-replay budgets.",
+    "No owner similarity gate, comparison repository, workflow content, or prohibited source was opened or executed."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

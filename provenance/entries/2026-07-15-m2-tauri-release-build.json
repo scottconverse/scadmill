@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-15-m2-tauri-release-build",
+  "createdAt": "2026-07-15T14:48:28-06:00",
+  "summary": "Build the packaged-evidence executable through the pinned Tauri release builder so frontendDist is embedded instead of producing a release-optimized binary that still navigates to the development server.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 M2 exit gate",
+    "AC-0.b packaged Windows evidence",
+    "M2-R02 packaged desktop evidence",
+    "N-2 reliability",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-15-m2-tauri-release-build.json", "status": "added" },
+    { "path": "scripts/lib/packaged-desktop-evidence.d.mts", "status": "modified" },
+    { "path": "scripts/lib/packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "scripts/windows/run-packaged-desktop-evidence.ps1", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0232",
+      "topic": "Production-navigation build boundary for packaged evidence",
+      "decision": "After cleaning the complete canonical desktop target, invoke the pinned @tauri-apps/cli 2.11.4 release builder from src/desktop-shell with --no-bundle --ci and locked Cargo runner arguments, retain that exact command in source metadata, and reject the former plain cargo release build path.",
+      "rationale": "A focused clean-Sandbox DOM probe showed the executable navigating to http://127.0.0.1:1420 and retaining ERR_CONNECTION_REFUSED for 15 seconds. Plain cargo build --release sets optimization but does not select Tauri's production frontendDist path. The pinned Tauri build command runs the configured production frontend build and embeds those assets while the no-bundle flag keeps M2 scoped to the unpackaged release executable.",
+      "specBasis": ["AC-0.b packaged Windows evidence", "M2-R02", "N-2 reliability", "N-7 evidence honesty"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The clean packaged-evidence executable embeds production frontend assets under a locked, source-bound release build",
+      "test": "Require exact source metadata for the pinned Tauri no-bundle release command, require it after a complete target clean and before source revalidation/staging, and reject the former plain cargo release command.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts --reporter=verbose --maxWorkers=1",
+        "observedAt": "2026-07-15T14:47:43-06:00",
+        "outcome": "RED: 1 test file failed; 3 tests failed and 20 passed. Source metadata still required the plain cargo release path, and the wrapper had no pinned Tauri production build command. The preceding focused Sandbox probe captured about:blank followed by chrome-error://chromewebdata/ with ERR_CONNECTION_REFUSED for http://127.0.0.1:1420."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts --reporter=verbose --maxWorkers=1",
+        "observedAt": "2026-07-15T14:48:17-06:00",
+        "outcome": "GREEN: 1 test file passed and all 23 tests passed in 552 ms."
+      }
+    },
+    {
+      "criterion": "The exact release build navigates to embedded Tauri assets rather than the development server",
+      "test": "Launch the same source-bound executable and fixed WebView2 runtime in a fresh network-disabled Windows Sandbox, attach through tauri-driver, and retain DOM snapshots immediately, after 5 seconds, and after 15 seconds.",
+      "red": {
+        "command": "Focused Windows Sandbox DOM diagnostic using the plain cargo release executable",
+        "observedAt": "2026-07-15T14:41:32-06:00",
+        "outcome": "RED: immediate about:blank transitioned to chrome-error://chromewebdata/; the document reported ERR_CONNECTION_REFUSED for http://127.0.0.1:1420 at both 5 and 15 seconds, with no application root or resources."
+      },
+      "green": {
+        "command": "pnpm.cmd exec tauri build --no-bundle --ci -- --locked; focused Windows Sandbox DOM diagnostic using that executable",
+        "observedAt": "2026-07-15T14:51:00-06:00",
+        "outcome": "GREEN: the pinned Tauri command exited 0 and the fresh Sandbox reported title ScadMill, href http://tauri.localhost/, readyState complete, a populated application root, 10 production resources by 5 seconds, and zero browser-log errors."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "The exact committed candidate still requires a fresh retained Windows Sandbox run; this entry does not predeclare that external guest result."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

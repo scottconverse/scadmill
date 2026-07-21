@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-fr1-completion-performance",
+  "createdAt": "2026-07-11T16:40:49-06:00",
+  "summary": "Close the independent FR-1.4 performance and freshness audit with hard aggregate traversal budgets, path-and-source parse caching, a lazy open-buffer overlay, textual include ordering, and live completion invalidation.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 test-first evidence and milestone gates",
+    "FR-1.4 cross-file completion",
+    "N-1 performance"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-11-fr1-completion-performance.json", "status": "added" },
+    { "path": "src/application/runtime/project-render-files.ts", "status": "modified" },
+    { "path": "src/ui/editor/CodeEditor.tsx", "status": "modified" },
+    { "path": "src/ui/editor/openscad-completion.ts", "status": "modified" },
+    { "path": "src/ui/editor/openscad-symbols.ts", "status": "modified" },
+    { "path": "src/ui/editor/use-project-completion-context.ts", "status": "modified" },
+    { "path": "tests/application/runtime/project-render-files.test.ts", "status": "modified" },
+    { "path": "tests/ui/editor/CodeEditor.language.test.tsx", "status": "modified" },
+    { "path": "tests/ui/editor/openscad-completion.test.ts", "status": "modified" },
+    { "path": "tests/ui/editor/use-project-completion-context.test.tsx", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0194",
+      "topic": "Aggregate project-completion work budget",
+      "decision": "Bound one completion traversal to 64 parsed files, 50,000 code units per file, 100,000 aggregate code units, 512 followed references, and 1,024 collected symbols.",
+      "rationale": "The earlier per-file-only limit permitted 512 million code units plus unbounded missing-reference and symbol work on the renderer thread. Small explicit aggregate budgets preserve responsive editing and fail by omitting supplemental project suggestions rather than blocking source entry.",
+      "specBasis": ["FR-1.4 cross-file completion", "N-1 performance"]
+    },
+    {
+      "id": "D-0195",
+      "topic": "Completion parsing and source lookup reuse",
+      "decision": "Cache structurally parsed project events by normalized path and exact source, with the same aggregate memory ceiling, and replace per-edit full-project Map copies with a stable lazy snapshot lookup plus open-buffer overlays.",
+      "rationale": "Referenced files normally remain unchanged while the active document is edited. Reusing their parse results and avoiding O(all project files) copies removes project-size work from repeated completion and keystroke render paths without making filesystem reads.",
+      "specBasis": ["FR-1.4 cross-file completion", "N-1 performance"]
+    },
+    {
+      "id": "D-0196",
+      "topic": "Textual completion precedence and freshness",
+      "decision": "Traverse referenced files depth first in textual include order so later declarations win, and close an active CodeMirror completion result whenever non-active project dependency context changes.",
+      "rationale": "Breadth-first traversal allowed a nested earlier include to overwrite a later direct declaration, while a live popup could retain suggestions from replaced dependency source. Both behaviors contradicted the effective source order or current project state.",
+      "specBasis": ["FR-1.4 cross-file completion"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "All independently reported completion correctness, cache, bound, hot-path, and popup findings reproduce before implementation",
+      "test": "Focused completion, mounted CodeEditor, and project-context hook tests require textual duplicate precedence, one parse for unchanged source, aggregate and reference cutoff, popup invalidation, and stable lookup identity across active edits.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-completion.test.ts tests/ui/editor/CodeEditor.language.test.tsx tests/ui/editor/use-project-completion-context.test.tsx",
+        "observedAt": "2026-07-11T16:33:51-06:00",
+        "outcome": "ASSERTION-LEVEL RED: Test Files 3 failed; Tests 6 failed and 23 passed. Breadth-first order returned x.scad instead of b.scad; unchanged source parsed twice; both unbounded graphs reached late symbols; the popup remained active; and active edits rebuilt the context object."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-completion.test.ts tests/ui/editor/CodeEditor.language.test.tsx tests/ui/editor/use-project-completion-context.test.tsx tests/application/runtime/project-render-files.test.ts tests/ui/Workbench.test.tsx",
+        "observedAt": "2026-07-11T16:40:49-06:00",
+        "outcome": "GREEN: Test Files 5 passed; Tests 50 passed. Every reported semantic, cache, aggregate-bound, lazy-lookup, and popup-freshness assertion passed together."
+      }
+    },
+    {
+      "criterion": "An adversarial reference fanout cannot monopolize the renderer thread",
+      "test": "A 60,000-reference, 1.6-million-code-unit injected file is timed from completion request through result and must be rejected before parsing in under 100 ms.",
+      "red": {
+        "command": "Independent read-only audit reproduction against 768f855 using the production completion source",
+        "observedAt": "2026-07-11T16:30:00-06:00",
+        "outcome": "PERFORMANCE RED: the permitted adversarial file synchronously blocked for 415.6 ms; a 25.6-million-code-unit 256-file graph took 244.0 ms; and a 100,000-entry source-map rebuild took 29.4 ms per edit."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-completion.test.ts -t adversarial --reporter=verbose",
+        "observedAt": "2026-07-11T16:40:34-06:00",
+        "outcome": "GREEN: the production completion request passed in 11 ms in the focused test, below the explicit 100 ms regression ceiling, because the oversized source was rejected before parsing."
+      }
+    },
+    {
+      "criterion": "Static contracts and source policy remain valid",
+      "test": "Typecheck the lookup/context/cache contracts and lint the complete repository under the UI-size and platform-boundary policies.",
+      "red": {
+        "command": "pnpm.cmd typecheck; pnpm.cmd lint",
+        "observedAt": "2026-07-11T16:37:30-06:00",
+        "outcome": "STATIC RED DURING REFACTOR: TypeScript rejected the initial lookup interface mismatch and Biome rejected import ordering plus imprecise hook dependencies before the final contract was accepted."
+      },
+      "green": {
+        "command": "pnpm.cmd typecheck; pnpm.cmd lint",
+        "observedAt": "2026-07-11T16:40:12-06:00",
+        "outcome": "GREEN: TypeScript exited 0; Biome checked 292 files with no fixes; source policy passed with every UI file within 400 lines and platform boundaries intact."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "The safety budgets limit only supplemental cross-file suggestions; current-file completion, editing, saving, rendering, and project files remain unchanged and available.",
+    "Q-0014 remains a historical scheduling question only; M2's C6-backed completion behavior is implemented.",
+    "No owner similarity gate, comparison repository, workflow content, or prohibited source was opened or executed."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

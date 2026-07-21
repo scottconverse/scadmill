@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-mcp-review-approval",
+  "createdAt": "2026-07-17T06:51:39-06:00",
+  "summary": "Present queued MCP mutations in the History rail and require explicit in-app approval before dispatching external file or parameter changes.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "C11", "FR-11.4", "FR-11.6", "AC-11.b", "AC-11.c", "N-2", "N-7"],
+  "filesTouched": [
+    { "path": "src/application/parameters/parameter-state.ts", "status": "modified" },
+    { "path": "src/application/runtime/workbench-runtime.ts", "status": "modified" },
+    { "path": "src/application/mcp/workbench-mcp-handler.ts", "status": "modified" },
+    { "path": "src/ui/mcp/use-mcp-stdio.ts", "status": "modified" },
+    { "path": "src/ui/mcp/McpReviewPanel.tsx", "status": "added" },
+    { "path": "src/ui/mcp/use-mcp-review-approval.ts", "status": "added" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-17-m4-mcp-review-approval.json", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0364", "topic": "External MCP mutation boundary", "decision": "Permit mutation requests through the stdio dispatcher solely so the workbench handler can enqueue them; do not mutate at dispatch time. Make the review queue visible in History and perform the approved work through an external-agent command-bus dispatch.", "rationale": "A transport-level deny response gives no actionable review item, while direct handler mutation would bypass user review. This boundary preserves explicit approval, standard history records, and the existing render/undo behavior.", "specBasis": ["FR-11.4", "FR-11.6", "AC-11.b", "AC-11.c", "N-7"] },
+    { "id": "D-0365", "topic": "Atomic parameter approval", "decision": "Add a validated set-values parameter action so one approved MCP parameter request produces one runtime command and one external-agent history entry.", "rationale": "Applying values independently could create partial state and misleading multiple history records. The reducer retains only compatible visible Customizer values, as its existing batch-set semantics require.", "specBasis": ["FR-11.4", "N-2", "N-7"] }
+  ],
+  "testEvidence": [
+    { "criterion": "Queued external file and parameter requests remain inert until explicit review, then flow through the command bus with an external-agent history record.", "test": "Run focused MCP review, stdio, parameter reducer, runtime, and theme-contract tests; run lint/build; then run one aggregate suite after the identified CSS token correction.", "red": { "command": "pnpm.cmd test -- --reporter=dot", "observedAt": "2026-07-17T06:52:21-06:00", "outcome": "RED: 175 files/1274 tests passed, but the Appendix C CSS contract rejected the newly added nonexistent --chrome-error token. Replaced it with the allowed --chrome-badge-error token." }, "green": { "command": "pnpm.cmd exec vitest run tests/application/theme/theme-css-variable-usage.test.ts tests/ui/mcp/McpReviewPanel.test.tsx --reporter=dot; pnpm.cmd test -- --reporter=dot", "observedAt": "2026-07-17T06:53:19-06:00", "outcome": "GREEN: targeted theme/review coverage passed 2 files and 4 tests; the one final aggregate passed 176 files and 1275 tests in 20.37 seconds. The earlier focused 5-file/33-test run, lint/source policy, and TypeScript/Vite build were also green." } }
+  ],
+  "nearMisses": [
+    { "url": "local://src/ui/mcp/use-mcp-stdio.ts", "sought": "A pending-review response that also creates an actionable in-app review item", "confirmation": "The default mutation permission was deny, which returned pending_review before the handler could queue the proposal. The stdio hook explicitly allows only those requests into the handler, which still queues rather than mutates." }
+  ],
+  "questions": ["Direct viewport screenshot capture, a real desktop subprocess walkthrough, and hosted AC-11.b/c evidence remain pending. The session-local default-off Settings toggle remains intentional."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-c6-file-shortcut-correction",
+  "createdAt": "2026-07-11T12:10:40-06:00",
+  "summary": "Correct C6 global File-command composition after the complete C5 checkpoint: wire all five Appendix D shortcuts into the existing coordinator and make Files reveal idempotent across open, maximized, and narrow-sheet layouts.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 capability-sized work, test-first evidence, and green CI",
+    "Section 4.1 AC-1.e Appendix D keybinding integration",
+    "Section 4.6 C6 files, projects, export, and sharing",
+    "Section 4.6 FR-6.1, FR-6.3, and FR-6.4",
+    "Appendix D normative Save, Save all, New file, Open project or folder, and Export bindings",
+    "Section 5 N-3 keyboard accessibility and N-7 honesty"
+  ],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-11-c6-file-shortcut-correction.json", "status": "added" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/files/use-file-commands.ts", "status": "modified" },
+    { "path": "tests/ui/Workbench.test.tsx", "status": "modified" },
+    { "path": "tests/ui/files/use-file-commands.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0130",
+      "topic": "Global File shortcut composition and idempotent Files reveal",
+      "decision": "Bind Workbench's existing File coordinator callbacks directly into its existing document-keybinding hook for Save, Save all, New file, Open project, and Export. Give the coordinator current layout state so Open and Export reveal Files without toggling an already visible dock closed, unmaximize a hidden wide dock, or leave a narrow sheet covering the dock.",
+      "rationale": "The hook and coordinator were individually correct, but optional no-op callbacks concealed missing composition and activate-rail has toggle semantics. Direct binding plus layout-aware reveal is the smallest coherent correction that makes keyboard commands match functional menu behavior without duplicating File logic.",
+      "specBasis": ["Section 2.7 unit of work", "AC-1.e", "FR-6.1", "FR-6.3", "FR-6.4", "Appendix D", "N-3", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "AC-1.e and Appendix D composed global File shortcuts",
+      "test": "A real Workbench with the actual keybinding hook and File coordinator uses default shortcuts to synchronously save a dirty primary scratch buffer, save all after a second edit, create a new scratch tab, reveal Files from Search for Open, and open the export dialog without hiding Files.",
+      "red": {
+        "command": "node node_modules/vitest/vitest.mjs run tests/ui/editor/use-document-keybindings.test.tsx tests/ui/Workbench.test.tsx --reporter=verbose -t \"routes every global File command binding|routes every global File shortcut through the Workbench coordinator\"",
+        "observedAt": "2026-07-11T12:04:56-06:00",
+        "outcome": "RED: 2 files ran; the isolated hook case passed, the Workbench integration failed its first synchronous Save assertion, and 19 tests were skipped. Summary: 1 failed, 1 passed, 19 skipped; duration 1.48 s. The persistence spy had no call because Workbench omitted every File callback."
+      },
+      "green": {
+        "command": "node node_modules/vitest/vitest.mjs run tests/ui/editor/use-document-keybindings.test.tsx tests/ui/Workbench.test.tsx tests/ui/files/use-file-commands.test.tsx --reporter=verbose -t \"routes every global File command binding|routes every global File shortcut through the Workbench coordinator|keeps an already visible Files panel open\"",
+        "observedAt": "2026-07-11T12:09:20-06:00",
+        "outcome": "GREEN: 3 files passed; 3 tests passed and 21 were skipped; duration 1.62 s. All five composed shortcuts, the isolated binding map, and layout-aware Files reveal passed."
+      }
+    },
+    {
+      "criterion": "C6 Open and Export keep the File surface honestly visible",
+      "test": "The coordinator dispatches no toggle when Files is already open, increments the export request, unmaximizes a wide viewer before revealing the underlying Files dock, and clears a narrow sheet before opening the narrow Files dock.",
+      "red": {
+        "command": "node node_modules/vitest/vitest.mjs run tests/ui/files/use-file-commands.test.tsx --reporter=verbose -t \"keeps an already visible Files panel open\"",
+        "observedAt": "2026-07-11T12:08:44-06:00",
+        "outcome": "RED: 1 file failed; 1 test failed and 2 were skipped; duration 1.04 s. After the initial toggle regression had separately produced two activate-rail calls, the strengthened case expected a viewer unmaximize action but received no action, proving a boolean open hint could not describe hidden layout states."
+      },
+      "green": {
+        "command": "node node_modules/vitest/vitest.mjs run tests/ui/editor/use-document-keybindings.test.tsx tests/ui/files/use-file-commands.test.tsx tests/ui/Workbench.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-11T12:09:32-06:00",
+        "outcome": "GREEN: 3 files passed; 24 tests passed; duration 4.22 s. Default, maximized, narrow-sheet, save failure, scratch safety, all hook bindings, and complete Workbench behavior passed together."
+      }
+    },
+    {
+      "criterion": "C6 correction static, widened web, and dependency regression",
+      "test": "Workbench remains below the 400-line policy ceiling; typecheck, lint and source policy, complete unit and browser suites, production build, generated parser freshness, and npm license policy pass with no capability leakage.",
+      "red": {
+        "command": "pnpm.cmd lint",
+        "observedAt": "2026-07-11T12:06:45-06:00",
+        "outcome": "RED during the first widened pass: Biome reported one lint/suspicious/noAssignInExpressions error in the new deterministic test id callback. The callback was changed to a block before any commit."
+      },
+      "green": {
+        "command": "pnpm.cmd typecheck; pnpm.cmd lint; pnpm.cmd test; pnpm.cmd exec playwright test; pnpm.cmd build; pnpm.cmd check:generated; pnpm.cmd check:licenses npm",
+        "observedAt": "2026-07-11T12:09:42-06:00",
+        "outcome": "GREEN: typecheck passed; lint checked 268 files and source policy passed with Workbench at 398 lines; Vitest passed 102 files and 729 tests in 10.31 s; Playwright passed 9 tests in 10.9 s; Vite built 173 modules in 265 ms; generated parser freshness passed; npm license policy passed for 117 packages."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "No specification question blocks this correction: Appendix D and AC-1.e require the five commands to fire, and C6 already owns the corresponding File behaviors.",
+    "This correction is based on clean C5 commit 83f16d135ec5aead4b73203ebd02ddd41b60a30a and changes exactly the four behavior/test paths plus this ledger.",
+    "D-0130 records the correction. D-0122 remains intentionally unused; D-0123 through D-0129 remain reserved by existing milestone and correction work.",
+    "No README or CHANGELOG edit is required: this repairs already-documented C6 keyboard behavior and introduces no new user-facing capability or setup contract.",
+    "Q-0001 remains the separate Rust Unicode-3.0 policy block; this correction changes no dependency or Rust source.",
+    "No owner similarity gate, comparison repository, or prohibited source was opened or executed."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

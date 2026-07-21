@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-15-m2-linux-ci-correction",
+  "createdAt": "2026-07-15T11:36:00-06:00",
+  "summary": "Keep Windows-only native-engine imports and test helpers out of non-Windows Clippy builds after the first hosted M2 candidate exposed three Linux-only unused-item diagnostics.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.7 M2 exit gate",
+    "V-5 native validation",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-15-m2-linux-ci-correction.json", "status": "added" },
+    { "path": "src/native-engine/src/discovery.rs", "status": "modified" },
+    { "path": "src/native-engine/src/project_layout.rs", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0227",
+      "topic": "Cross-platform ownership of Windows-only native helpers",
+      "decision": "Compile the shim-descriptor filesystem import, Win32 error assertion type, and Win32 project-layout fixture helper only on Windows while leaving the portable path-layout test available on every target.",
+      "rationale": "The first hosted Linux Clippy run correctly rejected items used only by Windows implementations and tests. Target-gating those items preserves the Windows security cases without weakening the portable test or suppressing warnings.",
+      "specBasis": ["V-5 native validation", "N-7 evidence honesty"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Windows-only native items do not fail non-Windows warning-denied builds",
+      "test": "Use the hosted Ubuntu Clippy failure as the platform-specific RED, add only target ownership attributes, and keep the local Windows all-target Clippy lane warning-free before requesting one replacement hosted run.",
+      "red": {
+        "command": "GitHub Actions CI run 29436756346, Native checks / Rust lint",
+        "observedAt": "2026-07-15T11:31:38-06:00",
+        "outcome": "RED with exit code 101: Ubuntu Clippy under -D warnings reported unused std::fs and crate::EngineError imports plus dead project_with test helper; the other three hosted jobs passed."
+      },
+      "green": {
+        "command": "cargo clippy --locked --manifest-path src/native-engine/Cargo.toml --all-targets -- -D warnings",
+        "observedAt": "2026-07-15T11:35:00-06:00",
+        "outcome": "GREEN on the pinned Windows Rust 1.96.0 toolchain with exit code 0 after 2.40 seconds. This proves the attributes preserve the Windows all-target lane; the replacement hosted Ubuntu result remains required as the non-Windows acceptance evidence."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "The exact replacement candidate still requires one successful hosted Ubuntu Native checks result; this ledger entry does not predeclare that external result."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-19-hosted-m4-performance-dmg-followup",
+  "createdAt": "2026-07-19T23:36:41-06:00",
+  "summary": "Correct the remaining exact-head hosted M4 performance, composite-timeout, and license-bearing DMG lifecycle failures without weakening their assertions or retry policy.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "AC-15.a", "FR-13.4", "M4 hosted evidence", "Q-0038"],
+  "filesTouched": [
+    { "path": ".github/workflows/ci.yml", "status": "modified" },
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-19-hosted-m4-performance-dmg-followup.json", "status": "added" },
+    { "path": "src/ui/viewer/ModelViewer.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/model-viewer-defaults.ts", "status": "modified" },
+    { "path": "tests/e2e/m4-hosted.playwright.config.ts", "status": "modified" },
+    { "path": "tests/scripts/m4-hosted-config.test.ts", "status": "added" },
+    { "path": "tests/scripts/windows-installer.test.ts", "status": "modified" },
+    { "path": "tests/ui/viewer/ModelViewer.theme.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29708733274/job/88249728921",
+      "accessedOn": "2026-07-19",
+      "purpose": "Inspect the exact-head Ubuntu production-static 124.3 ms AC-15.a failure and the M4 journey's outer 30-second timeout after forward progress."
+    },
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29708733274/job/88249728880",
+      "accessedOn": "2026-07-19",
+      "purpose": "Inspect the exact-head macOS runner rejection of the unsupported hdiutil -acceptlicense option."
+    },
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29708426266/job/88249025006",
+      "accessedOn": "2026-07-19",
+      "purpose": "Confirm that the prior bare attach presented the embedded Apache license and canceled only when stdin reached EOF."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0417",
+      "topic": "Unchanged cached mesh presentation",
+      "decision": "Retain the currently parsed mesh when a newly presented result has the same application-verified SHA-256 geometry identity and parser, but reparse changed identities, unverified byte references, parser changes, and retries after parse failure.",
+      "rationale": "A memory-cache hit clones its result bytes. Keying the parser effect only to the result object needlessly recopied and reparsed identical STL geometry on the normative under-100-ms interaction path. Identity-scoped reuse removes that work without discarding current diagnostics, statistics, or other result metadata.",
+      "specBasis": ["AC-15.a", "FR-15.1", "N-1"]
+    },
+    {
+      "id": "D-0418",
+      "topic": "M4 hosted composite timeout",
+      "decision": "Set the one stateful M4 journey's outer Playwright timeout to 480 seconds while preserving its existing per-step 30/60-second bounds, one worker, and zero retries.",
+      "rationale": "The journey contains sequential bounded operations whose documented maxima total roughly 390 seconds. Playwright's inherited 30-second whole-test default preempted valid forward progress before the journey's own assertions could report failures; eight minutes remains finite and leaves each behavioral threshold unchanged.",
+      "specBasis": ["M4 hosted evidence", "N-7", "Section 2.7"]
+    },
+    {
+      "id": "D-0419",
+      "topic": "Noninteractive licensed DMG attachment follow-up",
+      "decision": "Supersede D-0415's unsupported -acceptlicense attempt with exactly one 'Y' response on stdin to the single image-last, read-only hdiutil attach command under pipefail and an EXIT detach trap.",
+      "rationale": "The current macOS runner proves that attach has no -acceptlicense option, while the earlier run shows the embedded license prompt is attached to stdin and cancels at EOF. A single Y response is the bounded mechanism under test, not a claimed pass; exact hosted confirmation remains required. One bounded response avoids an unbounded yes stream, while pipefail and cleanup preserve fail-closed lifecycle evidence.",
+      "specBasis": ["FR-13.4", "Q-0038", "Windows-first beta cross-platform packaging evidence"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The hosted config must own a finite composite envelope larger than its preserved step bounds, with no retries or parallel workers.",
+      "test": "Import the real Playwright config and require exact timeout, retries, workers, testMatch, and retained journey step bounds.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/viewer/ModelViewer.theme.test.tsx tests/scripts/m4-hosted-config.test.ts tests/scripts/windows-installer.test.ts --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-19T23:32:45-06:00",
+        "outcome": "RED: the focused config assertion received undefined instead of 480000; the same bounded run also failed the two other newly added contracts and passed 19 existing tests."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/viewer/ModelViewer.theme.test.tsx tests/scripts/m4-hosted-config.test.ts --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-19T23:46:07-06:00",
+        "outcome": "GREEN after review repair: both files and all 20 tests passed in 2.77 seconds. The config test pins the exact ordered multiset of every explicit journey timeout."
+      }
+    },
+    {
+      "criterion": "Identical verified geometry must not invoke the parser again, while a changed verified identity still must.",
+      "test": "Render a parsed model, rerender cloned bytes under the same valid SHA-256 identity, then present a different valid identity and count parser invocations.",
+      "red": {
+        "command": "Ubuntu production-static browser job 88249728921 plus white-box trace of ModelViewer's result-keyed parse effect",
+        "observedAt": "2026-07-19T17:59:35-06:00",
+        "outcome": "RED: the normative cache paint was 124.3 ms, and every cloned cache result retriggered the result-dependent parser path and worker byte copy."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/viewer/ModelViewer.theme.test.tsx tests/scripts/m4-hosted-config.test.ts --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-19T23:46:07-06:00",
+        "outcome": "GREEN after independent-review repair: both files and all 20 tests passed in 2.77 seconds. Same verified identity and parser reuse once; changed identity or parser reparses; an invalid identity never reuses even with the same mutable byte reference; and a rejected verified identity retries. Exact hosted under-100-ms confirmation remains required."
+      }
+    },
+    {
+      "criterion": "The license-bearing DMG must attach through one bounded affirmative response, reject the unsupported option and unbounded/bypassed alternatives, and detach after any later failure.",
+      "test": "Parse the workflow and assert the exact pipeline, strict shell mode, one attach command, forbidden alternatives, and cleanup trap.",
+      "red": {
+        "command": "macOS Desktop installer job 88249728880; focused Vitest run at 2026-07-19T23:32:45-06:00",
+        "observedAt": "2026-07-19T23:32:45-06:00",
+        "outcome": "RED hosted: hdiutil rejected -acceptlicense as unknown. RED locally: the workflow lacked strict pipeline mode and the exact stdin response contract."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/windows-installer.test.ts --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-19T23:47:14-06:00",
+        "outcome": "GREEN after independent-review repair: the file and all 4 tests passed in 957 ms. The contract exact-asserts the attach block, forbids quiet/image-key/multiline-ignore variants, verifies mounted-flag ordering, and requires cleanup detach-failure propagation. Exact hosted macOS attachment confirmation remains required."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://tests/ui/viewer/ModelViewer.theme.test.tsx",
+      "sought": "A verified-identity parser reuse regression",
+      "confirmation": "The first fixture omitted the required sha256: prefix and therefore exercised the intentional byte-reference fallback. It was corrected to valid application identity strings before the final green run."
+    },
+    {
+      "url": "local://tests/scripts/windows-installer.test.ts",
+      "sought": "An exact parsed-workflow attach contract",
+      "confirmation": "The first expected template accidentally retained patch-marker plus signs. The production workflow was unchanged; only the malformed expectation was corrected before the final green run."
+    },
+    {
+      "url": "local://src/ui/viewer/ModelViewer.tsx",
+      "sought": "A source-policy-compliant cache optimization",
+      "confirmation": "The first correct inline implementation pushed the UI file to 414 lines and failed the 400-line policy. Geometry-key tracking was extracted into the existing viewer-defaults module; the UI returned to exactly 400 lines, all 17 viewer tests passed, and the source-policy gate passed."
+    },
+    {
+      "url": "local://src/ui/viewer/model-viewer-defaults.ts",
+      "sought": "Verified-identity-only reuse and complete timeout evidence",
+      "confirmation": "Independent review found one Major and one Minor: the first extracted helper reused an identical unverified mutable byte reference, and the config test sampled rather than pinned step bounds. The helper now refuses every missing/invalid identity; parser-change and failed-parse retries are covered; the journey test exact-asserts all seven timeout literals. Focused review-repair evidence is 20/20 green, and bounded re-review closed at 0/0/0/0/0."
+    },
+    {
+      "url": "local://.github/workflows/ci.yml",
+      "sought": "A noninteractive licensed-image bypass",
+      "confirmation": "Rejected -quiet, undocumented image keys, unbounded yes input, retries, and ignored attach failures. The workflow supplies one affirmative response and propagates either pipeline failure."
+    },
+    {
+      "url": "local://tests/scripts/windows-installer.test.ts",
+      "sought": "A falsification-resistant DMG lifecycle contract",
+      "confirmation": "Independent review found one Major and one Minor: the first test accepted multiline ignored attach failures, quiet/image-key variants, no-op cleanup, ignored detach failures, and wrong mounted-flag ordering; the ledger also described stdin Y acceptance as proven. The strengthened test rejects all six named mutants and passed 4/4, while the corrected decision labels Y acceptance as pending exact hosted proof. Bounded re-review closed at 0/0/0/0/0."
+    }
+  ],
+  "questions": ["Q-0038 and Q-0039 are resolved. Exact hosted Ubuntu and macOS confirmation remains evidence work, not an owner decision."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

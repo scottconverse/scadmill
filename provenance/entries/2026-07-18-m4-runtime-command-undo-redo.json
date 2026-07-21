@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-18-m4-runtime-command-undo-redo",
+  "createdAt": "2026-07-18T18:36:36-06:00",
+  "summary": "Make the workbench command history authoritative for editor and parameter undo/redo without duplicate mutation entries.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "FR-11.1", "FR-11.2", "AC-11.a", "N-7"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-18-m4-runtime-command-undo-redo.json", "status": "added" },
+    { "path": "src/application/runtime/workbench-runtime-contracts.ts", "status": "modified" },
+    { "path": "src/application/runtime/workbench-runtime.ts", "status": "modified" },
+    { "path": "src/ui/editor/CodeEditor.tsx", "status": "modified" },
+    { "path": "src/ui/editor/editor-command-execution.ts", "status": "modified" },
+    { "path": "src/ui/editor/use-editor-command-coordinator.ts", "status": "modified" },
+    { "path": "tests/application/runtime/workbench-runtime-history.test.ts", "status": "added" },
+    { "path": "tests/ui/Workbench.editor-settings.test.tsx", "status": "modified" },
+    { "path": "tests/ui/Workbench.test.tsx", "status": "modified" },
+    { "path": "tests/ui/editor/CodeEditor.language.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0387",
+      "topic": "Single authoritative undo and redo path",
+      "decision": "Keep reversible before/after frames private to the workbench runtime, leave the public session-history schema as metadata, route keyboard and menu undo/redo through runtime commands, and suppress CodeMirror's separate document undo stack.",
+      "rationale": "The prior editor-local path could mutate the source and separately record the command invocation, producing two history entries and leaving parameter mutations marked undoable without executable inverses. Runtime-owned frames provide one chronological source of truth while preserving the Appendix B history representation.",
+      "specBasis": ["FR-11.1", "FR-11.2", "AC-11.a"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "A scripted sequence of document edits, single and multi-parameter changes, and writing parameter values into source must produce one entry per mutation; undo must restore every prior state and redo every forward state without appending history.",
+      "test": "Run the focused runtime and live Workbench integration tests, then strict TypeScript and scoped Biome checks.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/runtime/workbench-runtime-history.test.ts tests/ui/Workbench.test.tsx",
+        "observedAt": "2026-07-18T18:28:00-06:00",
+        "outcome": "RED: 3/24 tests failed. The runtime rejected history-undo as unhandled, Ctrl+Z left cube(11) unchanged, and the scripted state sequence could not reverse."
+      },
+      "green": {
+        "command": "pnpm.cmd exec biome check src/application/runtime/workbench-runtime-contracts.ts src/application/runtime/workbench-runtime.ts src/ui/editor/editor-command-execution.ts src/ui/editor/use-editor-command-coordinator.ts src/ui/editor/CodeEditor.tsx tests/application/runtime/workbench-runtime-history.test.ts tests/ui/Workbench.test.tsx tests/ui/Workbench.editor-settings.test.tsx; pnpm.cmd exec tsc --noEmit; pnpm.cmd exec vitest run tests/application/runtime/workbench-runtime-history.test.ts tests/ui/Workbench.test.tsx tests/ui/Workbench.editor-settings.test.tsx tests/ui/editor/CodeEditor.language.test.tsx; pnpm.cmd exec biome check src/application/runtime/workbench-runtime.ts tests/ui/editor/CodeEditor.language.test.tsx; pnpm.cmd exec vitest run tests/application/runtime/workbench-runtime-history.test.ts tests/ui/editor/CodeEditor.language.test.tsx",
+        "observedAt": "2026-07-18T18:33:29-06:00",
+        "outcome": "GREEN: scoped Biome and TypeScript passed; after adversarial corrections, the integrated focused set passed 4 files/42 tests. Evidence includes exact revision alignment after each forward/undo/redo state, a source-replacement undo barrier, synchronous subscriber undo at history publication, retained preview quality for write-values replay, and CodeMirror undoDepth exactly zero after a source mutation. Independent re-review returned literal 0/0/0/0/0 for the vertical."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://src/application/runtime/workbench-runtime.ts",
+      "sought": "Adversarial review of reversible-frame replay invariants and publication ordering",
+      "confirmation": "The first green implementation could cross a newer source replacement, restore stale parameter revisions, schedule the wrong replay quality, and publish before installing its inverse. Each issue received a focused regression and the re-review closed at 0/0/0/0/0."
+    }
+  ],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

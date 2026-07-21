@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-ai-conversation-review",
+  "createdAt": "2026-07-17T03:27:20-06:00",
+  "summary": "Add the M4 conversation state foundation: bounded streaming accumulation, stale-request isolation, fenced-code extraction, and explicit review states for proposed edits.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "C10", "FR-10.4", "FR-10.7", "AC-10.b", "N-7 evidence and status honesty"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-17-m4-ai-conversation-review.json", "status": "added" },
+    { "path": "src/application/ai/conversation.ts", "status": "added" },
+    { "path": "tests/application/ai/conversation.test.ts", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0312", "topic": "Streaming request isolation", "decision": "Only deltas belonging to the active request may mutate the assistant message, and completion or cancellation closes the streaming state without retaining an active request id.", "rationale": "Late provider chunks must not overwrite a newer conversation request, while cancel must leave a stable reviewable transcript.", "specBasis": ["FR-10.7", "N-7"] },
+    { "id": "D-0313", "topic": "Reviewable AI edits", "decision": "Fenced response code is represented as a pending proposal and cannot become accepted or rejected until an explicit review action targets its proposal id.", "rationale": "AC-10.b requires apply-as-edit review semantics rather than silent mutation of the editor buffer.", "specBasis": ["FR-10.4", "AC-10.b"] }
+  ],
+  "testEvidence": [
+    { "criterion": "Conversation tests fail when the reducer is absent and pass for fenced-code extraction, stale-stream isolation, and explicit proposal review.", "test": "Run the focused conversation suite once against the deliberate missing-module RED state, then against the implementation.", "red": { "command": "pnpm.cmd exec vitest run tests/application/ai/conversation.test.ts", "observedAt": "2026-07-17T03:26:50-06:00", "outcome": "RED: Test Files 1 failed; module ../../../src/application/ai/conversation was not found; exit 1." }, "green": { "command": "pnpm.cmd exec vitest run tests/application/ai/conversation.test.ts", "observedAt": "2026-07-17T03:26:39-06:00", "outcome": "GREEN: Test Files 1 passed (1); Tests 3 passed (3); Duration 559ms." } },
+    { "criterion": "The new application unit remains type-safe and source-policy clean.", "test": "Run TypeScript and repository lint/source policy once after implementation.", "red": { "command": "pnpm.cmd exec tsc --noEmit --pretty false", "observedAt": "2026-07-17T03:27:58-06:00", "outcome": "RED: with conversation.ts deliberately removed, TypeScript reported TS2307 for the conversation test import and exited 2." }, "green": { "command": "pnpm.cmd exec tsc --noEmit --pretty false; pnpm.cmd lint", "observedAt": "2026-07-17T03:26:42-06:00", "outcome": "GREEN: TypeScript exited 0; Checked 419 files in 242ms with source policy passed." } }
+  ],
+  "nearMisses": [],
+  "questions": ["The reducer does not yet persist conversations, render markdown, or apply accepted proposals to a document. Those remain later C10 UI/runtime units; this entry makes no claim that AC-10.b is fully closed."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

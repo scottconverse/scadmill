@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-m4-render-success-durability-ordering",
+  "createdAt": "2026-07-20T21:34:10-06:00",
+  "summary": "Publish successful project-render status only after the persistent cache-write attempt settles.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "FR-4.3", "FR-15.1", "AC-15.a", "V-5 release gate", "V-6 honesty rule"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-m4-render-success-durability-ordering.json", "status": "added" },
+    { "path": "src/application/runtime/workbench-runtime.ts", "status": "modified" },
+    { "path": "tests/application/runtime/workbench-runtime.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0471",
+      "topic": "Successful render status and cache durability ordering",
+      "decision": "Keep successful geometry presentation responsive, but do not publish the user-facing successful render state until the configured cache persistence attempt has settled. Cache failure remains non-fatal, and job, snapshot, and generation guards continue to prevent stale completion from replacing newer state.",
+      "rationale": "Exact clean Windows Sandbox evidence at 6f68bd4 showed that the harness observed a successful full render and then restarted while the persistent full-quality cache record was still unavailable. The runtime previously published success before awaiting renderCache.put, allowing process shutdown to interrupt a write that the visible status implied was complete.",
+      "specBasis": ["FR-4.3", "FR-15.1", "AC-15.a", "V-5 release gate", "V-6 honesty rule"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "A project render must remain in rendering state until its persistent cache-write attempt settles.",
+      "test": "Hold the disk-cache write promise open, observe runtime state, release the write, and then observe successful full-quality completion.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/runtime/workbench-runtime.test.ts -t \"does not publish a successful project render before its disk-cache write settles\" --reporter=dot",
+        "observedAt": "2026-07-20T21:32:03-06:00",
+        "outcome": "RED: 1/1 failed because runtime state was already success while the disk write remained pending."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/runtime/workbench-runtime.test.ts -t \"does not publish a successful project render before its disk-cache write settles\" --reporter=dot",
+        "observedAt": "2026-07-20T21:32:50-06:00",
+        "outcome": "GREEN: 1/1 passed; state remained rendering until the write was released and then became success."
+      }
+    },
+    {
+      "criterion": "The durability ordering must preserve early viewer presentation and the focused M4/runtime and TypeScript contracts.",
+      "test": "Run the runtime and packaged M4 suites once after reconciling the early-viewer contract, then run TypeScript no-emit.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/runtime/workbench-runtime.test.ts tests/scripts/m4-packaged-walkthrough.test.ts --reporter=dot",
+        "observedAt": "2026-07-20T21:32:59-06:00",
+        "outcome": "RED: 1/53 failed because the first implementation delayed viewer presentation behind optional cache I/O."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/runtime/workbench-runtime.test.ts tests/scripts/m4-packaged-walkthrough.test.ts --reporter=dot; pnpm.cmd run typecheck",
+        "observedAt": "2026-07-20T21:33:36-06:00",
+        "outcome": "GREEN: 53/53 focused tests passed and TypeScript no-emit passed after retaining early viewer presentation while delaying only successful render status."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-6f68bd4-sandbox-m4-native-split-20260720/evidence.json",
+      "sought": "Exact clean packaged native M4 cold-start cache evidence",
+      "confirmation": "Full render was clicked and launched exactly one new engine run, but after restart it completed noncached: clickStarted=true, previewBadge=false, consoleRunsBefore=2, consoleRunsAfter=3. Sandbox cleanup passed."
+    }
+  ],
+  "questions": ["No owner decision is required; this closes a runtime durability race exposed by exact clean evidence."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

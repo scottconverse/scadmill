@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-ai-provider-client",
+  "createdAt": "2026-07-17T03:24:30-06:00",
+  "summary": "Add the M4 AI provider request foundation: a direct fetch client with provider-specific request and response envelopes, abort propagation, and secret-safe error redaction.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "C10", "FR-10.2", "FR-10.3", "AC-10.a", "N-7 evidence and status honesty"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-17-m4-ai-provider-client.json", "status": "added" },
+    { "path": "src/application/ai/ai-provider.ts", "status": "added" },
+    { "path": "src/application/ai/ai-client.ts", "status": "added" },
+    { "path": "tests/application/ai/ai-client.test.ts", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0310", "topic": "Direct provider transport", "decision": "Use a small application-owned fetch client with explicit OpenAI-compatible, Anthropic, and local Ollama-style envelopes instead of an SDK or hidden provider abstraction.", "rationale": "The client must preserve clean-room ownership, make wire behavior testable, and keep provider secrets inside the request boundary.", "specBasis": ["FR-10.2", "FR-10.3", "N-7"] },
+    { "id": "D-0311", "topic": "AI secret and no-provider behavior", "decision": "A missing provider or missing secret fails before fetch; any transport error is redacted for bearer and sk-style secret tokens; AbortSignal is passed through unchanged.", "rationale": "AC-10.a requires zero network calls until configured, and N-7 forbids claiming safe secret handling without a checked boundary.", "specBasis": ["AC-10.a", "FR-10.3", "N-7"] }
+  ],
+  "testEvidence": [
+    { "criterion": "The provider client tests fail when the implementation is absent and pass for all supported response envelopes.", "test": "Run the focused provider-client suite once against the deliberate missing-module RED state, then against the implementation.", "red": { "command": "pnpm.cmd exec vitest run tests/application/ai/ai-client.test.ts", "observedAt": "2026-07-17T03:23:53-06:00", "outcome": "RED: Test Files 1 failed; module ../../../src/application/ai/ai-client was not found; exit 1." }, "green": { "command": "pnpm.cmd exec vitest run tests/application/ai/ai-client.test.ts", "observedAt": "2026-07-17T03:23:01-06:00", "outcome": "GREEN: Test Files 1 passed (1); Tests 7 passed (7); Duration 456ms." } },
+    { "criterion": "The complete TypeScript, lint/source-policy, and provenance checks remain clean.", "test": "Run the repository type, lint, and provenance gates once after implementation.", "red": { "command": "pnpm.cmd exec tsc --noEmit --pretty false", "observedAt": "2026-07-17T03:25:11-06:00", "outcome": "RED: with the provider modules deliberately removed, TypeScript reported TS2307 for the ai-client import and exited 2." }, "green": { "command": "pnpm.cmd exec tsc --noEmit --pretty false; pnpm.cmd lint; pnpm.cmd check:provenance", "observedAt": "2026-07-17T03:23:18-06:00", "outcome": "GREEN: TypeScript exited 0; Checked 417 files in 226ms with source policy passed; provenance ledger passed validation." } }
+  ],
+  "nearMisses": [],
+  "questions": ["C10-B is only the non-streaming provider request foundation. SSE/streaming presentation, conversation reducer, reviewable code actions, persistence, context budgets, and agent-loop caps remain later M4 units; no C10 completion claim is made."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

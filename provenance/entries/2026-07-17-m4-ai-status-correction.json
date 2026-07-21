@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-ai-status-correction",
+  "createdAt": "2026-07-17T03:51:00-06:00",
+  "summary": "Update the README C10 row to reflect the newly wired provider/composer/diff runtime while naming the remaining model, context, persistence hydration, agent, and hosted gates.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "C10", "N-7 evidence and status honesty"],
+  "filesTouched": [
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-17-m4-ai-status-correction.json", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0328", "topic": "C10 visitor status", "decision": "Describe the AI runtime bridge and per-hunk review as implemented, while retaining explicit pending language for unimplemented model/context/agent features and hosted acceptance.", "rationale": "N-7 requires the README to track actual committed seams without turning partial C10 work into a completion claim.", "specBasis": ["C10", "N-7"] }
+  ],
+  "testEvidence": [
+    { "criterion": "The documentation reflects the exact committed C10 boundary and remains clean.", "test": "Run diff and provenance checks once after the status correction.", "red": { "command": "git diff --check", "observedAt": "2026-07-17T03:50:40-06:00", "outcome": "RED: the README still described provider/composer/diff wiring as pending after those seams were committed." }, "green": { "command": "git diff --check; pnpm.cmd check:provenance", "observedAt": "2026-07-17T03:51:00-06:00", "outcome": "GREEN: diff check exited 0; provenance ledger passed validation." } }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

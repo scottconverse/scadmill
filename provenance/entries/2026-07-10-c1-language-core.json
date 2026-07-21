@@ -1,0 +1,285 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-10-c1-language-core",
+  "createdAt": "2026-07-10T03:35:47-06:00",
+  "summary": "Deliver the first M1 C1 language-core slice: a fresh generated Lezer grammar installed in the live CodeMirror editor, context-sensitive OpenSCAD token classification, a version-labeled provisional 2021.01 built-in corpus reusable by later completion work, checked-in generated parser tables with a freshness gate, and representative FR-1.2 acceptance coverage. Exhaustive AC-1.a conformance remains bounded by Q-0013 rather than being claimed here.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.2 permitted inputs",
+    "Section 2.4 provenance ledger",
+    "Section 2.7 questions, decisions, and unit of work",
+    "Section 4.1 C1 code editor with OpenSCAD language support",
+    "Section 4.1 FR-1.2 syntax highlighting",
+    "Section 4.1 AC-1.a classification snapshot",
+    "Section 6 fresh Lezer grammar and approved dependencies",
+    "Section 8 M1 C1 excluding diff view",
+    "Appendix C editor syntax theme tokens"
+  ],
+  "filesTouched": [
+    { "path": ".github/workflows/ci.yml", "status": "modified" },
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "CONTRIBUTING.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "biome.json", "status": "modified" },
+    { "path": "package.json", "status": "modified" },
+    { "path": "pnpm-lock.yaml", "status": "modified" },
+    {
+      "path": "provenance/entries/2026-07-10-c1-language-core.json",
+      "status": "added"
+    },
+    { "path": "spec/QUESTIONS.md", "status": "modified" },
+    { "path": "src/ui/editor/CodeEditor.tsx", "status": "modified" },
+    { "path": "src/ui/editor/code-editor-theme.ts", "status": "modified" },
+    {
+      "path": "src/ui/editor/generated/openscad-parser.terms.ts",
+      "status": "added"
+    },
+    {
+      "path": "src/ui/editor/generated/openscad-parser.ts",
+      "status": "added"
+    },
+    { "path": "src/ui/editor/openscad-builtins.ts", "status": "added" },
+    {
+      "path": "src/ui/editor/openscad-highlight-tags.ts",
+      "status": "added"
+    },
+    { "path": "src/ui/editor/openscad-language.ts", "status": "added" },
+    {
+      "path": "src/ui/editor/openscad-token-specializer.ts",
+      "status": "added"
+    },
+    { "path": "src/ui/editor/openscad.grammar", "status": "added" },
+    {
+      "path": "tests/ui/editor/CodeEditor.language.test.tsx",
+      "status": "added"
+    },
+    {
+      "path": "tests/ui/editor/openscad-language.test.ts",
+      "status": "added"
+    }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://openscad.org/documentation.html",
+      "accessedOn": "2026-07-10",
+      "purpose": "Use the official OpenSCAD documentation index as the permitted route to language references."
+    },
+    {
+      "url": "https://openscad.org/cheatsheet/",
+      "accessedOn": "2026-07-10",
+      "purpose": "Compile and explicitly label the provisional OpenSCAD 2021.01 keyword, built-in, constant, and special-variable classification corpus."
+    },
+    {
+      "url": "https://en.wikibooks.org/w/index.php?title=OpenSCAD_User_Manual/Other_Language_Features&oldid=3803876",
+      "accessedOn": "2026-07-10",
+      "purpose": "Cross-check the release-era language features and historical special-variable supplement without importing later development-only behavior."
+    },
+    {
+      "url": "https://en.wikibooks.org/wiki/OpenSCAD_User_Manual/User-Defined_Functions_and_Modules",
+      "accessedOn": "2026-07-10",
+      "purpose": "Confirm the 2021.01 function-literal syntax, chained function calls, let expressions, and permitted overwriting of built-in functions and modules."
+    },
+    {
+      "url": "https://en.wikibooks.org/wiki/OpenSCAD_User_Manual/Other_Language_Features",
+      "accessedOn": "2026-07-10",
+      "purpose": "Confirm the 2019.05 expression-prefix echo and assert forms supported by the pinned 2021.01 grammar."
+    },
+    {
+      "url": "https://en.wikibooks.org/wiki/OpenSCAD_User_Manual/Include_Statement",
+      "accessedOn": "2026-07-10",
+      "purpose": "Confirm the public include/use angle-path syntax represented by the grammar."
+    },
+    {
+      "url": "https://en.wikibooks.org/wiki/OpenSCAD_User_Manual/List_Comprehensions",
+      "accessedOn": "2026-07-10",
+      "purpose": "Confirm the public for, let, each, and if list-comprehension forms used by representative parser coverage."
+    },
+    {
+      "url": "https://en.wikibooks.org/wiki/OpenSCAD_User_Manual/Modifier_Characters",
+      "accessedOn": "2026-07-10",
+      "purpose": "Confirm that star, exclamation, hash, and percent classify as modifiers only in statement-prefix context."
+    },
+    {
+      "url": "https://lezer.codemirror.net/docs/guide/",
+      "accessedOn": "2026-07-10",
+      "purpose": "Use the official Lezer grammar, token-specialization, precedence, ambiguity, and generated-parser guidance."
+    },
+    {
+      "url": "https://lezer.codemirror.net/docs/ref/",
+      "accessedOn": "2026-07-10",
+      "purpose": "Confirm official parser configuration and syntax-tree interfaces."
+    },
+    {
+      "url": "https://codemirror.net/docs/ref/",
+      "accessedOn": "2026-07-10",
+      "purpose": "Confirm the official LRLanguage, LanguageSupport, language-data, and highlighting integration APIs."
+    },
+    {
+      "url": "https://registry.npmjs.org/@lezer%2flr",
+      "accessedOn": "2026-07-10",
+      "purpose": "Resolve and pin the approved Lezer LR runtime version 1.4.10."
+    },
+    {
+      "url": "https://registry.npmjs.org/@lezer%2fgenerator",
+      "accessedOn": "2026-07-10",
+      "purpose": "Resolve and pin the approved Lezer parser generator version 1.8.0."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0040",
+      "topic": "Fresh OpenSCAD parser architecture",
+      "decision": "Author an original Lezer LR grammar in the C1 editor boundary, generate and check in its compact parser tables, and install one LRLanguage extension beside the existing CodeMirror setup and theme.",
+      "rationale": "The specification explicitly requires a fresh grammar; a real incremental syntax tree supports highlighting now and later user-symbol, completion, navigation, and formatting work without importing an editor implementation.",
+      "specBasis": ["FR-1.2", "FR-1.3", "FR-1.4", "Section 6"]
+    },
+    {
+      "id": "D-0041",
+      "topic": "Provisional built-in corpus pin",
+      "decision": "Label the lexical corpus `openscad-2021.01-official-reference`, derive it from the official 2021.01 cheat sheet plus a release-era manual supplement, recognize every syntactically valid dollar-prefixed identifier as a special variable, and leave the final exhaustive corpus claim open under Q-0013.",
+      "rationale": "A version label prevents the evolving live manual from silently changing behavior, while a reusable canonical set makes later completion and highlighting consume the same names. The open question is preserved because the cheat sheet and engine pin are not a formally declared exhaustive language edition.",
+      "specBasis": ["FR-1.2", "FR-1.3", "AC-1.a", "Q-0013"]
+    },
+    {
+      "id": "D-0042",
+      "topic": "Context-sensitive lexical classification",
+      "decision": "Let grammar state distinguish statement modifiers from expression operators and let the external identifier specializer return the shared Builtin term only when that parser state can shift it; declaration names therefore remain user symbols even when they shadow a built-in.",
+      "rationale": "Text-only prefix heuristics misclassify multiplication, remainder, logical negation, and user overrides. Lezer's contextual token model expresses the actual syntactic boundary and remains stable under whitespace and nesting.",
+      "specBasis": ["FR-1.2", "FR-1.4", "AC-1.a"]
+    },
+    {
+      "id": "D-0043",
+      "topic": "Generated parser reproducibility",
+      "decision": "Pin the generator and runtime exactly, exempt generated tables from authored-code lint rules, document regeneration, and run a CI freshness command that regenerates the parser and fails on a tracked diff.",
+      "rationale": "Checked-in tables keep normal builds offline and deterministic; exact pins plus regeneration verification prevent the grammar and runtime artifact from drifting while avoiding hand edits to generated code.",
+      "specBasis": ["Section 6 exact dependency pins", "V-2", "A-6"]
+    },
+    {
+      "id": "D-0044",
+      "topic": "Language/theme ownership",
+      "decision": "Move the OpenSCAD-specific highlight Tag identities into a small neutral editor-language module shared by the parser mapping and the existing theme adapter.",
+      "rationale": "The parser should emit semantic tags without importing visual theme construction, and the theme should remain the sole owner of Appendix C color assignments.",
+      "specBasis": ["FR-1.2", "FR-12.2", "Appendix C"]
+    },
+    {
+      "id": "D-0045",
+      "topic": "Release-era expression and comprehension coverage",
+      "decision": "Represent 2021.01 function literals, postfix call chains, let expressions, prefix echo/assert expressions, recursive for/if/each list definitions, mixed list elements, and C-style comprehensions in the authored grammar rather than relying on recovery nodes.",
+      "rationale": "These are documented release-era forms and can appear in otherwise valid files. Recovery-only parsing would make classification unstable exactly where AC-1.a expects the language tree to recognize public-reference constructs.",
+      "specBasis": ["FR-1.2", "AC-1.a", "OpenSCAD 2021.01 reference"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "FR-1.2 representative token classification and context-sensitive modifiers",
+      "test": "The Lezer tree parses representative OpenSCAD without recovery and highlightTree classifies keywords, built-ins, user declarations, numbers, strings, booleans, special variables, comments, operators, four statement modifiers, and punctuation; the corpus test covers all 29 provisional modules and 39 provisional functions.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-language.test.ts",
+        "observedAt": "2026-07-10T03:18:09-06:00",
+        "outcome": "Test Files 1 failed (1)\nTests 2 failed (2)\nBoth assertion-level failures reported zero classified spans: `include` was absent and the first `*` modifier was absent."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-language.test.ts",
+        "observedAt": "2026-07-10T03:26:31-06:00",
+        "outcome": "Test Files  1 passed (1)\nTests  6 passed (6)\nDuration  510ms"
+      }
+    },
+    {
+      "criterion": "Live CodeMirror language installation",
+      "test": "The mounted editor state exposes the generated Document syntax tree and parses the live document without recovery nodes.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/CodeEditor.language.test.tsx",
+        "observedAt": "2026-07-10T03:23:24-06:00",
+        "outcome": "Test Files 1 failed (1)\nTests 1 failed (1)\nAssertionError: expected the empty default syntax-tree name to be `Document`."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-language.test.ts tests/ui/editor/CodeEditor.language.test.tsx tests/ui/editor/CodeEditor.theme.test.tsx",
+        "observedAt": "2026-07-10T03:23:34-06:00",
+        "outcome": "Test Files  3 passed (3)\nTests  5 passed (5)\nDuration  1.17s"
+      }
+    },
+    {
+      "criterion": "Built-in name shadowing",
+      "test": "Parser-state specialization preserves ordinary built-in module and function names as user symbols in declaration contexts; later falsification coverage also exercises the dedicated echo/assert prefix terms without extending this RED claim.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-language.test.ts",
+        "observedAt": "2026-07-10T03:24:22-06:00",
+        "outcome": "Test Files 1 failed (1)\nTests 1 failed | 2 passed (3)\nThe assertion that the declaration tree contain no recovery node failed: `module cube` and `function sin` were specialized as built-ins and recovered instead of parsing as declaration identifiers."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-language.test.ts",
+        "observedAt": "2026-07-10T03:47:16-06:00",
+        "outcome": "Test Files  1 passed (1)\nTests  8 passed (8)\nDuration  465ms"
+      }
+    },
+    {
+      "criterion": "Block-comment tokenizer falsification",
+      "test": "The block-comment tokenizer consumes empty, multi-star, and internal-star comments without confusing division or line comments.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-language.test.ts",
+        "observedAt": "2026-07-10T03:25:49-06:00",
+        "outcome": "Test Files 1 failed (1)\nTests 1 failed | 5 passed (6)\nAssertion `classified token \"/***/\" #0` found zero spans."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-language.test.ts",
+        "observedAt": "2026-07-10T03:26:09-06:00",
+        "outcome": "Test Files  1 passed (1)\nTests  6 passed (6)\nDuration  425ms"
+      }
+    },
+    {
+      "criterion": "OpenSCAD 2021.01 expression and list-definition forms",
+      "test": "Function let/assert/echo prefixes, function literals, chained calls, nested and filtered generators, each flattening, mixed list expressions, let bindings, if/else branches, and C-style comprehensions parse without recovery nodes.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-language.test.ts",
+        "observedAt": "2026-07-10T03:44:29-06:00",
+        "outcome": "Test Files 1 failed (1)\nTests 2 failed | 6 passed (8)\nBoth new assertion-level tests found recovery nodes: one across the documented expression-prefix/function-literal/chained-call fixture and one across recursive, filtered, flattened, mixed, and C-style comprehensions."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/openscad-language.test.ts",
+        "observedAt": "2026-07-10T03:46:33-06:00",
+        "outcome": "Test Files  1 passed (1)\nTests  8 passed (8)\nDuration  465ms"
+      }
+    },
+    {
+      "criterion": "Rendered syntax and responsive falsification",
+      "test": "The in-app browser inspected real CodeMirror spans for every Appendix C syntax class, visually checked the rendered editor, repeated the check at 390 by 844, measured body and document overflow, and read warning/error logs.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/editor/CodeEditor.language.test.tsx",
+        "observedAt": "2026-07-10T03:23:24-06:00",
+        "outcome": "Before the language extension was installed, the live EditorState had no OpenSCAD Document tree, so rendered syntax classification had no parser source."
+      },
+      "green": {
+        "command": "In-app browser audit at http://127.0.0.1:1420 and 390x844",
+        "observedAt": "2026-07-10T03:31:00-06:00",
+        "outcome": "The live DOM emitted distinct classes for keyword, user module/function, built-in, number, string, boolean, special variable, comment, operator, modifier, and punctuation. At 390px, 42 highlighted spans remained visible and bodyClientWidth, bodyScrollWidth, documentScrollWidth, and innerWidth all equaled 390. Browser warning/error logs were empty."
+      }
+    },
+    {
+      "criterion": "Regression, dependency, build, native, and reproducibility gates",
+      "test": "The full JavaScript suite, browser acceptance lane, production build, typecheck, lint/source policy, generated-parser freshness, npm license/audit gates, native/desktop fmt-test-check-clippy lanes, real OpenSCAD geometry path, and a non-printing high-confidence secret scan were exercised.",
+      "red": {
+        "command": "pnpm.cmd lint",
+        "observedAt": "2026-07-10T03:27:00-06:00",
+        "outcome": "The first integrated lint run reported four errors and four generated-code warnings: generated global-name shadows, generated `any` annotations, a generated serialized-string warning, and one unused test helper parameter. Generated output was then excluded from authored-code lint and the authored identifier was corrected."
+      },
+      "green": {
+        "command": "pnpm.cmd test\npnpm.cmd test:e2e\npnpm.cmd build\npnpm.cmd typecheck\npnpm.cmd lint\npnpm.cmd check:generated\npnpm.cmd check:licenses npm\npnpm.cmd audit --audit-level high\ncargo fmt/test/check/clippy for both Cargo manifests\nread-only high-confidence secret scan",
+        "observedAt": "2026-07-10T03:50:42-06:00",
+        "outcome": "Vitest: Test Files  29 passed (29)\nTests  276 passed (276)\nDuration  4.20s\nPlaywright: 3 passed (3.6s)\nVite: 72 modules transformed; built in 300ms.\nLint: Checked 85 files in 60ms. No fixes applied. Source policy passed.\nTypeScript exited 0. Generated parser was rewritten identically and git diff exited 0. npm license policy passed: 117 packages checked. No known vulnerabilities found.\nNative engine: 5 passed; 0 failed; real geometry test passed. Desktop and doc-test lanes: 0 failed. Both manifests passed fmt, check, and warning-denying clippy.\nSecret scan: 178 tracked/untracked nonignored files scanned; no high-confidence credential patterns found."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "Q-0010 through Q-0016 were appended under the Section 2.7 protocol; each parks only its stated boundary while unrelated M1 work continues.",
+    "Q-0013 directly bounds this slice: the provisional corpus is version-labeled and tested, but exhaustive AC-1.a and the final AC-1.b insertion skeleton are not claimed until the owner selects the normative reference and completion form.",
+    "Q-0001 remains open: the final Rust license-policy run still fails exactly 19 Unicode-3.0 package records. No dependency or policy was changed to conceal that expected block."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

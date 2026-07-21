@@ -1,0 +1,12 @@
+.viewer-animation-surface { display: grid; width: 100%; height: 100%; min-width: 0; min-height: 0; grid-template-rows: minmax(0, 1fr) auto; }
+.animation-bar { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: 10px; padding: 6px 10px; border-top: 1px solid var(--chrome-border); background: var(--chrome-surface-raised); color: var(--chrome-text); font-size: 12px; }
+.animation-bar button, .animation-bar input { min-height: 28px; }
+.animation-bar button { min-width: 58px; border: 1px solid var(--chrome-border); border-radius: 5px; background: var(--chrome-surface); color: var(--chrome-text); cursor: pointer; }
+.animation-bar button:disabled { color: var(--chrome-text-disabled); cursor: not-allowed; }
+.animation-bar label { display: flex; align-items: center; gap: 6px; }
+.animation-bar input[type="number"] { width: 62px; border: 1px solid var(--chrome-border); border-radius: 4px; background: var(--chrome-surface); color: var(--chrome-text); }
+.animation-scrubber { min-width: 100px; flex: 1 1 260px; }
+.animation-scrubber input { width: 100%; min-width: 60px; accent-color: var(--chrome-accent); }
+.animation-bar output { min-width: 54px; color: var(--chrome-text-muted); font-variant-numeric: tabular-nums; }
+.animation-error { flex: 1 0 100%; margin: 0; color: var(--console-error); }
+@media (max-width: 700px) { .animation-bar { flex-wrap: wrap; } .animation-scrubber { order: 3; flex-basis: 100%; } }

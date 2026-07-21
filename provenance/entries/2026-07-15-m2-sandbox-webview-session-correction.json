@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-15-m2-sandbox-webview-session-correction",
+  "createdAt": "2026-07-15T13:11:10-06:00",
+  "summary": "Grant the fixed WebView2 runtime the documented AppContainer read permissions inside Windows Sandbox and bind host cleanup to the exact Sandbox process identity captured at launch.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 M2 exit gate",
+    "AC-0.b packaged Windows evidence",
+    "N-2 reliability",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-15-m2-sandbox-webview-session-correction.json", "status": "added" },
+    { "path": "scripts/windows/run-packaged-desktop-evidence.ps1", "status": "modified" },
+    { "path": "scripts/windows/run-packaged-desktop-sandbox.ps1", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution",
+      "accessedOn": "2026-07-15",
+      "purpose": "Apply Microsoft's documented ALL APPLICATION PACKAGES and ALL RESTRICTED APPLICATION PACKAGES ACL requirement for fixed WebView2 runtimes version 120 and later in an unpackaged Windows app."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0229",
+      "topic": "Fixed WebView2 access and exact Sandbox cleanup identity",
+      "decision": "After copying the official fixed WebView2 runtime into the guest, recursively grant read-and-execute access to AppContainer SIDs *S-1-15-2-2 and *S-1-15-2-1 before launching Node or EdgeDriver, fail closed on either ACL error, capture the exact WindowsSandboxRemoteSession process id, executable path, and creation time immediately after launch, and use only that captured identity for cleanup.",
+      "rationale": "The exact clean guest could not create a WebView2 environment because the copied fixed runtime lacked Microsoft's required AppContainer access. Separately, re-reading a transient CommandLine during cleanup could lose the only exact session match after the guest exited. The ACL grant addresses the documented runtime requirement, while immutable process identity prevents both orphaned sessions and cleanup of an unrelated reused PID.",
+      "specBasis": ["AC-0.b packaged Windows evidence", "N-2 reliability", "N-7 evidence honesty"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "A pristine Sandbox can read the copied fixed WebView2 runtime and host cleanup remains bound to the launched Sandbox process",
+      "test": "Require both documented AppContainer ACL grants before Node and EdgeDriver launch, fail closed on ACL errors, capture one exact Sandbox session at launch, and revalidate its PID, executable path, and creation time before stop and cleanup polling.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts --reporter=verbose --maxWorkers=1",
+        "observedAt": "2026-07-15T13:04:00-06:00",
+        "outcome": "RED: 1 test file failed; 2 tests failed and 20 passed. The guest bootstrap had neither required fixed-runtime ACL grant, and host cleanup did not retain a captured Sandbox process identity."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts --reporter=verbose --maxWorkers=1",
+        "observedAt": "2026-07-15T13:09:58-06:00",
+        "outcome": "GREEN after aligning two source-structure assertions with PowerShell interpolation and parameter casing: 1 test file passed and all 22 tests passed in 569 ms."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "The exact committed candidate still requires a fresh retained Windows Sandbox run; this entry does not predeclare that external guest result."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

@@ -1,0 +1,237 @@
+import {
+  type PointerEvent as ReactPointerEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+
+import type { RenderSuccess2D } from "../../application/engine/contracts";
+import { sanitizeEngineSvg } from "../../application/viewer/engine-svg";
+import {
+  fitSvgViewport,
+  type SvgViewportState,
+  type ViewportSize,
+  zoomSvgViewportAt,
+} from "../../application/viewer/svg-viewport";
+import { messages } from "../../messages/en";
+
+export interface SvgViewerProps {
+  readonly result: RenderSuccess2D;
+  readonly onThumbnail?: (bytes: Uint8Array) => void | Promise<void>;
+  readonly onPresentationFailed?: (token: string) => void;
+  readonly onPresentationReady?: (token: string) => void;
+  readonly presentationToken?: string;
+}
+
+function exactDimension(value: number): number {
+  return Number(value.toFixed(6));
+}
+
+export function SvgViewer({ result, onPresentationFailed, onPresentationReady, onThumbnail, presentationToken }: SvgViewerProps) {
+  const container = useRef<HTMLButtonElement>(null);
+  const pointer = useRef<{ id: number; x: number; y: number } | null>(null);
+  const [size, setSize] = useState<ViewportSize | null>(null);
+  const [viewport, setViewport] = useState<SvgViewportState | null>(null);
+  const safeSvg = useMemo(() => {
+    try {
+      return sanitizeEngineSvg(result.svg, result.boundingBox);
+    } catch {
+      return null;
+    }
+  }, [result.svg, result.boundingBox]);
+  const bounds = result.boundingBox;
+  const width = exactDimension(bounds.max[0] - bounds.min[0]);
+  const height = exactDimension(bounds.max[1] - bounds.min[1]);
+  const fitViewport = useCallback(() => {
+    if (!size) return;
+    setViewport(fitSvgViewport(bounds, size, 0));
+  }, [bounds, size]);
+
+  useEffect(() => {
+    const element = container.current;
+    if (!element) return;
+    const updateSize = (width: number, height: number) => {
+      if (width > 0 && height > 0) setSize({ width, height });
+    };
+    updateSize(element.clientWidth, element.clientHeight);
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) updateSize(entry.contentRect.width, entry.contentRect.height);
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (size) setViewport(fitSvgViewport(bounds, size, 0));
+  }, [bounds, size]);
+
+  const handleWheel = useCallback((event: WheelEvent) => {
+    const element = container.current;
+    if (!viewport || !size || !element) return;
+    event.preventDefault();
+    const rect = element.getBoundingClientRect();
+    const factor = event.deltaY < 0 ? 0.8 : 1.25;
+    const localX = Number.isFinite(event.clientX - rect.left)
+      ? event.clientX - rect.left
+      : size.width / 2;
+    const localY = Number.isFinite(event.clientY - rect.top)
+      ? event.clientY - rect.top
+      : size.height / 2;
+    setViewport(
+      zoomSvgViewportAt(
+        viewport,
+        size,
+        { x: localX, y: localY },
+        factor,
+      ),
+    );
+  }, [size, viewport]);
+  useEffect(() => {
+    const element = container.current;
+    if (!element) return;
+    element.addEventListener("wheel", handleWheel, { passive: false });
+    return () => element.removeEventListener("wheel", handleWheel);
+  }, [handleWheel]);
+  const handlePointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    pointer.current = { id: event.pointerId, x: event.clientX, y: event.clientY };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+  const handlePointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const previous = pointer.current;
+    if (!previous || previous.id !== event.pointerId || !viewport) return;
+    const deltaX = event.clientX - previous.x;
+    const deltaY = event.clientY - previous.y;
+    pointer.current = { id: event.pointerId, x: event.clientX, y: event.clientY };
+    setViewport({
+      center: [
+        viewport.center[0] - deltaX * viewport.mmPerPixel,
+        viewport.center[1] + deltaY * viewport.mmPerPixel,
+      ],
+      mmPerPixel: viewport.mmPerPixel,
+    });
+  };
+  const handlePointerEnd = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (pointer.current?.id === event.pointerId) pointer.current = null;
+  };
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
+    if (!viewport || !size) return;
+    if (event.key === "0") {
+      event.preventDefault();
+      fitViewport();
+      return;
+    }
+    if (event.key === "+" || event.key === "=" || event.key === "-") {
+      event.preventDefault();
+      setViewport(zoomSvgViewportAt(
+        viewport,
+        size,
+        { x: size.width / 2, y: size.height / 2 },
+        event.key === "-" ? 1.25 : 0.8,
+      ));
+      return;
+    }
+    const delta = 24 * viewport.mmPerPixel;
+    const movement = event.key === "ArrowLeft"
+      ? [-delta, 0]
+      : event.key === "ArrowRight"
+        ? [delta, 0]
+        : event.key === "ArrowUp"
+          ? [0, delta]
+          : event.key === "ArrowDown"
+            ? [0, -delta]
+            : null;
+    if (!movement) return;
+    event.preventDefault();
+    setViewport({
+      ...viewport,
+      center: [viewport.center[0] + movement[0], viewport.center[1] + movement[1]],
+    });
+  };
+
+  const source = safeSvg ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(safeSvg)}` : "";
+
+  useEffect(() => {
+    if (!safeSvg && presentationToken) onPresentationFailed?.(presentationToken);
+  }, [onPresentationFailed, presentationToken, safeSvg]);
+
+  useEffect(() => {
+    if (!onThumbnail || !safeSvg || typeof document === "undefined" || typeof Image === "undefined") return;
+    let active = true;
+    const image = new Image();
+    image.onload = () => {
+      if (!active) return;
+      const canvas = document.createElement("canvas");
+      canvas.width = 240;
+      canvas.height = 160;
+      const context = canvas.getContext("2d");
+      if (!context) return;
+      context.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--viewer-background").trim() || "transparent";
+      context.fillRect(0, 0, 240, 160);
+      const scale = Math.min(240 / Math.max(image.naturalWidth, 1), 160 / Math.max(image.naturalHeight, 1));
+      const width = image.naturalWidth * scale;
+      const height = image.naturalHeight * scale;
+      context.drawImage(image, (240 - width) / 2, (160 - height) / 2, width, height);
+      canvas.toBlob((blob) => {
+        if (!blob || !active) return;
+        void blob.arrayBuffer().then((bytes) => {
+          if (!active) return undefined;
+          return onThumbnail(new Uint8Array(bytes));
+        }).catch(() => undefined);
+      }, "image/png");
+    };
+    image.src = source;
+    return () => { active = false; image.onload = null; };
+  }, [onThumbnail, safeSvg, source]);
+
+  if (!safeSvg) {
+    return <p className="viewer-empty" role="alert">{messages.unsafeSvg}</p>;
+  }
+
+  const drawingCenter: [number, number] = [
+    (bounds.min[0] + bounds.max[0]) / 2,
+    (bounds.min[1] + bounds.max[1]) / 2,
+  ];
+  const fitted = size ? fitSvgViewport(bounds, size, 0) : null;
+  const zoom = viewport && fitted ? fitted.mmPerPixel / viewport.mmPerPixel : 1;
+  const translateX = viewport
+    ? (drawingCenter[0] - viewport.center[0]) / viewport.mmPerPixel
+    : 0;
+  const translateY = viewport
+    ? (viewport.center[1] - drawingCenter[1]) / viewport.mmPerPixel
+    : 0;
+  return (
+    <div className="svg-viewer-shell">
+      <button
+        aria-label={messages.svgViewerRegion}
+        className="svg-viewer"
+        onKeyDown={handleKeyDown}
+        onPointerCancel={handlePointerEnd}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerEnd}
+        ref={container}
+        type="button"
+      >
+        <img
+          alt={messages.svgDrawingAlt}
+          draggable={false}
+          key={presentationToken ?? source}
+          onError={() => presentationToken && onPresentationFailed?.(presentationToken)}
+          onLoad={() => presentationToken && onPresentationReady?.(presentationToken)}
+          src={source}
+          style={{ transform: `translate(${translateX}px, ${translateY}px) scale(${zoom})` }}
+        />
+      </button>
+      <div className="svg-viewer-controls">
+        <button onClick={fitViewport} type="button">{messages.fitDrawing}</button>
+        <output>{messages.drawingDimensions(width, height)}</output>
+        <output data-testid="svg-scale">
+          {messages.drawingScale(viewport?.mmPerPixel ?? fitted?.mmPerPixel ?? 1)}
+        </output>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-m2-nonunicode-child-path-rejection",
+  "createdAt": "2026-07-11T17:22:36-06:00",
+  "summary": "Close the M2 native project-snapshot path-aliasing finding by rejecting every child component that cannot be represented exactly as Unicode before directory traversal or file reads, instead of substituting replacement characters in portable file keys.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 test-first evidence and milestone gates",
+    "M2 C6 folder-backed desktop project storage",
+    "N-2 reliability"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-11-m2-nonunicode-child-path-rejection.json", "status": "added" },
+    { "path": "src/desktop-shell/src-tauri/src/project_storage.rs", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0202",
+      "topic": "Lossless native child-path snapshot boundary",
+      "decision": "Require every native project child component to convert exactly to Unicode before inspecting metadata, descending into a directory, or reading file contents. If any component is unsupported, reject the complete snapshot with a stable error; never construct a portable key with replacement characters and never return a partial file envelope.",
+      "rationale": "The application boundary represents project-relative paths as Unicode strings with slash separators. Lossy conversion can map distinct native names to the same string, causing file-key collisions or later operations to address a different file. Failing closed preserves the one-root atomic snapshot guarantee established by D-0192/D-0193 while valid Unicode names retain their existing portable representation.",
+      "specBasis": ["M2 C6", "N-2", "Section 2.7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Unsupported child components are rejected instead of replaced",
+      "test": "Construct a pure relative path containing an ill-formed UTF-16 child component on Windows, and the corresponding non-UTF-8 byte component on Unix, then require exact rejection. Also retain a Unix filesystem regression that creates a valid file plus a non-UTF-8 child and requires the complete snapshot result to be Err rather than a partial envelope.",
+      "red": {
+        "command": "cargo test --locked --manifest-path src/desktop-shell/src-tauri/Cargo.toml rejects_non_unicode_child_components_without_lossy_substitution -- --nocapture",
+        "observedAt": "2026-07-11T17:22:36-06:00",
+        "outcome": "ASSERTION-LEVEL RED (execution recorded immediately afterward; original wall-clock instant was not separately retained): test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 27 filtered out; finished in 0.00s. Failure at src/project_storage.rs:644:9: assertion `left == right` failed; left: Ok(\"parts/\uFFFD/wheel.scad\") (the command printed the literal U+FFFD replacement character); right: Err(\"Project entry path contains a file or folder name that is not valid Unicode.\"). No warnings were emitted."
+      },
+      "green": {
+        "command": "cargo test --locked --manifest-path src/desktop-shell/src-tauri/Cargo.toml rejects_non_unicode_child_components_without_lossy_substitution -- --nocapture\ncargo test --locked --manifest-path src/desktop-shell/src-tauri/Cargo.toml project_storage::tests -- --nocapture",
+        "observedAt": "2026-07-11T17:22:36-06:00",
+        "outcome": "GREEN: focused regression test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 27 filtered out; finished in 0.00s. Widened storage result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 0.04s. The binary target separately reported 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s. No failures or warnings were emitted. The Windows run exercised the ill-formed UTF-16 pure conversion; the cfg(unix) real-filesystem test is retained for Unix execution and was not claimed as executed on this Windows host."
+      }
+    },
+    {
+      "criterion": "Valid paths and Rust static gates remain clean",
+      "test": "Keep valid nested Unicode child conversion and the existing text, binary, canonical-root, mutation, and escape tests green, then run formatting, all-target check, and warning-denying Clippy on the desktop crate.",
+      "red": {
+        "command": "cargo test --locked --manifest-path src/desktop-shell/src-tauri/Cargo.toml rejects_non_unicode_child_components_without_lossy_substitution -- --nocapture",
+        "observedAt": "2026-07-11T17:22:36-06:00",
+        "outcome": "The same assertion-level RED above established that the widened static run was necessary: one unsupported component still produced Ok(\"parts/\uFFFD/wheel.scad\") (literal U+FFFD) rather than the required error."
+      },
+      "green": {
+        "command": "cargo fmt --manifest-path src/desktop-shell/src-tauri/Cargo.toml -- --check\ncargo check --locked --manifest-path src/desktop-shell/src-tauri/Cargo.toml --all-targets\ncargo clippy --locked --manifest-path src/desktop-shell/src-tauri/Cargo.toml --all-targets -- -D warnings\ncargo test --locked --manifest-path src/desktop-shell/src-tauri/Cargo.toml -- --nocapture\npnpm.cmd lint\npnpm.cmd check:provenance",
+        "observedAt": "2026-07-11T17:24:48-06:00",
+        "outcome": "GREEN: rustfmt emitted no diff or diagnostics; cargo check finished the dev profile in 55.09s with no warnings; Clippy finished the dev profile in 5.47s with -D warnings and no warnings. The complete desktop Rust library reported `test result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s`; the binary and doctest targets each separately reported `test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s`. Biome reported `Checked 301 files in 297ms. No fixes applied.` and source policy passed. The provenance command reported `Provenance ledger passed validation (baseline mode; no PR base supplied).` No failures or warnings were emitted."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "This correction extends the exact non-Unicode project-root rejection already recorded by D-0193 to every child file and folder component; it does not change supported Unicode path behavior.",
+    "No owner similarity-gate content, comparison repository, workflow file, M3 work, installer work, or prohibited source was opened, executed, or modified."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

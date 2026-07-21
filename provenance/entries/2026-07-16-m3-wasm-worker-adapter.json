@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-16-m3-wasm-worker-adapter",
+  "createdAt": "2026-07-16T12:03:38-06:00",
+  "summary": "Connect the verified OpenSCAD WebAssembly loader and runtime to the structured worker boundary with dense plain-record request and progress validation, one active operation, one lazy cache per worker, reusable successful initialization, retryable failed initialization, observer isolation, and exact binary result transfer.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 M3 delivery protocol",
+    "Architecture A-2 dedicated Web Worker boundary",
+    "FR-4.1 WebAssembly EngineService implementation",
+    "FR-4.5 virtual project files",
+    "FR-4.7 separate fetch, cache, progress, and offline operation",
+    "FR-4.8 streamed engine output",
+    "FR-4.9 bounded worker lifecycle",
+    "N-2 bounded resource use",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-16-m3-wasm-worker-adapter.json", "status": "added" },
+    { "path": "src/platform-web/openscad-wasm-worker-adapter.ts", "status": "added" },
+    { "path": "src/platform-web/openscad-wasm.worker.ts", "status": "added" },
+    { "path": "src/platform-web/wasm-engine-protocol.ts", "status": "modified" },
+    { "path": "src/platform-web/wasm-engine-validation.ts", "status": "added" },
+    { "path": "src/platform-web/wasm-engine-service.ts", "status": "modified" },
+    { "path": "tests/platform-web/openscad-wasm-worker-adapter.test.ts", "status": "added" },
+    { "path": "tests/platform-web/wasm-engine-service.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0255",
+      "topic": "Verified runtime ownership inside the web engine worker",
+      "decision": "Decode every inbound worker operation and response as exact plain records with dense own-index arrays before use, permit one active job per worker, create one artifact cache lazily per worker and reuse it across load retries, reuse one successful runtime for sequential operations, discard only a failed initialization promise, and tag all download progress and engine output with the active job. Convert loader and runtime exceptions into the matching version, render, or export result shape; copy each binary terminal view into its own exact-length buffer before transferring it.",
+      "rationale": "The worker is the GPL engine isolation boundary and must not expose inherited or sparse message shapes, loader promises, runtime exceptions, stale progress, observer failures, adjacent bytes, or transferable buffer ownership to the application. Successful initialization and its cache are expensive and safe to reuse serially, while retaining a rejected initialization would permanently disable recovery after a transient download or cache failure.",
+      "specBasis": ["Architecture A-2", "FR-4.1", "FR-4.7", "FR-4.8", "FR-4.9", "N-2", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The dedicated worker accepts only exact structured operations, associates progress and output with the active job, reuses only successful initialization, retries failed initialization, returns operation-shaped failures, and transfers only copied binary results.",
+      "test": "Exercise malformed input, busy handling, job-scoped download and output events, sequential reuse, failed-load retry, loader and runtime exception mapping, copied result-buffer transfer, postMessage failure isolation, production bootstrap, and client-side stale/throwing progress observers with fake worker/runtime boundaries.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/platform-web/openscad-wasm-worker-adapter.test.ts tests/platform-web/wasm-engine-service.test.ts",
+        "observedAt": "2026-07-16T11:58:11-06:00",
+        "outcome": "RED: both focused files failed before implementation; the worker-adapter module did not exist and the service treated the new progress response as invalid, settling the render as an engine failure. Ten pre-existing service tests remained green."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/platform-web/openscad-wasm-worker-adapter.test.ts tests/platform-web/wasm-engine-service.test.ts; pnpm.cmd exec biome check src/platform-web/wasm-engine-protocol.ts src/platform-web/wasm-engine-service.ts src/platform-web/openscad-wasm-worker-adapter.ts src/platform-web/openscad-wasm.worker.ts tests/platform-web/openscad-wasm-worker-adapter.test.ts tests/platform-web/wasm-engine-service.test.ts; pnpm.cmd typecheck",
+        "observedAt": "2026-07-16T12:02:11-06:00",
+        "outcome": "GREEN: after one mechanical fixture correction removed a render-only quality field from an export request, both focused files and all 16 tests passed in 692 ms. Scoped Biome checked all six implementation/test files with zero diagnostics, and strict TypeScript exited 0."
+      }
+    },
+    {
+      "criterion": "The exact worker decoder rejects non-record parameter containers and non-exact or invalid-job progress responses, while the production cache and runtime remain lazy until the first valid operation.",
+      "test": "Adversarially inspect the initial green decoder and bootstrap, add array and Date parameter containers plus an extra-field progress response to the malformed cases, then rerun only the two directly affected focused files and static gates.",
+      "red": {
+        "command": "Serial adversarial source review of the focused worker integration diff",
+        "observedAt": "2026-07-16T12:04:00-06:00",
+        "outcome": "RED: 0/0/1/0/0. Arrays and other non-plain objects could satisfy the parameter-record guard because Object.values alone does not establish a structured record. The same pass hardened progress job IDs and deferred cache construction into the lazy loader invocation."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/platform-web/openscad-wasm-worker-adapter.test.ts tests/platform-web/wasm-engine-service.test.ts; pnpm.cmd exec biome check src/platform-web/wasm-engine-protocol.ts src/platform-web/wasm-engine-service.ts src/platform-web/openscad-wasm-worker-adapter.ts src/platform-web/openscad-wasm.worker.ts tests/platform-web/openscad-wasm-worker-adapter.test.ts tests/platform-web/wasm-engine-service.test.ts; pnpm.cmd typecheck",
+        "observedAt": "2026-07-16T12:06:01-06:00",
+        "outcome": "GREEN: both focused files and all 16 tests passed in 577 ms; scoped Biome checked all six implementation/test files with zero diagnostics; strict TypeScript exited 0. A final serial adversarial reread returned literal 0/0/0/0/0."
+      }
+    },
+    {
+      "criterion": "Worker messages reject sparse and inherited shapes, production cache creation is lazy and memoized across load retry, buffered observers cannot interrupt jobs, non-Error failures stay generic, and render/export subarray transfers exclude adjacent bytes.",
+      "test": "Run the independent five-finding repair batch with sparse files/vectors/camera tuples, custom request/project/image/camera/progress prototypes, injected cache and loader seams, buffered and live throwing output observers, version load failure, Error and non-Error failure mapping, and sentinel-backed render/export subarrays.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/platform-web/openscad-wasm-worker-adapter.test.ts tests/platform-web/wasm-engine-service.test.ts",
+        "observedAt": "2026-07-16T12:15:19-06:00",
+        "outcome": "RED: 2 focused files ran 19 tests; 3 failed and 16 passed. Sparse/inherited shapes were accepted, the production lazy-cache seam was absent, and buffered output replay propagated its observer exception. Existing copied transfers and safe Error/non-Error operation mapping remained green."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/platform-web/openscad-wasm-worker-adapter.test.ts tests/platform-web/wasm-engine-service.test.ts; pnpm.cmd exec biome check src/platform-web/wasm-engine-protocol.ts src/platform-web/wasm-engine-validation.ts src/platform-web/wasm-engine-service.ts src/platform-web/openscad-wasm-worker-adapter.ts src/platform-web/openscad-wasm.worker.ts tests/platform-web/openscad-wasm-worker-adapter.test.ts tests/platform-web/wasm-engine-service.test.ts; pnpm.cmd typecheck",
+        "observedAt": "2026-07-16T12:17:30-06:00",
+        "outcome": "GREEN: both focused files and all 19 tests passed in 633 ms. Scoped Biome checked all seven implementation/test files with zero diagnostics; after correcting static-only type predicates, strict TypeScript exited 0."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

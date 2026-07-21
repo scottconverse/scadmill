@@ -1,0 +1,159 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-c3-svg-viewer",
+  "createdAt": "2026-07-11T11:02:00-06:00",
+  "summary": "Deliver C3 as a safe two-dimensional drawing viewer: fail-closed engine-SVG isolation, exact engine-summary dimensions, cursor-centered pan and zoom, automatic 2D/3D routing, and conservatively disclosed pinned-mode mismatch behavior while retaining the complete C2 3D surface.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 questions, decisions, and unit of work",
+    "Section 3 A-4 and A-6",
+    "Section 4.3 C3",
+    "Section 4.3 FR-3.1 through FR-3.4",
+    "Section 4.3 AC-3.a and AC-3.b",
+    "Section 5 N-3, N-5, and N-7",
+    "Section 7 V-1, V-2, V-3, and V-6",
+    "Section 8 M2 C3"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-11-c3-svg-viewer.json", "status": "added" },
+    { "path": "spec/QUESTIONS.md", "status": "modified" },
+    { "path": "src/application/runtime/workbench-runtime.ts", "status": "modified" },
+    { "path": "src/application/viewer/engine-svg.ts", "status": "added" },
+    { "path": "src/application/viewer/svg-viewport.ts", "status": "added" },
+    { "path": "src/application/viewer/viewer-state.ts", "status": "modified" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/ui/viewer/SvgViewer.tsx", "status": "added" },
+    { "path": "src/ui/viewer/ViewerPane.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/ViewerPaneConnector.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/active-viewer-presentation.ts", "status": "modified" },
+    { "path": "src/ui/workbench.css", "status": "modified" },
+    { "path": "tests/application/runtime/workbench-runtime.test.ts", "status": "modified" },
+    { "path": "tests/application/viewer/engine-svg.test.ts", "status": "added" },
+    { "path": "tests/application/viewer/svg-viewport.test.ts", "status": "added" },
+    { "path": "tests/application/viewer/viewer-state.test.ts", "status": "modified" },
+    { "path": "tests/ui/viewer/SvgViewer.test.tsx", "status": "added" },
+    { "path": "tests/ui/viewer/ViewerPane.test.tsx", "status": "modified" },
+    { "path": "tests/ui/viewer/active-viewer-presentation.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0111",
+      "topic": "Fail-closed engine SVG isolation",
+      "decision": "Parse engine output as SVG, reject malformed, non-SVG, oversized, active, linked, styled, or network-capable content, permit only the pinned exporter's small element and attribute vocabulary, and display only a sanitized data URL rather than inserting engine markup into the application DOM.",
+      "rationale": "Engine text crosses an untrusted document boundary. A fixed allowlist retains the official exporter's geometry while failing closed against active content and external resource access.",
+      "specBasis": ["FR-3.1", "N-5", "V-1"]
+    },
+    {
+      "id": "D-0112",
+      "topic": "Machine-readable bounds are authoritative",
+      "decision": "Use the pinned engine's geometry-summary bounding box for dimensions and normalize sanitized SVG width, height, and viewBox to those bounds instead of treating the exporter's presentation-margin viewBox as geometry.",
+      "rationale": "OpenSCAD 2026.06.12 adds presentation margins. The geometry summary reports exact model bounds and therefore supports truthful dimensions and stable fitting.",
+      "specBasis": ["FR-3.1", "AC-3.b", "N-7"]
+    },
+    {
+      "id": "D-0113",
+      "topic": "Two-dimensional viewport state",
+      "decision": "Represent the viewport as a model-space center and positive millimeters-per-pixel scale; preserve the model point beneath the cursor during wheel zoom, use pointer drag and arrow keys for pan, plus/minus for centered zoom, and zero or the Fit control to refit.",
+      "rationale": "A single affine state makes cursor anchoring and scale disclosure deterministic and testable while retaining keyboard operation.",
+      "specBasis": ["FR-3.1", "FR-3.4", "N-3"]
+    },
+    {
+      "id": "D-0114",
+      "topic": "Automatic and pinned mode mismatch",
+      "decision": "Route successful two- and three-dimensional results by their engine discriminator. If a user pin conflicts with the current result, show no incompatible geometry and display an explicit mismatch notice until automatic mode or a compatible result is selected.",
+      "rationale": "Q-0024 leaves the owner-final mismatch presentation open. The conservative empty state neither overrides user intent nor presents stale or incompatible geometry as current.",
+      "specBasis": ["FR-3.2", "AC-3.a", "N-7", "Q-0024"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "C3 safe SVG, exact bounds, and viewport behavior",
+      "test": "The sanitizer strips the external doctype, normalizes exact model bounds, rejects active and malformed content, viewport math preserves cursor anchoring, and the component exposes dimensions, scale, fit, zoom, and fail-closed UI.",
+      "red": {
+        "command": "node_modules\\.bin\\vitest.cmd run tests/application/viewer/engine-svg.test.ts tests/application/viewer/svg-viewport.test.ts tests/ui/viewer/SvgViewer.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-11T10:50:46-06:00",
+        "outcome": "RED: 3 test files failed and all 14 tests failed on behavior assertions against inert, type-correct implementations; failures covered unsafe SVG acceptance, unnormalized bounds, incorrect viewport math, absent controls, and absent fail-closed presentation."
+      },
+      "green": {
+        "command": "node_modules\\.bin\\vitest.cmd run tests/application/viewer/engine-svg.test.ts tests/application/viewer/svg-viewport.test.ts tests/ui/viewer/SvgViewer.test.tsx --reporter=verbose",
+        "observedAt": "2026-07-11T10:52:44-06:00",
+        "outcome": "GREEN: 3 test files passed; 14 tests passed; duration 939 ms."
+      }
+    },
+    {
+      "criterion": "AC-3.a successful 2D results reach the document viewer",
+      "test": "A native-service RenderSuccess2D is retained as the active document's last-good presentation rather than being discarded by the C2-only 3D branch.",
+      "red": {
+        "command": "node_modules\\.bin\\vitest.cmd run tests/application/runtime/workbench-runtime.test.ts --reporter=verbose -t \"presents a successful two-dimensional render\"",
+        "observedAt": "2026-07-11T10:56:27-06:00",
+        "outcome": "RED: 1 test failed, 17 were filtered; the expected 2D viewer presentation was undefined."
+      },
+      "green": {
+        "command": "node_modules\\.bin\\vitest.cmd run tests/application/runtime/workbench-runtime.test.ts --reporter=verbose -t \"presents a successful two-dimensional render\"",
+        "observedAt": "2026-07-11T10:56:45-06:00",
+        "outcome": "GREEN: 1 test passed, 17 were filtered; duration 661 ms."
+      }
+    },
+    {
+      "criterion": "FR-3.2 automatic and pinned routing without C2 regressions",
+      "test": "Viewer state isolates per-document mode, active presentation carries 2D success, the pane switches 2D to 3D by discriminator, incompatible pins disclose an empty state, and the C2 viewer controls remain intact.",
+      "red": {
+        "command": "No complete transcript survived the capacity interruption after the first mode and presentation changes.",
+        "observedAt": "2026-07-11T10:49:00-06:00",
+        "outcome": "The initial agent reported staging assertion-level mode and 2D-presentation REDs, but its turn ended at model capacity before it returned exact counts. This ledger does not invent them."
+      },
+      "green": {
+        "command": "node_modules\\.bin\\vitest.cmd run tests/application/viewer/engine-svg.test.ts tests/application/viewer/svg-viewport.test.ts tests/application/viewer/viewer-state.test.ts tests/ui/viewer/SvgViewer.test.tsx tests/ui/viewer/ViewerPane.test.tsx tests/ui/viewer/ViewerPaneConnector.test.tsx tests/ui/viewer/active-viewer-presentation.test.ts tests/application/runtime/workbench-runtime.test.ts --reporter=dot",
+        "observedAt": "2026-07-11T10:58:10-06:00",
+        "outcome": "GREEN: 8 test files passed; 52 tests passed; duration 1.93 s."
+      }
+    },
+    {
+      "criterion": "AC-3.b exact pinned-engine square bounds",
+      "test": "Render literal square([30,20]); through exact OpenSCAD 2026.06.12, compare the engine summary with an independent SVG-path parse, and verify the retained artifact inventory.",
+      "red": {
+        "command": "Retained verifier falsification changed the copied SVG width to 31 mm.",
+        "observedAt": "2026-07-11T09:16:42Z",
+        "outcome": "RED: the verifier returned FAIL with exit 1 for the tampered artifact; the temporary copy was removed."
+      },
+      "green": {
+        "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File artifacts/ac-3b-pinned-openscad/reproduce.ps1 -EnginePath <OpenSCAD-2026.06.12>/openscad.exe",
+        "observedAt": "2026-07-11T16:58:28Z",
+        "outcome": "GREEN: PASS. Executable SHA-256 DE9A0C732C23C3FEB0B49CF938777AA0AEE3E206DB9E98571672CACC4816C524; input SHA-256 358FDFCA08D4BC88B4A12641BF440346B8BA7B1FF2176375A43555CB6D19CBEF; SVG SHA-256 E6F944FDD2FABDE08D29BD5F0D3ACE8A8C016BDF4C5B45230FAF86796F09B03C; reported and independently parsed size 30 by 20 mm within 0.000001 mm; 27 artifact files inventoried."
+      }
+    },
+    {
+      "criterion": "Widened C3 regression, browser, native, and policy evidence",
+      "test": "Run all TypeScript tests, Chromium E2E, typecheck, lint/source policy, build, generated parser, npm licenses, and exact-pinned native acceptance; reproduce the known Rust policy result without changing it.",
+      "red": {
+        "command": "pnpm.cmd check:licenses rust",
+        "observedAt": "2026-07-11T11:00:00-06:00",
+        "outcome": "KNOWN POLICY RED: exactly 19 packages use Unicode-3.0 or an expression containing it; Q-0001 remains the only reported Rust license-policy block."
+      },
+      "green": {
+        "command": "pnpm.cmd test; pnpm.cmd typecheck; pnpm.cmd lint; pnpm.cmd build; pnpm.cmd check:generated; node scripts/check-licenses.mjs npm; pnpm.cmd exec playwright test --workers=1 --retries=0; SCADMILL_OPENSCAD=<OpenSCAD-2026.06.12> cargo test --locked --manifest-path src/native-engine/Cargo.toml",
+        "observedAt": "2026-07-11T11:00:00-06:00",
+        "outcome": "GREEN: Vitest 95 files and 671 tests; Playwright 8 of 8; typecheck passed; lint checked 249 files and source policy passed; Vite built 165 modules; generated parser was clean; npm licenses passed for 117 packages; exact-pinned native acceptance passed 39 tests."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "Q-0001 remains open: Rust license policy rejects exactly 19 Unicode-3.0 records; C3 adds no dependency and does not alter the policy.",
+    "Q-0024 remains open: incompatible pinned-mode presentation uses the conservative empty pane and explicit mismatch notice pending the owner's final choice.",
+    "The retained AC-3.b artifact proves exact pinned-engine SVG and bounds output; component tests separately prove product readout and routing. They are not described as one browser-level engine-to-pane execution.",
+    "The first widened typecheck found only a missing subscribeOutput member in the new runtime test double. The fixture was corrected, production behavior was unchanged, and the full typecheck was rerun green.",
+    "No dedicated real-Chromium C3 interaction fixture exists at this stack point; happy-dom covers routing, sanitization, pan, zoom, fit, dimensions, and mismatch while the full eight-test Chromium suite guards adjacent UI behavior."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

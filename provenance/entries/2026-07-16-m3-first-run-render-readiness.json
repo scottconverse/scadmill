@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-16-m3-first-run-render-readiness",
+  "createdAt": "2026-07-16T22:05:33-06:00",
+  "summary": "Preserve a welcome-sample auto-render request until the asynchronously loaded WASM engine becomes available and retain the hosted Q-0034 raw SVG evidence.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 M3 delivery protocol",
+    "FR-4.3 real preview geometry",
+    "FR-14.1 welcome samples",
+    "AC-14.a fresh-profile sample journey",
+    "AC-4.a native/WASM byte parity",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-16-m3-first-run-render-readiness.json", "status": "added" },
+    { "path": "spec/QUESTIONS.md", "status": "modified" },
+    { "path": "src/application/runtime/workbench-runtime.ts", "status": "modified" },
+    { "path": "tests/application/runtime/workbench-runtime.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29553736010",
+      "accessedOn": "2026-07-16",
+      "purpose": "Observe the exact-candidate Linux welcome failure and retain the raw native/WASM SVG mismatch evidence produced after both pinned engines were verified."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0277",
+      "topic": "Auto-render requests during engine startup",
+      "decision": "When auto-render is enabled, retain the latest pending render for an active document even while the engine is unavailable. Clear the timer and cancel any active run while unavailable, then schedule the retained active-document request when engine availability becomes true. Continue clearing all pending requests when auto-render is disabled or the runtime is disposed.",
+      "rationale": "A fresh web profile can select a built-in sample before the verified WASM engine finishes loading. Discarding that request leaves a populated editor and an idle viewer forever. Retaining one document-keyed request preserves debounce/supersession behavior and produces the promised first-run render as soon as the trusted engine is ready.",
+      "specBasis": ["FR-4.3", "FR-14.1", "AC-14.a", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "A fresh welcome sample selected before engine readiness automatically renders exactly once when the engine becomes available.",
+      "test": "Reproduce the hosted failure with a fake-timer runtime test that opens Gear while unavailable, advances the debounce, then marks the engine available.",
+      "red": {
+        "command": "GitHub Actions run 29553736010 Browser acceptance (ubuntu-latest); pnpm.cmd exec vitest run tests/application/runtime/workbench-runtime.test.ts -t 'renders a welcome sample after an initially unavailable engine becomes ready'",
+        "observedAt": "2026-07-16T22:04:57-06:00",
+        "outcome": "RED: hosted Linux passed 23/24 ordinary browser journeys but the fresh Gear sample stayed Idle for 30 seconds. The focused runtime test reproduced the lost request with zero engine.render calls after availability became true."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/runtime/workbench-runtime.test.ts -t 'renders a welcome sample after an initially unavailable engine becomes ready'",
+        "observedAt": "2026-07-16T22:05:19-06:00",
+        "outcome": "FOCUSED GREEN / HOSTED REPLACEMENT PENDING: the new regression passed 1/1 and verified one preview request for gear_knob.scad after readiness. The existing auto-render-off and aggregate runtime coverage remain in the next hosted web job rather than being locally looped."
+      }
+    },
+    {
+      "criterion": "Any native/WASM nondeterminism is recorded without an unapproved fallback comparison.",
+      "test": "Run the exact hosted raw-byte parity lane after correcting artifact and executable wiring.",
+      "red": {
+        "command": "GitHub Actions run 29553736010 Native and WASM byte parity",
+        "observedAt": "2026-07-16T22:02:00-06:00",
+        "outcome": "EXPECTED OPEN QUESTION: Appendix F1/F2 binary STL matched. F3 raw SVG failed at offset 37, native CR 0x0D versus WASM LF 0x0A; lengths and hashes exactly match the existing Q-0034 evidence. No normalization or semantic comparison was applied."
+      },
+      "green": {
+        "command": "Not run pending owner amendment Q-0034",
+        "observedAt": "2026-07-16T22:05:33-06:00",
+        "outcome": "BLOCKED ONLY ON OWNER DECISION: AC-4.a/V-3 cannot be declared green until Q-0034 authorizes CRLF-to-LF canonicalization or supplies another amended rule."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": ["Q-0034"],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

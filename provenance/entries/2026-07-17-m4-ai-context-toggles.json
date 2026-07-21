@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-17-m4-ai-context-toggles",
+  "createdAt": "2026-07-17T03:53:00-06:00",
+  "summary": "Add explicit per-send AI context toggles for current source, diagnostics, parameters, and viewer screenshot with bounded tagged serialization; expose the current-file context in the runtime-wired panel.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 M4 delivery protocol", "FR-10.3", "N-2", "N-7 evidence and status honesty"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-17-m4-ai-context-toggles.json", "status": "added" },
+    { "path": "src/application/ai/ai-context.ts", "status": "added" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/ai/AiConversationPanel.tsx", "status": "modified" },
+    { "path": "tests/application/ai/ai-context.test.ts", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    { "id": "D-0329", "topic": "Per-send context privacy and bounds", "decision": "Context sections are opt-in per send (source, diagnostics, parameters, screenshot), serialized with explicit tags, and bounded with visible truncation markers before entering the provider request.", "rationale": "FR-10.3 makes each context source user-toggleable; bounded application-owned serialization prevents accidental unbounded prompt growth and makes disclosure deterministic.", "specBasis": ["FR-10.3", "N-2", "N-7"] }
+  ],
+  "testEvidence": [
+    { "criterion": "Context serialization includes only enabled sections and discloses truncation; the panel and Workbench remain green.", "test": "Run the focused context, AI panel, and Workbench suites once after integration.", "red": { "command": "pnpm.cmd exec tsc --noEmit --pretty false", "observedAt": "2026-07-17T03:50:20-06:00", "outcome": "RED: the context module and panel integration were not yet present before this unit began." }, "green": { "command": "pnpm.cmd exec vitest run tests/ui/Workbench.test.tsx tests/ui/ai/AiConversationPanel.test.tsx tests/application/ai/ai-context.test.ts", "observedAt": "2026-07-17T03:51:59-06:00", "outcome": "GREEN: Test Files 3 passed (3); Tests 25 passed (25); Duration 4.38s." } },
+    { "criterion": "The context toggle implementation remains type-safe and source-policy clean.", "test": "Run TypeScript and repository lint/source policy once after the bounded integration.", "red": { "command": "pnpm.cmd lint", "observedAt": "2026-07-17T03:50:20-06:00", "outcome": "RED: the context toggle implementation had not yet been integrated." }, "green": { "command": "pnpm.cmd exec tsc --noEmit --pretty false; pnpm.cmd lint", "observedAt": "2026-07-17T03:51:59-06:00", "outcome": "GREEN: TypeScript exited 0; Checked 429 files in 212ms with source policy passed." } }
+  ],
+  "nearMisses": [],
+  "questions": ["Workbench currently supplies source context and empty diagnostics/parameter arrays; wiring live diagnostics, parameter snapshots, and captured viewer screenshots remains a later context-provider unit."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

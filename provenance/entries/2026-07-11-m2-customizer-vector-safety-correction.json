@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-11-m2-customizer-vector-safety-correction",
+  "createdAt": "2026-07-11T17:50:48-06:00",
+  "summary": "Correct the long-vector implementation so sparse arrays are invalid and replaced named sets cannot retain caller-owned vector aliases.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 test-first evidence and milestone gates",
+    "FR-5.1 vector per-component numeric inputs",
+    "FR-5.4 stock parameter-set interchange",
+    "FR-5.5 parameter value preservation"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-11-m2-customizer-vector-safety-correction.json", "status": "added" },
+    { "path": "src/application/parameters/customizer-schema.ts", "status": "modified" },
+    { "path": "src/application/parameters/parameter-state.ts", "status": "modified" },
+    { "path": "tests/application/parameters/customizer-schema.test.ts", "status": "modified" },
+    { "path": "tests/application/parameters/parameter-state.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0208",
+      "topic": "Dense Customizer vectors and imported-set ownership",
+      "decision": "Require each numeric vector index from zero through length minus one to be an own finite-number property in both compatibility references and candidate values, and serialize only after the complete dense sequence passes that check. When replacing named sets, create a prototype-safe value record and clone every ParameterValue so vector arrays become state-owned.",
+      "rationale": "Array every, some, and map skip missing elements, so a sparse array could pass the finite-number guard and serialize with absent components. Separately, shallow-spreading a named-set value record retained each caller-owned vector, allowing post-reducer mutation to silently change application state and exported stock JSON. Explicit indexed validation and the existing scalar-or-vector clone boundary close both holes without adding a component limit or weakening exact-length, nonempty, finiteness, and prototype-key behavior.",
+      "specBasis": [
+        "FR-5.1 vector per-component numeric inputs",
+        "FR-5.4 stock parameter-set interchange",
+        "FR-5.5 parameter value preservation"
+      ]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Vector compatibility and serialization reject missing numeric indices",
+      "test": "Construct fully sparse and one-own-hole six-element arrays, supply the missing component only through the latter array's prototype, require compatibility rejection and serialization failure for both, then require a sparse reference to reject an otherwise dense same-length candidate while retaining dense long-vector acceptance.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/parameters/customizer-schema.test.ts",
+        "observedAt": "2026-07-11T17:48:07-06:00",
+        "outcome": "ASSERTION-LEVEL RED: Test Files 1 failed (1); Tests 2 failed | 2 passed (4). Four assertions showed that fully and partially sparse arrays both returned compatible and both serialized without throwing."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/parameters/customizer-schema.test.ts",
+        "observedAt": "2026-07-11T17:53:46-06:00",
+        "outcome": "GREEN: Test Files 1 passed (1); Tests 5 passed (5); Duration 582ms."
+      }
+    },
+    {
+      "criterion": "Replaced named sets own their long vectors and retain scalar and prototype-shaped values",
+      "test": "Replace sets with a caller-owned six-component pose, scalar width, and own __proto__ vector; mutate all caller records after the reducer returns; require stored values and encoded stock JSON to retain the original bytes and the prototype-shaped key as an inert own property.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/parameters/parameter-state.test.ts -t \"owns replaced-set vector values\"",
+        "observedAt": "2026-07-11T17:49:52-06:00",
+        "outcome": "ASSERTION-LEVEL RED: Test Files 1 failed (1); Tests 1 failed | 9 skipped (10). Mutating the caller changed the stored pose tail and the own __proto__ vector head from their original values to 99."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/parameters/parameter-state.test.ts -t \"owns replaced-set vector values\"",
+        "observedAt": "2026-07-11T17:50:10-06:00",
+        "outcome": "GREEN: Test Files 1 passed (1); Tests 1 passed | 9 skipped (10); Duration 679ms."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "Falsification RED: pnpm.cmd exec vitest run tests/application/parameters/customizer-schema.test.ts -t \"rejects a sparse vector reference\" produced Test Files 1 failed (1) and Tests 1 failed | 4 skipped (5), proving a sparse reference also needed indexed validation.",
+    "Widened verification: pnpm.cmd exec vitest run tests/application/parameters/customizer-schema.test.ts tests/application/parameters/parameter-state.test.ts tests/application/parameters/parameter-overrides.test.ts tests/application/parameters/parameter-set-codec.test.ts tests/ui/parameters/ParameterPanel.test.tsx produced Test Files 5 passed (5), Tests 49 passed (49), Duration 2.17s.",
+    "Verification: pnpm.cmd typecheck exited 0 with $ tsc --noEmit.",
+    "Verification: pnpm.cmd lint exited 0; Biome checked 303 files in 219ms with no fixes, and source policy passed.",
+    "Verification: pnpm.cmd build exited 0; Vite transformed 183 modules and built production assets successfully in 366ms.",
+    "Verification: pnpm.cmd check:provenance exited 0 with Provenance ledger passed validation (baseline mode; no PR base supplied).",
+    "No arbitrary component cap was introduced; dense vectors retain exact-length, nonempty, and finite-number validation.",
+    "No owner similarity gate, comparison repository, workflow content, or prohibited source was opened or executed."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

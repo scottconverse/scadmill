@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-m4-webdriver-focus-precondition",
+  "createdAt": "2026-07-20T08:56:44-06:00",
+  "summary": "Require exact, bounded focus evidence before packaged WebDriver keyboard Actions after the clean action-based run still left the controlled Message textarea empty.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "M4 release candidate", "N-7 evidence honesty"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-m4-webdriver-focus-precondition.json", "status": "added" },
+    { "path": "scripts/lib/packaged-desktop-evidence.d.mts", "status": "modified" },
+    { "path": "scripts/lib/packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://www.w3.org/TR/2026/WD-webdriver2-20260528/#actions",
+      "accessedOn": "2026-07-20",
+      "purpose": "Retain the official basis that key Actions target the current browsing-context input state while narrowing the next failed-run hypothesis to active-element focus."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0448",
+      "topic": "Packaged textarea focus precondition",
+      "decision": "After WebDriver clicks the unique visible enabled textarea, execute one bounded focus probe against that exact element reference. If it is not active, call focus with preventScroll exactly once, select its current contents, and proceed to keyboard Actions only when fixed-name boolean evidence proves it is a connected enabled textarea and document.activeElement. Never include control values or active-element attributes in the diagnostic.",
+      "rationale": "The clean action-based candidate reached the Message control without an Actions protocol error but retained an empty React value and sent zero mock requests. Successful action submission does not itself prove which element received the keys; explicit fail-closed focus evidence tests the smallest remaining unverified boundary without changing production React behavior or weakening the two-read commit oracle.",
+      "specBasis": ["M4 C10 AI assist", "Section 2.7 delivery protocol", "N-7 evidence honesty"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Keyboard entry must not begin unless the exact resolved textarea is connected, enabled, and active; one focus correction may be attempted.",
+      "test": "Execute the focus script against textarea and non-textarea DOM fixtures, assert exact boolean metadata and full text selection, and prove an unfocused result prevents both perform and release Actions.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts -t \"focuses and verifies|fails before keyboard entry\" --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T08:53:48-06:00",
+        "outcome": "RED: 0/2 focused tests passed; the focus script did not exist and the helper entered its Actions/value-wait path instead of failing before keyboard entry."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T09:02:23-06:00",
+        "outcome": "GREEN: the exact post-review packaged evidence helper suite passed 49/49, including exact focus correction metadata, selection, fail-closed focus, keyboard payload, cleanup, dual-failure retention, and two-read commit verification."
+      }
+    },
+    {
+      "criterion": "Retained focus-failure diagnostics must exclude control values and unbounded active-element attributes even if the automation boundary returns them.",
+      "test": "Inspect the pre-fix diff for raw active-element attributes, then inject a sensitive activeAriaLabel into failed-focus evidence and prove the exact post-fix helper error excludes it.",
+      "red": {
+        "command": "git diff -- scripts/lib/packaged-desktop-evidence.mjs tests/scripts/packaged-desktop-evidence.test.ts CHANGELOG.md",
+        "observedAt": "2026-07-20T09:04:00-06:00",
+        "outcome": "RED static inspection retained from the immediately preceding uncommitted diff; the original execution time was not retained. The focus script returned raw activeAriaLabel and activeRole strings and the helper serialized both into its error diagnostic, contradicting the bounded non-disclosure claim."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts --reporter=dot --maxWorkers=1",
+        "observedAt": "2026-07-20T09:02:23-06:00",
+        "outcome": "GREEN: the exact post-fix helper suite passed 49/49; focus evidence now contains only six fixed-name booleans, and the failed-focus regression injects a sensitive activeAriaLabel and proves it is absent from the retained error."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-0f26022-sandbox-m4-actions-20260720/evidence.json",
+      "sought": "Exact clean packaged M4 walkthrough on candidate 0f260226e03c1da10543f7cbcca3b4e382100aeb",
+      "confirmation": "The source-bound clean build and all pre-AI-message phases passed. WebDriver accepted low-level Actions but the Message textarea did not retain the requested value and the safe mock received zero requests. Exact cleanup removed staging and left no matching Sandbox session. This artifact remains failed and is not packaged-pass evidence."
+    }
+  ],
+  "questions": ["No owner decision is required. Focus correction and fail-closed evidence are locally contract-proven; exact clean WebView2/React retention remains explicitly unproven until one source-bound clean Sandbox run passes."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
