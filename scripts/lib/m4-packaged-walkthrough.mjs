@@ -481,7 +481,7 @@ export const M4_DOM_SCRIPTS = Object.freeze({
       });
       return;
     }
-    Promise.resolve(invoke.call(globalThis.__TAURI_INTERNALS__, 'render_cache_list', { projectIdentity: selectedIdentity })).then((value) => {
+    Promise.resolve(invoke.call(globalThis.__TAURI_INTERNALS__, 'render_cache_list', { workspaceIdentity: selectedIdentity })).then((value) => {
       const records = Array.isArray(value) ? value : [];
       const safe = records.filter((record) => record && typeof record === 'object'
         && /^sha256:[a-f0-9]{64}$/u.test(record.key)

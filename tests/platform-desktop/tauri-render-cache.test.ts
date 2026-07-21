@@ -17,14 +17,14 @@ describe("Tauri render cache storage", () => {
     if (storage.clear) await storage.clear("C:\\project");
 
     expect(invoke).toHaveBeenCalledWith("render_cache_write", {
-      projectIdentity: "C:\\project",
+      workspaceIdentity: "C:\\project",
       key,
       bytes: new Uint8Array([4, 5]),
       maxBytes: 512,
     });
-    expect(invoke).toHaveBeenCalledWith("render_cache_touch", { projectIdentity: "C:\\project", key });
-    expect(invoke).toHaveBeenCalledWith("render_cache_remove", { projectIdentity: "C:\\project", key });
-    expect(invoke).toHaveBeenCalledWith("render_cache_clear", { projectIdentity: "C:\\project" });
+    expect(invoke).toHaveBeenCalledWith("render_cache_touch", { workspaceIdentity: "C:\\project", key });
+    expect(invoke).toHaveBeenCalledWith("render_cache_remove", { workspaceIdentity: "C:\\project", key });
+    expect(invoke).toHaveBeenCalledWith("render_cache_clear", { workspaceIdentity: "C:\\project" });
     expect(JSON.stringify(invoke.mock.calls)).not.toContain("project\\\\");
   });
 
@@ -50,7 +50,7 @@ describe("Tauri render cache storage", () => {
     await storage.write("project", key, new Uint8Array([1]));
 
     expect(invoke).toHaveBeenCalledWith("render_cache_write", {
-      projectIdentity: "project",
+      workspaceIdentity: "project",
       key,
       bytes: new Uint8Array([1]),
     });

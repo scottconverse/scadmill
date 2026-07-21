@@ -12,6 +12,8 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Added
 
+- Corrected every desktop render-cache IPC payload to send the Rust command contract's `workspaceIdentity` field instead of the rejected `projectIdentity` alias. Native cache reads, writes, lists, touches, removals, and clears can now execute rather than silently falling back to memory-only behavior.
+
 - Bound the native cache diagnostic to Tauri's page-owned invoke receiver and a non-protocol `diagnosticError` field, preventing the evidence probe itself from being detached or misclassified as a WebDriver remote error.
 
 - Retained bounded native cache preference and opaque record-count/hash evidence immediately before close, after restart, and after project reopen when the exact cold-cache transition fails, distinguishing missing writes, lost records, corrupt removal, and key mismatches without retaining source or project identity.

@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-20-m4-tauri-render-cache-identity-contract",
+  "createdAt": "2026-07-20T21:57:25-06:00",
+  "summary": "Match the desktop render-cache adapter to the Rust workspaceIdentity command contract.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "FR-15.1", "AC-15.a", "V-5 release gate", "V-6 honesty rule"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-20-m4-tauri-render-cache-identity-contract.json", "status": "added" },
+    { "path": "scripts/lib/m4-packaged-walkthrough.mjs", "status": "modified" },
+    { "path": "src/platform-desktop/tauri-render-cache.ts", "status": "modified" },
+    { "path": "tests/platform-desktop/tauri-render-cache.test.ts", "status": "modified" },
+    { "path": "tests/scripts/m4-packaged-walkthrough.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0474",
+      "topic": "Desktop render-cache native identity argument",
+      "decision": "Send workspaceIdentity to every Rust render_cache command and assert that exact field at the TypeScript adapter and clean-Sandbox diagnostic boundaries.",
+      "rationale": "The Rust commands name their parameter workspace_identity and expose it as workspaceIdentity through Tauri camel-case renaming. The desktop adapter instead sent projectIdentity for read, write, remove, clear, touch, and list, so every native disk-cache command rejected while mock-only tests blessed the wrong payload. Exact evidence at 0efb934 showed one enabled preference but render_cache_list rejection before close, after restart, and after reopen, matching the contract mismatch and explaining the persistent engine rerun.",
+      "specBasis": ["FR-15.1", "AC-15.a", "V-5 release gate", "V-6 honesty rule"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Every desktop cache command must use the Rust command's workspaceIdentity field.",
+      "test": "Change the adapter expectations to workspaceIdentity before changing production and run the focused adapter suite.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/platform-desktop/tauri-render-cache.test.ts --reporter=dot",
+        "observedAt": "2026-07-20T21:56:36-06:00",
+        "outcome": "RED: 2/3 failed and showed the production adapter sending projectIdentity for native cache commands."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/platform-desktop/tauri-render-cache.test.ts tests/scripts/m4-packaged-walkthrough.test.ts --reporter=dot",
+        "observedAt": "2026-07-20T21:56:52-06:00",
+        "outcome": "GREEN: 25/25 adapter and M4 harness tests passed with workspaceIdentity."
+      }
+    },
+    {
+      "criterion": "The correction must preserve disk serialization, runtime durability ordering, the M4 oracle, and TypeScript boundaries.",
+      "test": "Run the four focused cache/runtime/M4 suites and TypeScript no-emit once.",
+      "red": {
+        "command": "Not applicable: the platform-contract RED above is the falsifying test.",
+        "observedAt": "2026-07-20T21:56:36-06:00",
+        "outcome": "No synthetic aggregate failure was created."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/render-cache/render-disk-cache.test.ts tests/application/runtime/workbench-runtime.test.ts tests/platform-desktop/tauri-render-cache.test.ts tests/scripts/m4-packaged-walkthrough.test.ts --reporter=dot; pnpm.cmd run typecheck",
+        "observedAt": "2026-07-20T21:57:14-06:00",
+        "outcome": "GREEN: 68/68 focused tests passed and TypeScript no-emit passed."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://C:/Users/Scott/Documents/Codex/2026-07-09/read/outputs/scadmill-beta-0efb934-sandbox-m4-cache-diagnostic-20260720/evidence.json",
+      "sought": "Exact native cache-record lifecycle and cold-start hit evidence",
+      "confirmation": "The persisted preference was present and valid in all three phases, while render_cache_list rejected in all three phases and Full added one engine run; host cleanup passed."
+    }
+  ],
+  "questions": ["No owner decision is required; this repairs the typed platform contract to match the existing Rust command API."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

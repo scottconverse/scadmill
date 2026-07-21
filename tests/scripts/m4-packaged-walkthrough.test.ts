@@ -303,7 +303,7 @@ describe("M4 packaged newcomer walkthrough", () => {
       droppedRecordCount: 0,
       diagnosticError: null,
     });
-    expect(internals.invoke).toHaveBeenCalledWith("render_cache_list", { projectIdentity });
+    expect(internals.invoke).toHaveBeenCalledWith("render_cache_list", { workspaceIdentity: projectIdentity });
     expect(invokeReceiver).toBe(internals);
     expect(JSON.stringify(result)).not.toContain(projectIdentity);
     window.close();

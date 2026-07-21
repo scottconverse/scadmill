@@ -16,7 +16,7 @@ function bytes(value: unknown): Uint8Array | undefined {
 }
 
 export function createTauriRenderCacheStorage(invokeCommand: Invoke = invoke): RenderDiskCacheStorage {
-  const identity = (projectIdentity: string, key: string) => ({ projectIdentity, key });
+  const identity = (workspaceIdentity: string, key: string) => ({ workspaceIdentity, key });
   return {
     async read(projectIdentity, key) {
       const response = await invokeCommand<unknown>("render_cache_read", identity(projectIdentity, key));
@@ -33,13 +33,13 @@ export function createTauriRenderCacheStorage(invokeCommand: Invoke = invoke): R
       await invokeCommand("render_cache_remove", identity(projectIdentity, key));
     },
     async clear(projectIdentity) {
-      await invokeCommand("render_cache_clear", { projectIdentity });
+      await invokeCommand("render_cache_clear", { workspaceIdentity: projectIdentity });
     },
     async touch(projectIdentity, key, _atMs) {
       await invokeCommand("render_cache_touch", identity(projectIdentity, key));
     },
     async list(projectIdentity) {
-      const response = await invokeCommand<unknown>("render_cache_list", { projectIdentity });
+      const response = await invokeCommand<unknown>("render_cache_list", { workspaceIdentity: projectIdentity });
       if (!Array.isArray(response)) return [];
       return response.flatMap((item): RenderDiskCacheRecord[] => {
         if (!item || typeof item !== "object" || Array.isArray(item)) return [];
