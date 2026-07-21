@@ -1,0 +1,14 @@
+{
+  "version": "0.1.0-beta.1",
+  "channel": "public beta",
+  "platform": "Windows x64",
+  "filename": "ScadMill_0.1.0-beta.1_x64-setup.exe",
+  "sizeBytes": 208699552,
+  "sizeHuman": "199 MiB",
+  "sha256": "D196878A49804F852C49A81ACBB4AC5C232A88DA737F2D756F9B6376E435A588",
+  "signer": "Scott Converse",
+  "engineVersion": "2026.06.12",
+  "github": "https://github.com/scottconverse/scadmill",
+  "releasePage": "https://github.com/scottconverse/scadmill/releases/tag/v0.1.0-beta.1",
+  "download": "https://github.com/scottconverse/scadmill/releases/download/v0.1.0-beta.1/ScadMill_0.1.0-beta.1_x64-setup.exe"
+}

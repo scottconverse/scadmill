@@ -1,79 +1,127 @@
-# ScadMill user guide
+# ScadMill user manual
 
-This guide describes the public `0.1.0-beta.1` Windows desktop beta, including completed M3 and M4 behavior. Start with the [Windows beta guide](WINDOWS-BETA.md) for the supported download, signed-setup verification, required OpenSCAD download, installation, and uninstall guidance. Later M5/M6 work is identified explicitly.
+**Applies to:** ScadMill `0.1.0-beta.1`, the public 64-bit Windows desktop beta.
 
-## Start a model
+This is the canonical user manual. It starts without assuming CAD or programming experience, then provides the technical behavior and architecture needed by advanced users and contributors. For exact download hashes and installer lifecycle details, keep the [Windows beta guide](WINDOWS-BETA.md) beside this manual.
 
-On first launch, choose a blank file, open a project, reopen a recent project, or load one of the three sample models. ScadMill asks before a sample replaces non-empty work. Reopen the welcome surface from the application when you need it again.
+## Part I — Non-technical guide
 
-Enter OpenSCAD source such as `cube([10, 20, 30]);`. Use **Render preview** or F5 for the faster preview policy. Use **Full render** or F6 for final-quality geometry and exports. A **Preview quality** label identifies preview-only overrides.
+### What ScadMill is
 
-## Work with projects and files
+OpenSCAD models are readable text instructions. ScadMill gives you one place to edit those instructions, render the result, inspect the geometry, organize project files, adjust Customizer parameters, and export models. It does not lock the model into a private format: the `.scad` source remains ordinary OpenSCAD source.
 
-Desktop projects are folders you choose. Browser projects are named workspaces stored locally in IndexedDB. The Files surface creates, renames, moves, and opens text or binary project assets. Desktop-only OS trash and reveal actions are omitted in the browser.
+### Install safely
 
-Save the current document with the File command or configured shortcut; use Save All for every dirty document. A desktop `.scad` file opened through the OS is forwarded to the existing ScadMill instance. ScadMill opens it immediately only when replacing the current workspace is safe.
+1. Download `ScadMill_0.1.0-beta.1_x64-setup.exe` only from the [official release](https://github.com/scottconverse/scadmill/releases/tag/v0.1.0-beta.1).
+2. Verify the installer SHA-256 is `D196878A49804F852C49A81ACBB4AC5C232A88DA737F2D756F9B6376E435A588` and that Windows reports a valid signature from Scott Converse.
+3. Run the current-user installer. It includes uninstall support and the offline WebView2 runtime used by the interface.
+4. Separately download and verify the exact official OpenSCAD `2026.06.12` Windows snapshot using [these engine instructions](WINDOWS-BETA.md#install-the-required-openscad-engine).
+5. Start ScadMill, choose **Configure engine**, select the verified `openscad.exe`, and confirm the status reports OpenSCAD 2026.06.12.
 
-## Recover and reconcile work
+Editing and project work remain available before the engine is configured. Rendering and export do not.
 
-ScadMill records recoverable unsaved buffers. If recovery data exists, review it before replacing the workspace. External disk edits use a per-hunk reconciliation view instead of silently overwriting either side. Failed annotation loads or saves keep in-memory annotations visible and provide retry or export recovery.
+### Make a first model
 
-## Inspect geometry
+1. Choose a sample or create a blank file.
+2. Enter `cube([20, 20, 20]);`.
+3. Press **F5** for preview geometry.
+4. Orbit, pan, zoom, fit, change projection, or measure in the 3D viewer.
+5. Press **F6** for full geometry before exporting.
 
-3D results support orbit, pan, zoom, axis views, fit, projection choice, scene furniture, measurement, and pinned annotations. Engine-produced 2D SVG uses a separate sanitized pane with pan, zoom, fit, dimensions, and scale. An incompatible pinned viewer mode shows an explicit empty state.
+Preview is optimized for iteration. Full applies no preview quality override and is the only source used for exports.
 
-## Animate a model
+### Work with projects
 
-When the active OpenSCAD file uses the executable `$t` animation variable, an **Animation** bar appears below the viewer. The scrubber covers a fixed 100-frame loop: frame 1 passes `$t=0.00`, frame 100 passes `$t=0.99`, and playback wraps to the first frame. Set a target rate from 1 to 60 FPS, choose **Play**, or move directly to a frame. Every frame is real preview-quality geometry and uses the normal preview timeout and facet policy; animation never changes the source or becomes an export source.
+Open or create a folder-backed project. Files remain in that folder and are not uploaded to a ScadMill service. Tabs have separate edit and undo state. ScadMill preserves binary assets, resolves project-relative `include` and `use` paths, warns about external changes, and can present recoverable unsaved buffers after interruption.
 
-ScadMill waits for each preview render before requesting the next frame, so a complex model runs below the selected target rate instead of building a render queue. **Pause** cancels the in-flight animation request and prevents later frames. The viewer's render **Cancel** action remains available for any current engine request. Removing `$t`, changing documents, an engine failure, or closing the surface stops playback. Viewer camera and scene controls stay in place between frames.
+Save important work normally and keep backups. This is beta software.
 
-## Use Customizer parameters
+### Adjust and export
 
-Top-level stock OpenSCAD Customizer declarations become typed controls. Overrides affect render and export requests without rewriting source. Choose the write action when you intentionally want explicit values written into the assignments. Named sets import and export using the stock JSON form.
+Stock OpenSCAD Customizer declarations appear as typed controls. Temporary values affect rendering without changing source; use the explicit write action when you want assignments updated. Named sets use the stock JSON format.
 
-## Export and share
+Full-quality export supports 3MF, STL, OFF, AMF, SVG, DXF, and PNG where appropriate to the model. ScadMill will not export preview geometry.
 
-Full-quality export supports 3MF, STL, OFF, AMF, SVG, DXF, and PNG where the engine supports the model. Browser workspaces can import and export byte-preserving ZIP archives and create a serverless single-file share link. A full export, not preview, is the only export source.
+### Understand what is not included
 
-## Configure the desktop engine
+The public beta is Windows-only. It does not publish a browser app, Mac/Linux installers, or OpenSCAD WebAssembly engine. OpenSCAD is a separate required download. Installed-library expansion, broader navigation/refactoring, batch tools, manufacturing estimates, and the headless CLI remain later M5/M6 work.
 
-ScadMill accepts only the OpenSCAD version recorded in `ENGINE_VERSION`. It tries the bundled candidate, saved executable, `SCADMILL_OPENSCAD`, and `PATH`. If the found executable is missing or has another version, select the exact pinned executable in **Configure engine** and retry. ScadMill does not replace older system installations.
+## Part II — Technical reference
 
-The Windows setup does not bundle OpenSCAD. Download and hash-verify the exact official `2026.06.12` Windows snapshot by following the [Windows beta engine instructions](WINDOWS-BETA.md#install-the-required-openscad-engine).
+### Editor and language features
 
-## Browser rendering
+The CodeMirror workbench provides a fresh OpenSCAD grammar, highlighting, parse-gated formatting, built-in and visible-symbol completions, project dependency indexing, diagnostics, search, tabs, configurable keybindings, themes, and format-on-save. Structural project indexing runs away from the UI thread when available and remains bounded.
 
-Browser editing and project features work without an engine in the implemented source target, but no public ScadMill web application or WebAssembly engine is currently distributed. Q-0033 permits a future engine publication only with the exact corresponding source, GPL-2.0-or-later materials, reproducible build recipe, and checksums. The historical M3 compliance package and all six native/WASM parity cases passed; Q-0034 allows only CRLF-to-LF conversion for SVG comparison while retaining the raw artifacts and hashes. That M3 evidence does not publish a web product and is separate from current Windows-beta qualification. A missing or failed engine load leaves editing available and offers Retry when retry can help.
+### Render lifecycle
 
-## Connect a local MCP client on Windows
+Every render binds to an immutable source snapshot. Preview and full have separate policies, timeouts, and visible labels. Automatic renders are debounced; superseded work is cancelled. Console history retains ordered stdout/stderr, status, timing, diagnostics, and geometry statistics. Stale, cancelled, failed, or unavailable results are reported honestly rather than replacing the last good geometry.
 
-The MCP bridge is desktop-only and off by default. Keep the ScadMill GUI open. In **Settings**, search for **AI**, choose the `write_file` and `set_parameters` permissions you want, then enable **local MCP server (stdio)**. Configure the client to run the exact same installed executable with one argument:
+### 2D/3D viewing and geometry comparison
+
+STL output drives a demand-rendered 3D viewer with camera controls, axis views, perspective/orthographic projection, exact bounds, measurement, durable pinned annotations, and PNG capture. Sanitized engine SVG drives the 2D viewer with model-space dimensions, pan/zoom, fit, and scale. Successful renders compare application-owned geometry identity plus available volume, bounds, and triangle changes.
+
+### Animation
+
+An executable `$t` reference enables a 100-frame loop from 0.00 through 0.99. Each frame uses the ordinary preview path. The target FPS is not a promise: ScadMill waits for real geometry, so slow models reduce playback rate rather than creating an unbounded queue. Pause cancels the in-flight animation request.
+
+### AI assistance
+
+Named OpenAI-compatible, Anthropic, or local provider configurations use separately scoped secrets. Desktop secrets live in Windows Credential Manager. Requests contain the conversation plus only the source, diagnostics, parameters, or viewer screenshot selected in the panel, and go directly to the configured endpoint. ScadMill operates no AI proxy. Proposed code can be reviewed per hunk; agent mode and session auto-apply are separate, explicit, bounded controls.
+
+### Local MCP bridge
+
+The bridge is desktop-only and off by default. Keep the GUI open, configure mutation permissions in **Settings → AI**, then enable **local MCP server (stdio)**. Point the client to:
 
 ```text
 C:\Users\YOUR_USER\AppData\Local\ScadMill\scadmill.exe --mcp-stdio
 ```
 
-Replace `YOUR_USER` with the current Windows profile name, or select the exact path if ScadMill is installed elsewhere. A connected client appears in the status bar. Read-only tools operate immediately. Mutation tools are denied by default; **Allow once** grants exactly one request and **Allow for this session** lasts only until the GUI session ends or you change it. Accepted mutation requests still enter the History review surface and do not alter the project until you approve the displayed file diff or parameter values. Denial leaves project state unchanged.
+Read-only tools can operate after connection. `write_file` and `set_parameters` are denied unless allowed once or for the session, and accepted requests still enter the History review surface before changing a project.
 
-The History rail also records ordinary workspace commands. Entries are newest first and identify whether a command came from you, the AI panel, an external agent, or ScadMill itself. Select an entry to inspect its time, kind, undoability, and exact before/after source when the command edited a document. Use the shared Edit menu or shortcuts to undo and redo applicable commands in chronological order.
+### Storage and privacy
 
-Turn the toggle off to close the authenticated local relay and its client process. For a connection failure, verify that the GUI is still open, the MCP toggle is enabled, and the client command uses that exact installed `scadmill.exe`, not a copied or older build.
+ScadMill includes no telemetry. Desktop projects remain in user folders. Recovery, settings, layout, annotations, and optional cache data use local application stores. Render caching is off by default, enabled per project, bounded, integrity-checked, and unavailable for scratch work. Turning cache off stops future disk use but does not erase existing records; use the explicit clear command while the project is open.
 
-## Use AI assistance
+### Uninstall
 
-Open **Settings → AI** and configure the default provider or add named provider/model configurations. Each named configuration owns a separate key. OpenAI-compatible and Anthropic configurations require a key; a local Ollama-style endpoint may run without one. On desktop the keys stay in the operating-system credential store. In a browser they stay in session storage unless you explicitly enable the warning-labeled persistence option, which moves every configured key together.
+Use **Windows Settings → Apps → Installed apps → ScadMill → Uninstall**. The app and `.scad` association are removed; user projects remain. Uninstall is not an all-data-erasure promise. Clear AI keys and each enabled project cache first if you do not want those records retained.
 
-Open the **AI** activity rail and choose the provider/model for the project conversation. Each send can include the current file, diagnostics, parameters, and—only when selected—the latest viewer screenshot. Replies stream as safe markdown. A fenced code block can be copied, inserted at the cursor, or opened as a per-hunk diff; accepting that diff applies it to the document where the proposal originated.
+## Part III — Architecture
 
-**Agent mode** is off for every new or cleared conversation. Enabling it allows bounded read, preview-render, diagnostics, screenshot, and proposed-write tool calls; the default limit is 10 tool rounds per message. Proposed writes remain pending for review. Session-only auto-apply is a separate explicit choice and resets when agent mode or the conversation is cleared. **Cancel** aborts both the provider request and the active tool chain. Project conversations can be cleared and are sent only to the selected provider.
+### Composition
 
-## Settings and privacy
+The React workbench owns interaction and application state. Capability-shaped ports separate shared product logic from platform adapters. The Tauri shell supplies Windows file, dialog, process, credential, menu, association, and window operations.
 
-Settings cover editor, rendering, engine, viewer, formatter, theme, AI, keybindings, and privacy behavior. On desktop, open a project and use **Rendering -> Persist render cache for this project** to opt only that project into durable render caching; it is off by default and unavailable for scratch work. The adjacent disclosure lists the stored geometry, logs, diagnostics, and statistics. Turning the option off stops disk-cache use without deleting existing records. Choose **Clear this project's disk render cache** to delete that project's durable records.
+### Engine boundary
 
-Desktop AI secrets use the OS credential store and remain isolated per named provider configuration. Browser secrets remain session-only unless you explicitly enable the warning-labeled persistence option. ScadMill has no telemetry; see [PRIVACY.md](../PRIVACY.md).
+ScadMill runs the unmodified, exact-pinned OpenSCAD executable out of process. A render request contains the bounded project snapshot, typed parameter overrides, requested quality, and timeout. The adapter stages contained files, launches the subprocess, captures output, terminates cancelled process trees, and validates returned STL or SVG before presentation. OpenSCAD—not ScadMill—remains the geometry authority.
 
-## Current milestone limits
+### Data flow and trust boundaries
 
-Q-0033 and Q-0034 are resolved, and their historical M3 compliance-package and parity execution evidence passed. Public web distribution remains a separate future release action and is not part of the Windows-first beta. The Windows beta includes the current animation, AI, MCP, and complete command-history surfaces. Installed libraries, navigation and refactoring expansion, batch features, printability and slicing estimates, color-preserving 3MF, and the headless CLI remain release-gated M5-M6 work unless their milestone evidence is recorded.
+1. The editor captures source, referenced project files, and byte-preserving binary assets.
+2. A native adapter stages an isolated request without rewriting user files.
+3. OpenSCAD produces geometry and logs in a separate process.
+4. Validated geometry feeds the appropriate viewer; diagnostics and statistics stay bound to the originating source snapshot.
+5. Only full results can feed an export.
+
+User files, engine execution, OS services, and optional provider traffic are distinct trust boundaries. Secrets use the OS credential store. AI is provider-direct and context-selective. MCP is local, authenticated, permissioned, and review-gated.
+
+### Responsiveness and failure behavior
+
+Native engine work is out of process. Mesh parsing, project indexing, archive work, and the browser-source engine adapter cross bounded worker boundaries. Automatic rendering is debounced, animation is backpressured, and cancellation is explicit. The workbench preserves the last good result while presenting engine failure, load failure, or stale state.
+
+### Release and extension architecture
+
+The release pipeline checks provenance and licenses, builds from a clean pinned tree, signs the Windows installer, and binds retained evidence to exact hashes. The current beta passed hosted CI, isolated similarity review, a literal one-hour soak, Radeon 780M performance evidence, and a clean Windows Sandbox install-to-uninstall walkthrough.
+
+The architecture includes seams for a separately qualified web distribution, installed-library completions, navigation/refactoring, batch operations, a headless CLI, and manufacturing estimates. These remain future M5/M6 work and are not beta claims.
+
+## Troubleshooting and support
+
+- **Rendering disabled:** select the exact OpenSCAD 2026.06.12 executable. Other versions are intentionally rejected.
+- **Render failed:** inspect console history and linked diagnostics, correct the model, and retry once. Cancel a hung request.
+- **Layout or window is wrong:** use the View menu to reveal/reset panels; off-screen saved window positions are rejected.
+- **Security issue:** use [GitHub private vulnerability reporting](https://github.com/scottconverse/scadmill/security/advisories/new), never a public issue.
+- **Release integrity or engine hashes:** use [WINDOWS-BETA.md](WINDOWS-BETA.md).
+- **Privacy detail:** use [PRIVACY.md](../PRIVACY.md).
+- **Runtime and source structure:** use [ARCHITECTURE.md](../ARCHITECTURE.md).

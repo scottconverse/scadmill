@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-21-public-site-manual-architecture",
+  "createdAt": "2026-07-21T01:13:40-06:00",
+  "summary": "Publish an honest ScadMill product story, professional manual, architecture guide, and cross-surface public-version contract.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "FR-13.4", "FR-15.1", "V-5 release gate", "V-6 honesty rule"],
+  "filesTouched": [
+    { "path": "ARCHITECTURE.md", "status": "modified" },
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "PUBLIC_VERSION", "status": "added" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "docs/USER-GUIDE.md", "status": "modified" },
+    { "path": "index.html", "status": "modified" },
+    { "path": "package.json", "status": "modified" },
+    { "path": "tests/scripts/release-metadata.test.ts", "status": "modified" },
+    { "path": "website/.gitignore", "status": "added" },
+    { "path": "website/.openai/hosting.json", "status": "added" },
+    { "path": "website/README.md", "status": "added" },
+    { "path": "website/app/architecture/page.tsx", "status": "added" },
+    { "path": "website/app/globals.css", "status": "added" },
+    { "path": "website/app/layout.tsx", "status": "added" },
+    { "path": "website/app/manual/page.tsx", "status": "added" },
+    { "path": "website/app/page.tsx", "status": "added" },
+    { "path": "website/app/shared.tsx", "status": "added" },
+    { "path": "website/build/sites-vite-plugin.ts", "status": "added" },
+    { "path": "website/eslint.config.mjs", "status": "added" },
+    { "path": "website/lib/release.ts", "status": "added" },
+    { "path": "website/next.config.ts", "status": "added" },
+    { "path": "website/package-lock.json", "status": "added" },
+    { "path": "website/package.json", "status": "added" },
+    { "path": "website/postcss.config.mjs", "status": "added" },
+    { "path": "website/public/favicon.svg", "status": "added" },
+    { "path": "website/public/og.png", "status": "added" },
+    { "path": "website/public/release.json", "status": "added" },
+    { "path": "website/tests/rendered-html.test.mjs", "status": "added" },
+    { "path": "website/tsconfig.json", "status": "added" },
+    { "path": "website/vite.config.ts", "status": "added" },
+    { "path": "website/worker/index.ts", "status": "added" },
+    { "path": "provenance/entries/2026-07-21-public-site-manual-architecture.json", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0479",
+      "topic": "Public documentation and website architecture",
+      "decision": "Treat the landing page, manual, architecture guide, README, application shell title, and release metadata as versioned release surfaces driven by one checked public-version contract. Keep the public site informational only and state that the browser product and WebAssembly engine are not published.",
+      "rationale": "A visitor needs a persuasive product explanation without confusing implemented source targets with publicly shipped products. One checked release contract prevents the installer, site, and documentation from quietly diverging.",
+      "specBasis": ["FR-13.4", "FR-15.1", "V-5 release gate", "V-6 honesty rule"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Every public product surface names the exact release and the site renders its landing, manual, and architecture routes.",
+      "test": "Run the focused public-surface contract and the hosting-compatible server-render suite.",
+      "red": {
+        "command": "Initial public-surface inventory and first Windows website test",
+        "observedAt": "2026-07-21T01:09:00-06:00",
+        "outcome": "RED: the repository had no public site or unified manual; the starter had generic metadata, a divergent version, and a POSIX-only build command on Windows."
+      },
+      "green": {
+        "command": "pnpm.cmd check:public-surfaces && (website) npm.cmd test && npm.cmd audit --audit-level=low",
+        "observedAt": "2026-07-21T01:13:00-06:00",
+        "outcome": "GREEN: 2 cross-surface contract tests and 3 server-render route tests passed; the production build completed on Windows; npm reported zero vulnerabilities after bounded dependency updates."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "urn:scadmill:generated-hosting-starter-cleanup",
+      "sought": "Use the approved hosting-compatible starter only as the minimum deployment scaffold.",
+      "confirmation": "The generated starter initially carried unused database, authentication, preview, example, and placeholder-brand assets; all were removed before publication."
+    },
+    {
+      "url": "urn:scadmill:website-dependency-advisories",
+      "sought": "Confirm the new public site has no reported npm production or development dependency vulnerabilities.",
+      "confirmation": "The initial starter dependency set reported advisories; bounded direct dependency updates plus fixed PostCSS reached a literal zero-vulnerability npm audit before publication."
+    }
+  ],
+  "questions": ["No owner decision is required; the owner explicitly directed the implementer to create and publish these launch surfaces."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
