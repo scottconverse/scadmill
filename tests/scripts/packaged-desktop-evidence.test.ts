@@ -924,10 +924,15 @@ describe("packaged desktop evidence helpers", () => {
     expect(runner).toContain('clickButton(client, "Clear AI key")');
     expect(runner).toContain('setControl(client, "AI provider", "none")');
     expect(runner).toContain("m4SecretScan");
-    expect(runner).toContain("restartApplication: async (expectedSource) => {");
+    expect(runner).toContain("restartApplication: async (expectedSource, expectedProjectPath) => {");
     expect(runner).toContain('assert.equal(savedSource, expectedSource, "M4 restart source differs from the helper\'s cold-cache source.");');
     expect(runner).toContain('(await readFile(m4ProjectFile, "utf8")) === expectedSource');
+    expect(runner).toContain("M4_DOM_SCRIPTS.thumbnailSnapshot");
+    expect(runner).toContain("persistedThumbnailSha256");
     expect(runner).toContain("await openDesktopProject(client, m4ProjectDirectory, expectedSource);");
+    expect(runner.indexOf("M4_DOM_SCRIPTS.thumbnailSnapshot")).toBeLessThan(
+      runner.indexOf("await openDesktopProject(client, m4ProjectDirectory, expectedSource);"),
+    );
     expect(runner).toContain('await clickButton(client, "Save active file");\n  await waitFor(async () => (await readFile(m4ProjectFile, "utf8")) === m4InitialSource');
     expect(wrapper).toContain('Copy-Item -LiteralPath (Join-Path $repo "scripts\\lib\\m4-packaged-walkthrough.mjs")');
     expect(wrapper).toContain('Copy-Item -LiteralPath (Join-Path $repo "scripts\\lib\\m4-packaged-verifier.mjs")');

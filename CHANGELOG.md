@@ -124,6 +124,8 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Fixed
 
+- The packaged M4 restart proof now hashes the persisted thumbnail bytes in the fresh WebView before reopening the project, then requires the post-open render to retain the same canonical geometry identity and valid dimensions. This proves actual persistence without incorrectly demanding deterministic PNG re-encoding, and dismisses Welcome before assertions so source restoration remains reachable on failure.
+
 - The packaged M4 thumbnail walkthrough and retained-artifact verifier now require the product's canonical `sha256:<64 lowercase hex>` geometry identity instead of incorrectly requiring a bare digest; malformed algorithm prefixes remain rejected.
 
 - Native and WASM 3D renders now derive enclosed volume from the exact binary STL triangle mesh with translation-stable compensated summation, and the desktop wire carries the native result explicitly. This replaces an ineffective search for a numeric `Volume:` line that official OpenSCAD 2026.06.12 does not emit, so real volume-changing edits can report AC-15.b's non-zero delta on both engine paths.

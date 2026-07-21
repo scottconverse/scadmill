@@ -63,6 +63,7 @@ export interface M4RestartEvidence {
   readonly beforePid: number;
   readonly afterPid: number;
   readonly freshWebViewProcesses: true;
+  readonly persistedThumbnailSha256: string;
 }
 
 export interface M4RendererTransportObservation {
@@ -90,7 +91,7 @@ export interface M4PackagedAutomation {
   stopAiMock(): Promise<readonly M4RawAiTranscriptRecord[]>;
   probeMcpDefaultDeny(): Promise<M4McpDefaultDenyEvidence>;
   runMcpAllowSessionJourney(): Promise<M4McpAllowSessionEvidence>;
-  restartApplication(expectedSource: string): Promise<M4RestartEvidence>;
+  restartApplication(expectedSource: string, projectPath: string): Promise<M4RestartEvidence>;
 }
 
 export interface M4PackagedWalkthroughOptions {

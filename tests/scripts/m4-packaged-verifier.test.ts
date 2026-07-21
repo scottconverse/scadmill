@@ -116,7 +116,7 @@ async function fixture() {
     delta: { unchanged: true, volumeDeltaMm3: 200, boundsDeltaMm: [2, 0, 0] },
     animation: { frame: 52, time: 0.51, fps: 24, scrubConsoleRunsAdded: 1, playConsoleRunsAdded: 1, serialized: true },
     thumbnails: { documentPath: "main.scad", renderIdentity: `sha256:${"1".repeat(64)}`, pngSha256: "2".repeat(64), byteLength: 100, width: 240, height: 160, persistedAcrossRestart: true },
-    restart: { beforePid: 100, afterPid: 200, freshWebViewProcesses: true },
+    restart: { beforePid: 100, afterPid: 200, freshWebViewProcesses: true, persistedThumbnailSha256: "2".repeat(64) },
     screenshots: SCREENSHOTS.map((name) => ({ name, sha256: sha256(bytes), byteLength: bytes.byteLength })),
     source: { initialSha256: sourceSha, restoredSha256: sourceSha, restoredExactly: true },
   };
@@ -248,6 +248,16 @@ describe("retained M4 packaged verifier", () => {
       ...input,
       events: [{ ...value.initialEvent, evidenceSha256: sha256(malformedIdentityText) }, value.cleanupEvent],
     })).rejects.toThrow("thumbnail evidence");
+    await writeFile(value.walkthroughPath, `${JSON.stringify(value.walkthrough, null, 2)}\n`);
+
+    const replacedPersistedThumbnail = structuredClone(value.walkthrough);
+    replacedPersistedThumbnail.restart.persistedThumbnailSha256 = "3".repeat(64);
+    const replacedPersistedThumbnailText = `${JSON.stringify(replacedPersistedThumbnail, null, 2)}\n`;
+    await writeFile(value.walkthroughPath, replacedPersistedThumbnailText);
+    await expect(verifyM4PackagedArtifacts({
+      ...input,
+      events: [{ ...value.initialEvent, evidenceSha256: sha256(replacedPersistedThumbnailText) }, value.cleanupEvent],
+    })).rejects.toThrow("restart evidence");
     await writeFile(value.walkthroughPath, `${JSON.stringify(value.walkthrough, null, 2)}\n`);
 
     const target = join(value.root, SCREENSHOTS[0]);

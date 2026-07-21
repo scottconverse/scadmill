@@ -16,6 +16,7 @@ import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 import { verifyM4PackagedArtifacts } from "./lib/m4-packaged-verifier.mjs";
 import {
+  M4_DOM_SCRIPTS,
   runM4PackagedWalkthrough,
   startScriptedM4LocalProviderMock,
 } from "./lib/m4-packaged-walkthrough.mjs";
@@ -1548,7 +1549,7 @@ try {
           mutationApproved: true,
         };
       },
-      restartApplication: async (expectedSource) => {
+      restartApplication: async (expectedSource, expectedProjectPath) => {
         await activateRail(client, "Files");
         const savedSource = await editorSource(client);
         assert.equal(savedSource, expectedSource, "M4 restart source differs from the helper's cold-cache source.");
@@ -1567,10 +1568,19 @@ try {
         await assertWelcomeStaysDisabled(client);
         const after = await requireSingleAppProcess(args.app, appSha256);
         const nextWebViews = await requireExactExecutableProcesses(webViewExecutable, webViewSha256, "M4 WebView processes after restart");
+        const persistedSnapshot = await client.execute(M4_DOM_SCRIPTS.thumbnailSnapshot);
+        assert.ok(persistedSnapshot && Array.isArray(persistedSnapshot.storageEntries)
+          && persistedSnapshot.storageEntries.length === 1, "M4 persisted thumbnail envelope is unavailable before project reopen.");
+        const persistedEnvelope = JSON.parse(persistedSnapshot.storageEntries[0].value);
+        assert.ok(persistedEnvelope?.version === 1 && Array.isArray(persistedEnvelope.records), "M4 persisted thumbnail envelope is invalid before project reopen.");
+        const persistedRecords = persistedEnvelope.records.filter((record) => record?.documentPath === expectedProjectPath);
+        assert.equal(persistedRecords.length, 1, "M4 persisted thumbnail record is not unique before project reopen.");
+        assert.ok(typeof persistedRecords[0].pngBase64 === "string" && persistedRecords[0].pngBase64.length > 0, "M4 persisted thumbnail bytes are unavailable before project reopen.");
+        const persistedThumbnailSha256 = fingerprint(Buffer.from(persistedRecords[0].pngBase64, "base64")).toLowerCase();
         await openDesktopProject(client, m4ProjectDirectory, expectedSource);
         assert.ok(nextWebViews.every(({ pid }) => !priorWebViews.some((prior) => prior.pid === pid)), "M4 restart retained a WebView process.");
         lastVerifiedAppProcess = after;
-        return { beforePid: before.pid, afterPid: after.pid, freshWebViewProcesses: true };
+        return { beforePid: before.pid, afterPid: after.pid, freshWebViewProcesses: true, persistedThumbnailSha256 };
       },
     },
   });

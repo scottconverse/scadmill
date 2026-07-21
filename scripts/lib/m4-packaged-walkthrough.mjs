@@ -1201,10 +1201,11 @@ function validateCachedPaint(value, limitMs) {
 }
 
 function validateRestart(value) {
-  assert.ok(exactKeys(value, ["beforePid", "afterPid", "freshWebViewProcesses"]), "Restart observation has the wrong shape.");
+  assert.ok(exactKeys(value, ["beforePid", "afterPid", "freshWebViewProcesses", "persistedThumbnailSha256"]), "Restart observation has the wrong shape.");
   assert.ok(Number.isSafeInteger(value.beforePid) && value.beforePid > 0, "Restart prior PID is invalid.");
   assert.ok(Number.isSafeInteger(value.afterPid) && value.afterPid > 0 && value.afterPid !== value.beforePid, "Restart did not create a fresh application process.");
   assert.equal(value.freshWebViewProcesses, true, "Restart did not create fresh WebView processes.");
+  assert.match(value.persistedThumbnailSha256, /^[a-f0-9]{64}$/u, "Restart did not retain a canonical thumbnail digest.");
 }
 
 export async function waitForM4AiProposalOutcome(
@@ -1491,8 +1492,9 @@ export async function runM4PackagedWalkthrough({
     await screenshot(automation, screenshots, "04g-welcome-recent-thumbnail.png");
     await automation.clickAria("Close welcome");
 
-    const restart = await automation.restartApplication(thumbnailCacheSource);
+    const restart = await automation.restartApplication(thumbnailCacheSource, projectPath);
     validateRestart(restart);
+    assert.equal(restart.persistedThumbnailSha256, fileTreeThumbnail.sha256, "Persisted thumbnail bytes changed before the project reopened.");
     await automation.waitForText("ScadMill");
     await automation.clickButton("Welcome");
     await automation.waitForText("Recent projects");
@@ -1500,8 +1502,8 @@ export async function runM4PackagedWalkthrough({
       M4_DOM_SCRIPTS.thumbnailDecodedSnapshot,
       ["welcome", projectPath, thumbnailCaptureNotBeforeMs],
     ), projectPath, "welcome");
-    assert.equal(restoredThumbnail.sha256, fileTreeThumbnail.sha256, "Thumbnail bytes changed across restart.");
     await automation.clickAria("Close welcome");
+    assert.equal(restoredThumbnail.renderIdentity, fileTreeThumbnail.renderIdentity, "Thumbnail geometry identity changed across restart.");
     const coldCached = validateCachedPaint(await automation.executeAsync(M4_DOM_SCRIPTS.cachedPaint), cachePaintLimitMs);
     order.push("restart");
     await screenshot(automation, screenshots, "04h-cold-cache-restored-thumbnail.png");

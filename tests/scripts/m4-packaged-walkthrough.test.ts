@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { request as requestHttp } from "node:http";
 import { deflateSync } from "node:zlib";
 import { Window } from "happy-dom";
@@ -97,7 +98,7 @@ describe("M4 packaged newcomer walkthrough", () => {
         throw new Error("native MCP boundary reached");
       },
       runMcpAllowSessionJourney: async () => { throw new Error("not reached"); },
-      restartApplication: async () => ({ beforePid: 1, afterPid: 2, freshWebViewProcesses: true }),
+      restartApplication: async () => ({ beforePid: 1, afterPid: 2, freshWebViewProcesses: true, persistedThumbnailSha256: "0".repeat(64) }),
     };
 
     await expect(runM4PackagedWalkthrough({
@@ -623,7 +624,7 @@ describe("M4 packaged newcomer walkthrough", () => {
         protocolVersion: "2025-11-25", toolNames: [], preview: { kind: "3d", triangles: 12 },
         diagnostics: { quality: "preview", count: 0 }, pendingReview: { status: "pending_review" }, mutationApproved: true,
       }),
-      restartApplication: async () => ({ beforePid: 1, afterPid: 2, freshWebViewProcesses: true }),
+      restartApplication: async () => ({ beforePid: 1, afterPid: 2, freshWebViewProcesses: true, persistedThumbnailSha256: "0".repeat(64) }),
     };
 
     await expect(runM4PackagedWalkthrough({
@@ -680,7 +681,7 @@ describe("M4 packaged newcomer walkthrough", () => {
         protocolVersion: "2025-11-25", toolNames: [], preview: { kind: "3d", triangles: 12 },
         diagnostics: { quality: "preview", count: 0 }, pendingReview: { status: "pending_review" }, mutationApproved: true,
       }),
-      restartApplication: async () => ({ beforePid: 1, afterPid: 2, freshWebViewProcesses: true }),
+      restartApplication: async () => ({ beforePid: 1, afterPid: 2, freshWebViewProcesses: true, persistedThumbnailSha256: "0".repeat(64) }),
     };
 
     await expect(runM4PackagedWalkthrough({
@@ -759,7 +760,7 @@ describe("M4 packaged newcomer walkthrough", () => {
         protocolVersion: "2025-11-25", toolNames: [], preview: { kind: "3d", triangles: 12 },
         diagnostics: { quality: "preview", count: 0 }, pendingReview: { status: "pending_review" }, mutationApproved: true,
       }),
-      restartApplication: async () => ({ beforePid: 1, afterPid: 2, freshWebViewProcesses: true }),
+      restartApplication: async () => ({ beforePid: 1, afterPid: 2, freshWebViewProcesses: true, persistedThumbnailSha256: "0".repeat(64) }),
     };
 
     let failure = "";
@@ -1067,7 +1068,12 @@ describe("M4 packaged newcomer walkthrough", () => {
         expect(expectedSource).toBe(`${initialSource}\n// M4 thumbnail cold-cache`);
         calls.push("restart");
         restartCount += 1;
-        return { beforePid: 100, afterPid: 200, freshWebViewProcesses: true };
+        return {
+          beforePid: 100,
+          afterPid: 200,
+          freshWebViewProcesses: true,
+          persistedThumbnailSha256: createHash("sha256").update(PNG).digest("hex"),
+        };
       },
     };
 
@@ -1109,6 +1115,7 @@ describe("M4 packaged newcomer walkthrough", () => {
       delta: { unchanged: true, volumeDeltaMm3: 200, boundsDeltaMm: [2, 0, 0] },
       animation: { frame: 52, time: 0.51, scrubConsoleRunsAdded: 1, playConsoleRunsAdded: 1, serialized: true },
       thumbnails: { documentPath: "main.scad", width: 240, height: 160, persistedAcrossRestart: true },
+      restart: { persistedThumbnailSha256: createHash("sha256").update(PNG).digest("hex") },
       source: { restoredExactly: true },
     });
     expect(restartCount).toBe(1);
