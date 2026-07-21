@@ -12,6 +12,8 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Added
 
+- Added the M5 model-history timeline: each accepted non-animation render records its source, parameter overrides, quality, geometry identity, and bounded preview thumbnail; users can scrub a real source diff and restore any retained snapshot as one undoable command. History is session-only by default, capped at 100 snapshots per workspace, and can be explicitly persisted per project under a 16 MiB cap. Q-0040 records the still-open animation-frame inclusion policy without blocking ordinary history.
+
 - Added the official public product site, a plain-language and technical user manual, a dedicated architecture guide, and one enforced `0.1.0-beta.1` version contract spanning application manifests, installer facts, repository documentation, and every website route. The site is deliberately informational: it does not publish the browser product or OpenSCAD WebAssembly engine.
 
 - Corrected two stale historical README sentences immediately after publication so the live public front door reflects the merged M2–M4 branch and completed Windows installer gates.

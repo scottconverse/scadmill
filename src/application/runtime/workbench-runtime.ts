@@ -34,6 +34,12 @@ import {
   type WorkspaceLayoutAction,
   type WorkspaceLayoutState,
 } from "../layout/workspace-layout";
+import {
+  EPHEMERAL_MODEL_HISTORY_PERSISTENCE,
+  type ModelHistoryPersistenceState,
+  ModelHistoryTimeline,
+  type ModelHistorySnapshot,
+} from "../model-history/model-history";
 import { writeParameterValues } from "../parameters/parameter-overrides";
 import {
   createParameterState,
@@ -133,6 +139,8 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     ?? EPHEMERAL_RENDER_DISK_CACHE_PREFERENCES;
   const renderThumbnails: RenderThumbnailPersistence = options.renderThumbnailPersistence
     ?? EPHEMERAL_RENDER_THUMBNAIL_PERSISTENCE;
+  const modelHistoryPersistenceService = options.modelHistoryPersistence
+    ?? EPHEMERAL_MODEL_HISTORY_PERSISTENCE;
   let showWelcomeOnLaunch = false;
   try {
     showWelcomeOnLaunch = options.welcomePreferencePersistence?.load() ?? false;
@@ -226,6 +234,40 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
   );
   const history = createStore<readonly HistoryEntry[]>(() => []);
   const historyDetails = createStore<ReadonlyMap<string, HistoryDetail>>(() => new Map());
+  const modelHistory = createStore<readonly ModelHistorySnapshot[]>(() => []);
+  const modelHistoryTimeline = new ModelHistoryTimeline();
+  let modelHistorySequence = 0;
+  const initialModelHistorySupported = modelHistoryPersistenceService.supportsWorkspace(
+    initialProject.workspaceIdentity,
+  );
+  const initialModelHistoryEnabled = initialModelHistorySupported
+    && modelHistoryPersistenceService.isEnabled(initialProject.workspaceIdentity);
+  const modelHistoryPersistence = createStore<ModelHistoryPersistenceState>(() => ({
+    supported: initialModelHistorySupported,
+    enabled: initialModelHistoryEnabled,
+    status: "ready",
+  }));
+  if (initialModelHistoryEnabled) {
+    try {
+      for (const snapshot of modelHistoryPersistenceService.load(initialProject.workspaceIdentity)) {
+        modelHistoryTimeline.capture(snapshot);
+        if (snapshot.thumbnailPng) {
+          modelHistoryTimeline.attachThumbnail(
+            snapshot.workspaceIdentity,
+            snapshot.snapshotId,
+            snapshot.thumbnailPng,
+          );
+        }
+      }
+      modelHistory.setState(modelHistoryTimeline.listAll(), true);
+    } catch {
+      modelHistoryPersistence.setState({
+        supported: initialModelHistorySupported,
+        enabled: initialModelHistoryEnabled,
+        status: "error",
+      }, true);
+    }
+  }
   const controls = createStore<WorkbenchControlState>(() =>
     createWorkbenchControlState(showWelcomeOnLaunch)
   );
@@ -654,6 +696,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       // Preserve the reversible in-memory repository when optional metadata persistence fails.
     }
     annotationPersistence.setState(annotationRepository.state(), true);
+    activateModelHistoryWorkspace(state.workspaceIdentity);
     try {
       recentProjectsPersistence.save(state.project.recentProjects);
     } catch {
@@ -730,6 +773,88 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       });
     }
     return snapshot;
+  }
+
+  function captureModelHistory(
+    commandIdentity: string,
+    workspaceIdentity: string,
+    document: DocumentWorkspaceState["documents"][number],
+    quality: Quality,
+    parameterValues: Readonly<Record<string, ParamValue>>,
+    result: CacheableRenderResult,
+  ): string {
+    const capturedAt = now().toISOString();
+    let snapshotId: string;
+    do {
+      snapshotId = `${commandIdentity}:model-history:${capturedAt}:${++modelHistorySequence}`;
+    } while (modelHistoryTimeline.get(workspaceIdentity, snapshotId));
+    const renderIdentity = result.kind === "2d"
+      ? result.geometryIdentity
+      : result.mesh.geometryIdentity;
+    modelHistoryTimeline.capture({
+      snapshotId,
+      workspaceIdentity,
+      documentId: document.id,
+      documentPath: parseProjectPath(document.path),
+      renderIdentity: renderIdentity ?? snapshotId,
+      capturedAt,
+      quality,
+      source: document.source,
+      parameters: parameterValues,
+    });
+    modelHistory.setState(modelHistoryTimeline.listAll(), true);
+    persistModelHistory(workspaceIdentity);
+    return snapshotId;
+  }
+
+  function modelHistoryPersistenceState(workspaceIdentity: string): ModelHistoryPersistenceState {
+    const supported = modelHistoryPersistenceService.supportsWorkspace(workspaceIdentity);
+    return {
+      supported,
+      enabled: supported && modelHistoryPersistenceService.isEnabled(workspaceIdentity),
+      status: "ready",
+    };
+  }
+
+  function persistModelHistory(workspaceIdentity: string): void {
+    const state = modelHistoryPersistence.getState();
+    if (!state.supported || !state.enabled) return;
+    try {
+      modelHistoryPersistenceService.save(
+        workspaceIdentity,
+        modelHistoryTimeline.listWorkspace(workspaceIdentity),
+      );
+      if (state.status !== "ready") {
+        modelHistoryPersistence.setState({ ...state, status: "ready" }, true);
+      }
+    } catch {
+      modelHistoryPersistence.setState({ ...state, status: "error" }, true);
+    }
+  }
+
+  function activateModelHistoryWorkspace(workspaceIdentity: string): void {
+    let state: ModelHistoryPersistenceState;
+    try {
+      state = modelHistoryPersistenceState(workspaceIdentity);
+      if (state.enabled) {
+        for (const snapshot of modelHistoryPersistenceService.load(workspaceIdentity)) {
+          if (modelHistoryTimeline.get(workspaceIdentity, snapshot.snapshotId)) continue;
+          modelHistoryTimeline.capture(snapshot);
+          if (snapshot.thumbnailPng) {
+            modelHistoryTimeline.attachThumbnail(
+              workspaceIdentity,
+              snapshot.snapshotId,
+              snapshot.thumbnailPng,
+            );
+          }
+        }
+        modelHistory.setState(modelHistoryTimeline.listAll(), true);
+      }
+    } catch {
+      const supported = modelHistoryPersistenceService.supportsWorkspace(workspaceIdentity);
+      state = { supported, enabled: false, status: "error" };
+    }
+    modelHistoryPersistence.setState(state, true);
   }
 
   function parameterActionAffectsRender(action: ParameterAction): boolean {
@@ -1021,6 +1146,9 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
         pendingAutoRenders.clear();
         autoRenderTimer.clear();
       }
+      if (projectIdentityChanged) {
+        activateModelHistoryWorkspace(transition.project.snapshot.workspaceIdentity);
+      }
       updateAnnotationPaths(command, beforeProject.snapshot.projectId, beforeWorkspace);
       restoreWorkspaceAnnotations();
       if (transition.project.recentProjects !== beforeProject.recentProjects) {
@@ -1090,6 +1218,95 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       if (!renderDiskCache) throw new Error("Desktop render caching is unavailable.");
       await renderDiskCache.clear(current.snapshot.workspaceIdentity);
       record(command, makeId(), "Clear disk render cache for this project", false);
+      return;
+    }
+    if (command.kind === "attach-model-history-thumbnail") {
+      if (modelHistoryTimeline.attachThumbnail(
+        command.workspaceIdentity,
+        command.snapshotId,
+        command.pngBytes,
+      )) {
+        modelHistory.setState(modelHistoryTimeline.listAll(), true);
+        persistModelHistory(command.workspaceIdentity);
+      }
+      return;
+    }
+    if (command.kind === "set-project-model-history-persistence") {
+      const workspaceIdentity = project.getState().snapshot.workspaceIdentity;
+      if (!modelHistoryPersistenceService.supportsWorkspace(workspaceIdentity)) {
+        throw new Error("Persistent model history is unavailable for this workspace.");
+      }
+      try {
+        modelHistoryPersistenceService.setEnabled(workspaceIdentity, command.enabled);
+        modelHistoryPersistence.setState({
+          supported: true,
+          enabled: command.enabled,
+          status: "ready",
+        }, true);
+        if (command.enabled) persistModelHistory(workspaceIdentity);
+      } catch (error) {
+        modelHistoryPersistence.setState({
+          supported: true,
+          enabled: modelHistoryPersistence.getState().enabled,
+          status: "error",
+        }, true);
+        throw error;
+      }
+      record(
+        command,
+        makeId(),
+        command.enabled ? "Keep model history for this project" : "Use session-only model history",
+        false,
+      );
+      return;
+    }
+    if (command.kind === "restore-model-history-snapshot") {
+      const workspaceIdentity = project.getState().snapshot.workspaceIdentity;
+      const snapshot = modelHistoryTimeline.get(workspaceIdentity, command.snapshotId);
+      if (!snapshot) throw new Error(`Unknown model history snapshot: ${command.snapshotId}.`);
+      const beforeWorkspace = documents.getState();
+      const beforeParameters = parameters.getState();
+      const target = beforeWorkspace.documents.find(({ id }) => id === snapshot.documentId)
+        ?? beforeWorkspace.documents.find(({ path }) => parseProjectPath(path) === snapshot.documentPath);
+      if (!target) throw new Error(`Model history document is not open: ${snapshot.documentPath}.`);
+      const nextWorkspace = reduceDocumentWorkspace(beforeWorkspace, {
+        kind: "edit",
+        documentId: target.id,
+        source: snapshot.source,
+      });
+      documents.setState(nextWorkspace, true);
+      syncParameterDocuments(nextWorkspace);
+      let nextParameters = parameters.getState();
+      nextParameters = reduceParameterState(nextParameters, {
+        kind: "clear-overrides",
+        documentId: target.id,
+      });
+      nextParameters = reduceParameterState(nextParameters, {
+        kind: "set-values",
+        documentId: target.id,
+        values: snapshot.parameters,
+      });
+      parameters.setState(nextParameters, true);
+      const afterWorkspace = documents.getState();
+      const afterParameters = parameters.getState();
+      pushReversibleFrame(command, {
+        undo: () => replayWorkspaceState(beforeWorkspace, beforeParameters),
+        redo: () => replayWorkspaceState(afterWorkspace, afterParameters),
+      });
+      record(
+        command,
+        makeId(),
+        `Restore model history for ${snapshot.documentPath}`,
+        true,
+        {
+          kind: "source-diff",
+          path: snapshot.documentPath,
+          before: target.source,
+          after: snapshot.source,
+        },
+      );
+      cancelActiveRender();
+      scheduleAutoRender("preview", target.id);
       return;
     }
     const action = documentAction(command);
@@ -1606,8 +1823,16 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       && renderCache.touch?.(projectState.snapshot.workspaceIdentity, knownKey),
     );
     if (canReusePresentedResult) {
-      render.setState({ ...currentRender, cached: true }, true);
+      let modelHistorySnapshotId = commandId;
       if (command.animationTime === undefined) {
+        modelHistorySnapshotId = captureModelHistory(
+          commandId,
+          projectState.snapshot.workspaceIdentity,
+          document,
+          command.quality,
+          parameterValues,
+          currentRender.result as CacheableRenderResult,
+        );
         record(
           command,
           commandId,
@@ -1615,6 +1840,18 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
           false,
         );
       }
+      render.setState({
+        ...currentRender,
+        cached: true,
+        presentationToken: modelHistorySnapshotId,
+      }, true);
+      viewer.setState(reduceViewerState(viewer.getState(), {
+        kind: "present-result",
+        documentId: document.id,
+        modelIdentity: modelHistorySnapshotId,
+        quality: command.quality,
+        result: currentRender.result as CacheableRenderResult,
+      }), true);
       return;
     }
     let cachedResult: CachedRenderResult | undefined;
@@ -1630,6 +1867,23 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     if (cachedResult && knownKey) {
       const cacheJobId = `cache:${commandId}`;
       presentedCacheKeys.set(cachedResult.result, knownKey);
+      let modelHistorySnapshotId = commandId;
+      if (command.animationTime === undefined) {
+        modelHistorySnapshotId = captureModelHistory(
+          commandId,
+          projectState.snapshot.workspaceIdentity,
+          document,
+          command.quality,
+          parameterValues,
+          cachedResult.result,
+        );
+        record(
+          command,
+          commandId,
+          `Render ${document.path} at ${command.quality} quality`,
+          false,
+        );
+      }
       render.setState({
         status: "success",
         cached: true,
@@ -1641,20 +1895,12 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
         projectRevision,
         parameterValues,
         result: cachedResult.result,
-        presentationToken: commandId,
+        presentationToken: modelHistorySnapshotId,
       }, true);
-      if (command.animationTime === undefined) {
-        record(
-          command,
-          commandId,
-          `Render ${document.path} at ${command.quality} quality`,
-          false,
-        );
-      }
       viewer.setState(reduceViewerState(viewer.getState(), {
         kind: "present-result",
         documentId: document.id,
-        modelIdentity: commandId,
+        modelIdentity: modelHistorySnapshotId,
         quality: command.quality,
         result: cachedResult.result,
       }), true);
@@ -1720,6 +1966,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       ? await ensureGeometryIdentity(rawResult)
       : rawResult;
     if (render.getState().jobId !== job.jobId) return;
+    let successfulPresentationToken = commandId;
     const publishCompletedRender = () => {
       render.setState({
         status: result.kind === "failure" ? "failure" : "success",
@@ -1733,7 +1980,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
         parameterValues,
         result,
         cached: false,
-        presentationToken: result.kind === "failure" ? undefined : commandId,
+        presentationToken: result.kind === "failure" ? undefined : successfulPresentationToken,
       }, true);
     };
     if (result.kind === "failure") {
@@ -1752,6 +1999,19 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       return;
     }
 
+    let modelHistorySnapshotId = commandId;
+    if (command.animationTime === undefined) {
+      modelHistorySnapshotId = captureModelHistory(
+        commandId,
+        projectState.snapshot.workspaceIdentity,
+        document,
+        command.quality,
+        parameterValues,
+        result,
+      );
+    }
+    successfulPresentationToken = modelHistorySnapshotId;
+
     const engineInfo = renderCache ? await engineInfoForCache() : null;
     const cacheKey = engineInfo
       ? await createRenderCacheKey(request, engineInfo, rendering.profile.engine.executablePath)
@@ -1761,7 +2021,7 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       publishCompletedRender();
       return;
     }
-    const presentationJobId = commandId;
+    const presentationJobId = modelHistorySnapshotId;
     viewer.setState(reduceViewerState(viewer.getState(), {
       kind: "present-result",
       documentId: document.id,
@@ -1814,6 +2074,8 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
     project: readonlyStore(project),
     history: readonlyStore(history),
     historyDetails: readonlyStore(historyDetails),
+    modelHistory: readonlyStore(modelHistory),
+    modelHistoryPersistence: readonlyStore(modelHistoryPersistence),
     controls: readonlyStore(controls),
     renderThumbnails,
     dispatch,

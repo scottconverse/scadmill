@@ -11,6 +11,9 @@ export interface ExternalChangeDiffProps {
   readonly diskSource: string;
   readonly localSource: string;
   readonly onApply: (source: string) => void;
+  readonly beforeLabel?: string;
+  readonly afterLabel?: string;
+  readonly reviewOnly?: boolean;
 }
 
 const READ_ONLY_EDITOR = [
@@ -27,6 +30,9 @@ export function ExternalChangeDiff({
   diskSource,
   localSource,
   onApply,
+  beforeLabel = messages.localVersion,
+  afterLabel = messages.diskVersion,
+  reviewOnly = false,
 }: ExternalChangeDiffProps) {
   const host = useRef<HTMLDivElement>(null);
   const inlineView = useRef<EditorView | null>(null);
@@ -46,14 +52,14 @@ export function ExternalChangeDiff({
           doc: localSource,
           extensions: [
             ...READ_ONLY_EDITOR,
-            EditorView.contentAttributes.of({ "aria-label": messages.localVersion }),
+            EditorView.contentAttributes.of({ "aria-label": beforeLabel }),
           ],
         },
         b: {
           doc: diskSource,
           extensions: [
             ...READ_ONLY_EDITOR,
-            EditorView.contentAttributes.of({ "aria-label": messages.diskVersion }),
+            EditorView.contentAttributes.of({ "aria-label": afterLabel }),
           ],
         },
         parent,
@@ -91,7 +97,7 @@ export function ExternalChangeDiff({
       inlineView.current = null;
       view.destroy();
     };
-  }, [diskSource, layout, localSource]);
+  }, [afterLabel, beforeLabel, diskSource, layout, localSource]);
 
   const apply = () => {
     const view = inlineView.current;
@@ -101,7 +107,7 @@ export function ExternalChangeDiff({
 
   return (
     <div className="external-change-diff">
-      <fieldset className="external-change-diff-layout">
+      {!reviewOnly && <fieldset className="external-change-diff-layout">
         <legend>{messages.diffLayout}</legend>
         <label>
           <input
@@ -121,15 +127,15 @@ export function ExternalChangeDiff({
           />
           {messages.inlineDiff}
         </label>
-      </fieldset>
+      </fieldset>}
       {layout === "side-by-side" && (
         <div aria-hidden="true" className="external-change-diff-headings">
-          <span>{messages.localVersion}</span>
-          <span>{messages.diskVersion}</span>
+          <span>{beforeLabel}</span>
+          <span>{afterLabel}</span>
         </div>
       )}
       <div className="external-change-diff-editor" ref={host} />
-      {layout === "inline" && (
+      {!reviewOnly && layout === "inline" && (
         <div className="external-change-diff-actions">
           <p aria-live="polite">{messages.unresolvedDiffChunks(pendingChunks)}</p>
           <button disabled={pendingChunks !== 0} onClick={apply} type="button">

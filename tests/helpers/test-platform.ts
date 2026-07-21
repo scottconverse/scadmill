@@ -16,6 +16,7 @@ import { EPHEMERAL_SECRET_STORE, type SecretStore } from "../../src/application/
 import { EPHEMERAL_SETTINGS_PERSISTENCE, type SettingsPersistence } from "../../src/application/settings/settings-persistence";
 import { EPHEMERAL_WORKSPACE_METADATA_PERSISTENCE, type WorkspaceMetadataPersistence } from "../../src/application/viewer/annotation-persistence";
 import { HIDDEN_WELCOME_PREFERENCE, type WelcomePreferencePersistence } from "../../src/application/welcome/welcome-preference";
+import { EPHEMERAL_MODEL_HISTORY_PERSISTENCE, type ModelHistoryPersistence } from "../../src/application/model-history/model-history";
 
 const EMPTY_RECOVERY: RecoveryPersistence = {
   load: () => null,
@@ -52,6 +53,7 @@ export interface TestPlatformOverrides {
   readonly onRetryWasmEngine?: () => void;
   readonly renderDiskCachePreferencePersistence?: RenderDiskCachePreferencePersistence;
   readonly renderThumbnailPersistence?: RenderThumbnailPersistence;
+  readonly modelHistoryPersistence?: ModelHistoryPersistence;
 }
 
 export function createTestPlatform(
@@ -106,6 +108,7 @@ export function createTestPlatform(
       renderCache: unavailable(),
       renderCachePreferences: overrides.renderDiskCachePreferencePersistence ?? EPHEMERAL_RENDER_DISK_CACHE_PREFERENCES,
       renderThumbnails: overrides.renderThumbnailPersistence ?? EPHEMERAL_RENDER_THUMBNAIL_PERSISTENCE,
+      modelHistory: overrides.modelHistoryPersistence ?? EPHEMERAL_MODEL_HISTORY_PERSISTENCE,
     },
     artifacts: overrides.artifactDestination ?? UNAVAILABLE_ARTIFACT_DESTINATION,
     enginePathConfiguration: overrides.enginePathConfiguration

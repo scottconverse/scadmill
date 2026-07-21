@@ -193,23 +193,32 @@ export function ViewerPaneConnector({
       onMcpScreenshotCaptureAvailable={onMcpScreenshotCaptureAvailable}
       onPresentationFailed={onPresentationFailed}
       onPresentationReady={onPresentationReady}
-      onThumbnail={thumbnailWorkspaceSupported
-        ? (bytes) => {
-            const result = viewer.presentation?.result;
-            const renderIdentity = result?.kind === "2d"
-              ? result.geometryIdentity
-              : result?.kind === "3d"
-                ? result.mesh.geometryIdentity
-                : undefined;
-            if (!isSha256GeometryIdentity(renderIdentity)) return;
-            runtime.renderThumbnails.save(project.snapshot.workspaceIdentity, {
-              documentPath: thumbnailDocumentPath,
-              renderIdentity,
-              capturedAt: new Date().toISOString(),
-              pngBytes: bytes,
-            });
-          }
-        : undefined}
+      onThumbnail={(bytes) => {
+        const snapshotId = viewer.presentation?.renderIdentity;
+        if (snapshotId) {
+          void runtime.dispatch({
+            kind: "attach-model-history-thumbnail",
+            origin: "system",
+            workspaceIdentity: project.snapshot.workspaceIdentity,
+            snapshotId,
+            pngBytes: bytes,
+          }).catch(() => undefined);
+        }
+        if (!thumbnailWorkspaceSupported) return;
+        const result = viewer.presentation?.result;
+        const renderIdentity = result?.kind === "2d"
+          ? result.geometryIdentity
+          : result?.kind === "3d"
+            ? result.mesh.geometryIdentity
+            : undefined;
+        if (!isSha256GeometryIdentity(renderIdentity)) return;
+        runtime.renderThumbnails.save(project.snapshot.workspaceIdentity, {
+          documentPath: thumbnailDocumentPath,
+          renderIdentity,
+          capturedAt: new Date().toISOString(),
+          pngBytes: bytes,
+        });
+      }}
       onCancel={cancel}
       onLayoutAction={onLayoutAction}
       onShowConsole={onShowConsole}

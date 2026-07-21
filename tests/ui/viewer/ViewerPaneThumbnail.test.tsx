@@ -97,7 +97,7 @@ function thumbnailProject(identity: string) {
   };
 }
 
-it("does not capture an automatic thumbnail for an unsaved scratch document", async () => {
+it("captures a session thumbnail without persistently saving an unsaved scratch document", async () => {
   captureThumbnailPng.mockReset().mockResolvedValue(Uint8Array.of(9));
   const save = vi.fn();
   const runtime = createWorkbenchRuntime({
@@ -123,7 +123,7 @@ it("does not capture an automatic thumbnail for an unsaved scratch document", as
   act(() => reportFrameRendered?.());
   await act(() => delay(300));
 
-  expect(captureThumbnailPng).not.toHaveBeenCalled();
+  expect(captureThumbnailPng).toHaveBeenCalledOnce();
   expect(save).not.toHaveBeenCalled();
   view.unmount();
   runtime.dispose();

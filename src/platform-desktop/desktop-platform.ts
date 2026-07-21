@@ -9,6 +9,7 @@ import {
   createDesktopWorkspaceMetadataPersistence,
 } from "./desktop-project-metadata";
 import { createDesktopRenderThumbnailPersistence } from "./desktop-thumbnail-persistence";
+import { createDesktopModelHistoryPersistence } from "./model-history-persistence";
 import { createDesktopWelcomePreferencePersistence } from "./desktop-welcome-preference";
 import { createEnginePathConfiguration } from "./engine-path-configuration";
 import { createTauriArtifactDestination } from "./tauri-artifact-destination";
@@ -86,6 +87,7 @@ export async function createDesktopPlatform(): Promise<ScadMillPlatform> {
       renderCache: available(createTauriRenderCacheStorage()),
       renderCachePreferences: createDesktopRenderDiskCachePreferencePersistence(),
       renderThumbnails: createDesktopRenderThumbnailPersistence(),
+      modelHistory: createDesktopModelHistoryPersistence(),
     },
     artifacts: createTauriArtifactDestination(),
     enginePathConfiguration: available(enginePathConfiguration),

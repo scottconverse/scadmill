@@ -2,7 +2,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import type { EngineService } from "../../../src/application/engine/contracts";
+import type { EngineService, RenderSuccess2D } from "../../../src/application/engine/contracts";
 import { createWorkbenchRuntime } from "../../../src/application/runtime/workbench-runtime";
 import { HistoryActivityConnector } from "../../../src/ui/mcp/HistoryActivityConnector";
 
@@ -41,6 +41,43 @@ describe("HistoryActivityConnector", () => {
     await runtime.dispatch({ kind: "clear-console", origin: "user" });
     render(<Parent />);
     expect(screen.getByText("Clear console")).toBeVisible();
+    runtime.dispose();
+  });
+
+  it("connects accepted renders to the active document model timeline", async () => {
+    const result: RenderSuccess2D = {
+      kind: "2d",
+      svg: '<svg xmlns="http://www.w3.org/2000/svg"/>',
+      boundingBox: { min: [0, 0], max: [10, 10] },
+      diagnostics: [],
+      rawLog: "",
+    };
+    const engine: EngineService = {
+      render: vi.fn(() => ({
+        jobId: "timeline-render",
+        done: Promise.resolve(result),
+        subscribeOutput: () => () => undefined,
+      })),
+      export: vi.fn(), version: vi.fn(), cancel: vi.fn(),
+    };
+    const runtime = createWorkbenchRuntime(engine, {
+      renderCache: null,
+      rendering: { autoRender: false },
+    });
+    render(
+      <HistoryActivityConnector
+        onApprove={vi.fn()}
+        onDeny={vi.fn()}
+        pendingReviews={[]}
+        runtime={runtime}
+        sourceForPath={() => "cube(10);"}
+      />,
+    );
+
+    await act(() => runtime.dispatch({ kind: "render-active", origin: "user", quality: "full" }));
+
+    expect(screen.getByRole("slider", { name: "Model history snapshot" })).toHaveValue("0");
+    expect(screen.getByRole("button", { name: "Restore snapshot 1" })).toBeVisible();
     runtime.dispose();
   });
 });

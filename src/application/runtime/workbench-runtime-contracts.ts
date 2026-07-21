@@ -10,6 +10,11 @@ import type { ProjectFileContent, ProjectSnapshot } from "../files/project-snaps
 import type { RecentProjectsPersistence } from "../files/recent-projects";
 import type { McpPermission, McpToolName } from "../mcp/mcp-tools";
 import type {
+  ModelHistoryPersistence,
+  ModelHistoryPersistenceState,
+  ModelHistorySnapshot,
+} from "../model-history/model-history";
+import type {
   WorkspaceLayoutAction,
   WorkspaceLayoutState,
 } from "../layout/workspace-layout";
@@ -99,6 +104,19 @@ export type WorkbenchCommand =
   | { kind: "write-parameter-values"; origin: CommandOrigin; documentId: string }
   | { kind: "history-undo"; origin: CommandOrigin }
   | { kind: "history-redo"; origin: CommandOrigin }
+  | { kind: "restore-model-history-snapshot"; origin: CommandOrigin; snapshotId: string }
+  | {
+      kind: "set-project-model-history-persistence";
+      origin: CommandOrigin;
+      enabled: boolean;
+    }
+  | {
+      kind: "attach-model-history-thumbnail";
+      origin: "system";
+      workspaceIdentity: string;
+      snapshotId: string;
+      pngBytes: Uint8Array;
+    }
   | {
       kind: "render-active";
       origin: CommandOrigin;
@@ -141,6 +159,8 @@ export interface WorkbenchRuntime {
   project: ReadonlyStore<ProjectSessionState>;
   history: ReadonlyStore<readonly HistoryEntry[]>;
   historyDetails: ReadonlyStore<ReadonlyMap<string, HistoryDetail>>;
+  modelHistory: ReadonlyStore<readonly ModelHistorySnapshot[]>;
+  modelHistoryPersistence: ReadonlyStore<ModelHistoryPersistenceState>;
   controls: ReadonlyStore<WorkbenchControlState>;
   readonly renderThumbnails: RenderThumbnailPersistence;
   dispatch(command: WorkbenchCommand): Promise<void>;
@@ -166,5 +186,6 @@ export interface RuntimeOptions {
   renderDiskCacheStorage?: RenderDiskCacheStorage;
   renderDiskCachePreferencePersistence?: RenderDiskCachePreferencePersistence;
   renderThumbnailPersistence?: RenderThumbnailPersistence;
+  modelHistoryPersistence?: ModelHistoryPersistence;
   welcomePreferencePersistence?: WelcomePreferencePersistence;
 }

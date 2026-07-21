@@ -1,0 +1,92 @@
+.model-history-panel {
+  display: grid;
+  gap: 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--chrome-border);
+}
+
+.model-history-panel h2,
+.model-history-panel h3 {
+  margin: 0;
+  font-size: 12px;
+}
+
+.model-history-persistence {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--chrome-text-muted);
+  font-size: 11px;
+}
+
+.model-history-error {
+  margin: 0;
+  color: var(--chrome-badge-error);
+  font-size: 11px;
+}
+
+.model-history-scrubber {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 8px;
+  align-items: center;
+}
+
+.model-history-scrubber input {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+.model-history-detail {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--chrome-border);
+  background: var(--chrome-surface-raised);
+}
+
+.model-history-detail > header {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.model-history-detail > header div,
+.model-history-detail time {
+  display: block;
+  min-width: 0;
+}
+
+.model-history-detail time,
+.model-history-detail > header span {
+  color: var(--chrome-text-muted);
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+
+.model-history-thumbnail,
+.model-history-thumbnail-empty {
+  width: 100%;
+  max-width: 240px;
+  aspect-ratio: 3 / 2;
+  margin-inline: auto;
+  object-fit: contain;
+  border: 1px solid var(--chrome-border);
+  border-radius: 4px;
+  background: var(--chrome-surface);
+}
+
+.model-history-thumbnail-empty {
+  display: grid;
+  place-items: center;
+  padding: 8px;
+  color: var(--chrome-text-muted);
+  text-align: center;
+}
+
+.model-history-source-diff pre,
+.model-history-detail details pre {
+  max-width: 100%;
+  overflow: auto;
+}

@@ -12,6 +12,7 @@ import type { ProjectDirectoryPicker, WorkspaceDirectory } from "../files/worksp
 import type { RenderDiskCachePreferencePersistence } from "../render-cache/render-cache-preference";
 import type { RenderDiskCacheStorage } from "../render-cache/render-disk-cache";
 import type { RenderThumbnailPersistence } from "../render-cache/render-thumbnail-persistence";
+import type { ModelHistoryPersistence } from "../model-history/model-history";
 import type { WorkspaceLayoutPersistence } from "../runtime/layout-persistence";
 import type { SecretStore } from "../settings/secret-store";
 import type { SettingsPersistence } from "../settings/settings-persistence";
@@ -158,6 +159,7 @@ export interface ScadMillPlatform {
     readonly renderCache: PlatformFeature<RenderDiskCacheStorage>;
     readonly renderCachePreferences: RenderDiskCachePreferencePersistence;
     readonly renderThumbnails: RenderThumbnailPersistence;
+    readonly modelHistory: ModelHistoryPersistence;
   };
   readonly artifacts: ArtifactDestination;
   readonly enginePathConfiguration: PlatformFeature<EnginePathConfiguration>;

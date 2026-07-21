@@ -2,6 +2,7 @@ import { UnavailableEngineService } from "../application/engine/unavailable-engi
 import { available, type ScadMillPlatform, unavailable } from "../application/platform/scadmill-platform";
 import { EPHEMERAL_RENDER_DISK_CACHE_PREFERENCES } from "../application/render-cache/render-cache-preference";
 import { createBrowserRenderThumbnailPersistence } from "../platform-desktop/desktop-thumbnail-persistence";
+import { createBrowserModelHistoryPersistence } from "../platform-desktop/model-history-persistence";
 import { createBrowserArtifactDestination } from "./browser-artifact-destination";
 import { createBrowserLayoutPersistence } from "./browser-layout-persistence";
 import {
@@ -67,6 +68,7 @@ export function createWebPlatform(): ScadMillPlatform {
       renderCache: unavailable(),
       renderCachePreferences: EPHEMERAL_RENDER_DISK_CACHE_PREFERENCES,
       renderThumbnails: createBrowserRenderThumbnailPersistence(),
+      modelHistory: createBrowserModelHistoryPersistence(),
     },
     artifacts: createBrowserArtifactDestination(),
     enginePathConfiguration: unavailable(),

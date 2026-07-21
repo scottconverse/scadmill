@@ -33,6 +33,7 @@ export default defineConfig(({ mode }) => ({
   },
   test: {
     environment: "node",
+    exclude: ["website/**", "node_modules/**", "dist/**"],
     setupFiles: ["./tests/setup.ts"],
   },
 }));

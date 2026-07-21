@@ -250,10 +250,12 @@ describe("createWorkbenchRuntime", () => {
     expect(cacheTouch).toHaveBeenCalledOnce();
     expect(engine.render).toHaveBeenCalledTimes(1);
     expect(engine.version).toHaveBeenCalledTimes(1);
-    expect(viewerUpdate).not.toHaveBeenCalled();
+    expect(viewerUpdate).toHaveBeenCalledOnce();
     expect(layoutUpdate).not.toHaveBeenCalled();
-    expect(runtime.viewer.getState().documents.get("document-main")?.presentation).toBe(presentationBefore);
-    expect(runtime.render.getState().result).toBe(presentationBefore?.result);
+    const presentationAfter = runtime.viewer.getState().documents.get("document-main")?.presentation;
+    expect(presentationAfter?.result).toBe(presentationBefore?.result);
+    expect(presentationAfter?.modelIdentity).toBe(presentationBefore?.modelIdentity);
+    expect(presentationAfter?.renderIdentity).not.toBe(presentationBefore?.renderIdentity);
     expect(runtime.render.getState()).toMatchObject({
       status: "success",
       cached: true,
@@ -324,9 +326,13 @@ describe("createWorkbenchRuntime", () => {
     expect(cachedA.mesh.bytes[0]).toBe(1);
 
     await runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
+    const reusedPresentation = runtime.render.getState().presentationToken;
     expect(cacheGet).toHaveBeenCalledOnce();
     expect(runtime.render.getState().result).toBe(cachedA);
-    expect(runtime.render.getState().presentationToken).toBe(returnedPresentation);
+    expect(reusedPresentation).not.toBe(returnedPresentation);
+    expect(runtime.viewer.getState().documents.get("document-main")?.presentation?.renderIdentity)
+      .toBe(runtime.modelHistory.getState().at(-1)?.snapshotId);
+    expect(runtime.modelHistory.getState()).toHaveLength(4);
   });
 
   it("checks a cold disk-capable tier before invoking the engine", async () => {
@@ -426,6 +432,7 @@ describe("createWorkbenchRuntime", () => {
     expect(runtime.viewer.getState().documents.get("document-main")?.presentation).toMatchObject({
       result: { kind: "3d" },
     });
+    expect(runtime.modelHistory.getState()).toHaveLength(1);
     releasePut();
     await pending;
   });
@@ -467,7 +474,7 @@ describe("createWorkbenchRuntime", () => {
       result: { kind: "3d", stats: { triangles: 12 } },
     });
     expect(runtime.viewer.getState().documents.get("document-main")?.presentation).toMatchObject({
-      modelIdentity: "command-2",
+      modelIdentity: runtime.render.getState().presentationToken,
       quality: "preview",
       result: { kind: "3d", stats: { triangles: 12 } },
     });
@@ -518,7 +525,7 @@ describe("createWorkbenchRuntime", () => {
     await runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
 
     expect(runtime.viewer.getState().documents.get("document-main")?.presentation).toMatchObject({
-      modelIdentity: "render-2d-command",
+      modelIdentity: runtime.render.getState().presentationToken,
       quality: "preview",
       result: {
         ...drawing,
@@ -557,10 +564,12 @@ describe("createWorkbenchRuntime", () => {
     const runtime = createWorkbenchRuntime(engine, { makeId: () => "render-command" });
 
     await runtime.dispatch({ kind: "render-active", origin: "user", quality: "preview" });
+    const firstModelIdentity = runtime.viewer.getState().documents
+      .get("document-main")?.presentation?.modelIdentity;
     await runtime.dispatch({ kind: "render-active", origin: "user", quality: "full" });
 
     expect(runtime.viewer.getState().documents.get("document-main")?.presentation).toMatchObject({
-      modelIdentity: "render-command",
+      modelIdentity: firstModelIdentity,
       geometryDelta: { kind: "unchanged" },
       result: { kind: "3d", mesh: { geometryIdentity: expect.stringMatching(/^sha256:/u) } },
     });

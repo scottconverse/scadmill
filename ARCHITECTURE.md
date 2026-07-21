@@ -35,7 +35,7 @@ The web-source adapter uses a module worker, verifies the exact JavaScript/WASM 
 - Desktop projects remain in user-selected folders. Windows Credential Manager owns desktop secrets.
 - Settings, layout, recovery, recent-project metadata, annotations, and optional project cache use typed persistence ports.
 - Render-cache persistence is off by default, enabled per project, bounded, integrity-checked, and ineligible for scratch work.
-- Editor buffers and history are application state. Every render result is bound to the exact source snapshot that produced it.
+- Editor buffers and command history are application state. The M5 model-history service binds each accepted render to source, parameters, quality, geometry identity, and a thumbnail. Its 100-snapshot session timeline is the default; project persistence is a separate explicit opt-in through a platform port and is capped at 16 MiB.
 - Uninstall removes the app and association, not user projects or necessarily every profile/credential record.
 
 ## Network and privacy boundaries

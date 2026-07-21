@@ -12,6 +12,7 @@ Numbered questions are appended here under §2.7. Only the affected work item is
 | Open/actionable — policy gate | Q-0002 | Q-0002 does not block product implementation. |
 | Open/actionable — scoped behavior | Q-0003, Q-0005–Q-0010, Q-0013, Q-0015–Q-0019, Q-0021–Q-0022, Q-0024–Q-0028, Q-0030–Q-0031 | Each blocks only the item named in its **Blocked** field; no question silently blocks unrelated work. |
 | Open/actionable — M4 scoped behavior | Q-0035–Q-0037 | Conservative implementation proceeds under §2.7; each question parks only alternate owner-selected semantics or final wording. |
+| Open/actionable — M5 scoped behavior | Q-0040 | The model-history timeline snapshots accepted non-animation renders; only alternate animation-frame inclusion is parked. |
 | Resolved — public beta license | Q-0038 | The owner selected Apache-2.0 for ScadMill's original application code and installer license surface. |
 | Resolved — public beta security policy | Q-0039 | GitHub private vulnerability reporting is the documented channel; no bounty or response-time SLA is promised. |
 | Open/historical — delivered conservatively | Q-0004, Q-0011–Q-0012, Q-0014, Q-0020, Q-0023, Q-0029 | M2/M3 delivered the stricter or later capability named by each question. The owner answer still governs the historical milestone interpretation. |
@@ -54,6 +55,13 @@ Numbered questions are appended here under §2.7. Only the affected work item is
 - **Blocked:** No security-reporting owner decision remains. Public release remains subject to the other release gates.
 - **Owner decision (2026-07-19):** Use GitHub private vulnerability reporting and publish `SECURITY.md` without a bug bounty or response-time SLA.
 - **Resolution evidence:** The repository security policy links directly to ScadMill's private GitHub advisory form, warns against public disclosure and inclusion of secrets, defines the latest public Windows beta as the supported line once one exists, and explicitly makes no bounty or timing commitment. Repository-level private vulnerability reporting is enabled on GitHub.
+
+## Q-0040 — Open — 2026-07-21
+
+- **Section:** FR-4.10; FR-15.3; AC-15.c; M5 model history
+- **Question:** Does “every successful render” include each automated animation frame, or should the model-history timeline snapshot only accepted non-animation renders initiated by normal preview/full workflows?
+- **Evidence:** FR-4.10's fixed 100-frame scrubber can issue many successful frame renders whose source and parameter overrides are identical and whose only changing input is `$t`. FR-15.3 says each snapshot stores source, parameters, and a thumbnail but does not name animation time or define how a 100-frame playthrough should interact with the persistence cap. Recording every frame would rapidly evict the user's ordinary design history and produce entries that cannot faithfully restore `$t` from the specified snapshot payload.
+- **Blocked:** Only an owner-selected animation-frame inclusion policy and any corresponding `$t` snapshot field. The conservative implementation records every accepted non-animation preview/full render, excludes automated animation-frame commands, and continues all unrelated M5 work.
 
 ## Q-0032 — Resolved 2026-07-14 — owner-directed
 

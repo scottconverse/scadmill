@@ -1,0 +1,139 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-21-m5-model-history-timeline",
+  "createdAt": "2026-07-21T12:50:00-06:00",
+  "summary": "Implement the M5 model-history timeline with bounded snapshots, thumbnails, real source diffs, undoable restore, and explicit per-project persistence.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 delivery protocol", "FR-15.3", "FR-15.13", "AC-15.c", "M5"],
+  "filesTouched": [
+    { "path": "ARCHITECTURE.md", "status": "modified" },
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "spec/QUESTIONS.md", "status": "modified" },
+    { "path": "src/app/App.tsx", "status": "modified" },
+    { "path": "src/application/model-history/model-history.ts", "status": "added" },
+    { "path": "src/application/platform/scadmill-platform.ts", "status": "modified" },
+    { "path": "src/application/runtime/workbench-runtime-contracts.ts", "status": "modified" },
+    { "path": "src/application/runtime/workbench-runtime.ts", "status": "modified" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/platform-desktop/desktop-platform.ts", "status": "modified" },
+    { "path": "src/platform-desktop/model-history-persistence.ts", "status": "added" },
+    { "path": "src/platform-web/web-platform.ts", "status": "modified" },
+    { "path": "src/ui/files/ExternalChangeDiff.tsx", "status": "modified" },
+    { "path": "src/ui/history/ModelHistoryPanel.tsx", "status": "added" },
+    { "path": "src/ui/history/model-history-panel.css", "status": "added" },
+    { "path": "src/ui/mcp/HistoryActivityConnector.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/ViewerPaneConnector.tsx", "status": "modified" },
+    { "path": "tests/application/model-history/model-history.test.ts", "status": "added" },
+    { "path": "tests/application/runtime/workbench-runtime-model-history.test.ts", "status": "added" },
+    { "path": "tests/application/runtime/workbench-runtime.test.ts", "status": "modified" },
+    { "path": "tests/helpers/test-platform.ts", "status": "modified" },
+    { "path": "tests/platform-desktop/model-history-persistence.test.ts", "status": "added" },
+    { "path": "tests/scripts/m2-boundary-docs.test.ts", "status": "modified" },
+    { "path": "tests/ui/history/ModelHistoryPanel.test.tsx", "status": "added" },
+    { "path": "tests/ui/mcp/HistoryActivityConnector.test.tsx", "status": "modified" },
+    { "path": "tests/ui/viewer/ViewerPaneThumbnail.test.tsx", "status": "modified" },
+    { "path": "vite.config.ts", "status": "modified" },
+    { "path": "provenance/entries/2026-07-21-m5-model-history-timeline.json", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0481",
+      "topic": "Model-history retention and persistence",
+      "decision": "Keep model history session-scoped by default, retain at most 100 snapshots per workspace, and offer a separate explicit per-project opt-in whose serialized UTF-16 storage envelope is capped at 16 MiB.",
+      "rationale": "This preserves the specification's default privacy/lifetime boundary, prevents unbounded memory or profile growth, and makes durable project storage an intentional user choice rather than an implicit write.",
+      "specBasis": ["FR-15.3", "N-1", "N-5"]
+    },
+    {
+      "id": "D-0482",
+      "topic": "Snapshot document identity",
+      "decision": "Retain the render-time document id for same-session precision but fall back to the stable normalized project path when a project is reopened with newly allocated document ids.",
+      "rationale": "Document ids are runtime-local and change across confirmed project replacements, while workspace identity plus project-relative path remains the stable key required to keep same-session and persisted history reachable.",
+      "specBasis": ["FR-15.3", "AC-15.c"]
+    },
+    {
+      "id": "D-0483",
+      "topic": "Thumbnail attachment ordering",
+      "decision": "Create a successful render snapshot before presenting fresh geometry or awaiting cache persistence, and issue a new presentation identity for every accepted cache reuse so each render's thumbnail attaches to its own snapshot.",
+      "rationale": "Viewer capture can complete while cache persistence is pending, and geometry-equivalent cache reuse otherwise retains an older presentation identity. Ordering snapshot creation first and carrying a fresh render identity removes both loss races deterministically.",
+      "specBasis": ["FR-15.3", "FR-15.13", "AC-15.c"]
+    },
+    {
+      "id": "D-0484",
+      "topic": "Animation-frame history",
+      "decision": "Exclude automated animation-frame commands from the ordinary model-history timeline pending Q-0040, while recording every accepted non-animation preview or full render.",
+      "rationale": "The specified snapshot payload has no animation-time field, and a fixed 100-frame playthrough would otherwise evict ordinary design history with entries that cannot faithfully restore the animated state.",
+      "specBasis": ["Section 2.7 delivery protocol", "FR-4.10", "FR-15.3"]
+    },
+    {
+      "id": "D-0485",
+      "topic": "Repository test-runner scope",
+      "decision": "Exclude the independently built website's Node test files from the root Vitest discovery boundary while retaining the website's own npm test command, and update stale M2 README assertions to the current evidence language.",
+      "rationale": "The root runner was treating a node:test file as an empty Vitest suite, while the standalone website package already builds and executes that file through node --test. The rewritten public README preserves the evidence boundaries with newer wording, so exact obsolete sentence assertions no longer represented the rendered documentation.",
+      "specBasis": ["V-5 release gate", "V-6 honesty rule"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "AC-15.c must retain five successful renders and restore snapshot two as one undoable command.",
+      "test": "Run the focused runtime model-history suite with engine spies and reversible command assertions.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/runtime/workbench-runtime-model-history.test.ts",
+        "observedAt": "2026-07-21T12:31:00-06:00",
+        "outcome": "RED: the initial runtime exposed no snapshots; after capture was added, restore-model-history-snapshot was still an unhandled command. The later reopen test also failed because the original runtime-local document id was no longer open."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/runtime/workbench-runtime-model-history.test.ts",
+        "observedAt": "2026-07-21T12:45:09-06:00",
+        "outcome": "GREEN: 5/5 focused runtime tests passed, covering five distinct snapshots, undo/redo restore, clone-safe thumbnail attachment, opt-in persistence across restart, and restore after reopening with new document ids."
+      }
+    },
+    {
+      "criterion": "Fresh and cache-reused successful renders must expose their own snapshot before thumbnail capture can race or target an older identity.",
+      "test": "Hold an optional cache write pending and exercise the in-memory presented-result reuse path.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/runtime/workbench-runtime.test.ts -t \"publishes the viewer result before an optional cache write finishes\"",
+        "observedAt": "2026-07-21T12:45:50-06:00",
+        "outcome": "RED: the viewer already exposed fresh geometry while modelHistory still had zero snapshots during the deferred cache write. Static review also showed reuse retained the prior presentation identity."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/runtime/workbench-runtime.test.ts -t \"loads the requested cached result|publishes the viewer result before\"",
+        "observedAt": "2026-07-21T12:46:27-06:00",
+        "outcome": "GREEN: both targeted race tests passed; fresh history exists before the held cache write finishes, and the fourth cache-reused render has a new presentation/render identity and fourth snapshot."
+      }
+    },
+    {
+      "criterion": "The model-history UI and persistence boundary must be accessible, bounded, failure-visible, and connected to the live runtime.",
+      "test": "Run the model-history domain, persistence, panel, connector, and viewer-thumbnail focused suites together.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/history/ModelHistoryPanel.test.tsx",
+        "observedAt": "2026-07-21T12:42:44-06:00",
+        "outcome": "RED: no persistence checkbox existed, restore rejection had no alert, and the timeline stayed on snapshot one when a new snapshot arrived."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/model-history/model-history.test.ts tests/application/runtime/workbench-runtime-model-history.test.ts tests/platform-desktop/model-history-persistence.test.ts tests/ui/history/ModelHistoryPanel.test.tsx tests/ui/mcp/HistoryActivityConnector.test.tsx tests/ui/viewer/ViewerPaneThumbnail.test.tsx",
+        "observedAt": "2026-07-21T12:47:59-06:00",
+        "outcome": "GREEN: 6 files and 21 tests passed; a subsequent bounded session-cap test also passed 3/3. TypeScript and lint/source-policy checks were green."
+      }
+    },
+    {
+      "criterion": "The complete root browser/unit suite must remain green after model-history integration and public-site test separation.",
+      "test": "Run the root Vitest aggregate once after targeted fixes for every failure exposed by the initial aggregate.",
+      "red": {
+        "command": "pnpm.cmd test",
+        "observedAt": "2026-07-21T12:51:49-06:00",
+        "outcome": "RED: 1,581 tests passed and seven failed: three model-history identity/presentation assumptions, four stale README sentence assertions, and the independently owned node:test website file was incorrectly discovered as an empty Vitest suite."
+      },
+      "green": {
+        "command": "pnpm.cmd test",
+        "observedAt": "2026-07-21T12:56:50-06:00",
+        "outcome": "GREEN: all 211 test files and all 1,588 tests passed. The website Node suite remains owned by the website package's npm test command rather than the root Vitest runner."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": ["Q-0040 parks only whether automated animation frames should enter model history and, if so, how animation time must be represented and bounded."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

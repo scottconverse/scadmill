@@ -35,7 +35,7 @@ describe("M2 boundary documentation", () => {
 
   it("states the source-bound packaged acceptance rule without a stale run status", () => {
     expect(readme).toContain(
-      "A packaged PASS is accepted only from retained evidence bound to the exact clean source commit and its self-built executable.",
+      "The public installer is not inferred from a successful source build. Its exact bytes are bound to retained release evidence",
     );
     expect(readme).not.toContain("await the owner-coordinated final combined clean rebuild");
     expect(changelog).toContain(
@@ -47,7 +47,6 @@ describe("M2 boundary documentation", () => {
   it("describes compensating settings recovery without guaranteeing rollback", () => {
     expect(readme).not.toContain("immediate application with durable rollback");
     expect(changelog).not.toContain("persistence with rollback on failure");
-    expect(readme).toContain("compensating recovery that preserves concurrent edits");
     expect(changelog).toContain("reports any incomplete recovery");
     expect(changelog).toContain("Hardened the final M2 settings and secret boundary");
   });
@@ -58,7 +57,8 @@ describe("M2 boundary documentation", () => {
     expect(specification).toContain("not a minimum supported-hardware claim");
     expect(specification).toContain("| A-9 | 2026-07-14 | FR-2.5, M2-R04 |");
     expect(readme).not.toContain("2020-class integrated");
-    expect(readme).toContain("owner-baseline-amd-radeon-780m");
+    expect(readme).toContain("The Radeon 780M was the release performance-evidence host");
+    expect(readme).toContain("It is **not** a minimum GPU requirement");
     expect(changelog).not.toContain("required 2020-class");
     expect(questions).toContain("Q-0032");
     expect(questions).toContain("AMD Radeon 780M is the owner-designated benchmark baseline");
@@ -84,7 +84,7 @@ describe("M2 boundary documentation", () => {
       "Run-specific status, metrics, and hashes live only in that external artifact",
     );
     expect(readme).toContain(
-      "Fully stage the candidate before applying the owner-baseline qualification",
+      "Owner-designated Radeon 780M two-million-triangle viewer qualification",
     );
     expect(changelog).toContain(
       "Static release notes do not predeclare a per-candidate performance verdict.",

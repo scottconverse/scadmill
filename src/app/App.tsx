@@ -56,6 +56,7 @@ export function App({
     welcome: welcomePreferencePersistence,
     renderCachePreferences: renderDiskCachePreferencePersistence,
     renderThumbnails: renderThumbnailPersistence,
+    modelHistory: modelHistoryPersistence,
   } = platform.persistence;
   const artifactDestination = platform.artifacts;
   const renderDiskCacheStorage = platform.persistence.renderCache.available
@@ -76,6 +77,7 @@ export function App({
         renderDiskCacheStorage,
         renderDiskCachePreferencePersistence,
         renderThumbnailPersistence,
+        modelHistoryPersistence,
         welcomePreferencePersistence,
       });
     },
@@ -91,6 +93,7 @@ export function App({
       renderDiskCacheStorage,
       renderDiskCachePreferencePersistence,
       renderThumbnailPersistence,
+      modelHistoryPersistence,
       welcomePreferencePersistence,
     ],
   );
