@@ -124,6 +124,8 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Fixed
 
+- The packaged M4 geometry-delta phase now removes the AI fixture's terminal whitespace before entering it through WebDriver. This preserves the AI transcript's exact newline-bearing proposal contract while avoiding an impossible byte-exact wait after pinned WebView2 omits the terminal newline from keyboard input.
+
 - The native-only M4 gate now captures its actual editor source immediately before MCP default-deny, proves denial leaves it unchanged, and compares the pending review against that exact source and an exact no-trailing-newline proposal. This removes the obsolete dependency on a preceding AI mutation and avoids synthetic CodeMirror fixture entry while retaining exact diff and approval assertions.
 
 - Hardened packaged AI walkthrough input so WebDriver proves and, at most once, corrects focus on the exact connected enabled Message textarea before text insertion; focus diagnostics contain only fixed-name booleans and never retain message, credential, or active-element attribute values.

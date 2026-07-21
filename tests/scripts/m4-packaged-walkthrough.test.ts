@@ -1075,6 +1075,7 @@ describe("M4 packaged newcomer walkthrough", () => {
     expect(restartCount).toBe(1);
     expect(sourceReadCount).toBeGreaterThan(3);
     expect(source).toBe(initialSource);
+    expect(calls).toContain(`source:${proposalSource.trimEnd()}`);
     expect(evidence.screenshots.map(({ name }) => name)).toEqual([
       "04a-ai-unconfigured.png",
       "04b-ai-proposal-applied.png",

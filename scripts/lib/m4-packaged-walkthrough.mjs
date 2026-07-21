@@ -1403,7 +1403,7 @@ export async function runM4PackagedWalkthrough({
     await automation.waitForText("Geometry unchanged");
     const unchanged = await automation.execute(M4_DOM_SCRIPTS.geometrySnapshot);
     assert.deepEqual(unchanged, { summary: "Geometry unchanged", detail: "Geometry unchanged" }, "Cosmetic edit did not report unchanged geometry.");
-    await automation.replaceSource(proposalSource);
+    await automation.replaceSource(proposalSource.trimEnd());
     await automation.executeAsync(M4_DOM_SCRIPTS.fullRenderCompleted, [projectPath]);
     await automation.waitForText("Geometry changed");
     const changed = await automation.execute(M4_DOM_SCRIPTS.geometrySnapshot);
