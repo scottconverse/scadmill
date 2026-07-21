@@ -2,6 +2,8 @@
 
 **Release context:** ScadMill `0.1.0-beta.1` public Windows beta. The source tree also contains implemented web composition work that is not a public hosted product.
 
+**Published architecture guide:** <https://scadmill-beta.sconverse.chatgpt.site/architecture>
+
 ScadMill is a source-first workbench with separate web and desktop compositions. Shared React UI and application code depend on typed capability ports; only platform adapters may touch browser globals, Tauri APIs, the operating system, or an engine process.
 
 ```mermaid

@@ -11,6 +11,7 @@
     { "path": "PUBLIC_VERSION", "status": "added" },
     { "path": "README.md", "status": "modified" },
     { "path": "docs/USER-GUIDE.md", "status": "modified" },
+    { "path": "docs/RELEASE-NOTES-0.1.0-beta.1.md", "status": "modified" },
     { "path": "index.html", "status": "modified" },
     { "path": "package.json", "status": "modified" },
     { "path": "tests/scripts/release-metadata.test.ts", "status": "modified" },

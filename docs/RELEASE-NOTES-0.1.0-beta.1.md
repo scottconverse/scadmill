@@ -2,6 +2,8 @@
 
 ScadMill's first public beta is available for 64-bit Windows desktop.
 
+Product site, manual, and architecture: <https://scadmill-beta.sconverse.chatgpt.site>
+
 ## Download and verify
 
 Download `ScadMill_0.1.0-beta.1_x64-setup.exe` and its `.sha256` file from this release.

@@ -6,6 +6,7 @@ const ROOT = resolve(import.meta.dirname, "../..");
 const BETA_VERSION = "0.1.0-beta.1";
 const INSTALLER = `ScadMill_${BETA_VERSION}_x64-setup.exe`;
 const INSTALLER_SHA256 = "D196878A49804F852C49A81ACBB4AC5C232A88DA737F2D756F9B6376E435A588";
+const PUBLIC_SITE = "https://scadmill-beta.sconverse.chatgpt.site";
 
 function text(path: string): string {
   return readFileSync(resolve(ROOT, path), "utf8");
@@ -50,6 +51,7 @@ describe("public beta release metadata", () => {
     expect(publicRelease.version).toBe(BETA_VERSION);
     expect(publicRelease.filename).toBe(INSTALLER);
     expect(publicRelease.sha256).toBe(INSTALLER_SHA256);
+    expect(publicRelease.site).toBe(PUBLIC_SITE);
   });
 
   it("prints the current version on every public product surface", () => {
@@ -84,6 +86,10 @@ describe("public beta release metadata", () => {
     for (const surface of ["README.md", "docs/WINDOWS-BETA.md", `docs/RELEASE-NOTES-${BETA_VERSION}.md`]) {
       expect(text(surface), surface).toContain(INSTALLER);
       expect(text(surface), surface).toContain(INSTALLER_SHA256);
+    }
+
+    for (const surface of ["README.md", "ARCHITECTURE.md", "docs/USER-GUIDE.md", `docs/RELEASE-NOTES-${BETA_VERSION}.md`, "website/README.md"]) {
+      expect(text(surface), surface).toContain(PUBLIC_SITE);
     }
   });
 });

@@ -1,7 +1,7 @@
 # ScadMill
 
 > **Current public release: `0.1.0-beta.1` for 64-bit Windows.**
-> [Download the signed installer](https://github.com/scottconverse/scadmill/releases/download/v0.1.0-beta.1/ScadMill_0.1.0-beta.1_x64-setup.exe) · [Read the user manual](docs/USER-GUIDE.md) · [Verify the release](docs/WINDOWS-BETA.md)
+> [Visit the product site](https://scadmill-beta.sconverse.chatgpt.site) · [Download the signed installer](https://github.com/scottconverse/scadmill/releases/download/v0.1.0-beta.1/ScadMill_0.1.0-beta.1_x64-setup.exe) · [Read the user manual](https://scadmill-beta.sconverse.chatgpt.site/manual) · [Verify the release](docs/WINDOWS-BETA.md)
 
 ScadMill is a source-first OpenSCAD workbench. It brings a capable editor, live 2D/3D geometry, project tools, Customizer controls, animation, geometry comparison, and optional AI into one focused desktop application—while keeping ordinary OpenSCAD source as the durable artifact.
 

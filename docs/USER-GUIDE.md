@@ -2,6 +2,8 @@
 
 **Applies to:** ScadMill `0.1.0-beta.1`, the public 64-bit Windows desktop beta.
 
+**Published manual:** <https://scadmill-beta.sconverse.chatgpt.site/manual>
+
 This is the canonical user manual. It starts without assuming CAD or programming experience, then provides the technical behavior and architecture needed by advanced users and contributors. For exact download hashes and installer lifecycle details, keep the [Windows beta guide](WINDOWS-BETA.md) beside this manual.
 
 ## Part I — Non-technical guide

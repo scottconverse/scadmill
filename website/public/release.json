@@ -9,6 +9,7 @@
   "signer": "Scott Converse",
   "engineVersion": "2026.06.12",
   "github": "https://github.com/scottconverse/scadmill",
+  "site": "https://scadmill-beta.sconverse.chatgpt.site",
   "releasePage": "https://github.com/scottconverse/scadmill/releases/tag/v0.1.0-beta.1",
   "download": "https://github.com/scottconverse/scadmill/releases/download/v0.1.0-beta.1/ScadMill_0.1.0-beta.1_x64-setup.exe"
 }
