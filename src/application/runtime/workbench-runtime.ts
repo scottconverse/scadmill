@@ -37,6 +37,7 @@ import {
 } from "../layout/workspace-layout";
 import {
   EPHEMERAL_MODEL_HISTORY_PERSISTENCE,
+  MAX_MODEL_HISTORY_SNAPSHOTS_PER_WORKSPACE,
   type ModelHistoryPersistenceState,
   ModelHistoryTimeline,
   type ModelHistorySnapshot,
@@ -819,7 +820,25 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
       source: document.source,
       parameters: parameterValues,
     });
-    modelHistory.setState(modelHistoryTimeline.listAll(), true);
+    const snapshot = modelHistoryTimeline.get(workspaceIdentity, snapshotId);
+    if (!snapshot) throw new Error("Captured model history snapshot is unavailable.");
+    modelHistory.setState((current) => {
+      let dropped = false;
+      const workspaceCount = current.reduce(
+        (count, candidate) => count + Number(candidate.workspaceIdentity === workspaceIdentity),
+        0,
+      );
+      const retained = workspaceCount < MAX_MODEL_HISTORY_SNAPSHOTS_PER_WORKSPACE
+        ? current
+        : current.filter((candidate) => {
+            if (!dropped && candidate.workspaceIdentity === workspaceIdentity) {
+              dropped = true;
+              return false;
+            }
+            return true;
+          });
+      return [...retained, snapshot];
+    }, true);
     persistModelHistory(workspaceIdentity);
     return snapshotId;
   }
@@ -1243,7 +1262,14 @@ export function createWorkbenchRuntime(engine: EngineService, options: RuntimeOp
         command.snapshotId,
         command.pngBytes,
       )) {
-        modelHistory.setState(modelHistoryTimeline.listAll(), true);
+        const snapshot = modelHistoryTimeline.get(command.workspaceIdentity, command.snapshotId);
+        if (!snapshot) throw new Error("Updated model history snapshot is unavailable.");
+        modelHistory.setState((current) => current.map((candidate) => (
+          candidate.workspaceIdentity === command.workspaceIdentity
+            && candidate.snapshotId === command.snapshotId
+            ? snapshot
+            : candidate
+        )), true);
         persistModelHistory(command.workspaceIdentity);
       }
       return;

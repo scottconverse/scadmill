@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-22-beta2-model-history-memory",
+  "createdAt": "2026-07-22T05:06:16-06:00",
+  "summary": "Remove quadratic model-history thumbnail copying exposed by the beta.2 literal one-hour reliability candidate while retaining the strict raw process-memory ceiling.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "FR-15.13", "N-2 reliability soak", "V-5 release gate", "V-6 honesty rule"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-22-beta2-model-history-memory.json", "status": "added" },
+    { "path": "src/application/runtime/workbench-runtime.ts", "status": "modified" },
+    { "path": "tests/application/runtime/workbench-runtime-model-history.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [
+    { "label": "Owner-provided ScadMill functional specification v0.6", "destination": "spec/scadmill-spec-v0.6.md", "sha256": "A2D12C68E23590DF061BF3E222F481C3FFC40ECA6541D6F3DF49FDA87C1DE15A" }
+  ],
+  "decisions": [
+    {
+      "id": "D-0524",
+      "topic": "Bounded model-history presentation allocation",
+      "decision": "After a successful render, append only the newly captured defensive snapshot to the runtime model-history view and evict only the oldest snapshot in that workspace at the existing 100-entry limit. After a thumbnail capture, replace only the matching defensive snapshot and retain every unchanged snapshot and PNG byte-array reference. Keep full defensive timeline copies only at persistence and workspace-load boundaries. Do not relax N-2's raw 1.5x process-memory ceiling.",
+      "rationale": "The exact beta.2 literal run completed 120 edit/render cycles, the midpoint engine-kill recovery, continuity, and rolling/final memory checks, but one renderer process grew linearly and later crossed the raw ceiling. Each capture and thumbnail attachment rebuilt the entire history list and recopied every prior PNG, producing quadratic transient allocation pressure as the list approached 100 entries. Structural reuse removes that amplification while preserving snapshot isolation, ordering, and the normative cap.",
+      "specBasis": ["FR-15.13", "N-2 reliability soak", "V-5 release gate", "V-6 honesty rule"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Later model-history captures and thumbnail updates must not recopy unchanged PNG storage, and the incremental view must remain aligned with the per-workspace 100-snapshot cap.",
+      "test": "Hold the first stored thumbnail by identity across a second capture and second thumbnail update, drive 101 single-workspace renders, then interleave workspaces A and B and prove overflowing A leaves B's snapshot reference and the surviving global order untouched.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/runtime/workbench-runtime-model-history.test.ts",
+        "observedAt": "2026-07-22T05:04:23-06:00",
+        "outcome": "RED: 1 failed and 5 passed. The first thumbnail bytes were deeply equal but had been recopied after the second render. The first falsification assertion then exposed only an incorrect test assumption about the opaque command-id prefix; the assertion was corrected to use the stable model-history sequence suffix."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/runtime/workbench-runtime-model-history.test.ts; pnpm.cmd exec biome lint src/application/runtime/workbench-runtime.ts tests/application/runtime/workbench-runtime-model-history.test.ts; pnpm.cmd run typecheck",
+        "observedAt": "2026-07-22T05:12:40-06:00",
+        "outcome": "GREEN: the final focused suite passed 8/8; targeted Biome lint checked the changed source and test files with no findings; TypeScript completed with no errors. Unchanged thumbnail identity is stable, the runtime view contains exactly the latest 100 snapshots per workspace, and overflowing workspace A preserves interleaved workspace B by reference and order."
+      }
+    },
+    {
+      "criterion": "A literal N-2 failure must be diagnosed from retained exact-process evidence before any correction or rerun.",
+      "test": "Reconstruct all 55 memory samples and 120 cycle records from the exact-head Sandbox JSONL and attribute the failing private-byte sample by process.",
+      "red": {
+        "command": "Read-only reconstruction of work/scadmill-beta2-8661ec9-literal-sandbox-r1/n2-soak-samples.jsonl",
+        "observedAt": "2026-07-22T05:03:00-06:00",
+        "outcome": "RED: all 120 cycles and the expected crash/recovery passed, but aggregate raw private memory reached 605,749,248 bytes against a 561,853,440-byte ceiling. The growth and the late 96,624,640-byte spike were isolated to one WebView renderer; the final median ratio was 1.3697 and did not erase the normative raw failure."
+      },
+      "green": {
+        "command": "Targeted source trace plus the focused RED/GREEN regression; accelerated and literal packaged qualification follow only on a committed clean candidate.",
+        "observedAt": "2026-07-22T05:06:16-06:00",
+        "outcome": "GREEN for the bounded allocation correction only. No claim is made that the failed literal run passed or that beta.2 is releasable before a new exact-candidate Sandbox qualification."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": ["Q-0042 remains the only literal M6 specification contradiction and is unaffected by this reliability correction."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
