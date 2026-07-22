@@ -9,6 +9,7 @@
     "includes": [
       "**",
       "!src/**/generated/**",
+      "!src/vendor/**",
       "!src/desktop-shell/src-tauri/target/**",
       "!dist/**",
       "!coverage/**"

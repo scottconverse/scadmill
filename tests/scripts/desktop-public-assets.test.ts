@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { publicDirectoryForMode } from "../../vite.config";
+import { emittedAssetFileName, publicDirectoryForMode } from "../../vite.config";
 
 describe("desktop public-asset isolation", () => {
   it("copies the separate engine artifacts only into web builds", async () => {
@@ -29,5 +29,10 @@ describe("desktop public-asset isolation", () => {
       .toBe("tsc --noEmit && vite build --mode desktop");
     expect(tauriConfig.build?.beforeBuildCommand).toBe("pnpm --dir ../.. build:desktop");
     expect(tauriConfig.bundle?.icon).toContain("icons/128x128.png");
+  });
+
+  it("emits the pinned Kiri:Moto manifold runtime at its required local URL", () => {
+    expect(emittedAssetFileName(["manifold.wasm"])).toBe("wasm/manifold.wasm");
+    expect(emittedAssetFileName(["engine.js"])).toBe("assets/[name]-[hash][extname]");
   });
 });

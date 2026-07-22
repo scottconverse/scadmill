@@ -130,6 +130,17 @@ describe("third-party notice generation", () => {
           licenseTexts: [{ name: "LICENSE-MIT", text: "same exact license\r\n" }],
         },
       ],
+      vendoredPackages: [
+        {
+          ecosystem: "vendored" as const,
+          name: "kiri-moto",
+          version: "4.7.1",
+          license: "MIT",
+          authors: ["GridSpace contributors"],
+          repository: "https://github.com/GridSpace/grid-apps",
+          licenseTexts: [{ name: "LICENSE", text: "vendored exact license\n" }],
+        },
+      ],
       webView2: {
         distribution: "Microsoft Edge WebView2 Evergreen Standalone Installer (x64)",
         termsUrl: "https://developer.microsoft.com/microsoft-edge/webview2/",
@@ -161,6 +172,8 @@ describe("third-party notice generation", () => {
     expect(first).toContain("NSIS 3.11");
     expect(first).toContain("Microsoft Visual C++ runtime support (statically linked)");
     expect(first).toContain("OpenSCAD is not bundled in the Windows installer");
+    expect(first).toContain("vendored:kiri-moto@4.7.1");
+    expect(first).toContain("vendored exact license");
     expect(first).not.toMatch(/[A-Z]:\\|node_modules|\.cargo\\registry|Generated at/i);
   });
 

@@ -45,6 +45,7 @@ The web-source adapter uses a module worker, verifies the exact JavaScript/WASM 
 - The M6 engine-version port keeps shared application code independent of native discovery and download authority. Desktop inventory probes are bounded and report the actual executable version plus SHA-256. A user-triggered native installer accepts only the recorded official Windows artifact, refuses redirects, streams under a hard size cap, verifies the archive and executable hashes, and installs atomically into the application-data engine namespace. A strict `scadmill.project.json` pin enters every native render and export request; the native adapter selects the matching managed executable before any default and rejects a version mismatch.
 - The M6 headless CLI enters before Tauri window construction. It uses the same native-engine crate, strict project pin, bounded immutable project map, stock parameter-set values, full-quality export path, and printability semantics as the graphical application. JSON is the only command output contract; usage and operational failures have distinct nonzero exit codes.
 - The M6 color path is centralized at each EngineService adapter: native and WASM rendering/export invoke the pinned engine's Manifold, lazy-union, model-color, and Color-material options and never select Base Material. A bounded 3MF decoder preserves per-vertex color and top-level object ranges; Three.js maps those ranges to independently visible materials while user mesh-color override remains authoritative. Worker and Tauri boundaries strictly validate the multipart metadata.
+- The M6 manufacturing-estimate path accepts only the last full binary STL or 3MF presentation. ScadMill converts and validates that geometry in its own bounded worker, then loads the checksummed embedded Kiri:Moto 4.7.1 runtime only after an explicit request. Kiri:Moto performs FDM slicing in its local worker pool against one immutable generic profile; the adapter accepts only finite non-negative time and filament metadata and discards G-code. Runtime assets and Manifold WASM are same-origin, versioned, hash-checked supply-chain inputs.
 - Uninstall removes the app and association, not user projects or necessarily every profile/credential record.
 
 ## Network and privacy boundaries
@@ -53,7 +54,7 @@ ScadMill has no telemetry and operates no ScadMill cloud service. Optional AI re
 
 ## Workers and responsiveness
 
-Native rendering runs outside the UI process. OpenSCAD WASM execution, project indexing, STL decoding, printability analysis, and browser archive work cross validated worker boundaries. Automatic renders are debounced, superseded work is cancelled, and animation is sequential/backpressured. Workerless fallbacks yield cooperatively where required; large printability inputs refuse a main-thread fallback.
+Native rendering runs outside the UI process. OpenSCAD WASM execution, project indexing, STL decoding, manufacturing-estimate preprocessing and slicing, printability analysis, and browser archive work cross validated worker boundaries. Automatic renders are debounced, superseded work is cancelled, and animation is sequential/backpressured. Workerless fallbacks yield cooperatively where required; large printability and estimate inputs refuse a main-thread fallback.
 
 ## Desktop shell and installer
 
@@ -65,4 +66,4 @@ Non-trivial changes have append-only records under `provenance/entries`. npm and
 
 ## Extension seams through M6
 
-The ports and worker boundaries support later public web distribution and manufacturing estimates. M5 is complete on the development branch, and M6 printability reporting, desktop slicer handoff, engine version management, headless CLI behavior, color/multipart preview, and color-preserving 3MF export are implemented there; none is a claim about the current beta. Platform behavior belongs in adapters; reusable behavior belongs in application services; UI consumes declared capabilities.
+The ports and worker boundaries support later public web distribution. M5 and the complete M6 capability scope—including local Kiri:Moto manufacturing estimates—are implemented on the development branch; none is a claim about the current beta until a later candidate passes its release gates. Platform behavior belongs in adapters; reusable behavior belongs in application services; UI consumes declared capabilities.

@@ -4,6 +4,10 @@ import { strToU8, zipSync } from "fflate";
 import { describe, expect, it, vi } from "vitest";
 
 import type { RenderSuccess3D } from "../../../src/application/engine/contracts";
+import {
+  KIRI_MOTO_VERSION,
+  MANUFACTURING_ESTIMATE_PROFILES,
+} from "../../../src/application/manufacturing/manufacturing-estimate";
 import { ManufacturingActivity } from "../../../src/ui/manufacturing/ManufacturingActivity";
 
 function nonManifoldResult(): RenderSuccess3D {
@@ -41,8 +45,9 @@ function coloredThreeMfResult(): RenderSuccess3D {
 describe("ManufacturingActivity", () => {
   it("requires the last full render and never implies a preview is sufficient", () => {
     const view = render(<ManufacturingActivity quality="preview" result={nonManifoldResult()} />);
-    expect(view.getByText(/run a full render/i)).toBeVisible();
+    expect(view.getAllByText(/run a full render/i)).toHaveLength(2);
     expect(view.getByRole("button", { name: "Run printability check" })).toBeDisabled();
+    expect(view.getByRole("button", { name: "Estimate print time and filament" })).toBeDisabled();
   });
 
   it("runs the honest AC-15.g report on explicit request", async () => {
@@ -63,6 +68,100 @@ describe("ManufacturingActivity", () => {
     fireEvent.click(view.getByRole("button", { name: "Run printability check" }));
 
     await waitFor(() => expect(view.getByText("Manifold: FAIL (mesh topology check; 6 boundary edges, 0 non-manifold edges)")).toBeVisible());
+  });
+
+  it("runs the AC-15.n design-time estimate only on explicit request with honest labels", async () => {
+    const profile = MANUFACTURING_ESTIMATE_PROFILES[0];
+    const estimateRunner = vi.fn(async () => ({
+      engineName: "Kiri:Moto" as const,
+      engineVersion: KIRI_MOTO_VERSION,
+      profileId: profile.id,
+      profileName: profile.name,
+      timeSeconds: 1765.5459577924212,
+      filamentMillimeters: 1560.5689130488631,
+    }) as const);
+    const view = render(
+      <ManufacturingActivity
+        estimateRunner={estimateRunner}
+        quality="full"
+        result={nonManifoldResult()}
+      />,
+    );
+
+    expect(estimateRunner).not.toHaveBeenCalled();
+    fireEvent.click(view.getByRole("button", { name: "Estimate print time and filament" }));
+
+    expect(await view.findByText("Estimated print time: 29 min 26 sec")).toBeVisible();
+    expect(view.getByText("Estimated filament use: 1.56 m")).toBeVisible();
+    expect(estimateRunner).toHaveBeenCalledWith(
+      expect.any(Uint8Array),
+      "stl-binary",
+      profile.id,
+      expect.any(AbortSignal),
+    );
+    const copy = view.container.textContent?.toLowerCase() ?? "";
+    expect(copy).toContain("estimate");
+    expect(copy).toContain("kiri:moto 4.7.1");
+    expect(copy).toContain(profile.name.toLowerCase());
+    expect(copy).toContain("generic profile");
+    expect(copy).toContain("real slicer settings or printer tuning");
+    expect(copy).not.toContain("print-ready");
+  });
+
+  it("lets the user select a generic estimate profile and reports failures", async () => {
+    const estimateRunner = vi.fn(async () => { throw new Error("slice failed"); });
+    const selected = MANUFACTURING_ESTIMATE_PROFILES[1];
+    const view = render(
+      <ManufacturingActivity
+        estimateRunner={estimateRunner}
+        quality="full"
+        result={nonManifoldResult()}
+      />,
+    );
+    fireEvent.change(view.getByRole("combobox", { name: "Generic machine profile" }), {
+      target: { value: selected.id },
+    });
+    fireEvent.click(view.getByRole("button", { name: "Estimate print time and filament" }));
+
+    await waitFor(() => expect(estimateRunner).toHaveBeenCalledWith(
+      expect.any(Uint8Array),
+      "stl-binary",
+      selected.id,
+      expect.any(AbortSignal),
+    ));
+    expect(await view.findByRole("alert")).toHaveTextContent(/estimate could not complete/i);
+  });
+
+  it("removes an estimate when its full-render source is replaced", async () => {
+    const profile = MANUFACTURING_ESTIMATE_PROFILES[0];
+    const estimateRunner = vi.fn(async () => ({
+      engineName: "Kiri:Moto" as const,
+      engineVersion: KIRI_MOTO_VERSION,
+      profileId: profile.id,
+      profileName: profile.name,
+      timeSeconds: 60,
+      filamentMillimeters: 100,
+    }) as const);
+    const initialResult = nonManifoldResult();
+    const view = render(
+      <ManufacturingActivity
+        estimateRunner={estimateRunner}
+        quality="full"
+        result={initialResult}
+      />,
+    );
+    fireEvent.click(view.getByRole("button", { name: "Estimate print time and filament" }));
+    expect(await view.findByText("Estimated print time: 1 min")).toBeVisible();
+
+    view.rerender(
+      <ManufacturingActivity
+        estimateRunner={estimateRunner}
+        quality="full"
+        result={nonManifoldResult()}
+      />,
+    );
+
+    await waitFor(() => expect(view.queryByText(/^Estimated print time:/)).not.toBeInTheDocument());
   });
 
   it("lets the user configure build volume and nozzle values", async () => {

@@ -5,17 +5,19 @@ import type { SlicerHandoffResult } from "../../application/manufacturing/slicer
 import { printabilityReportLines } from "../../application/manufacturing/printability";
 import { runPrintabilityOffThread } from "../../application/manufacturing/printability-worker-client";
 import { messages } from "../../messages/en";
+import { ManufacturingEstimatePanel, type ManufacturingEstimateRunner } from "./ManufacturingEstimatePanel";
 import { SlicerHandoffPanel } from "./SlicerHandoffPanel";
 import "./manufacturing.css";
 
 export interface ManufacturingActivityProps {
+  readonly estimateRunner?: ManufacturingEstimateRunner;
   readonly quality?: Quality;
   readonly result?: RenderSuccess3D;
   readonly multiObject?: boolean;
   readonly onOpenInSlicer?: (configuredExecutablePath?: string) => Promise<SlicerHandoffResult>;
 }
 
-export function ManufacturingActivity({ quality, result, multiObject = (result?.mesh.parts?.length ?? 0) > 1, onOpenInSlicer }: ManufacturingActivityProps) {
+export function ManufacturingActivity({ estimateRunner, quality, result, multiObject = (result?.mesh.parts?.length ?? 0) > 1, onOpenInSlicer }: ManufacturingActivityProps) {
   const [buildWidth, setBuildWidth] = useState("220");
   const [buildDepth, setBuildDepth] = useState("220");
   const [buildHeight, setBuildHeight] = useState("250");
@@ -60,6 +62,7 @@ export function ManufacturingActivity({ quality, result, multiObject = (result?.
         {error && <p className="manufacturing-error" role="alert">{error}</p>}
         {lines.length > 0 && <ul aria-label={messages.printabilityReport}>{lines.map((line) => <li key={line}>{line}</li>)}</ul>}
       </section>
+      <ManufacturingEstimatePanel estimateRunner={estimateRunner} quality={quality} result={result} />
       <SlicerHandoffPanel multiObject={multiObject} onOpen={onOpenInSlicer} />
     </div>
   );

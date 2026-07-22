@@ -1,6 +1,6 @@
 SCADMILL THIRD-PARTY NOTICES
 
-This file inventories the production npm and Windows x86-64 Cargo dependency graph locked for this ScadMill build. Exact license and notice texts are deduplicated below and bound to their consuming packages by SHA-256.
+This file inventories the production npm and Windows x86-64 Cargo dependency graph plus pinned vendored runtime components locked for this ScadMill build. Exact license and notice texts are deduplicated below and bound to their consuming packages by SHA-256.
 
 OpenSCAD is not bundled in the Windows installer. ScadMill requires the user to obtain and configure the separately distributed pinned OpenSCAD engine.
 
@@ -1863,6 +1863,18 @@ npm:zustand@5.0.14
   Authors: Paul Henschel
   Repository: https://github.com/pmndrs/zustand
   License text SHA-256: c1e6e266563517467b1bf874817d23e426f3149252bd7d42758cd697514b8417
+
+vendored:grid-apps-kiri-moto@4.7.1
+  License: MIT
+  Authors: Stewart Allen and GridSpace contributors
+  Repository: https://github.com/GridSpace/grid-apps
+  License text SHA-256: 666be63e3f22db475b9d84a3d66c998efd69831142501224195c7b35e0b707c0
+
+vendored:manifold-3d@3.3.2
+  License: Apache-2.0
+  Authors: Emmett Lalish; Chun Kit LAM; Manifold contributors
+  Repository: https://github.com/elalish/manifold
+  License text SHA-256: c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4
 
 EXACT LICENSE AND NOTICE TEXTS
 
@@ -5723,6 +5735,30 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
+
+SHA-256: 666be63e3f22db475b9d84a3d66c998efd69831142501224195c7b35e0b707c0
+Applies to:
+  - vendored:grid-apps-kiri-moto@4.7.1
+
+Copyright 2014-2018 Stewart Allen <sa@grid.space>
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included
+in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
 
 SHA-256: 66a3107d5ad6a058aab753eaac2047ccb2ed0e39465dd0fe5844da3e300d5172
 Applies to:
@@ -11262,6 +11298,7 @@ SHA-256: c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4
 Applies to:
   - cargo:serialize-to-javascript-impl@0.1.2
   - cargo:serialize-to-javascript@0.1.2
+  - vendored:manifold-3d@3.3.2
 
                                  Apache License
                            Version 2.0, January 2004

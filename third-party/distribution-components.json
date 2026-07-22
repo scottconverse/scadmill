@@ -44,6 +44,56 @@
       ]
     }
   ],
+  "vendored": [
+    {
+      "name": "grid-apps-kiri-moto",
+      "version": "4.7.1",
+      "license": "MIT",
+      "authors": ["Stewart Allen and GridSpace contributors"],
+      "repository": "https://github.com/GridSpace/grid-apps",
+      "artifacts": [
+        {
+          "path": "src/vendor/kiri-moto/4.7.1/run/engine.js",
+          "sha256": "cea97f115c0da8c434803a14bb80c87c27594229ab1cfffc02b87f792e9bf8e1"
+        },
+        {
+          "path": "src/vendor/kiri-moto/4.7.1/run/worker.js",
+          "sha256": "cff2247bbb79d0493f0e2d4114bda8eab43ccf7d85eb77844aa0ce99ebfd1c2a"
+        },
+        {
+          "path": "src/vendor/kiri-moto/4.7.1/run/minion.js",
+          "sha256": "a7e7761c42520e6b1e11f3fa37839412c73966079312d459e197d97744bd94b4"
+        }
+      ],
+      "licenseFiles": [
+        {
+          "path": "src/vendor/kiri-moto/4.7.1/LICENSE-grid-apps-MIT.txt",
+          "sha256": "192fd42ad203e43b1b870ae7e2c2fe2b2a7842ac93c530d61d54099408727c9b",
+          "sourceUrl": "https://raw.githubusercontent.com/GridSpace/grid-apps/4.7.1/license.md"
+        }
+      ]
+    },
+    {
+      "name": "manifold-3d",
+      "version": "3.3.2",
+      "license": "Apache-2.0",
+      "authors": ["Emmett Lalish", "Chun Kit LAM", "Manifold contributors"],
+      "repository": "https://github.com/elalish/manifold",
+      "artifacts": [
+        {
+          "path": "src/vendor/kiri-moto/4.7.1/wasm/manifold.wasm",
+          "sha256": "8f8cb69137af5dd87950b60aa88d7613cde48e4af45b43b8464473191cc9dbe6"
+        }
+      ],
+      "licenseFiles": [
+        {
+          "path": "src/vendor/kiri-moto/4.7.1/LICENSE-manifold-3d-Apache-2.0.txt",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+          "sourceUrl": "https://registry.npmjs.org/manifold-3d/-/manifold-3d-3.3.2.tgz"
+        }
+      ]
+    }
+  ],
   "webView2": {
     "distribution": "Microsoft Edge WebView2 Evergreen Standalone Installer (x64)",
     "termsUrl": "https://developer.microsoft.com/microsoft-edge/webview2/",

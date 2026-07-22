@@ -90,8 +90,8 @@ export function resolveActivatedCargoPackageIds(metadata, treeOutput) {
   return activated;
 }
 
-export function renderThirdPartyNotices({ npmPackages, rustPackages, webView2, nsis, msvc }) {
-  const packages = [...npmPackages, ...rustPackages].sort((left, right) =>
+export function renderThirdPartyNotices({ npmPackages, rustPackages, vendoredPackages = [], webView2, nsis, msvc }) {
+  const packages = [...npmPackages, ...rustPackages, ...vendoredPackages].sort((left, right) =>
     packageKey(left).localeCompare(packageKey(right)),
   );
   const textGroups = new Map();
@@ -132,7 +132,7 @@ export function renderThirdPartyNotices({ npmPackages, rustPackages, webView2, n
   return [
     "SCADMILL THIRD-PARTY NOTICES",
     "",
-    "This file inventories the production npm and Windows x86-64 Cargo dependency graph locked for this ScadMill build. Exact license and notice texts are deduplicated below and bound to their consuming packages by SHA-256.",
+    "This file inventories the production npm and Windows x86-64 Cargo dependency graph plus pinned vendored runtime components locked for this ScadMill build. Exact license and notice texts are deduplicated below and bound to their consuming packages by SHA-256.",
     "",
     "OpenSCAD is not bundled in the Windows installer. ScadMill requires the user to obtain and configure the separately distributed pinned OpenSCAD engine.",
     "",

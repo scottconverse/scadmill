@@ -165,10 +165,46 @@ async function applyOverrides(packages, overrides) {
   }
 }
 
+async function vendoredPackages(components) {
+  return Promise.all(components.map(async (component) => {
+    if (!isAllowedLicenseExpression(component.license)) {
+      throw new Error(`vendored:${component.name}@${component.version} has an unapproved license: ${component.license}.`);
+    }
+    for (const artifact of component.artifacts) {
+      const bytes = await readContainedFile(root, artifact.path);
+      const actual = sha256(bytes);
+      if (actual !== artifact.sha256) {
+        throw new Error(`Vendored artifact ${artifact.path} SHA-256 is ${actual}, expected ${artifact.sha256}.`);
+      }
+    }
+    const licenseTexts = await Promise.all(component.licenseFiles.map(async (entry) => {
+      const bytes = await readContainedFile(root, entry.path);
+      const actual = sha256(bytes);
+      if (actual !== entry.sha256) {
+        throw new Error(`Vendored notice ${entry.path} SHA-256 is ${actual}, expected ${entry.sha256}.`);
+      }
+      return { name: `${entry.path} (${entry.sourceUrl})`, text: bytes.toString("utf8") };
+    }));
+    return {
+      ecosystem: "vendored",
+      name: component.name,
+      version: component.version,
+      license: component.license,
+      authors: component.authors,
+      repository: component.repository,
+      licenseTexts,
+    };
+  }));
+}
+
 const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
 if (manifest.version !== 1) throw new Error("Unsupported distribution-component manifest version.");
-const [npm, rust] = await Promise.all([npmPackages(), rustPackages()]);
-const packages = [...npm, ...rust];
+const [npm, rust, vendored] = await Promise.all([
+  npmPackages(),
+  rustPackages(),
+  vendoredPackages(manifest.vendored ?? []),
+]);
+const packages = [...npm, ...rust, ...vendored];
 for (const candidate of packages) {
   if (!isAllowedLicenseExpression(candidate.license)) {
     throw new Error(`${key(candidate)} has an unapproved or unknown license: ${candidate.license ?? "<missing>"}.`);
@@ -183,6 +219,7 @@ if (nsisLicenseHash !== manifest.nsis.licenseFile.sha256) {
 const rendered = renderThirdPartyNotices({
   npmPackages: npm,
   rustPackages: rust,
+  vendoredPackages: vendored,
   webView2: manifest.webView2,
   nsis: {
     distribution: manifest.nsis.distribution,

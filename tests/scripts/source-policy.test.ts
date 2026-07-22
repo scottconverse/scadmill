@@ -113,6 +113,17 @@ describe("scanSourcePolicy", () => {
     });
   });
 
+  it("does not reinterpret immutable vendored dependency source as ScadMill UI source", async () => {
+    const root = await fixtureRoot();
+    await mkdir(join(root, "src", "vendor", "dependency"), { recursive: true });
+    await writeFile(
+      join(root, "src", "vendor", "dependency", "bundle.js"),
+      'const upstreamStyle = { color: "red" };\n',
+    );
+
+    await expect(scanSourcePolicy(root)).resolves.toEqual([]);
+  });
+
   it("applies color policy to generated, fixture, and non-token theme source", async () => {
     const root = await fixtureRoot();
     await mkdir(join(root, "src", "ui", "fixtures"), { recursive: true });

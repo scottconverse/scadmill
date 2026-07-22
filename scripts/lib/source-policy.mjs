@@ -3,7 +3,7 @@ import { relative, resolve } from "node:path";
 import ts from "typescript";
 
 const UI_EXTENSIONS = new Set([".css", ".js", ".jsx", ".ts", ".tsx"]);
-const IGNORED_SOURCE_DIRECTORIES = new Set(["dist", "node_modules", "target"]);
+const IGNORED_SOURCE_DIRECTORIES = new Set(["dist", "node_modules", "target", "vendor"]);
 const SOURCE_EXTENSION = /\.[^.]+$/u;
 const MOJIBAKE = /(?:Ã.|Â.|â(?:€|€¦|‡).?|�)/u;
 const IMPORT_SOURCE = /(?:from\s+|import\s*\()\s*["']([^"']+)["']/gu;

@@ -5,9 +5,11 @@
 .manufacturing-activity fieldset { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; padding: 8px; border: 1px solid var(--chrome-border); }
 .manufacturing-activity legend { padding: 0 4px; color: var(--chrome-text-muted); font-size: 0.78rem; }
 .manufacturing-activity label { display: grid; min-width: 0; gap: 3px; font-size: 0.75rem; }
-.manufacturing-activity input { min-width: 0; border: 1px solid var(--chrome-border); border-radius: 4px; padding: 5px; background: var(--chrome-surface); color: var(--chrome-text); }
+.manufacturing-activity input, .manufacturing-activity select { min-width: 0; border: 1px solid var(--chrome-border); border-radius: 4px; padding: 5px; background: var(--chrome-surface); color: var(--chrome-text); }
 .manufacturing-activity button { min-height: 32px; border: 1px solid var(--chrome-border); border-radius: 4px; background: var(--chrome-surface-raised); color: var(--chrome-text); cursor: pointer; }
 .manufacturing-activity button:disabled { color: var(--chrome-text-disabled); cursor: not-allowed; }
 .manufacturing-activity ul { display: grid; gap: 6px; padding: 0; margin: 0; list-style: none; font-size: 0.8rem; }
 .manufacturing-activity li { padding: 6px; border-left: 3px solid var(--chrome-badge-info); background: var(--chrome-surface-raised); overflow-wrap: anywhere; }
 .manufacturing-activity .manufacturing-error { color: var(--chrome-badge-error); }
+.manufacturing-estimate-result { display: grid; gap: 6px; padding: 8px; border-left: 3px solid var(--chrome-badge-info); background: var(--chrome-surface-raised); }
+.manufacturing-estimate-result p:first-child, .manufacturing-estimate-result p:nth-child(2) { color: var(--chrome-text); font-weight: 600; }

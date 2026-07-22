@@ -46,7 +46,7 @@ Full-quality export supports 3MF, STL, OFF, AMF, SVG, DXF, and PNG where appropr
 
 ### Understand what is not included
 
-The public beta is Windows-only. It does not publish a browser app, Mac/Linux installers, or OpenSCAD WebAssembly engine. OpenSCAD is a separate required download. The development branch now contains the complete M5 scope plus M6 printability reporting, desktop slicer handoff, engine version management, headless automation, color/multipart preview, and color-preserving multi-object 3MF export. These are not part of the published beta. Manufacturing estimates remain M6 work.
+The public beta is Windows-only. It does not publish a browser app, Mac/Linux installers, or OpenSCAD WebAssembly engine. OpenSCAD is a separate required download. The development branch now contains the complete M5 and M6 capability scope, including printability reporting, desktop slicer handoff, engine version management, headless automation, color/multipart preview, color-preserving multi-object 3MF export, and design-time manufacturing estimates. These are not part of the published beta until a later candidate passes its release gates.
 
 ## Part II — Technical reference
 
@@ -79,6 +79,12 @@ An executable `$t` reference enables a 100-frame loop from 0.00 through 0.99. Ea
 ### Printability report (development builds)
 
 After a full 3D render, open **Manufacturing**, enter the intended build-volume dimensions and nozzle diameter, then choose **Run printability check**. ScadMill reports the mesh-topology result, the rendered bounding box against that configured volume, and a bounded sampled minimum-feature heuristic. It explicitly labels overhang analysis and any skipped heuristic as `NOT CHECKED`. This is design feedback, not a print-readiness certification, and preview geometry is never accepted as its input.
+
+### Manufacturing estimates (development builds)
+
+After a full 3D render, open **Manufacturing**, select a generic machine/nozzle profile, and choose **Estimate print time and filament**. ScadMill converts the full STL or 3MF result in a bounded worker, then runs the embedded Kiri:Moto 4.7.1 FDM engine locally. It reports estimated print time and filament use and identifies the exact generic profile used.
+
+These figures are design-time estimates, not manufacturing instructions. They do not use your printer's actual acceleration, material, temperatures, supports, start/end G-code, or slicer tuning. ScadMill discards Kiri:Moto's generated G-code and does not call the result print-ready. Use your real slicer and printer profile before manufacturing.
 
 ### Color and multipart models (development builds)
 
@@ -156,7 +162,7 @@ User files, engine execution, OS services, and optional provider traffic are dis
 
 ### Responsiveness and failure behavior
 
-Native engine work is out of process. Mesh parsing, printability analysis, project indexing, archive work, and the browser-source engine adapter cross bounded worker boundaries. Automatic rendering is debounced, animation is backpressured, and cancellation is explicit. The workbench preserves the last good result while presenting engine failure, load failure, or stale state.
+Native engine work is out of process. Mesh parsing, manufacturing-estimate preprocessing, Kiri:Moto slicing, printability analysis, project indexing, archive work, and the browser-source engine adapter cross bounded worker boundaries. Automatic rendering is debounced, animation is backpressured, and cancellation is explicit. The workbench preserves the last good result while presenting engine failure, load failure, or stale state.
 
 ### Release and extension architecture
 
@@ -166,7 +172,7 @@ Development builds expose **Libraries** on the activity rail. Choose BOSL2, MCAD
 
 For interior inspection in a development build, enable **Section** in the 3D viewer, select X, Y, or Z, and drag **Section position** through the model. The control applies a real local clipping plane to the rendered mesh; it does not alter source or export geometry. Enter a name under **Camera bookmarks** to save the current position, target, up vector, projection, and zoom. Selecting the name recalls it; **Delete** removes it. Names are unique without regard to case, and saving the same name replaces that project bookmark.
 
-The development branch now includes the M6 printability report, desktop slicer handoff, engine manager, headless CLI, color/multipart viewer, and color-preserving 3MF export described above. The architecture also includes seams for a separately qualified web distribution and the remaining manufacturing-estimate work. None is a claim about the currently published beta.
+The development branch now includes the complete M6 capability set described above, including the embedded design-time manufacturing estimates. The architecture also includes seams for a separately qualified web distribution. None is a claim about the currently published beta until a later candidate passes its release gates.
 
 ## Troubleshooting and support
 

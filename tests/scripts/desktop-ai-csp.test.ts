@@ -32,6 +32,7 @@ describe("desktop AI content-security policy", () => {
       expect(sources, `${name} must not expose arbitrary HTTP`).not.toContain("http:");
       expect(sources, `${name} must not expose arbitrary HTTPS`).not.toContain("https:");
       expect(sources, `${name} must stay bounded`).not.toContain("*");
+      expect(sources, `${name} same-origin offline runtime assets`).toContain("'self'");
       expect(sources, `${name} Tauri IPC`).toContain("ipc:");
       expect(sources, `${name} Tauri IPC host`).toContain("http://ipc.localhost");
     }

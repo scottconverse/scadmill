@@ -1,0 +1,209 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-22-m6-manufacturing-estimates",
+  "createdAt": "2026-07-22T01:39:02-06:00",
+  "summary": "Complete the M6 capability set with fully offline, generic-profile design-time manufacturing estimates from pinned Kiri:Moto 4.7.1, bounded mesh preprocessing, strict estimate metadata, and explicit manufacturing-honesty copy.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 6 dependency policy", "FR-15.16", "AC-15.n", "N-1", "V-6 honesty rule", "M6", "A-8"],
+  "filesTouched": [
+    { "path": "ARCHITECTURE.md", "status": "modified" },
+    { "path": "biome.json", "status": "modified" },
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "THIRD-PARTY-NOTICES.txt", "status": "modified" },
+    { "path": "docs/FAQ.md", "status": "modified" },
+    { "path": "docs/USER-GUIDE.md", "status": "modified" },
+    { "path": "docs/WINDOWS-BETA.md", "status": "modified" },
+    { "path": "playwright.config.ts", "status": "modified" },
+    { "path": "playwright.production-static.config.ts", "status": "modified" },
+    { "path": "provenance/entries/2026-07-22-m6-manufacturing-estimates.json", "status": "added" },
+    { "path": "scripts/generate-third-party-notices.mjs", "status": "modified" },
+    { "path": "scripts/lib/third-party-notices.mjs", "status": "modified" },
+    { "path": "scripts/lib/source-policy.mjs", "status": "modified" },
+    { "path": "src/application/manufacturing/kiri-moto-estimator.ts", "status": "added" },
+    { "path": "src/application/manufacturing/manufacturing-estimate-mesh.ts", "status": "added" },
+    { "path": "src/application/manufacturing/manufacturing-estimate-runtime.ts", "status": "added" },
+    { "path": "src/application/manufacturing/manufacturing-estimate-worker-client.ts", "status": "added" },
+    { "path": "src/application/manufacturing/manufacturing-estimate.ts", "status": "added" },
+    { "path": "src/application/manufacturing/manufacturing-estimate.worker.ts", "status": "added" },
+    { "path": "src/desktop-shell/src-tauri/tauri.conf.json", "status": "modified" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/ui/manufacturing/ManufacturingActivity.tsx", "status": "modified" },
+    { "path": "src/ui/manufacturing/ManufacturingEstimatePanel.tsx", "status": "added" },
+    { "path": "src/ui/manufacturing/manufacturing.css", "status": "modified" },
+    { "path": "src/vendor/kiri-moto/4.7.1/LICENSE-grid-apps-MIT.txt", "status": "added" },
+    { "path": "src/vendor/kiri-moto/4.7.1/LICENSE-manifold-3d-Apache-2.0.txt", "status": "added" },
+    { "path": "src/vendor/kiri-moto/4.7.1/run/engine.js", "status": "added" },
+    { "path": "src/vendor/kiri-moto/4.7.1/run/minion.js", "status": "added" },
+    { "path": "src/vendor/kiri-moto/4.7.1/run/worker.js", "status": "added" },
+    { "path": "src/vendor/kiri-moto/4.7.1/wasm/manifold.wasm", "status": "added" },
+    { "path": "tests/application/manufacturing/manufacturing-estimate-mesh.test.ts", "status": "added" },
+    { "path": "tests/application/manufacturing/manufacturing-estimate-runtime.test.ts", "status": "added" },
+    { "path": "tests/application/manufacturing/manufacturing-estimate-worker-client.test.ts", "status": "added" },
+    { "path": "tests/application/manufacturing/manufacturing-estimate.test.ts", "status": "added" },
+    { "path": "tests/e2e/manufacturing-estimate-offline.e2e.ts", "status": "added" },
+    { "path": "tests/scripts/desktop-ai-csp.test.ts", "status": "modified" },
+    { "path": "tests/scripts/desktop-public-assets.test.ts", "status": "modified" },
+    { "path": "tests/scripts/source-policy.test.ts", "status": "modified" },
+    { "path": "tests/scripts/third-party-notices.test.ts", "status": "modified" },
+    { "path": "tests/ui/manufacturing/ManufacturingActivity.test.tsx", "status": "modified" },
+    { "path": "third-party/distribution-components.json", "status": "modified" },
+    { "path": "vite.config.ts", "status": "modified" },
+    { "path": "website/app/architecture/page.tsx", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://docs.grid.space/kiri-moto/engine-apis/",
+      "accessedOn": "2026-07-22",
+      "purpose": "Confirm the official embedded Engine API and the parse, FDM configuration, slice, prepare, export, and listener contracts."
+    },
+    {
+      "url": "https://github.com/GridSpace/grid-apps/releases/tag/4.7.1",
+      "accessedOn": "2026-07-22",
+      "purpose": "Pin the official GridSpace Kiri:Moto 4.7.1 release and release commit."
+    },
+    {
+      "url": "https://github.com/GridSpace/grid-apps/blob/4.7.1/src/kiri/run/engine.js",
+      "accessedOn": "2026-07-22",
+      "purpose": "Inspect the approved permissive dependency's official engine source to validate constructor asset paths, listener metadata, and document-realm requirements."
+    },
+    {
+      "url": "https://raw.githubusercontent.com/GridSpace/grid-apps/4.7.1/license.md",
+      "accessedOn": "2026-07-22",
+      "purpose": "Retain the upstream MIT license for the exact vendored GridSpace artifacts."
+    },
+    {
+      "url": "https://registry.npmjs.org/manifold-3d/-/manifold-3d-3.3.2.tgz",
+      "accessedOn": "2026-07-22",
+      "purpose": "Confirm the exact manifold.wasm byte identity and retain the matching Apache-2.0 license."
+    }
+  ],
+  "providedInputs": [
+    { "label": "Owner-provided ScadMill functional specification v0.6", "destination": "spec/scadmill-spec-v0.6.md", "sha256": "A2D12C68E23590DF061BF3E222F481C3FFC40ECA6541D6F3DF49FDA87C1DE15A" }
+  ],
+  "decisions": [
+    {
+      "id": "D-0511",
+      "topic": "Full-render estimate input boundary",
+      "decision": "Accept only the last full binary STL or 3MF presentation, copy it into a bounded ScadMill worker, validate it, and convert 3MF to binary STL before invoking the estimate engine.",
+      "rationale": "FR-15.16 requires slicing the last full render, while defensive copying, strict formats, and a 512 MiB cap prevent preview misuse, ownership detachment, and unbounded main-thread parsing.",
+      "specBasis": ["FR-15.16", "AC-15.n", "N-1 responsiveness"]
+    },
+    {
+      "id": "D-0512",
+      "topic": "Kiri:Moto execution boundary",
+      "decision": "Load the DOM-dependent Kiri:Moto engine lazily in the page realm only after explicit user action, while Kiri:Moto performs slicing and preparation through its own packaged worker and minion pool.",
+      "rationale": "The official engine bundle reads document state during initialization and therefore cannot run wholly inside ScadMill's preprocessing worker; its supported worker architecture still keeps the expensive FDM stages off the UI thread.",
+      "specBasis": ["FR-15.16", "N-1 responsiveness", "Section 6 Kiri:Moto approval"]
+    },
+    {
+      "id": "D-0513",
+      "topic": "Pinned offline estimate runtime",
+      "decision": "Vendor the exact official Kiri:Moto 4.7.1 engine, worker, and minion bundles plus byte-identical manifold-3d 3.3.2 WASM under versioned paths; verify every SHA-256 during notice generation and emit all runtime assets at same-origin package paths.",
+      "rationale": "The estimate must run fully offline and remain auditable even though the upstream release repository has no dependency lockfile. Exact published bytes, retained licenses, hashes, and same-origin CSP avoid runtime downloads and supply-chain ambiguity.",
+      "specBasis": ["FR-15.16", "AC-15.n", "Section 6 dependency policy", "V-6 honesty rule"]
+    },
+    {
+      "id": "D-0514",
+      "topic": "Manufacturing-estimate honesty boundary",
+      "decision": "Offer immutable generic build-volume/nozzle profiles, display only finite non-negative time and filament metadata, name Kiri:Moto 4.7.1 and the selected profile, discard generated G-code, and direct users to their real slicer for manufacturing.",
+      "rationale": "Generic slicer output is valuable design feedback but cannot truthfully model a user's acceleration, materials, supports, start/end G-code, printer, or tuning and must never become a print-ready claim.",
+      "specBasis": ["FR-15.16 honesty rules", "AC-15.n", "V-6 honesty rule"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "FR-15.16 requires explicit generic profiles, valid time and filament metadata, bounded STL/3MF conversion, and a strict worker response.",
+      "test": "Exercise profiles and formatting, Kiri:Moto stage ordering and metadata rejection, STL/3MF validation and conversion, worker transfer ownership, malformed responses, cancellation, and runtime orchestration.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/manufacturing/manufacturing-estimate.test.ts tests/application/manufacturing/manufacturing-estimate-mesh.test.ts tests/application/manufacturing/manufacturing-estimate-worker-client.test.ts --reporter=dot",
+        "observedAt": "2026-07-22T01:39:02-06:00",
+        "outcome": "RED observations retained from the test-first slices: the initial profile/engine suite failed 4/4 because the modules did not exist; the mesh suite failed 3/3 before conversion existed; the worker client suite failed before the bounded client existed. Original execution timestamps were not retained, so this record time follows the observations."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/manufacturing/manufacturing-estimate.test.ts tests/application/manufacturing/manufacturing-estimate-mesh.test.ts tests/application/manufacturing/manufacturing-estimate-worker-client.test.ts tests/application/manufacturing/manufacturing-estimate-runtime.test.ts tests/ui/manufacturing/ManufacturingActivity.test.tsx tests/scripts/desktop-ai-csp.test.ts tests/scripts/desktop-public-assets.test.ts tests/scripts/third-party-notices.test.ts --reporter=dot",
+        "observedAt": "2026-07-22T01:38:47-06:00",
+        "outcome": "GREEN: 8 files and 32 tests passed."
+      }
+    },
+    {
+      "criterion": "AC-15.n requires a complete estimate with network access disabled and exact honesty copy.",
+      "test": "Block every non-loopback request, full-render the Gear knob fixture, run the estimate through the packaged preprocessing and Kiri worker boundaries, assert time and filament figures plus engine/profile/generic-profile copy, and reject print-ready wording or browser errors.",
+      "red": {
+        "command": "$env:SCADMILL_E2E_PORT='4273'; pnpm.cmd exec playwright test tests/e2e/manufacturing-estimate-offline.e2e.ts --config playwright.config.ts --reporter=line",
+        "observedAt": "2026-07-22T01:39:02-06:00",
+        "outcome": "RED during the first integration design: running the whole official engine bundle inside ScadMill's worker failed with 'document is not defined'. The architecture was corrected rather than rerunning blindly. A later harness-only RED exposed Playwright's ArrayBuffer serialization and was corrected at the assertion boundary. Original execution timestamps were not retained, so this record time follows the observations."
+      },
+      "green": {
+        "command": "$env:SCADMILL_E2E_PORT='4273'; pnpm.cmd exec playwright test tests/e2e/manufacturing-estimate-offline.e2e.ts --config playwright.config.ts --reporter=line; pnpm.cmd test:e2e:production-static",
+        "observedAt": "2026-07-22T01:47:35-06:00",
+        "outcome": "GREEN: the isolated development-server acceptance passed with no external request, page error, or console error; the production subpath build then passed AC-15.n plus both existing production-static tests, 3/3 total."
+      }
+    },
+    {
+      "criterion": "An estimate must remain bound to the exact full render that produced it.",
+      "test": "Display a completed estimate, replace the RenderSuccess3D input, and assert the old figures disappear immediately.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/manufacturing/ManufacturingActivity.test.tsx -t \"removes an estimate\" --reporter=dot",
+        "observedAt": "2026-07-22T01:37:18-06:00",
+        "outcome": "RED: the old one-minute estimate remained visible after the full-render source object was replaced."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/manufacturing/ManufacturingActivity.test.tsx -t \"removes an estimate\" --reporter=dot",
+        "observedAt": "2026-07-22T01:37:50-06:00",
+        "outcome": "GREEN: the regression passed; a changed or unsupported source aborts active work and clears the prior result."
+      }
+    },
+    {
+      "criterion": "Vendored runtime bytes, attributions, same-origin WASM placement, desktop CSP, and production compilation must be verifiable and offline-package safe.",
+      "test": "Hash every vendored artifact during notice generation, validate licenses and CSP/asset rules, typecheck, and build the production bundle with manifold.wasm at its fixed same-origin path.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/third-party-notices.test.ts tests/scripts/desktop-public-assets.test.ts tests/scripts/desktop-ai-csp.test.ts --reporter=dot",
+        "observedAt": "2026-07-22T01:39:02-06:00",
+        "outcome": "RED observations retained from the test-first packaging slices: vendored packages were absent from notices, manifold.wasm initially emitted under a hashed assets path, and desktop connect-src did not permit same-origin WASM fetches. Original execution timestamps were not retained, so this record time follows the observations."
+      },
+      "green": {
+        "command": "pnpm.cmd typecheck; pnpm.cmd check:notices; pnpm.cmd check:licenses all; pnpm.cmd build",
+        "observedAt": "2026-07-22T01:38:57-06:00",
+        "outcome": "GREEN across bounded executions: TypeScript passed; notices were current for 26 npm and 279 Cargo packages; license policy passed for 120 npm and 507 Cargo packages; Vite built successfully and emitted dist/wasm/manifold.wasm plus the three versioned runtime bundles."
+      }
+    },
+    {
+      "criterion": "Immutable upstream bundles must not be rewritten or misclassified by ScadMill-owned source policy, while the complete repository suite remains green.",
+      "test": "Exclude only src/vendor from Biome and source-policy interpretation, protect the exclusion with a fixture test, and run the full lint and JavaScript suite.",
+      "red": {
+        "command": "pnpm.cmd lint",
+        "observedAt": "2026-07-22T01:40:37-06:00",
+        "outcome": "RED: Biome warned that the three immutable official bundles exceeded its source-size cap, and source policy reported upstream color syntax as three false ScadMill hardcoded-color violations."
+      },
+      "green": {
+        "command": "pnpm.cmd lint; pnpm.cmd test -- --reporter=dot",
+        "observedAt": "2026-07-22T01:43:02-06:00",
+        "outcome": "GREEN: lint checked 613 ScadMill-owned files and source policy passed; 241 test files and 1692 tests passed, with one file and one test explicitly skipped. Vendored bytes remained covered by notice-time SHA-256 validation."
+      }
+    },
+    {
+      "criterion": "Native acceptance must execute the exact OpenSCAD 2026.06.12 engine pin and the desktop package must remain test-clean.",
+      "test": "Run both locked Cargo suites with SCADMILL_OPENSCAD bound to the verified executable whose SHA-256 matches ENGINE_VERSION.",
+      "red": {
+        "command": "cargo test --locked --manifest-path src/native-engine/Cargo.toml",
+        "observedAt": "2026-07-22T01:43:41-06:00",
+        "outcome": "RED at the environment boundary after 26 unit tests passed: discovery found the stale Scoop OpenSCAD 2021.01, and the acceptance test correctly refused it instead of silently validating against an old engine."
+      },
+      "green": {
+        "command": "$env:SCADMILL_OPENSCAD='<verified OpenSCAD 2026.06.12 executable>'; cargo test --locked --manifest-path src/native-engine/Cargo.toml; cargo test --locked --manifest-path src/desktop-shell/src-tauri/Cargo.toml",
+        "observedAt": "2026-07-22T01:44:58-06:00",
+        "outcome": "GREEN: native groups passed 26, 1, 3, 1, and 12 tests; desktop groups passed 71, 2, 2 plus one explicit ignored hosted acceptance, and 1 test, with zero failures."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "urn:scadmill:kiri-worker-document-boundary",
+      "sought": "Keep the complete estimate engine inside one ScadMill-owned worker.",
+      "confirmation": "The real official Kiri:Moto 4.7.1 bundle failed there with 'document is not defined'. The corrected design keeps only bounded mesh preprocessing in ScadMill's worker, initializes Kiri in the document realm, and relies on Kiri's packaged worker pool for slicing."
+    }
+  ],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

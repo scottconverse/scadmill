@@ -1,5 +1,7 @@
 import { defineConfig } from "@playwright/test";
 
+const port = process.env.SCADMILL_E2E_PORT?.trim() || "4173";
+
 export default defineConfig({
   testDir: "./tests/e2e",
   testMatch: "**/*.e2e.ts",
@@ -15,15 +17,15 @@ export default defineConfig({
   workers: 1,
   reporter: "list",
   use: {
-    baseURL: "http://127.0.0.1:4173",
+    baseURL: `http://127.0.0.1:${port}`,
     browserName: "chromium",
     headless: true,
     launchOptions: { args: ["--enable-precise-memory-info"] },
     trace: "retain-on-failure",
   },
   webServer: {
-    command: "node ./node_modules/vite/bin/vite.js --host 127.0.0.1 --port 4173",
-    url: "http://127.0.0.1:4173",
+    command: `node ./node_modules/vite/bin/vite.js --host 127.0.0.1 --port ${port}`,
+    url: `http://127.0.0.1:${port}`,
     reuseExistingServer: false,
     timeout: 30_000,
   },

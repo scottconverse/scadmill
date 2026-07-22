@@ -12,6 +12,8 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Added
 
+- Added M6 design-time manufacturing estimates for the last full STL or 3MF render. On explicit request, ScadMill preprocesses geometry in a bounded worker and runs the checksummed, embedded Kiri:Moto 4.7.1 FDM engine locally against a selected generic machine profile. The panel reports estimated time and filament use, names the engine and profile, discards generated G-code, makes no print-ready claim, and tells users to use their real slicer settings and printer tuning for manufacturing.
+
 - Added M6 color and multipart geometry across native and WASM rendering: pinned OpenSCAD Color-encoded 3MF output preserves top-level objects, the viewer renders engine colors with accessible per-part visibility controls and an explicit mesh-color override, and full 3MF export retains separate correctly positioned objects. The export dialog and slicer handoff explicitly tell users to assign filaments per object; no automatic filament mapping or print-ready claim is made. A real checksummed-engine CI fixture machine-parses two colored objects and verifies both cube meshes survive round-trip.
 
 - Added the M6 headless CLI to the desktop artifact: `render`, `export`, `params`, and `check` run without opening a window, emit JSON, return stable success/operation/usage exit codes, honor the exact project engine pin and stock parameter-set JSON, and keep export on the unrestricted full-quality path. Windows and Linux hosted CI now run the normative named-set 3MF export with the exact checksummed OpenSCAD 2026.06.12 engine and no display server.

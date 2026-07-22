@@ -74,7 +74,7 @@ Use **Render preview** or F5 for preview-quality geometry. Use **Full render** o
 - This release target is Windows desktop only. macOS, Linux, and public web distribution remain future release work.
 - The Radeon 780M is the owner-designated performance-evidence host, not a minimum supported GPU.
 - The exact OpenSCAD snapshot is a separate required download and is not managed or updated by ScadMill.
-- The development branch's M5 features plus M6 printability, slicer handoff, engine management, headless CLI, color/multipart preview, and color-preserving 3MF export are not included in this beta. Manufacturing estimates remain M6 work.
+- The development branch's M5 and M6 capabilities—including printability, slicer handoff, engine management, headless CLI, color/multipart preview, color-preserving 3MF export, and design-time manufacturing estimates—are not included in this beta. A later candidate must pass its own release gates before any of them become public-beta claims.
 - AI assistance sends only the conversation and context you select to the provider endpoint you configure. ScadMill does not operate an AI proxy. See [`PRIVACY.md`](../PRIVACY.md).
 - The local MCP bridge is off by default. Mutation tools remain denied unless you grant a session permission, and accepted requests still require review before changing a project.
 - Durable desktop render caching is off by default and enabled separately for each project.

@@ -15,6 +15,12 @@ export function webBasePath(value = process.env.SCADMILL_WEB_BASE_PATH): string 
   return path === "//" ? "/" : path;
 }
 
+export function emittedAssetFileName(names: readonly string[]): string {
+  return names.includes("manifold.wasm")
+    ? "wasm/manifold.wasm"
+    : "assets/[name]-[hash][extname]";
+}
+
 export default defineConfig(({ mode }) => ({
   base: mode === "desktop" ? "/" : webBasePath(),
   publicDir: publicDirectoryForMode(mode),
@@ -22,6 +28,18 @@ export default defineConfig(({ mode }) => ({
   clearScreen: false,
   build: {
     chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        assetFileNames: ({ names }) => emittedAssetFileName(names),
+      },
+    },
+  },
+  worker: {
+    rolldownOptions: {
+      output: {
+        assetFileNames: ({ names }) => emittedAssetFileName(names),
+      },
+    },
   },
   server: {
     host: "127.0.0.1",

@@ -132,7 +132,7 @@ Report suspected vulnerabilities through [GitHub private vulnerability reporting
 | Browser-source composition and OpenSCAD WASM path | **Implemented, not distributed** | No public browser application or WASM engine package is offered by this release. |
 | macOS and Linux installers | **Not released** | Windows desktop is the approved first public target. |
 | M5 history, batch export, libraries, intelligence, navigation, split editor, section view, camera bookmarks | **Implemented on `main`, not in this beta** | Development builds add the complete M5 scope, including a real axis-aligned clipping plane and per-project named camera views. |
-| M6: printability, slicer handoff, engine manager, headless CLI, color/parts, colored 3MF, manufacturing estimates | **In progress on `main`, not in this beta** | Printability reporting, slicer handoff, engine management, headless CLI, color/multipart preview, and color-preserving multi-object 3MF export are implemented; manufacturing estimates remain before the complete-product milestone closes. |
+| M6: printability, slicer handoff, engine manager, headless CLI, color/parts, colored 3MF, manufacturing estimates | **Implemented on `main`, not in this beta** | The development branch includes every listed M6 capability. Manufacturing estimates use embedded Kiri:Moto 4.7.1 with explicit generic profiles and estimate-only labeling; M6 qualification and the next public release remain separate gates. |
 
 > [!NOTE]
 > The Radeon 780M was the release performance-evidence host. It is **not** a minimum GPU requirement.
