@@ -187,9 +187,9 @@
         "outcome": "RED: the verifier module did not exist. Hosted Windows CI independently failed the earlier raw-hash equality because Tauri restores the unpatched build executable after packaging the NSS-token payload."
       },
       "green": {
-        "command": "pnpm.cmd exec vitest run tests/scripts/tauri-bundle-identity.test.ts tests/scripts/ci-workflow.test.ts",
-        "observedAt": "2026-07-22T17:51:39-06:00",
-        "outcome": "GREEN: 14/14 focused tests passed; the verifier accepts only the unique same-offset UNK-to-NSS patch and rejects any other payload difference, while the workflow retains its JSON evidence before signing and lifecycle checks."
+        "command": "pnpm.cmd exec vitest run tests/scripts/windows-installer.test.ts tests/scripts/tauri-bundle-identity.test.ts tests/scripts/ci-workflow.test.ts",
+        "observedAt": "2026-07-22T17:56:54-06:00",
+        "outcome": "GREEN: 18/18 focused tests passed; the verifier accepts only the unique same-offset UNK-to-NSS patch and rejects any other payload difference, while both workflow contract suites require its JSON evidence before signing and lifecycle checks."
       }
     },
     {

@@ -35,19 +35,15 @@ function namedStep(job: WorkflowJob, name: string): WorkflowStep {
 }
 
 function assertCanonicalPayloadIdentity(run: string | undefined): void {
-  expect(run).toContain(
-    "$builtHash = Get-FileHash -Algorithm SHA256 -LiteralPath $application",
-  );
-  expect(run).toContain(
-    "$packagedHash = Get-FileHash -Algorithm SHA256 -LiteralPath $packagedApplication",
-  );
-  expect(run).toContain("$builtHash.Hash -cne $packagedHash.Hash");
-  expect(run).toContain("Built application SHA256: $($builtHash.Hash)");
-  expect(run).toContain("Exact setup application payload SHA256: $($packagedHash.Hash)");
-  expect(run).toContain("The built application differs from the exact setup payload.");
-  expect(run).toContain('"built_sha256=$($builtHash.Hash)"');
-  expect(run).toContain('"packaged_sha256=$($packagedHash.Hash)"');
-  expect(run).toContain('"matched=true"');
+  expect(run).toContain("node ./scripts/verify-tauri-bundle-identity.mjs");
+  expect(run).toContain("--built $application");
+  expect(run).toContain("--packaged $packagedApplication");
+  expect(run).toContain("--out $identityEvidence");
+  expect(run).toContain('"built-packaged-identity.json"');
+  expect(run).toContain("if ($LASTEXITCODE -ne 0)");
+  expect(run).toContain("Built application SHA256: $($identity.builtSha256)");
+  expect(run).toContain("Exact setup application payload SHA256: $($identity.packagedSha256)");
+  expect(run).toContain("Normalized identity match: $($identity.normalizedMatch)");
   expect(run).toContain('"SCADMILL_INSTALLER_IDENTITY_EVIDENCE=$identityEvidence"');
 }
 
@@ -231,12 +227,12 @@ describe("installer lifecycle contract", () => {
     assertCanonicalPayloadIdentity(buildProof.run);
     expect(() => assertCanonicalPayloadIdentity(
       buildProof.run?.replace(
-        "$builtHash.Hash -cne $packagedHash.Hash",
-        "$builtHash.Hash -ceq $packagedHash.Hash",
+        "--packaged $packagedApplication",
+        "--packaged $application",
       ),
     )).toThrow();
     expect(() => assertCanonicalPayloadIdentity(
-      buildProof.run?.replace("$builtHash.Hash -cne $packagedHash.Hash", ""),
+      buildProof.run?.replace("node ./scripts/verify-tauri-bundle-identity.mjs", ""),
     )).toThrow();
     expect(lifecycleStep.run).toContain("-ExpectedApplication $env:SCADMILL_PACKAGED_APP");
     expect(lifecycleStep.run).toContain("-ExpectedNotices ./THIRD-PARTY-NOTICES.txt");
