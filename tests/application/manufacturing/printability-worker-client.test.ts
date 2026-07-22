@@ -30,7 +30,7 @@ describe("runPrintabilityOffThread", () => {
     await expect(runPrintabilityOffThread(bytes, configuration, () => instance)).resolves.toEqual(report);
     expect(bytes).toEqual(new Uint8Array([1, 2, 3]));
     expect(instance.postMessage).toHaveBeenCalledWith(
-      { bytes: expect.any(ArrayBuffer), configuration },
+      { bytes: expect.any(ArrayBuffer), configuration, format: "stl-binary" },
       [expect.any(ArrayBuffer)],
     );
     expect(instance.terminate).toHaveBeenCalledOnce();

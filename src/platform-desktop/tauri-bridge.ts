@@ -6,6 +6,8 @@ import type {
   RenderRequest,
 } from "../application/engine/contracts";
 import type { NativeEngineBridge } from "../application/engine/native-engine-service";
+import { closedMeshVolumeMm3 } from "../application/geometry/stl";
+import { parseBinaryStlOffThread } from "../application/geometry/stl-parser-worker-client";
 
 export type Invoke = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
 export type OutputChannelFactory = (
@@ -14,11 +16,11 @@ export type OutputChannelFactory = (
 
 interface NativeRenderSuccess3DWireResponse {
   kind: "3d";
-  format: "stl-binary";
+  format: "stl-binary" | "3mf";
   meshBase64: string;
-  triangleCount: number;
+  triangleCount?: number;
   volumeMm3?: number;
-  bounds: {
+  bounds?: {
     min: [number, number, number];
     max: [number, number, number];
     size: [number, number, number];
@@ -163,6 +165,32 @@ export function createTauriBridge(
       }
       const vertices = reportedStatistic(response.rawLog, "Vertices");
       const bytes = decodeBase64(response.meshBase64);
+      if (response.format === "3mf") {
+        const parsed = await parseBinaryStlOffThread(bytes, undefined, undefined, "3mf");
+        return {
+          kind: "3d",
+          mesh: {
+            format: "3mf",
+            bytes,
+            ...(parsed.parts ? { parts: parsed.parts } : {}),
+          },
+          stats: {
+            ...(vertices !== undefined ? { vertices } : {}),
+            triangles: parsed.triangleCount,
+            boundingBox: {
+              min: [...parsed.bounds.min] as [number, number, number],
+              max: [...parsed.bounds.max] as [number, number, number],
+            },
+            volumeMm3: closedMeshVolumeMm3(parsed.positions),
+            engineTimeMs: response.engineTimeMs,
+          },
+          diagnostics,
+          rawLog: response.rawLog,
+        };
+      }
+      if (!response.bounds || !Number.isSafeInteger(response.triangleCount)) {
+        throw new Error("The native engine returned invalid STL render statistics.");
+      }
       return {
         kind: "3d",
         mesh: {

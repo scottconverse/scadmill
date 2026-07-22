@@ -1,3 +1,4 @@
+import { strToU8, zipSync } from "fflate";
 import { describe, expect, it, vi } from "vitest";
 
 import type {
@@ -155,6 +156,36 @@ describe("createTauriBridge", () => {
     expect(result).toMatchObject({
       kind: "3d",
       stats: { vertices: 8, triangles: 12, volumeMm3: 125.5, engineTimeMs: 11 },
+    });
+  });
+
+  it("parses native Color-encoded 3MF statistics and separate parts", async () => {
+    const xml = `<model xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:m="http://schemas.microsoft.com/3dmanufacturing/material/2015/02" unit="millimeter"><resources><m:colorgroup id="3"><m:color color="#FF0000FF"/><m:color color="#0000FFFF"/></m:colorgroup><object id="1" name="Red" pid="3" pindex="0"><mesh><vertices><vertex x="0" y="0" z="0"/><vertex x="1" y="0" z="0"/><vertex x="0" y="1" z="0"/></vertices><triangles><triangle v1="0" v2="1" v3="2"/></triangles></mesh></object><object id="2" name="Blue" pid="3" pindex="1"><mesh><vertices><vertex x="2" y="0" z="0"/><vertex x="3" y="0" z="0"/><vertex x="2" y="1" z="0"/></vertices><triangles><triangle v1="0" v2="1" v3="2"/></triangles></mesh></object></resources><build><item objectid="1"/><item objectid="2"/></build></model>`;
+    const bytes = zipSync({ "3D/3dmodel.model": strToU8(xml) });
+    const invoke = vi.fn().mockResolvedValue({
+      kind: "3d",
+      format: "3mf",
+      meshBase64: Buffer.from(bytes).toString("base64"),
+      rawLog: "Top level object is a list of objects:\n   Objects: 2\n",
+      engineTimeMs: 7,
+    });
+
+    const result = await createTauriBridge(invoke).render("job-color", request, vi.fn());
+
+    expect(result).toMatchObject({
+      kind: "3d",
+      mesh: {
+        format: "3mf",
+        parts: [
+          { id: "1", name: "Red", color: "#FF0000", triangleOffset: 0, triangleCount: 1 },
+          { id: "2", name: "Blue", color: "#0000FF", triangleOffset: 1, triangleCount: 1 },
+        ],
+      },
+      stats: {
+        triangles: 2,
+        boundingBox: { min: [0, 0, 0], max: [3, 1, 0] },
+        engineTimeMs: 7,
+      },
     });
   });
 

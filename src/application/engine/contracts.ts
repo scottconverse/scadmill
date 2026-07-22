@@ -30,9 +30,17 @@ export interface RenderStats {
   engineTimeMs: number;
 }
 
+export interface RenderPart {
+  readonly id: string;
+  readonly name: string;
+  readonly color: string;
+  readonly triangleOffset: number;
+  readonly triangleCount: number;
+}
+
 export interface RenderSuccess3D {
   kind: "3d";
-  mesh: { format: MeshFormat; bytes: Uint8Array; geometryIdentity?: string };
+  mesh: { format: MeshFormat; bytes: Uint8Array; geometryIdentity?: string; parts?: readonly RenderPart[] };
   stats: RenderStats;
   diagnostics: Diagnostic[];
   rawLog: string;

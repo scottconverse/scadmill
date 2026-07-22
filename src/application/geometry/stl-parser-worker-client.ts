@@ -1,4 +1,7 @@
-import { parseBinaryStl, type ParsedBinaryStl } from "./stl";
+import type { MeshFormat } from "../engine/contracts";
+import type { ParsedModelMesh, ParsedModelPart } from "./model-mesh";
+import { parseBinaryStl } from "./stl";
+import { parseThreeMf } from "./three-mf";
 
 interface WorkerMessageEvent {
   readonly data: unknown;
@@ -7,14 +10,14 @@ interface WorkerMessageEvent {
 export interface StlParserWorkerLike {
   onmessage: ((event: WorkerMessageEvent) => void) | null;
   onerror: ((event: { readonly message?: string }) => void) | null;
-  postMessage(message: { readonly bytes: ArrayBuffer }, transfer: readonly Transferable[]): void;
+  postMessage(message: { readonly bytes: ArrayBuffer; readonly format?: MeshFormat }, transfer: readonly Transferable[]): void;
   terminate(): void;
 }
 
 export type StlParserWorkerFactory = () => StlParserWorkerLike;
 
 export interface ReusableBinaryStlParser {
-  parse(bytes: Uint8Array, signal?: AbortSignal): Promise<ParsedBinaryStl>;
+  parse(bytes: Uint8Array, signal?: AbortSignal, format?: MeshFormat): Promise<ParsedModelMesh>;
   dispose(): void;
 }
 
@@ -39,7 +42,40 @@ function isPoint(value: unknown): value is [number, number, number] {
   return Array.isArray(value) && value.length === 3 && value.every(Number.isFinite);
 }
 
-function decodedWorkerResult(value: unknown): ParsedBinaryStl {
+function decodedParts(value: unknown, triangleCount: number): readonly ParsedModelPart[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) throw new Error("The STL parser worker returned an invalid response.");
+  const parts: ParsedModelPart[] = [];
+  let expectedOffset = 0;
+  const ids = new Set<string>();
+  for (const candidate of value) {
+    if (typeof candidate !== "object" || candidate === null) {
+      throw new Error("The STL parser worker returned an invalid response.");
+    }
+    const part = candidate as Record<string, unknown>;
+    if (
+      typeof part.id !== "string"
+      || part.id.length === 0
+      || ids.has(part.id)
+      || typeof part.name !== "string"
+      || part.name.length === 0
+      || typeof part.color !== "string"
+      || !/^#[\dA-F]{6}$/u.test(part.color)
+      || part.triangleOffset !== expectedOffset
+      || !Number.isSafeInteger(part.triangleCount)
+      || (part.triangleCount as number) <= 0
+    ) throw new Error("The STL parser worker returned an invalid response.");
+    ids.add(part.id);
+    expectedOffset += part.triangleCount as number;
+    parts.push(part as unknown as ParsedModelPart);
+  }
+  if (parts.length === 0 || expectedOffset !== triangleCount) {
+    throw new Error("The STL parser worker returned an invalid response.");
+  }
+  return parts;
+}
+
+function decodedWorkerResult(value: unknown): ParsedModelMesh {
   if (typeof value !== "object" || value === null) {
     throw new Error("The STL parser worker returned an invalid response.");
   }
@@ -56,6 +92,14 @@ function decodedWorkerResult(value: unknown): ParsedBinaryStl {
   ) throw new Error("The STL parser worker returned an invalid response.");
   const triangleCount = response.triangleCount as number;
   const expectedBytes = triangleCount * 9 * Float32Array.BYTES_PER_ELEMENT;
+  const colorBuffer = response.colors;
+  if (colorBuffer !== undefined && (!(colorBuffer instanceof ArrayBuffer) || colorBuffer.byteLength !== expectedBytes)) {
+    throw new Error("The STL parser worker returned an invalid response.");
+  }
+  const parts = decodedParts(response.parts, triangleCount);
+  if ((colorBuffer === undefined) !== (parts === undefined)) {
+    throw new Error("The STL parser worker returned an invalid response.");
+  }
   const bounds = response.bounds as Record<string, unknown>;
   const minimum = bounds.min;
   const maximum = bounds.max;
@@ -73,15 +117,24 @@ function decodedWorkerResult(value: unknown): ParsedBinaryStl {
     triangleCount,
     positions: new Float32Array(response.positions),
     normals: new Float32Array(response.normals),
+    ...(colorBuffer ? { colors: new Float32Array(colorBuffer) } : {}),
+    ...(parts ? { parts } : {}),
     bounds: { min: minimum, max: maximum, size },
   };
+}
+
+function parseModel(bytes: Uint8Array, format: MeshFormat): ParsedModelMesh {
+  if (format === "3mf") return parseThreeMf(bytes);
+  if (format === "stl-binary") return parseBinaryStl(bytes);
+  throw new Error(`The viewer cannot parse ${format} render geometry.`);
 }
 
 export function parseBinaryStlOffThread(
   bytes: Uint8Array,
   factory?: StlParserWorkerFactory,
   signal?: AbortSignal,
-): Promise<ParsedBinaryStl> {
+  format: MeshFormat = "stl-binary",
+): Promise<ParsedModelMesh> {
   if (signal?.aborted) return Promise.reject(abortError());
   if (!factory && typeof Worker === "undefined") {
     if (bytes.byteLength > MAX_MAIN_THREAD_STL_BYTES) {
@@ -90,7 +143,7 @@ export function parseBinaryStlOffThread(
     const copy = bytes.slice();
     return Promise.resolve().then(() => {
       if (signal?.aborted) throw abortError();
-      return parseBinaryStl(copy);
+      return parseModel(copy, format);
     });
   }
   return new Promise((resolve, reject) => {
@@ -103,7 +156,7 @@ export function parseBinaryStlOffThread(
     }
     let settled = false;
     const onAbort = () => finish(() => { throw abortError(); });
-    const finish = (outcome: () => ParsedBinaryStl) => {
+    const finish = (outcome: () => ParsedModelMesh) => {
       if (settled) return;
       settled = true;
       try {
@@ -124,7 +177,10 @@ export function parseBinaryStlOffThread(
     });
     const copy = bytes.slice();
     try {
-      worker.postMessage({ bytes: copy.buffer }, [copy.buffer]);
+      worker.postMessage(
+        format === "stl-binary" ? { bytes: copy.buffer } : { bytes: copy.buffer, format },
+        [copy.buffer],
+      );
     } catch {
       finish(() => { throw new Error(WORKER_START_ERROR); });
     }
@@ -159,7 +215,7 @@ export function createReusableBinaryStlParser(
   };
 
   return {
-    parse(bytes, signal) {
+    parse(bytes, signal, format = "stl-binary") {
       if (disposed) return Promise.reject(new Error("The STL parser has been disposed."));
       if (signal?.aborted) return Promise.reject(abortError());
       if (cancelActive) return Promise.reject(new Error("The STL parser is already parsing."));
@@ -203,7 +259,10 @@ export function createReusableBinaryStlParser(
         );
         const copy = bytes.slice();
         try {
-          activeWorker.postMessage({ bytes: copy.buffer }, [copy.buffer]);
+          activeWorker.postMessage(
+            format === "stl-binary" ? { bytes: copy.buffer } : { bytes: copy.buffer, format },
+            [copy.buffer],
+          );
         } catch {
           fail(new Error(WORKER_START_ERROR));
         }

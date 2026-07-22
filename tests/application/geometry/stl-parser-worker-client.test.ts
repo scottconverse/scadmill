@@ -1,3 +1,4 @@
+import { strToU8, zipSync } from "fflate";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -29,6 +30,20 @@ function validWorkerResponse() {
 }
 
 describe("off-thread binary STL parsing", () => {
+  it("parses a Color-encoded 3MF through the bounded workerless fallback", async () => {
+    const xml = `<model xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:m="http://schemas.microsoft.com/3dmanufacturing/material/2015/02" unit="millimeter"><resources><m:colorgroup id="7"><m:color color="#FF0000FF" /></m:colorgroup><object id="1" name="Red part" pid="7" pindex="0"><mesh><vertices><vertex x="0" y="0" z="0"/><vertex x="1" y="0" z="0"/><vertex x="0" y="1" z="0"/></vertices><triangles><triangle v1="0" v2="1" v3="2"/></triangles></mesh></object></resources><build><item objectid="1"/></build></model>`;
+    const bytes = zipSync({ "3D/3dmodel.model": strToU8(xml) });
+    vi.stubGlobal("Worker", undefined);
+
+    const parsed = await parseBinaryStlOffThread(bytes, undefined, undefined, "3mf");
+
+    expect(parsed.parts).toEqual([
+      { id: "1", name: "Red part", color: "#FF0000", triangleOffset: 0, triangleCount: 1 },
+    ]);
+    expect(parsed.colors).toBeInstanceOf(Float32Array);
+    vi.unstubAllGlobals();
+  });
+
   it("reuses one worker across sequential parses and terminates it on disposal", async () => {
     const terminate = vi.fn();
     const worker: StlParserWorkerLike = {

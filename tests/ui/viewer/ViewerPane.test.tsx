@@ -10,16 +10,19 @@ import { ViewerPane } from "../../../src/ui/viewer/ViewerPane";
 import type { ViewerDegradation } from "../../../src/ui/viewer/viewer-furniture";
 
 let reportViewerDegradation: ((degradation: ViewerDegradation) => void) | undefined;
+let visibleParts: Readonly<Record<string, boolean>> | undefined;
 const capturePng = vi.fn(async () => new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]));
 
 vi.mock("../../../src/ui/viewer/ModelViewer", () => ({
-  ModelViewer: forwardRef(({ dimmed, emptyMessage, onDegradationChange, onPointPick }: {
+  ModelViewer: forwardRef(({ dimmed, emptyMessage, onDegradationChange, onPointPick, partVisibility }: {
     dimmed?: boolean;
     emptyMessage?: string;
     onDegradationChange?: (degradation: ViewerDegradation) => void;
     onPointPick?: (point: readonly [number, number, number]) => void;
+    partVisibility?: Readonly<Record<string, boolean>>;
   }, ref) => {
     reportViewerDegradation = onDegradationChange;
+    visibleParts = partVisibility;
     useImperativeHandle(ref, () => ({
       capturePng,
     }));
@@ -86,6 +89,31 @@ function Harness({ result }: { result?: RenderResult }) {
 }
 
 describe("ViewerPane result routing", () => {
+  it("lists separately colored 3MF parts and toggles their viewer visibility", async () => {
+    const multipart: RenderResult = {
+      ...threeD,
+      mesh: {
+        format: "3mf",
+        bytes: new Uint8Array([0x50, 0x4b]),
+        parts: [
+          { id: "red", name: "Red bracket", color: "#FF0000FF", triangleOffset: 0, triangleCount: 1 },
+          { id: "blue", name: "Blue bracket", color: "#0000FFFF", triangleOffset: 1, triangleCount: 1 },
+        ],
+      },
+    };
+
+    const view = render(<Harness result={multipart} />);
+
+    expect(view.getByRole("heading", { name: "Parts" })).toBeVisible();
+    expect(view.getByText("Red bracket")).toBeVisible();
+    expect(view.getByText("Blue bracket")).toBeVisible();
+    await waitFor(() => expect(visibleParts).toEqual({ red: true, blue: true }));
+
+    fireEvent.click(view.getByRole("checkbox", { name: "Show Blue bracket" }));
+    await waitFor(() => expect(visibleParts).toEqual({ red: true, blue: false }));
+    expect(view.getByTestId("part-color-blue")).toHaveStyle({ backgroundColor: "#0000FF" });
+  });
+
   it("restarts elapsed render time when a rendering job is superseded", () => {
     vi.useFakeTimers();
     let view: ReturnType<typeof render> | undefined;

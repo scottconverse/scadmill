@@ -157,6 +157,8 @@ jobs:
           "SCADMILL_AC4_OPENSCAD=$executable" | Out-File -FilePath $env:GITHUB_ENV -Append
       - name: Exact AC-4.a parity
         run: pnpm test:parity
+      - name: Exact colored 3MF object and round-trip evidence
+        run: pnpm exec vitest run tests/integration/colored-3mf-engine.test.ts --reporter=verbose
       - name: Headless CLI export smoke
         run: cargo test --locked --manifest-path src/desktop-shell/src-tauri/Cargo.toml --test headless_cli exports_a_named_parameter_set_to_3mf_without_a_display_server -- --ignored --nocapture
       - name: Retain raw and canonical parity evidence

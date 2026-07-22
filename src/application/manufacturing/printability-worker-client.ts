@@ -1,5 +1,6 @@
+import type { MeshFormat } from "../engine/contracts";
 import {
-  analyzePrintability,
+  analyzeModelPrintability,
   type PrintabilityConfiguration,
   type PrintabilityReport,
 } from "./printability";
@@ -8,7 +9,7 @@ interface WorkerMessageEvent { readonly data: unknown }
 export interface PrintabilityWorkerLike {
   onmessage: ((event: WorkerMessageEvent) => void) | null;
   onerror: ((event: { readonly message?: string }) => void) | null;
-  postMessage(message: { readonly bytes: ArrayBuffer; readonly configuration: PrintabilityConfiguration }, transfer: readonly Transferable[]): void;
+  postMessage(message: { readonly bytes: ArrayBuffer; readonly configuration: PrintabilityConfiguration; readonly format: MeshFormat }, transfer: readonly Transferable[]): void;
   terminate(): void;
 }
 export type PrintabilityWorkerFactory = () => PrintabilityWorkerLike;
@@ -75,6 +76,7 @@ export function runPrintabilityOffThread(
   configuration: PrintabilityConfiguration,
   factory?: PrintabilityWorkerFactory,
   signal?: AbortSignal,
+  format: MeshFormat = "stl-binary",
 ): Promise<PrintabilityReport> {
   if (signal?.aborted) return Promise.reject(abortError());
   if (!factory && typeof Worker === "undefined") {
@@ -82,7 +84,7 @@ export function runPrintabilityOffThread(
       return Promise.reject(new Error("The mesh is too large to check without Web Worker support."));
     }
     const copy = bytes.slice();
-    return Promise.resolve().then(() => analyzePrintability(copy, configuration));
+    return Promise.resolve().then(() => analyzeModelPrintability(copy, format, configuration));
   }
   return new Promise((resolve, reject) => {
     let worker: PrintabilityWorkerLike;
@@ -105,7 +107,7 @@ export function runPrintabilityOffThread(
     });
     worker.onerror = (event) => finish(() => { throw new Error(event.message || "The printability worker failed."); });
     const copy = bytes.slice();
-    try { worker.postMessage({ bytes: copy.buffer, configuration }, [copy.buffer]); }
+    try { worker.postMessage({ bytes: copy.buffer, configuration, format }, [copy.buffer]); }
     catch { finish(() => { throw new Error("The printability worker could not start."); }); }
   });
 }

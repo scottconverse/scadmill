@@ -1,7 +1,8 @@
 use base64::Engine as _;
 use scadmill_native_engine::{
     EngineError, EngineOutputEvent, ExportImage, NativeExportFormat, NativeGeometry, ParamValue,
-    RenderQuality, engine_version, export_project, find_engine_with_bundled, render_project,
+    RenderQuality, engine_version, export_project, find_engine_with_bundled,
+    render_project_colored,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -178,6 +179,16 @@ struct NativeRenderSuccess3DResponse {
 
 #[derive(Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
+struct NativeRenderSuccess3MfResponse {
+    kind: &'static str,
+    format: &'static str,
+    mesh_base64: String,
+    raw_log: String,
+    engine_time_ms: u128,
+}
+
+#[derive(Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct NativeRenderSuccess2DResponse {
     kind: &'static str,
     svg: String,
@@ -199,6 +210,7 @@ struct NativeRenderFailureResponse {
 #[serde(untagged)]
 enum NativeRenderResponse {
     ThreeD(NativeRenderSuccess3DResponse),
+    ThreeMf(NativeRenderSuccess3MfResponse),
     TwoD(NativeRenderSuccess2DResponse),
     Failure(NativeRenderFailureResponse),
 }
@@ -311,7 +323,7 @@ async fn render_native(
     let token = jobs.register(&job_id)?;
     let worker_token = Arc::clone(&token);
     let joined = tauri::async_runtime::spawn_blocking(move || {
-        render_project(
+        render_project_colored(
             &engine,
             &entry_file,
             &files,
@@ -333,6 +345,15 @@ async fn render_native(
                     triangle_count: geometry.triangle_count,
                     bounds: geometry.bounds,
                     volume_mm3: geometry.volume_mm3,
+                    raw_log: rendered.raw_log,
+                    engine_time_ms: rendered.engine_time_ms,
+                })
+            }
+            NativeGeometry::ThreeMf { archive } => {
+                NativeRenderResponse::ThreeMf(NativeRenderSuccess3MfResponse {
+                    kind: "3d",
+                    format: "3mf",
+                    mesh_base64: base64::engine::general_purpose::STANDARD.encode(archive),
                     raw_log: rendered.raw_log,
                     engine_time_ms: rendered.engine_time_ms,
                 })

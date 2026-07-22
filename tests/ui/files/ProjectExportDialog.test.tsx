@@ -43,6 +43,8 @@ describe("ProjectExportDialog", () => {
     expect([...picker.options].map(({ value }) => value)).toEqual([
       "3mf", "stl-binary", "stl-ascii", "off", "amf", "svg", "dxf", "png",
     ]);
+    expect(dialog.getByText(/assign filaments per object in your slicer/i)).toBeVisible();
+    expect(dialog.queryByText(/print-ready/i)).not.toBeInTheDocument();
     expect(dialog.getByText("Choose a download location")).toBeVisible();
   });
 

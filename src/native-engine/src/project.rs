@@ -26,6 +26,7 @@ pub struct Bounds2D {
 #[derive(Clone, Debug, PartialEq)]
 pub enum NativeGeometry {
     ThreeD { mesh: Vec<u8>, geometry: ParsedStl },
+    ThreeMf { archive: Vec<u8> },
     TwoD { svg: String, bounds: Bounds2D },
 }
 
@@ -126,6 +127,9 @@ fn configure_command(
     let mut command = Command::new(engine);
     command.current_dir(project_root);
     command.args(["--export-format", export_format]);
+    if export_format == "3mf" {
+        configure_color_3mf_mode(&mut command);
+    }
     for definition in parameter_definitions(parameters)? {
         command.arg("-D").arg(definition);
     }
@@ -136,6 +140,14 @@ fn configure_command(
     }
     command.arg("-o").arg(output_file).arg(entry_file);
     Ok(command)
+}
+
+fn configure_color_3mf_mode(command: &mut Command) {
+    command
+        .args(["--backend", "Manifold"])
+        .args(["--enable", "lazy-union"])
+        .args(["-O", "export-3mf/color-mode=model"])
+        .args(["-O", "export-3mf/material-type=color"]);
 }
 
 #[derive(Deserialize)]
@@ -203,7 +215,7 @@ fn artifact_failure(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn render_project(
+fn render_project_with_format(
     engine: &Path,
     entry_file: &str,
     files: &BTreeMap<String, Vec<u8>>,
@@ -213,6 +225,7 @@ pub fn render_project(
     timeout: Duration,
     cancelled: &AtomicBool,
     on_output: &dyn Fn(EngineOutputEvent),
+    color_preserving: bool,
 ) -> Result<ProjectRenderOutput, EngineError> {
     let workspace = tempfile::tempdir().map_err(io_error("create a render workspace"))?;
     let project_root = workspace.path().join("project");
@@ -223,57 +236,72 @@ pub fn render_project(
     let started = Instant::now();
     let sequence = AtomicU64::new(0);
 
-    let stl_path = output_root.join("model.stl");
-    let mut stl_command = configure_command(
+    let three_d_path = output_root.join(if color_preserving {
+        "model.3mf"
+    } else {
+        "model.stl"
+    });
+    let mut three_d_command = configure_command(
         engine,
         &project_root,
         &entry_path,
-        stl_path.to_string_lossy().as_ref(),
-        "binstl",
+        three_d_path.to_string_lossy().as_ref(),
+        if color_preserving { "3mf" } else { "binstl" },
         quality,
         parameters,
         preview_facet_limit,
     )?;
-    let stl_capture = run_command(
-        &mut stl_command,
+    let three_d_capture = run_command(
+        &mut three_d_command,
         timeout,
         cancelled,
         &sequence,
         started,
         on_output,
     )?;
-    if stl_capture.success {
-        let mesh = match fs::read(stl_path) {
+    if three_d_capture.success {
+        let mesh = match fs::read(three_d_path) {
             Ok(mesh) => mesh,
             Err(source) => {
                 return Err(artifact_failure(
-                    "read the rendered STL",
+                    if color_preserving {
+                        "read the rendered 3MF"
+                    } else {
+                        "read the rendered STL"
+                    },
                     source,
-                    stl_capture.raw_log,
+                    three_d_capture.raw_log,
                 ));
             }
         };
+        if color_preserving {
+            return Ok(ProjectRenderOutput {
+                geometry: NativeGeometry::ThreeMf { archive: mesh },
+                raw_log: three_d_capture.raw_log,
+                engine_time_ms: started.elapsed().as_millis(),
+            });
+        }
         let geometry = match parse_binary_stl(&mesh) {
             Ok(geometry) => geometry,
             Err(source) => {
                 return Err(artifact_failure(
                     "parse the rendered STL",
                     source,
-                    stl_capture.raw_log,
+                    three_d_capture.raw_log,
                 ));
             }
         };
         return Ok(ProjectRenderOutput {
             geometry: NativeGeometry::ThreeD { mesh, geometry },
-            raw_log: stl_capture.raw_log,
+            raw_log: three_d_capture.raw_log,
             engine_time_ms: started.elapsed().as_millis(),
         });
     }
-    if !stl_capture
+    if !three_d_capture
         .raw_log
         .contains("Current top level object is not a 3D object.")
     {
-        return Err(process_failure(stl_capture));
+        return Err(process_failure(three_d_capture));
     }
 
     let svg_path = output_root.join("model.svg");
@@ -303,7 +331,7 @@ pub fn render_project(
         started,
         on_output,
     )?;
-    let raw_log = format!("{}{}", stl_capture.raw_log, svg_capture.raw_log);
+    let raw_log = format!("{}{}", three_d_capture.raw_log, svg_capture.raw_log);
     if !svg_capture.success {
         return Err(EngineError::Process {
             exit_code: svg_capture.exit_code,
@@ -341,6 +369,58 @@ pub fn render_project(
         raw_log,
         engine_time_ms: started.elapsed().as_millis(),
     })
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn render_project(
+    engine: &Path,
+    entry_file: &str,
+    files: &BTreeMap<String, Vec<u8>>,
+    quality: RenderQuality,
+    parameters: &BTreeMap<String, ParamValue>,
+    preview_facet_limit: Option<u32>,
+    timeout: Duration,
+    cancelled: &AtomicBool,
+    on_output: &dyn Fn(EngineOutputEvent),
+) -> Result<ProjectRenderOutput, EngineError> {
+    render_project_with_format(
+        engine,
+        entry_file,
+        files,
+        quality,
+        parameters,
+        preview_facet_limit,
+        timeout,
+        cancelled,
+        on_output,
+        false,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn render_project_colored(
+    engine: &Path,
+    entry_file: &str,
+    files: &BTreeMap<String, Vec<u8>>,
+    quality: RenderQuality,
+    parameters: &BTreeMap<String, ParamValue>,
+    preview_facet_limit: Option<u32>,
+    timeout: Duration,
+    cancelled: &AtomicBool,
+    on_output: &dyn Fn(EngineOutputEvent),
+) -> Result<ProjectRenderOutput, EngineError> {
+    render_project_with_format(
+        engine,
+        entry_file,
+        files,
+        quality,
+        parameters,
+        preview_facet_limit,
+        timeout,
+        cancelled,
+        on_output,
+        true,
+    )
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -436,7 +516,8 @@ pub fn export_project(
 #[cfg(test)]
 mod tests {
     use super::{
-        CameraPose, ExportImage, NativeExportFormat, export_project, parse_geometry_summary,
+        CameraPose, ExportImage, NativeExportFormat, RenderQuality, configure_command,
+        export_project, parse_geometry_summary,
     };
     use crate::{EngineError, ParamValue};
     use std::collections::BTreeMap;
@@ -470,6 +551,51 @@ mod tests {
         for (format, expected) in cases {
             assert_eq!(format.command_format(), expected, "mapping for {format:?}");
         }
+    }
+
+    #[test]
+    fn centralizes_the_normative_color_3mf_engine_mode_without_base_material() {
+        let command = configure_command(
+            Path::new("openscad"),
+            Path::new("project"),
+            Path::new("fixture.scad"),
+            "fixture.3mf",
+            "3mf",
+            RenderQuality::Full,
+            &BTreeMap::new(),
+            None,
+        )
+        .expect("valid 3MF command");
+        let arguments = command
+            .get_args()
+            .map(|argument| argument.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+
+        assert!(
+            arguments
+                .windows(2)
+                .any(|pair| pair == ["--backend", "Manifold"])
+        );
+        assert!(
+            arguments
+                .windows(2)
+                .any(|pair| pair == ["--enable", "lazy-union"])
+        );
+        assert!(
+            arguments
+                .windows(2)
+                .any(|pair| pair == ["-O", "export-3mf/color-mode=model"])
+        );
+        assert!(
+            arguments
+                .windows(2)
+                .any(|pair| pair == ["-O", "export-3mf/material-type=color"])
+        );
+        assert!(
+            !arguments
+                .iter()
+                .any(|argument| argument.contains("basematerial"))
+        );
     }
 
     #[test]

@@ -1,6 +1,6 @@
 use scadmill_native_engine::{
     EngineError, NativeGeometry, ParamValue, ProjectRenderOutput, RenderQuality, find_engine,
-    render_project,
+    render_project, render_project_colored,
 };
 use std::collections::BTreeMap;
 use std::fs;
@@ -26,6 +26,34 @@ fn render(
         &AtomicBool::new(false),
         &|_| {},
     )
+}
+
+#[test]
+fn renders_two_colored_solids_as_a_color_encoded_3mf() {
+    let engine = find_engine(None).expect("the pinned engine should be installed");
+    let rendered = render_project_colored(
+        &engine,
+        "main.scad",
+        &BTreeMap::from([(
+            "main.scad".to_string(),
+            b"color(\"red\") cube(10); translate([20,0,0]) color(\"blue\") cube(10);".to_vec(),
+        )]),
+        RenderQuality::Full,
+        &BTreeMap::new(),
+        None,
+        Duration::from_secs(30),
+        &AtomicBool::new(false),
+        &|_| {},
+    )
+    .expect("color render should succeed");
+
+    match rendered.geometry {
+        NativeGeometry::ThreeMf { archive } => {
+            assert_eq!(&archive[..2], b"PK");
+            assert!(archive.len() > 100);
+        }
+        other => panic!("expected 3MF geometry, got {other:?}"),
+    }
 }
 
 #[test]

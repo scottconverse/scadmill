@@ -81,7 +81,7 @@ export function rebuildFurniture(options: {
   readonly scene: Scene;
   readonly renderer: WebGLRenderer;
   readonly keyLight: DirectionalLight;
-  readonly mesh?: Mesh<BufferGeometry, MeshStandardMaterial>;
+  readonly mesh?: Mesh<BufferGeometry, MeshStandardMaterial | MeshStandardMaterial[]>;
   readonly geometry?: ParsedBinaryStl;
   readonly furniture: ViewerFurnitureState;
   readonly colors: ViewerThemeColors;

@@ -60,6 +60,23 @@ function nonnegative(value: unknown): value is number {
   return finite(value) && value >= 0;
 }
 
+function renderPart(value: unknown): value is RecordValue {
+  return plain(value)
+    && exact(value, ["id", "name", "color", "triangleOffset", "triangleCount"])
+    && typeof value.id === "string"
+    && value.id.length > 0
+    && value.id.length <= 256
+    && typeof value.name === "string"
+    && value.name.length > 0
+    && value.name.length <= 4_096
+    && typeof value.color === "string"
+    && /^#[0-9a-f]{6}$/iu.test(value.color)
+    && Number.isSafeInteger(value.triangleOffset)
+    && nonnegative(value.triangleOffset)
+    && Number.isSafeInteger(value.triangleCount)
+    && nonnegative(value.triangleCount);
+}
+
 function jobId(value: unknown): value is string {
   return typeof value === "string" && value.length > 0 && value.length <= 256;
 }
@@ -213,9 +230,10 @@ function renderResult(value: unknown): value is RenderResult {
   if (value.kind !== "3d" || !plain(value.mesh)) return false;
   return (
     exact(value, ["kind", "mesh", "stats", "diagnostics", "rawLog"])
-    && exact(value.mesh, ["format", "bytes"], ["geometryIdentity"])
+    && exact(value.mesh, ["format", "bytes"], ["geometryIdentity", "parts"])
     && ["stl-binary", "stl-ascii", "3mf", "off", "amf"].includes(String(value.mesh.format))
     && value.mesh.bytes instanceof Uint8Array
+    && (value.mesh.parts === undefined || dense(value.mesh.parts, renderPart))
     && (
       value.mesh.geometryIdentity === undefined
       || isSha256GeometryIdentity(value.mesh.geometryIdentity)

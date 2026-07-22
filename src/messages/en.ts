@@ -237,6 +237,9 @@ export const messages = {
   viewerPngShort: "PNG",
   measurements: "Measurements",
   annotations: "Annotations",
+  parts: "Parts",
+  partVisibility: (name: string) => `Show ${name}`,
+  partColorsFromModel: "Colors are preserved from the rendered model.",
   annotationText: "Annotation text",
   annotationPlacementHelp: "Choose the annotation tool, then select a point on the model.",
   annotationChangesUnsaved:
@@ -779,7 +782,7 @@ export const messages = {
   openingInSlicer: "Opening slicer…",
   slicerOpened: (name: string) => `Opened the exported 3MF in ${name}.`,
   slicerHandoffFailed: "ScadMill could not export the 3MF or launch a supported slicer.",
-  slicerFilamentHonesty: "Exports each color as a separate object when supported — assign filaments per object in your slicer.",
+  slicerFilamentHonesty: "Exports each color as a separate object — assign filaments per object in your slicer.",
   libraryManager: "OpenSCAD library manager",
   libraryManagerIntro: "Libraries are pinned and copied into this project so native and web renders use the same files.",
   libraryProjectRequired: "Open or create a project to install project libraries.",

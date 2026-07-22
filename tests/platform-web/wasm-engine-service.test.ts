@@ -80,6 +80,43 @@ afterEach(() => {
 });
 
 describe("WasmEngineService", () => {
+  it("accepts validated multipart metadata on a color-preserving 3MF result", async () => {
+    const { service, workers } = serviceHarness();
+    const job = service.render(renderRequest());
+    const result: RenderSuccess3D = {
+      ...success(),
+      mesh: {
+        format: "3mf",
+        bytes: new Uint8Array([0x50, 0x4b]),
+        parts: [
+          { id: "1", name: "Red bracket", color: "#FF0000", triangleOffset: 0, triangleCount: 1 },
+          { id: "2", name: "Blue bracket", color: "#0000FF", triangleOffset: 1, triangleCount: 1 },
+        ],
+      },
+    };
+
+    workers[0].emit({ kind: "render-result", jobId: job.jobId, result });
+
+    await expect(job.done).resolves.toEqual(result);
+  });
+
+  it("rejects malformed multipart metadata at the worker boundary", async () => {
+    const { service, workers } = serviceHarness();
+    const job = service.render(renderRequest());
+    const malformed = {
+      ...success(),
+      mesh: {
+        format: "3mf",
+        bytes: new Uint8Array([0x50, 0x4b]),
+        parts: [{ id: "1", name: "Unsafe", color: "url(javascript:alert(1))", triangleOffset: 0, triangleCount: 1 }],
+      },
+    };
+
+    workers[0].emit({ kind: "render-result", jobId: job.jobId, result: malformed });
+
+    await expect(job.done).resolves.toMatchObject({ kind: "failure", reason: "engine-error" });
+  });
+
   it("accepts a valid strong identity on a two-dimensional worker result", async () => {
     const { service, workers } = serviceHarness();
     const job = service.render(renderRequest());

@@ -205,6 +205,8 @@ button.console-diagnostic:hover, button.console-diagnostic:focus-visible { backg
 .viewer-details button { border: 0; background: var(--chrome-surface); color: var(--chrome-text-muted); cursor: pointer; }
 .viewer-details label { display: grid; gap: 4px; }
 .viewer-details input { min-width: 0; border: 1px solid var(--chrome-border); border-radius: 4px; background: var(--chrome-surface-raised); color: var(--chrome-text); }
+.viewer-parts-list label { display: grid; grid-template-columns: auto 14px minmax(0, 1fr); align-items: center; gap: 6px; cursor: pointer; }
+.viewer-part-color { width: 12px; height: 12px; border: 1px solid var(--chrome-border); border-radius: 3px; }
 .dirty-marker { color: var(--chrome-accent); font-size: 9px; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .quality-badge { padding: 3px 7px; border: 1px solid var(--chrome-badge-info); border-radius: 999px; color: var(--chrome-badge-info); font-size: 11px; }

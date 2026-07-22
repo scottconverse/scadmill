@@ -7,7 +7,7 @@ export type ViewerThemeColors = Pick<ThemeTokens["viewer"], "background" | "mesh
 
 export interface ViewerThemeTarget {
   readonly scene: Scene;
-  readonly mesh?: Mesh<BufferGeometry, MeshStandardMaterial>;
+  readonly mesh?: Mesh<BufferGeometry, MeshStandardMaterial | MeshStandardMaterial[]>;
 }
 
 export function applyViewerTheme(target: ViewerThemeTarget, colors: ViewerThemeColors): void {
@@ -16,5 +16,10 @@ export function applyViewerTheme(target: ViewerThemeTarget, colors: ViewerThemeC
   } else {
     target.scene.background = new Color(colors.background);
   }
-  target.mesh?.material.color.set(colors.mesh);
+  const material = target.mesh?.material;
+  if (!material) return;
+  for (const item of Array.isArray(material) ? material : [material]) {
+    if (item.vertexColors) item.color.setScalar(1);
+    else item.color.set(colors.mesh);
+  }
 }

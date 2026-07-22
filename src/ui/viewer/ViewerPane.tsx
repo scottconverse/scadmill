@@ -1,14 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
-import {
-  type KeybindingSettings,
-  matchesKeybinding,
-  primaryModifierForPlatform,
-} from "../../application/commands/default-keybindings";
-import type {
-  Quality,
-  RenderFailure,
-  RenderResult,
-} from "../../application/engine/contracts";
+import { type KeybindingSettings, matchesKeybinding, primaryModifierForPlatform } from "../../application/commands/default-keybindings";
+import type { Quality, RenderFailure, RenderResult } from "../../application/engine/contracts";
 import type { WorkspaceLayoutAction } from "../../application/layout/workspace-layout";
 import type { ThemeTokens } from "../../application/theme/theme-schema";
 import type { WorkspaceAnnotationPersistenceState } from "../../application/viewer/annotation-persistence";
@@ -22,16 +14,15 @@ import { RenderProgressOverlay } from "./RenderProgressOverlay";
 import { useModelFrameReport } from "./use-model-frame-report";
 import { useViewerThumbnail } from "./use-viewer-thumbnail";
 import { useMcpScreenshotCapture } from "./use-mcp-screenshot-capture";
+import { useViewerParts } from "./use-viewer-parts";
 import { ViewerDetailsPanel } from "./ViewerDetailsPanel";
 import { ViewerCameraBookmarks } from "./ViewerCameraBookmarks";
 import { type ViewerTool, ViewerToolbar } from "./ViewerToolbar";
 import { boundsLabel } from "./viewer-bounds-label";
 import type { ViewerDegradation } from "./viewer-furniture";
 import { EMPTY_VIEWER } from "./viewer-pane-defaults";
-const ModelViewer = lazy(() => import("./ModelViewer")
-  .then((module) => ({ default: module.ModelViewer })));
-const SvgViewer = lazy(() => import("./SvgViewer")
-  .then((module) => ({ default: module.SvgViewer })));
+const ModelViewer = lazy(() => import("./ModelViewer").then((module) => ({ default: module.ModelViewer })));
+const SvgViewer = lazy(() => import("./SvgViewer").then((module) => ({ default: module.SvgViewer })));
 let fallbackId = 0;
 function nextItemId(prefix: string): string {
   return globalThis.crypto?.randomUUID?.() ?? `${prefix}-${++fallbackId}`;
@@ -130,6 +121,11 @@ export function ViewerPane({
     ? visibleGeometry.stats.boundingBox as Bounds3 | undefined
     : undefined;
   const modelIdentity = viewer.modelIdentity ?? "";
+  const { parts, partVisibility, setPartVisibility } = useViewerParts(
+    visibleGeometry?.kind === "3d" ? visibleGeometry : undefined,
+    documentId,
+    modelIdentity,
+  );
   const visibleKind = visibleGeometry?.kind;
   useEffect(() => {
     void documentId;
@@ -313,6 +309,7 @@ export function ViewerPane({
               measurements={viewer.measurements}
               meshColor={meshColor}
               mouseMapping={mouseMapping}
+              partVisibility={partVisibility}
               onCameraChange={(camera) => dispatchViewer({ kind: "set-camera", documentId, camera })}
               onDegradationChange={updateDegradation}
               onPresentationFailed={onPresentationFailed}
@@ -340,9 +337,12 @@ export function ViewerPane({
             annotations={viewer.annotations}
             annotationDraft={annotationDraft}
             measurements={viewer.measurements}
+            parts={parts}
+            partVisibility={partVisibility}
             onAnnotationDraftChange={setAnnotationDraft}
             onDeleteAnnotation={(annotationId) => dispatchViewer({ kind: "delete-annotation", documentId, annotationId })}
             onDeleteMeasurement={(measurementId) => dispatchViewer({ kind: "delete-measurement", documentId, measurementId })}
+            onPartVisibilityChange={setPartVisibility}
           />
         )}
       </div>

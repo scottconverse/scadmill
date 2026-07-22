@@ -1,3 +1,4 @@
+import { strToU8, zipSync } from "fflate";
 import { describe, expect, it, vi } from "vitest";
 
 import type { EngineOutputEvent } from "../../src/application/engine/contracts";
@@ -13,6 +14,29 @@ import type { WasmRenderRequest } from "../../src/platform-web/wasm-engine-proto
 const DIRECTORY_MODE = 0x4000;
 const FILE_MODE = 0x8000;
 const THREE_D_FALLBACK_FIXTURE = "Current top level object is not a 3D object.";
+const COLORED_MODEL = `<?xml version="1.0" encoding="utf-8"?>
+<model xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:m="http://schemas.microsoft.com/3dmanufacturing/material/2015/02" unit="millimeter">
+  <resources>
+    <m:colorgroup id="3"><m:color color="#FF0000FF"/><m:color color="#0000FFFF"/></m:colorgroup>
+    <object id="1" name="Red bracket" type="model"><mesh><vertices><vertex x="0" y="0" z="0"/><vertex x="1" y="0" z="0"/><vertex x="0" y="1" z="0"/></vertices><triangles><triangle v1="0" v2="1" v3="2" pid="3" p1="0"/></triangles></mesh></object>
+    <object id="2" name="Blue bracket" type="model"><mesh><vertices><vertex x="2" y="0" z="0"/><vertex x="3" y="0" z="0"/><vertex x="2" y="1" z="0"/></vertices><triangles><triangle v1="0" v2="1" v3="2" pid="3" p1="1"/></triangles></mesh></object>
+  </resources><build><item objectid="1"/><item objectid="2"/></build>
+</model>`;
+
+function coloredThreeMf(): Uint8Array {
+  return zipSync({ "3D/3dmodel.model": strToU8(COLORED_MODEL) });
+}
+
+function tetrahedronThreeMf(): Uint8Array {
+  const model = `<?xml version="1.0" encoding="utf-8"?>
+<model xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" unit="millimeter"><resources>
+<object id="1" name="Tetrahedron" type="model"><mesh><vertices>
+<vertex x="10" y="20" z="30"/><vertex x="11" y="20" z="30"/><vertex x="10" y="21" z="30"/><vertex x="10" y="20" z="31"/>
+</vertices><triangles>
+<triangle v1="0" v2="2" v3="1"/><triangle v1="0" v2="1" v3="3"/><triangle v1="0" v2="3" v3="2"/><triangle v1="1" v2="2" v3="3"/>
+</triangles></mesh></object></resources><build><item objectid="1"/></build></model>`;
+  return zipSync({ "3D/3dmodel.model": strToU8(model) });
+}
 
 function normalized(path: string, cwd: string): string {
   const absolute = path.startsWith("/") ? path : `${cwd}/${path}`;
@@ -107,38 +131,6 @@ class MemoryFs implements OpenScadFileSystem {
   }
 }
 
-function binaryStl(size: number): Uint8Array {
-  const triangles = [
-    [[0, 0, 0], [size, 0, 0], [0, size, size]],
-  ];
-  const bytes = new Uint8Array(84 + triangles.length * 50);
-  const view = new DataView(bytes.buffer);
-  view.setUint32(80, triangles.length, true);
-  triangles.flat(2).forEach((coordinate, index) => {
-    view.setFloat32(84 + 12 + index * 4, coordinate, true);
-  });
-  return bytes;
-}
-
-function tetrahedronStl(): Uint8Array {
-  const v0 = [10, 20, 30];
-  const v1 = [11, 20, 30];
-  const v2 = [10, 21, 30];
-  const v3 = [10, 20, 31];
-  const triangles = [v0, v2, v1, v0, v1, v3, v0, v3, v2, v1, v2, v3];
-  const bytes = new Uint8Array(84 + 4 * 50);
-  const view = new DataView(bytes.buffer);
-  view.setUint32(80, 4, true);
-  triangles.forEach((vertex, index) => {
-    const triangle = Math.floor(index / 3);
-    const vertexInTriangle = index % 3;
-    vertex.forEach((coordinate, axis) => {
-      view.setFloat32(84 + triangle * 50 + 12 + vertexInTriangle * 12 + axis * 4, coordinate, true);
-    });
-  });
-  return bytes;
-}
-
 interface Harness {
   readonly fs: MemoryFs;
   readonly options: OpenScadWasmModuleOptions;
@@ -219,7 +211,7 @@ describe("OpenScadWasmRuntime", () => {
     },
   );
 
-  it("stages text and binary files, assembles deterministic preview CLI arguments, captures bytes, parses STL, and cleans the VFS", async () => {
+  it("stages files and renders deterministic color-preserving multipart 3MF geometry", async () => {
     const harness = moduleHarness((arguments_, current) => {
       expect(new TextDecoder().decode(current.fs.files.get(`${current.fs.cwd}/main.scad`))).toBe(
         "import(\"assets/shape.stl\");",
@@ -230,7 +222,7 @@ describe("OpenScadWasmRuntime", () => {
       emit(current.options.stdout, "ECHO: ready\n");
       emit(current.options.stderr, "WARNING: measured\n");
       const output = arguments_[arguments_.indexOf("-o") + 1];
-      current.fs.writeFile(output, binaryStl(3));
+      current.fs.writeFile(output, coloredThreeMf());
       return 0;
     });
     let clock = 10;
@@ -244,21 +236,32 @@ describe("OpenScadWasmRuntime", () => {
     const result = await runtime.render(renderRequest(), (event) => output.push(event));
 
     expect(harness.state.current?.calls).toEqual([[
-      "--export-format", "binstl",
+      "--export-format", "3mf",
+      "--backend", "Manifold",
+      "--enable", "lazy-union",
+      "-O", "export-3mf/color-mode=model",
+      "-O", "export-3mf/material-type=color",
       "-D", "enabled=true",
       "-D", "label=\"quoted \\\"text\\\"\"",
       "-D", "point=[1, -2.5]",
       "-D", "width=12",
       "-D", "$fn=24",
-      "-o", expect.stringMatching(/\/output\/model\.stl$/u),
+      "-o", expect.stringMatching(/\/output\/model\.3mf$/u),
       "main.scad",
     ]]);
     expect(result).toMatchObject({
       kind: "3d",
-      mesh: { format: "stl-binary", bytes: binaryStl(3) },
+      mesh: {
+        format: "3mf",
+        bytes: coloredThreeMf(),
+        parts: [
+          { id: "1", name: "Red bracket", color: "#FF0000", triangleOffset: 0, triangleCount: 1 },
+          { id: "2", name: "Blue bracket", color: "#0000FF", triangleOffset: 1, triangleCount: 1 },
+        ],
+      },
       stats: {
-        triangles: 1,
-        boundingBox: { min: [0, 0, 0], max: [3, 3, 3] },
+        triangles: 2,
+        boundingBox: { min: [0, 0, 0], max: [3, 1, 0] },
       },
       diagnostics: [
         { severity: "echo", message: "ready" },
@@ -274,9 +277,9 @@ describe("OpenScadWasmRuntime", () => {
     expect(harness.state.current?.fs.directories).toEqual(new Set(["/"]));
   });
 
-  it("derives enclosed volume from rendered STL when OpenSCAD does not report numeric volume", async () => {
+  it("derives enclosed volume from rendered 3MF when OpenSCAD does not report numeric volume", async () => {
     const harness = moduleHarness((arguments_, current) => {
-      current.fs.writeFile(arguments_[arguments_.indexOf("-o") + 1], tetrahedronStl());
+      current.fs.writeFile(arguments_[arguments_.indexOf("-o") + 1], tetrahedronThreeMf());
       emit(current.options.stderr, "Facets: 4\n");
       return 0;
     });
@@ -293,7 +296,7 @@ describe("OpenScadWasmRuntime", () => {
   it("passes the normalized animation time as an exact OpenSCAD definition", async () => {
     const harness = moduleHarness((arguments_, current) => {
       const output = arguments_[arguments_.indexOf("-o") + 1];
-      current.fs.writeFile(output, binaryStl(1));
+      current.fs.writeFile(output, coloredThreeMf());
       return 0;
     });
     const runtime = await createOpenScadWasmRuntime(harness.namespace, {
@@ -303,10 +306,14 @@ describe("OpenScadWasmRuntime", () => {
     await runtime.render({ ...renderRequest(), parameters: { $t: 0.25 } });
 
     expect(harness.state.current?.calls[0]).toEqual([
-      "--export-format", "binstl",
+      "--export-format", "3mf",
+      "--backend", "Manifold",
+      "--enable", "lazy-union",
+      "-O", "export-3mf/color-mode=model",
+      "-O", "export-3mf/material-type=color",
       "-D", "$t=0.25",
       "-D", "$fn=24",
-      "-o", expect.stringMatching(/\/output\/model\.stl$/u),
+      "-o", expect.stringMatching(/\/output\/model\.3mf$/u),
       "main.scad",
     ]);
   });
@@ -378,6 +385,14 @@ describe("OpenScadWasmRuntime", () => {
       expect(result).toMatchObject({ ok: true, bytes: new Uint8Array([9, 8, 7]), fileExtension: extension });
       const call = harness.state.current?.calls.at(-1) ?? [];
       expect(call.slice(0, 2)).toEqual(["--export-format", cli]);
+      if (format === "3mf") {
+        expect(call.slice(2, 10)).toEqual([
+          "--backend", "Manifold",
+          "--enable", "lazy-union",
+          "-O", "export-3mf/color-mode=model",
+          "-O", "export-3mf/material-type=color",
+        ]);
+      }
       expect(call).not.toContain("$fn=24");
     }
     expect(harness.state.current?.fs.directories).toEqual(new Set(["/"]));
@@ -463,7 +478,7 @@ describe("OpenScadWasmRuntime", () => {
       current.options.stdout(encoded[1] as number);
       current.options.stdout(encoded[2] as number);
       const output = arguments_[arguments_.indexOf("-o") + 1];
-      current.fs.writeFile(output, binaryStl(1));
+      current.fs.writeFile(output, coloredThreeMf());
       return 0;
     });
     const runtime = await createOpenScadWasmRuntime(harness.namespace, {
@@ -484,11 +499,13 @@ describe("OpenScadWasmRuntime", () => {
   });
 
   it("isolates complete-line and finish-time observer exceptions from render/export cleanup", async () => {
+    let invocation = 0;
     const harness = moduleHarness((arguments_, current) => {
+      invocation += 1;
       const output = arguments_[arguments_.indexOf("-o") + 1];
-      if (arguments_[1] === "binstl") {
+      if (invocation === 1) {
         emit(current.options.stdout, "complete line\n");
-        current.fs.writeFile(output, binaryStl(1));
+        current.fs.writeFile(output, coloredThreeMf());
       } else {
         emit(current.options.stderr, "unterminated export output");
         current.fs.writeFile(output, new Uint8Array([4, 5, 6]));
@@ -512,7 +529,7 @@ describe("OpenScadWasmRuntime", () => {
     expect(harness.state.current?.fs.directories).toEqual(new Set(["/"]));
   });
 
-  it.each(["stl", "summary"] as const)(
+  it.each(["3mf", "summary"] as const)(
     "retains engine output and labels the adapter cause after a later %s parse failure",
     async (failureKind) => {
       let invocation = 0;
@@ -524,7 +541,7 @@ describe("OpenScadWasmRuntime", () => {
         }
         emit(current.options.stderr, "WARNING: engine output retained\n");
         const output = arguments_[arguments_.indexOf("-o") + 1];
-        if (failureKind === "stl") current.fs.writeFile(output, new Uint8Array([1, 2, 3]));
+        if (failureKind === "3mf") current.fs.writeFile(output, new Uint8Array([1, 2, 3]));
         else {
           const summary = arguments_[arguments_.indexOf("--summary-file") + 1];
           current.fs.writeFile(output, '<svg xmlns="http://www.w3.org/2000/svg"/>');
@@ -540,7 +557,7 @@ describe("OpenScadWasmRuntime", () => {
 
       expect(result).toMatchObject({ kind: "failure", reason: "engine-error" });
       expect(result.rawLog).toContain("WARNING: engine output retained\n");
-      expect(result.rawLog).toMatch(/\[ScadMill WASM adapter error\].+(?:STL|JSON)/isu);
+      expect(result.rawLog).toMatch(/\[ScadMill WASM adapter error\].+(?:zip|JSON)/isu);
       expect(result.diagnostics).toContainEqual({
         severity: "warning",
         message: "engine output retained",
@@ -558,7 +575,7 @@ describe("OpenScadWasmRuntime", () => {
       emit(current.options.stderr, "stderr pending");
       emit(current.options.stdout, "stdout pending");
       const output = arguments_[arguments_.indexOf("-o") + 1];
-      current.fs.writeFile(output, binaryStl(1));
+      current.fs.writeFile(output, coloredThreeMf());
       return 0;
     });
     const runtime = await createOpenScadWasmRuntime(harness.namespace, {

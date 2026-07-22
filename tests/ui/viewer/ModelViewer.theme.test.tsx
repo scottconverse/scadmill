@@ -4,6 +4,7 @@ import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { createRef, StrictMode } from "react";
 import {
   AmbientLight,
+  BufferAttribute,
   BufferGeometry,
   type Color,
   DirectionalLight,
@@ -17,6 +18,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { RenderSuccess3D } from "../../../src/application/engine/contracts";
 import type { ParsedBinaryStl } from "../../../src/application/geometry/stl";
+import type { ParsedModelMesh } from "../../../src/application/geometry/model-mesh";
 import {
   ModelViewer,
   type ModelViewerHandle,
@@ -115,6 +117,19 @@ function modelMesh(scene: Scene): Mesh<BufferGeometry, MeshStandardMaterial> {
     throw new Error("The test viewer created an unexpected model mesh type.");
   }
   return mesh as Mesh<BufferGeometry, MeshStandardMaterial>;
+}
+
+function multipartModelMesh(
+  scene: Scene,
+): Mesh<BufferGeometry, MeshStandardMaterial[]> {
+  const mesh = required(
+    scene.children.find((child) => child instanceof Mesh),
+    "a multipart model mesh",
+  );
+  if (!(mesh.geometry instanceof BufferGeometry) || !Array.isArray(mesh.material)) {
+    throw new Error("The test viewer did not create a multipart model mesh.");
+  }
+  return mesh as Mesh<BufferGeometry, MeshStandardMaterial[]>;
 }
 
 function oneTriangleResult(): RenderSuccess3D {
@@ -289,7 +304,67 @@ describe("ModelViewer theme", () => {
     render(<ModelViewer colors={darkColors} meshParser={meshParser} result={result} />);
 
     await waitFor(() => expect(modelMesh(threeHarness.scenes[0])).toBeInstanceOf(Mesh));
-    expect(meshParser).toHaveBeenCalledWith(result.mesh.bytes, expect.any(AbortSignal));
+    expect(meshParser).toHaveBeenCalledWith(result.mesh.bytes, expect.any(AbortSignal), "stl-binary");
+  });
+
+  it("preserves engine colors as separate viewer parts and supports visibility and color override", async () => {
+    const parsed: ParsedModelMesh = {
+      triangleCount: 2,
+      positions: new Float32Array([
+        0, 0, 0, 1, 0, 0, 0, 1, 0,
+        2, 0, 0, 3, 0, 0, 2, 1, 0,
+      ]),
+      normals: new Float32Array([
+        0, 0, 1, 0, 0, 1, 0, 0, 1,
+        0, 0, 1, 0, 0, 1, 0, 0, 1,
+      ]),
+      colors: new Float32Array([
+        1, 0, 0, 1, 0, 0, 1, 0, 0,
+        0, 0, 1, 0, 0, 1, 0, 0, 1,
+      ]),
+      parts: [
+        { id: "red", name: "Red bracket", color: "#FF0000FF", triangleOffset: 0, triangleCount: 1 },
+        { id: "blue", name: "Blue bracket", color: "#0000FFFF", triangleOffset: 1, triangleCount: 1 },
+      ],
+      bounds: { min: [0, 0, 0], max: [3, 1, 0], size: [3, 1, 0] },
+    };
+    const result: RenderSuccess3D = {
+      ...oneTriangleResult(),
+      mesh: { format: "3mf", bytes: new Uint8Array([0x50, 0x4b]), parts: parsed.parts },
+      stats: { ...oneTriangleResult().stats, triangles: 2 },
+    };
+    const meshParser = vi.fn(async () => parsed);
+    const view = render(
+      <ModelViewer
+        colors={darkColors}
+        meshParser={meshParser}
+        partVisibility={{ red: true, blue: false }}
+        result={result}
+      />,
+    );
+
+    const mesh = await waitFor(() => multipartModelMesh(threeHarness.scenes[0]));
+    expect(mesh.geometry.getAttribute("color")).toBeInstanceOf(BufferAttribute);
+    expect(mesh.geometry.groups).toEqual([
+      { start: 0, count: 3, materialIndex: 0 },
+      { start: 3, count: 3, materialIndex: 1 },
+    ]);
+    expect(mesh.material.map((material) => material.vertexColors)).toEqual([true, true]);
+    expect(mesh.material.map((material) => material.color.getHexString())).toEqual(["ffffff", "ffffff"]);
+    expect(mesh.material.map((material) => material.visible)).toEqual([true, false]);
+
+    view.rerender(
+      <ModelViewer
+        colors={darkColors}
+        meshColor="#22AA44"
+        meshParser={meshParser}
+        partVisibility={{ red: true, blue: true }}
+        result={result}
+      />,
+    );
+    expect(mesh.material.map((material) => material.vertexColors)).toEqual([false, false]);
+    expect(mesh.material.map((material) => material.color.getHexString())).toEqual(["22aa44", "22aa44"]);
+    expect(mesh.material.map((material) => material.visible)).toEqual([true, true]);
   });
 
   it("retains parsed geometry for cloned cache results with the same verified identity", async () => {

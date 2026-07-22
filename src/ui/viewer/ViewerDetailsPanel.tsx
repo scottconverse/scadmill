@@ -1,4 +1,5 @@
 import { pointDistance } from "../../application/viewer/measurements";
+import type { RenderPart } from "../../application/engine/contracts";
 import type {
   PointMeasurement,
   ViewerAnnotation,
@@ -9,9 +10,12 @@ export interface ViewerDetailsPanelProps {
   readonly annotations: readonly ViewerAnnotation[];
   readonly annotationDraft: string;
   readonly measurements: readonly PointMeasurement[];
+  readonly parts?: readonly RenderPart[];
+  readonly partVisibility?: Readonly<Record<string, boolean>>;
   readonly onAnnotationDraftChange: (value: string) => void;
   readonly onDeleteAnnotation: (id: string) => void;
   readonly onDeleteMeasurement: (id: string) => void;
+  readonly onPartVisibilityChange?: (id: string, visible: boolean) => void;
 }
 
 function measurementLabel(measurement: PointMeasurement): string {
@@ -22,12 +26,42 @@ export function ViewerDetailsPanel({
   annotations,
   annotationDraft,
   measurements,
+  parts = [],
+  partVisibility = {},
   onAnnotationDraftChange,
   onDeleteAnnotation,
   onDeleteMeasurement,
+  onPartVisibilityChange,
 }: ViewerDetailsPanelProps) {
   return (
     <aside className="viewer-details">
+      {parts.length > 1 && (
+        <section aria-labelledby="parts-heading">
+          <h3 id="parts-heading">{messages.parts}</h3>
+          <p>{messages.partColorsFromModel}</p>
+          <ol className="viewer-parts-list">
+            {parts.map((part) => (
+              <li key={part.id}>
+                <label>
+                  <input
+                    aria-label={messages.partVisibility(part.name)}
+                    checked={partVisibility[part.id] !== false}
+                    onChange={(event) => onPartVisibilityChange?.(part.id, event.currentTarget.checked)}
+                    type="checkbox"
+                  />
+                  <span
+                    aria-hidden="true"
+                    className="viewer-part-color"
+                    data-testid={`part-color-${part.id}`}
+                    style={{ backgroundColor: part.color.slice(0, 7) }}
+                  />
+                  <span>{part.name}</span>
+                </label>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
       <section aria-labelledby="measurement-heading">
         <h3 id="measurement-heading">{messages.measurements}</h3>
         {measurements.length === 0 ? <p>{messages.noMeasurements}</p> : (

@@ -1,6 +1,6 @@
 import type { RenderSuccess3D } from "../../application/engine/contracts";
 import { isSha256GeometryIdentity } from "../../application/geometry/geometry-identity";
-import type { ParsedBinaryStl } from "../../application/geometry/stl";
+import type { ParsedModelMesh } from "../../application/geometry/model-mesh";
 import { createReusableBinaryStlParser } from "../../application/geometry/stl-parser-worker-client";
 import {
   createDefaultViewerCamera,
@@ -10,7 +10,8 @@ import {
 export type ModelMeshParser = (
   bytes: Uint8Array,
   signal: AbortSignal,
-) => Promise<ParsedBinaryStl>;
+  format?: RenderSuccess3D["mesh"]["format"],
+) => Promise<ParsedModelMesh>;
 
 function geometryKey(result: RenderSuccess3D): string | undefined {
   return isSha256GeometryIdentity(result.mesh.geometryIdentity)

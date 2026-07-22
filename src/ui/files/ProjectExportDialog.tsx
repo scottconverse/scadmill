@@ -277,6 +277,7 @@ export function ProjectExportDialog({
                 ))}
               </select>
             </label>
+            {format === "3mf" && <p role="note">{messages.slicerFilamentHonesty}</p>}
             {mode === "batch" && startBatchExport ? (
               <fieldset disabled={busy}>
                 <legend>{messages.projectBatchExportSets}</legend>

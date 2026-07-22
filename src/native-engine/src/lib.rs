@@ -10,7 +10,7 @@ pub use parameters::ParamValue;
 pub use process::{EngineOutputEvent, EngineOutputStream};
 pub use project::{
     Bounds2D, CameraPose, ExportImage, NativeExportFormat, NativeGeometry, ProjectExportOutput,
-    ProjectRenderOutput, RenderQuality, export_project, render_project,
+    ProjectRenderOutput, RenderQuality, export_project, render_project, render_project_colored,
 };
 pub use stl::{Bounds3D, ParsedStl, StlError, parse_binary_stl};
 
@@ -102,6 +102,10 @@ pub fn render_scad_with_parameters(
         NativeGeometry::TwoD { .. } => Err(EngineError::Process {
             exit_code: Some(1),
             log: "Current top level object is not a 3D object.".to_string(),
+        }),
+        NativeGeometry::ThreeMf { .. } => Err(EngineError::InvalidProject {
+            path: "main.scad".to_string(),
+            detail: "the legacy STL helper cannot return 3MF geometry",
         }),
     }
 }

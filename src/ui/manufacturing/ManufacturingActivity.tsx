@@ -15,7 +15,7 @@ export interface ManufacturingActivityProps {
   readonly onOpenInSlicer?: (configuredExecutablePath?: string) => Promise<SlicerHandoffResult>;
 }
 
-export function ManufacturingActivity({ quality, result, multiObject, onOpenInSlicer }: ManufacturingActivityProps) {
+export function ManufacturingActivity({ quality, result, multiObject = (result?.mesh.parts?.length ?? 0) > 1, onOpenInSlicer }: ManufacturingActivityProps) {
   const [buildWidth, setBuildWidth] = useState("220");
   const [buildDepth, setBuildDepth] = useState("220");
   const [buildHeight, setBuildHeight] = useState("250");
@@ -24,10 +24,10 @@ export function ManufacturingActivity({ quality, result, multiObject, onOpenInSl
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const activeCheck = useRef<AbortController | null>(null);
-  const supported = quality === "full" && result?.mesh.format === "stl-binary";
+  const supported = quality === "full" && (result?.mesh.format === "stl-binary" || result?.mesh.format === "3mf");
   useEffect(() => () => activeCheck.current?.abort(), []);
   const run = () => {
-    if (!supported || !result) return;
+    if (!supported || !result || (result.mesh.format !== "stl-binary" && result.mesh.format !== "3mf")) return;
     activeCheck.current?.abort();
     const controller = new AbortController();
     activeCheck.current = controller;
@@ -35,7 +35,7 @@ export function ManufacturingActivity({ quality, result, multiObject, onOpenInSl
     void runPrintabilityOffThread(result.mesh.bytes, {
         buildVolumeMm: [Number(buildWidth), Number(buildDepth), Number(buildHeight)],
         nozzleDiameterMm: Number(nozzleDiameter),
-      }, undefined, controller.signal).then((report) => {
+      }, undefined, controller.signal, result.mesh.format).then((report) => {
         if (activeCheck.current !== controller) return;
         setLines(printabilityReportLines(report)); setRunning(false); activeCheck.current = null;
       }, () => {

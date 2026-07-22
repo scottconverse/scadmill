@@ -46,7 +46,7 @@ Full-quality export supports 3MF, STL, OFF, AMF, SVG, DXF, and PNG where appropr
 
 ### Understand what is not included
 
-The public beta is Windows-only. It does not publish a browser app, Mac/Linux installers, or OpenSCAD WebAssembly engine. OpenSCAD is a separate required download. The development branch now contains the complete M5 scope plus M6 printability reporting, desktop slicer handoff, engine version management, and headless automation. These are not part of the published beta. Color-preserving preview/export and manufacturing estimates remain M6 work.
+The public beta is Windows-only. It does not publish a browser app, Mac/Linux installers, or OpenSCAD WebAssembly engine. OpenSCAD is a separate required download. The development branch now contains the complete M5 scope plus M6 printability reporting, desktop slicer handoff, engine version management, headless automation, color/multipart preview, and color-preserving multi-object 3MF export. These are not part of the published beta. Manufacturing estimates remain M6 work.
 
 ## Part II — Technical reference
 
@@ -80,9 +80,15 @@ An executable `$t` reference enables a 100-frame loop from 0.00 through 0.99. Ea
 
 After a full 3D render, open **Manufacturing**, enter the intended build-volume dimensions and nozzle diameter, then choose **Run printability check**. ScadMill reports the mesh-topology result, the rendered bounding box against that configured volume, and a bounded sampled minimum-feature heuristic. It explicitly labels overhang analysis and any skipped heuristic as `NOT CHECKED`. This is design feedback, not a print-readiness certification, and preview geometry is never accepted as its input.
 
+### Color and multipart models (development builds)
+
+OpenSCAD `color()` values now survive native and WASM rendering through a color-preserving 3MF path. When the engine distinguishes multiple top-level objects, the viewer's **Parts** section lists their source colors and lets you show or hide each object. A configured mesh-color override intentionally replaces source colors until that override is cleared.
+
+Choosing 3MF export preserves each colored top-level solid as a separate, correctly positioned object. Mainstream slicers do not use standard 3MF colors to assign printer filaments automatically: assign filaments per object in your slicer. ScadMill does not describe these files as print-ready or claim automatic AMS or multi-tool configuration.
+
 ### Open in slicer (development desktop builds)
 
-Open **Manufacturing** and choose **Open in slicer**. ScadMill performs a fresh full-quality 3MF export, writes it to a unique temporary location, and opens it in a detected PrusaSlicer, OrcaSlicer, Cura, or Bambu Studio installation. If detection does not match the installation, enter an absolute executable path in **Optional slicer executable**. A failed export never launches the slicer. Multi-object color export does not promise automatic filament mapping; when that export is available, assign filaments per object in the slicer.
+Open **Manufacturing** and choose **Open in slicer**. ScadMill performs a fresh full-quality 3MF export, writes it to a unique temporary location, and opens it in a detected PrusaSlicer, OrcaSlicer, Cura, or Bambu Studio installation. If detection does not match the installation, enter an absolute executable path in **Optional slicer executable**. A failed export never launches the slicer. Multi-object color export does not promise automatic filament mapping; assign filaments per object in the slicer.
 
 ### Engine versions and project pins (development desktop builds)
 
@@ -160,7 +166,7 @@ Development builds expose **Libraries** on the activity rail. Choose BOSL2, MCAD
 
 For interior inspection in a development build, enable **Section** in the 3D viewer, select X, Y, or Z, and drag **Section position** through the model. The control applies a real local clipping plane to the rendered mesh; it does not alter source or export geometry. Enter a name under **Camera bookmarks** to save the current position, target, up vector, projection, and zoom. Selecting the name recalls it; **Delete** removes it. Names are unique without regard to case, and saving the same name replaces that project bookmark.
 
-The development branch now includes the M6 printability report, desktop slicer handoff, engine manager, and headless CLI described above. The architecture also includes seams for a separately qualified web distribution and the remaining color/3MF and manufacturing-estimate work. None is a claim about the currently published beta.
+The development branch now includes the M6 printability report, desktop slicer handoff, engine manager, headless CLI, color/multipart viewer, and color-preserving 3MF export described above. The architecture also includes seams for a separately qualified web distribution and the remaining manufacturing-estimate work. None is a claim about the currently published beta.
 
 ## Troubleshooting and support
 

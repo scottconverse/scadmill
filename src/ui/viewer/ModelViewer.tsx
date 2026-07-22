@@ -6,18 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  AmbientLight,
-  BufferAttribute,
-  BufferGeometry,
-  DirectionalLight,
-  Mesh,
-  MeshStandardMaterial,
-  Raycaster,
-  Scene,
-  Vector2,
-  WebGLRenderer,
-} from "three";
+import { AmbientLight, DirectionalLight, Raycaster, Scene, Vector2, WebGLRenderer } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { messages } from "../../messages/en";
 import { DEFAULT_CAMERA, DEFAULT_FURNITURE, DEFAULT_MOUSE_MAPPING, ParsedMeshReuse } from "./model-viewer-defaults";
@@ -32,6 +21,7 @@ import {
   projectionOf,
   projectPoint,
   removeModel,
+  modelMaterials,
   thumbnailPng,
   updateProjection,
   type ViewerResources,
@@ -39,6 +29,7 @@ import {
 import { rebuildFurniture } from "./viewer-furniture";
 import { applyViewerTheme } from "./viewer-theme";
 import { useMeshParser } from "./use-mesh-parser";
+import { createModelMesh } from "./model-viewer-mesh";
 import type { ModelViewerProps } from "./model-viewer-props";
 export interface ModelViewerHandle { capturePng(width?: number, height?: number): Promise<Uint8Array>; captureThumbnailPng(): Promise<Uint8Array>; }
 export type { ModelMeshParser } from "./model-viewer-defaults";
@@ -55,6 +46,7 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
   tool = "navigate",
   dimmed = false,
   meshColor = null,
+  partVisibility = {},
   mouseMapping = DEFAULT_MOUSE_MAPPING,
   meshParser,
   presentationToken,
@@ -72,6 +64,7 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
   const furnitureRef = useRef(furniture); const measurementsRef = useRef(measurements);
   const annotationsRef = useRef(annotations); const toolRef = useRef(tool);
   const dimmedRef = useRef(dimmed); const meshColorRef = useRef(meshColor);
+  const partVisibilityRef = useRef(partVisibility);
   const mouseMappingRef = useRef(mouseMapping);
   const onCameraChangeRef = useRef(onCameraChange); const onPointPickRef = useRef(onPointPick);
   const onDegradationChangeRef = useRef(onDegradationChange); const onFrameRenderedRef = useRef(onFrameRendered);
@@ -88,6 +81,7 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
   toolRef.current = tool;
   dimmedRef.current = dimmed;
   meshColorRef.current = meshColor;
+  partVisibilityRef.current = partVisibility;
   mouseMappingRef.current = mouseMapping;
   onCameraChangeRef.current = onCameraChange; onPointPickRef.current = onPointPick;
   onDegradationChangeRef.current = onDegradationChange; onFrameRenderedRef.current = onFrameRendered;
@@ -107,6 +101,7 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
     furniture.shadow,
     dimmed,
     meshColor,
+    ...Object.entries(partVisibility).sort(([left], [right]) => left.localeCompare(right)).flat(),
   ].join("|");
   const overlayKey = [
     ...measurements.flatMap(({ id, start, end }) => [id, ...start, ...end]),
@@ -218,9 +213,19 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
       applyViewerTheme(viewer, themedColors);
       if (viewer.mesh) {
         applyClipping(viewer.mesh.material, clippingRef.current);
-        viewer.mesh.material.transparent = dimmedRef.current;
-        viewer.mesh.material.opacity = dimmedRef.current ? 0.35 : 1;
-        viewer.mesh.material.depthWrite = !dimmedRef.current;
+        const hasVertexColors = viewer.parsed?.colors !== undefined;
+        const parts = viewer.parsed?.parts ?? [];
+        modelMaterials(viewer.mesh.material).forEach((material, index) => {
+          material.vertexColors = hasVertexColors && meshColorRef.current === null;
+          if (material.vertexColors) material.color.setScalar(1);
+          else material.color.set(themedColors.mesh);
+          material.visible = parts[index] === undefined
+            || partVisibilityRef.current[parts[index].id] !== false;
+          material.transparent = dimmedRef.current;
+          material.opacity = dimmedRef.current ? 0.35 : 1;
+          material.depthWrite = !dimmedRef.current;
+          material.needsUpdate = true;
+        });
       }
       const rebuilt = rebuildFurniture({
         scene: viewer.scene,
@@ -300,13 +305,9 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(funct
       return;
     }
     const parser = new AbortController();
-    void activeMeshParser(result.mesh.bytes, parser.signal).then((parsed) => {
+    void activeMeshParser(result.mesh.bytes, parser.signal, result.mesh.format).then((parsed) => {
       if (!active || resources.current !== viewer) return;
-      const geometry = new BufferGeometry();
-      geometry.setAttribute("position", new BufferAttribute(parsed.positions, 3));
-      geometry.setAttribute("normal", new BufferAttribute(parsed.normals, 3));
-      const material = new MeshStandardMaterial({ roughness: 0.72, metalness: 0.08 });
-      const mesh = new Mesh(geometry, material);
+      const mesh = createModelMesh(parsed);
       removeModel(viewer);
       viewer.mesh = mesh;
       viewer.parsed = parsed;

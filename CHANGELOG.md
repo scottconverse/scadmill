@@ -12,6 +12,8 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Added
 
+- Added M6 color and multipart geometry across native and WASM rendering: pinned OpenSCAD Color-encoded 3MF output preserves top-level objects, the viewer renders engine colors with accessible per-part visibility controls and an explicit mesh-color override, and full 3MF export retains separate correctly positioned objects. The export dialog and slicer handoff explicitly tell users to assign filaments per object; no automatic filament mapping or print-ready claim is made. A real checksummed-engine CI fixture machine-parses two colored objects and verifies both cube meshes survive round-trip.
+
 - Added the M6 headless CLI to the desktop artifact: `render`, `export`, `params`, and `check` run without opening a window, emit JSON, return stable success/operation/usage exit codes, honor the exact project engine pin and stock parameter-set JSON, and keep export on the unrestricted full-quality path. Windows and Linux hosted CI now run the normative named-set 3MF export with the exact checksummed OpenSCAD 2026.06.12 engine and no display server.
 
 - Added the M6 desktop engine version manager: Settings inventories detected and app-managed OpenSCAD executables with exact SHA-256 values, offers an explicit checksum-disclosed download of the allow-listed official Windows `2026.06.12` snapshot, and records a strict per-project pin in `scadmill.project.json`. Render and export requests honor that pin even when another engine is the default; the status bar identifies it and a missing or invalid pin produces a Settings fix-it banner.

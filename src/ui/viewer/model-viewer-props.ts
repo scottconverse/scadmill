@@ -20,6 +20,7 @@ export interface ModelViewerProps {
   readonly furniture?: ViewerFurnitureState; readonly measurements?: readonly PointMeasurement[];
   readonly annotations?: readonly ViewerAnnotation[]; readonly tool?: ViewerTool;
   readonly dimmed?: boolean; readonly meshColor?: string | null;
+  readonly partVisibility?: Readonly<Record<string, boolean>>;
   readonly mouseMapping?: { readonly orbit: MouseButton; readonly pan: MouseButton }; readonly meshParser?: ModelMeshParser;
   readonly presentationToken?: string; readonly onCameraChange?: (camera: ViewerCameraState) => void;
   readonly onPointPick?: (point: Point3) => void; readonly onDegradationChange?: (degradation: ViewerDegradation) => void;

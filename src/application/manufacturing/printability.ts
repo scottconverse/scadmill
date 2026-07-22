@@ -1,4 +1,6 @@
 import { parseBinaryStl } from "../geometry/stl";
+import { parseThreeMf } from "../geometry/three-mf";
+import type { MeshFormat } from "../engine/contracts";
 
 export interface PrintabilityConfiguration {
   readonly buildVolumeMm: readonly [number, number, number];
@@ -122,11 +124,33 @@ export function analyzePrintability(
   binaryStl: Uint8Array,
   configuration: PrintabilityConfiguration,
 ): PrintabilityReport {
-  validateConfiguration(configuration);
   const mesh = parseBinaryStl(binaryStl);
-  const topology = meshTopology(mesh.positions);
+  return analyzeParsedPrintability(mesh.positions, mesh.bounds.size, configuration);
+}
+
+export function analyzeModelPrintability(
+  bytes: Uint8Array,
+  format: MeshFormat,
+  configuration: PrintabilityConfiguration,
+): PrintabilityReport {
+  const mesh = format === "stl-binary"
+    ? parseBinaryStl(bytes)
+    : format === "3mf"
+      ? parseThreeMf(bytes)
+      : null;
+  if (!mesh) throw new Error(`Printability checks do not support ${format} geometry.`);
+  return analyzeParsedPrintability(mesh.positions, mesh.bounds.size, configuration);
+}
+
+function analyzeParsedPrintability(
+  positions: Float32Array,
+  modelSizeMm: readonly [number, number, number],
+  configuration: PrintabilityConfiguration,
+): PrintabilityReport {
+  validateConfiguration(configuration);
+  const topology = meshTopology(positions);
   const manifold = topology.boundaryEdges === 0 && topology.nonManifoldEdges === 0;
-  const buildVolumePass = mesh.bounds.size.every((value, axis) => value <= configuration.buildVolumeMm[axis]);
+  const buildVolumePass = modelSizeMm.every((value, axis) => value <= configuration.buildVolumeMm[axis]);
   let minimumFeature: PrintabilityReport["minimumFeature"];
   if (topology.vertices.length > MAX_FEATURE_VERTICES) {
     minimumFeature = { status: "not-checked", reason: `mesh exceeds the ${MAX_FEATURE_VERTICES}-vertex heuristic limit` };
@@ -146,7 +170,7 @@ export function analyzePrintability(
     },
     buildVolume: {
       status: buildVolumePass ? "pass" : "fail",
-      modelSizeMm: mesh.bounds.size,
+      modelSizeMm,
       configuredMm: [...configuration.buildVolumeMm],
     },
     minimumFeature,

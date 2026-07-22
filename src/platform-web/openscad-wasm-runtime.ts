@@ -9,7 +9,8 @@ import type {
 import { parseEngineLog } from "../application/diagnostics/parse-engine-log";
 import { PINNED_OPENSCAD_WASM_BUILD_IDENTITY } from "../application/engine/engine-pin";
 import { parseProjectPath, validateProjectLayout } from "../application/files/project-path";
-import { closedMeshVolumeMm3, parseBinaryStl } from "../application/geometry/stl";
+import { closedMeshVolumeMm3 } from "../application/geometry/stl";
+import { parseThreeMf } from "../application/geometry/three-mf";
 import type {
   WasmExportRequest,
   WasmProjectFile,
@@ -308,6 +309,13 @@ const exportFormats = {
   png: ["png", "png"],
 } as const;
 
+const colorThreeMfArguments = [
+  "--backend", "Manifold",
+  "--enable", "lazy-union",
+  "-O", "export-3mf/color-mode=model",
+  "-O", "export-3mf/material-type=color",
+] as const;
+
 class Runtime implements OpenScadWasmRuntime {
   private workspaceSequence = 0;
 
@@ -348,23 +356,24 @@ class Runtime implements OpenScadWasmRuntime {
       const definitions = parameterArguments(request.parameters);
       const facets = previewArguments(request);
       workspace = this.stage(request.entryFile, request.files);
-      const stlPath = `${workspace.output}/model.stl`;
-      const stlExit = this.module.callMain([
-        "--export-format", "binstl",
+      const threeMfPath = `${workspace.output}/model.3mf`;
+      const threeMfExit = this.module.callMain([
+        "--export-format", "3mf",
+        ...colorThreeMfArguments,
         ...definitions,
         ...facets,
-        "-o", stlPath,
+        "-o", threeMfPath,
         request.entryFile,
       ]);
-      const stlRawLog = capture.rawLog();
-      if (stlExit === 0) {
-        const bytes = this.readBytes(stlPath);
-        const parsed = parseBinaryStl(bytes);
-        const vertices = reportedStatistic(stlRawLog, "Vertices");
+      const threeMfRawLog = capture.rawLog();
+      if (threeMfExit === 0) {
+        const bytes = this.readBytes(threeMfPath);
+        const parsed = parseThreeMf(bytes);
+        const vertices = reportedStatistic(threeMfRawLog, "Vertices");
         const volumeMm3 = closedMeshVolumeMm3(parsed.positions);
         result = {
           kind: "3d",
-          mesh: { format: "stl-binary", bytes },
+          mesh: { format: "3mf", bytes, parts: parsed.parts },
           stats: {
             ...(vertices !== undefined ? { vertices } : {}),
             triangles: parsed.triangleCount,
@@ -375,10 +384,10 @@ class Runtime implements OpenScadWasmRuntime {
             volumeMm3,
             engineTimeMs: capture.elapsedMs(),
           },
-          diagnostics: diagnostics(stlRawLog, request.files),
-          rawLog: stlRawLog,
+          diagnostics: diagnostics(threeMfRawLog, request.files),
+          rawLog: threeMfRawLog,
         };
-      } else if (stlRawLog.includes(THREE_D_FALLBACK_MESSAGE)) {
+      } else if (threeMfRawLog.includes(THREE_D_FALLBACK_MESSAGE)) {
         const svgPath = `${workspace.output}/model.svg`;
         const summaryPath = `${workspace.output}/model-summary.json`;
         const svgExit = this.module.callMain([
@@ -408,8 +417,8 @@ class Runtime implements OpenScadWasmRuntime {
         }
       } else {
         result = {
-          ...renderFailure("OpenSCAD could not render binary STL output.", stlRawLog, stlExit),
-          diagnostics: diagnostics(stlRawLog, request.files),
+          ...renderFailure("OpenSCAD could not render color-preserving 3MF output.", threeMfRawLog, threeMfExit),
+          diagnostics: diagnostics(threeMfRawLog, request.files),
         };
       }
     } catch (error) {
@@ -468,6 +477,7 @@ class Runtime implements OpenScadWasmRuntime {
       const outputPath = `${workspace.output}/model.${extension}`;
       const exitCode = this.module.callMain([
         "--export-format", format,
+        ...(request.format === "3mf" ? colorThreeMfArguments : []),
         ...definitions,
         "-o", outputPath,
         request.entryFile,

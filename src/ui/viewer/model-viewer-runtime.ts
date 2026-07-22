@@ -13,13 +13,14 @@ import {
 } from "three";
 import type { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
-import type { ParsedBinaryStl } from "../../application/geometry/stl";
+import type { ParsedModelMesh } from "../../application/geometry/model-mesh";
 import type { Point3 } from "../../application/viewer/measurements";
 import type { ViewerCameraState, ViewerClippingState } from "../../application/viewer/viewer-state";
 import { clearFurniture, type FurnitureResources } from "./viewer-furniture";
 
 export type ViewerCamera = PerspectiveCamera | OrthographicCamera;
 export type MouseButton = "left" | "middle" | "right";
+export type ViewerModelMaterial = MeshStandardMaterial | MeshStandardMaterial[];
 
 export interface OverlayPosition {
   readonly left: number;
@@ -32,8 +33,8 @@ export interface ViewerResources {
   readonly keyLight: DirectionalLight;
   camera: ViewerCamera;
   controls: OrbitControls;
-  mesh?: Mesh<BufferGeometry, MeshStandardMaterial>;
-  parsed?: ParsedBinaryStl;
+  mesh?: Mesh<BufferGeometry, ViewerModelMaterial>;
+  parsed?: ParsedModelMesh;
   presentationToken?: string;
   furniture?: FurnitureResources;
   frame: number | null;
@@ -108,12 +109,23 @@ export function removeModel(resources: ViewerResources): void {
   if (!resources.mesh) return;
   resources.scene.remove(resources.mesh);
   resources.mesh.geometry.dispose();
-  resources.mesh.material.dispose();
+  for (const material of modelMaterials(resources.mesh.material)) material.dispose();
   resources.mesh = undefined;
   resources.parsed = undefined;
 }
 
 export function applyClipping(
+  material: ViewerModelMaterial,
+  clipping: ViewerClippingState,
+): void {
+  for (const item of modelMaterials(material)) applyMaterialClipping(item, clipping);
+}
+
+export function modelMaterials(material: ViewerModelMaterial): readonly MeshStandardMaterial[] {
+  return Array.isArray(material) ? material : [material];
+}
+
+function applyMaterialClipping(
   material: MeshStandardMaterial,
   clipping: ViewerClippingState,
 ): void {

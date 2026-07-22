@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-22-m6-color-multipart-3mf",
+  "createdAt": "2026-07-22T00:50:00-06:00",
+  "summary": "Implement M6 color and multipart preview plus color-preserving multi-object 3MF export across native and WASM engines, with bounded parsing, honest slicer guidance, and real-engine round-trip proof.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "FR-15.14", "FR-15.15", "AC-15.i", "AC-15.k", "AC-15.l", "AC-15.m", "M6", "A-7"],
+  "filesTouched": [
+    { "path": ".github/workflows/ci.yml", "status": "modified" },
+    { "path": "ARCHITECTURE.md", "status": "modified" },
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "docs/FAQ.md", "status": "modified" },
+    { "path": "docs/USER-GUIDE.md", "status": "modified" },
+    { "path": "docs/WINDOWS-BETA.md", "status": "modified" },
+    { "path": "spec/QUESTIONS.md", "status": "modified" },
+    { "path": "src/application/engine/contracts.ts", "status": "modified" },
+    { "path": "src/application/geometry/model-mesh.ts", "status": "added" },
+    { "path": "src/application/geometry/stl-parser-worker-client.ts", "status": "modified" },
+    { "path": "src/application/geometry/stl-parser.worker.ts", "status": "modified" },
+    { "path": "src/application/geometry/three-mf.ts", "status": "added" },
+    { "path": "src/application/manufacturing/printability.ts", "status": "modified" },
+    { "path": "src/application/manufacturing/printability-worker-client.ts", "status": "modified" },
+    { "path": "src/application/manufacturing/printability.worker.ts", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/src/lib.rs", "status": "modified" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "src/native-engine/src/lib.rs", "status": "modified" },
+    { "path": "src/native-engine/src/project.rs", "status": "modified" },
+    { "path": "src/native-engine/tests/project_runtime.rs", "status": "modified" },
+    { "path": "src/platform-desktop/tauri-bridge.ts", "status": "modified" },
+    { "path": "src/platform-web/openscad-wasm-runtime.ts", "status": "modified" },
+    { "path": "src/platform-web/wasm-engine-validation.ts", "status": "modified" },
+    { "path": "src/ui/files/ProjectExportDialog.tsx", "status": "modified" },
+    { "path": "src/ui/manufacturing/ManufacturingActivity.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/ModelViewer.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/ViewerDetailsPanel.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/ViewerPane.tsx", "status": "modified" },
+    { "path": "src/ui/viewer/model-viewer-defaults.ts", "status": "modified" },
+    { "path": "src/ui/viewer/model-viewer-mesh.ts", "status": "added" },
+    { "path": "src/ui/viewer/model-viewer-props.ts", "status": "modified" },
+    { "path": "src/ui/viewer/model-viewer-runtime.ts", "status": "modified" },
+    { "path": "src/ui/viewer/use-mesh-parser.ts", "status": "modified" },
+    { "path": "src/ui/viewer/use-viewer-parts.ts", "status": "added" },
+    { "path": "src/ui/viewer/viewer-furniture.ts", "status": "modified" },
+    { "path": "src/ui/viewer/viewer-theme.ts", "status": "modified" },
+    { "path": "src/ui/workbench.css", "status": "modified" },
+    { "path": "tests/integration/colored-3mf-engine.test.ts", "status": "added" },
+    { "path": "website/app/architecture/page.tsx", "status": "modified" },
+    { "path": "provenance/entries/2026-07-22-m6-color-multipart-3mf.json", "status": "added" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://files.openscad.org/snapshots/OpenSCAD-2026.06.12-x86-64.zip",
+      "accessedOn": "2026-07-21",
+      "purpose": "Execute the exact already-recorded official Windows engine artifact after verifying the archive and executable hashes from ENGINE_VERSION. No engine source was consulted."
+    }
+  ],
+  "providedInputs": [
+    { "label": "Owner-provided ScadMill functional specification v0.6", "destination": "spec/scadmill-spec-v0.6.md", "sha256": "A2D12C68E23590DF061BF3E222F481C3FFC40ECA6541D6F3DF49FDA87C1DE15A" }
+  ],
+  "decisions": [
+    {
+      "id": "D-0508",
+      "topic": "Central color-preserving engine mode",
+      "decision": "Render three-dimensional viewer geometry and 3MF exports through the pinned engine's Manifold backend, lazy-union feature, model color mode, and Color material encoding. Centralize the exact flags once in each native and WASM EngineService adapter and never select Base Material.",
+      "rationale": "A-7 requires source color and distinct top-level objects on both execution paths, while the pinned engine's Base Material mode assigns the first color to every lazy-union object. Adapter-local constants contain the upstream flag-change risk.",
+      "specBasis": ["FR-15.14", "FR-15.15", "A-7", "Appendix A EngineService"]
+    },
+    {
+      "id": "D-0509",
+      "topic": "Bounded 3MF presentation model",
+      "decision": "Decode only the normative 3D/3dmodel.model entry under archive, XML, object, and triangle caps; accept strict UTF-8, known units, finite coordinates, valid indices, and Color groups; carry per-vertex RGB and contiguous top-level part ranges to Three.js. Preserve explicit user mesh-color override and expose accessible per-part visibility toggles only when multiple objects exist.",
+      "rationale": "The viewer needs real engine colors without trusting arbitrary archive structure or blocking the UI thread. One combined geometry with material groups preserves measurement, clipping, furniture, and camera behavior while allowing each part to be hidden independently.",
+      "specBasis": ["FR-15.14", "AC-15.i", "Section 5 security and privacy"]
+    },
+    {
+      "id": "D-0510",
+      "topic": "3MF export honesty and contradictory XML wording",
+      "decision": "Guarantee separate correctly positioned Color-encoded objects and tell users on every attached export/handoff surface to assign filaments per object in their slicer. Record Q-0042 and park only AC-15.k's contradictory basematerials/displaycolor tag names; do not change to the prohibited Base Material mode without an amendment.",
+      "rationale": "The implemented file preserves the behavior the requirement intends, but mainstream slicers do not translate standard 3MF colors into printer filament assignments and the literal AC tag names select the known-broken encoding. Honest copy and explicit question handling avoid both product and conformance misrepresentation.",
+      "specBasis": ["FR-15.15", "AC-15.k", "AC-15.l", "AC-15.m", "Section 2.7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Color-encoded 3MF must decode into bounded geometry, two distinct parts, and strict bridge metadata.",
+      "test": "Drive synthetic red/blue Color-encoded archives through the parser, workerless fallback, worker transfer decoder, and Tauri bridge while rejecting missing archive entries, missing vertices, and malformed metadata.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/geometry/three-mf.test.ts tests/application/geometry/stl-parser-worker-client.test.ts tests/platform-desktop/tauri-bridge.test.ts --reporter=dot",
+        "observedAt": "2026-07-21T23:30:00-06:00",
+        "outcome": "RED: the new parser assertions initially failed because no 3MF decoder existed; the workerless path treated ZIP bytes as STL; and the desktop bridge returned no parsed bounds or parts."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/geometry/three-mf.test.ts tests/application/geometry/stl-parser-worker-client.test.ts tests/platform-desktop/tauri-bridge.test.ts --reporter=dot",
+        "observedAt": "2026-07-22T00:49:26-06:00",
+        "outcome": "GREEN as part of the affected-suite run: all 12 test files and 132 tests passed."
+      }
+    },
+    {
+      "criterion": "Engine colors, multipart materials, visibility controls, and explicit mesh-color override must coexist without reconstructing long-lived viewer resources.",
+      "test": "Inject a two-part parsed mesh, assert the vertex-color attribute, material groups, white color multipliers, independent visibility, accessible Parts controls, and override behavior.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/viewer/ModelViewer.theme.test.tsx --reporter=dot; pnpm.cmd exec vitest run tests/ui/viewer/ViewerPane.test.tsx -t \"lists separately colored\" --reporter=dot",
+        "observedAt": "2026-07-22T00:37:22-06:00",
+        "outcome": "RED: ModelViewer created one uncolored material instead of multipart materials; ViewerPane had no accessible Parts heading or controls."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/viewer/ViewerPane.test.tsx tests/ui/viewer/ModelViewer.theme.test.tsx --reporter=dot",
+        "observedAt": "2026-07-22T00:38:44-06:00",
+        "outcome": "GREEN: 2 files passed; 40 tests passed."
+      }
+    },
+    {
+      "criterion": "Native and WASM rendering/export must use the same exact Color mode and preserve two objects through real-engine export and re-import.",
+      "test": "Assert exact adapter arguments, parse a real checksummed-engine red/blue 3MF, require two colored objects, count eight unique vertices for each cube after round-trip, and reject Base Material XML.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/platform-web/openscad-wasm-runtime.test.ts -t \"renders deterministic color-preserving\" --reporter=dot",
+        "observedAt": "2026-07-22T00:40:04-06:00",
+        "outcome": "RED: WASM rendering invoked binstl and model.stl instead of the normative 3MF Color arguments."
+      },
+      "green": {
+        "command": "$env:SCADMILL_OPENSCAD=<verified OpenSCAD 2026.06.12>; pnpm.cmd exec vitest run tests/integration/colored-3mf-engine.test.ts --reporter=dot; cargo test --locked --manifest-path src/native-engine/Cargo.toml",
+        "observedAt": "2026-07-22T00:48:48-06:00",
+        "outcome": "GREEN: the exact-engine integration passed 1/1; native groups passed 26, 1, 3, 1, and 12 tests with zero failures."
+      }
+    },
+    {
+      "criterion": "Color-preserving render output must not regress printability or slicer honesty, and the complete affected slice must remain green.",
+      "test": "Run printability on a full colored 3MF off-thread, derive multi-object honesty from result metadata, validate export-dialog copy, then run the bounded affected JS and desktop-shell suites.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/manufacturing/ManufacturingActivity.test.tsx -t \"checks a full colored\" --reporter=dot",
+        "observedAt": "2026-07-22T00:44:54-06:00",
+        "outcome": "RED: the printability action was disabled because the completed M6 panel accepted only binary STL and did not derive multipart state from the result."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run <12 affected files> --reporter=dot; cargo test --locked --manifest-path src/desktop-shell/src-tauri/Cargo.toml",
+        "observedAt": "2026-07-22T00:49:26-06:00",
+        "outcome": "GREEN: 12 JS test files passed with 132 tests; desktop groups passed 71, 2, 2 with 1 explicit ignored acceptance, and 1, with zero failures."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "urn:scadmill:q-0042-color-versus-base-material",
+      "sought": "Reconcile the normative Color encoding with AC-15.k's literal Base Material XML tag assertion.",
+      "confirmation": "The exact engine emitted distinct red and blue objects using colorgroup/color references in Color mode. Switching only material-type to basematerial emitted basematerials/displaycolor, proving the literal tags require the mode FR-15.14 prohibits. Q-0042 parks only those tag names."
+    }
+  ],
+  "questions": ["Q-0042"],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
