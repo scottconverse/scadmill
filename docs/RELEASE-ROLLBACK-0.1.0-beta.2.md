@@ -1,6 +1,6 @@
 # ScadMill 0.1.0-beta.2 rollback plan
 
-This plan applies to the Windows `0.1.0-beta.2` candidate and eventual public prerelease. The previous public release is [`0.1.0-beta.1`](https://github.com/scottconverse/scadmill/releases/tag/v0.1.0-beta.1).
+This plan applies to the published Windows `0.1.0-beta.2` prerelease. The previous public release is [`0.1.0-beta.1`](https://github.com/scottconverse/scadmill/releases/tag/v0.1.0-beta.1).
 
 ## Authority and trigger
 

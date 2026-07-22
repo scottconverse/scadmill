@@ -32,7 +32,7 @@ export default function Home() {
 
       <section className="proof-strip"><div className="shell proof-grid">
         <div><strong>Signed</strong><span>Windows Authenticode</span></div>
-        <div><strong>Sandbox-tested</strong><span>Install through uninstall</span></div>
+        <div><strong>Lifecycle-tested</strong><span>Signed setup + isolated runtime</span></div>
         <div><strong>Local-first</strong><span>No ScadMill telemetry</span></div>
         <div><strong>Open source</strong><span>Apache-2.0</span></div>
       </div></section>
@@ -51,7 +51,7 @@ export default function Home() {
 
       <section className="section shell honesty">
         <div className="section-heading"><p className="eyebrow">An honest beta</p><h2>Useful now. Still clearly a beta.</h2></div>
-        <div className="honesty-grid"><div><h3>What ships today</h3><ul><li>Windows 10/11 x64 desktop application</li><li>Editing, projects, native rendering and export</li><li>2D/3D inspection, Customizer, animation and history</li><li>Optional AI assistance and local MCP bridge</li></ul></div><div><h3>What does not</h3><ul><li>No public browser app yet</li><li>No macOS or Linux beta installers yet</li><li>OpenSCAD is a separate required download</li><li>Development-only M5/M6 work on <code>main</code> is not part of this beta</li></ul></div></div>
+        <div className="honesty-grid"><div><h3>What ships today</h3><ul><li>Windows 10/11 x64 desktop application</li><li>Editing, projects, native rendering and full-quality export</li><li>History, batch export, libraries, navigation, split editing, section view, and camera bookmarks</li><li>Printability, slicer handoff, engine pins, headless CLI, color/multipart 3MF, and design-time manufacturing estimates</li><li>Optional AI assistance and local MCP bridge</li></ul></div><div><h3>What does not</h3><ul><li>No public browser app yet</li><li>No macOS or Linux beta installers yet</li><li>OpenSCAD is a separate required download</li><li>Manufacturing estimates are advisory and do not replace a real slicer profile</li></ul></div></div>
       </section>
 
       <section className="section shell download-card" id="download"><div><p className="eyebrow">Public beta · {RELEASE.version}</p><h2>Build the model. Keep the source.</h2><p>Start with the signed Windows installer, then follow the two-minute engine setup in the manual.</p></div><div className="download-actions"><a className="button primary" href={RELEASE.download}>Download {RELEASE.filename}</a><a className="text-link" href={RELEASE.releasePage}>Release notes and checksum →</a></div></section>

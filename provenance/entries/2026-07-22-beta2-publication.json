@@ -1,0 +1,139 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-22-beta2-publication",
+  "createdAt": "2026-07-22T08:42:10-06:00",
+  "summary": "Publish the exact signed ScadMill 0.1.0-beta.2 Windows prerelease and advance every current public version, download, documentation, architecture, security, rollback, and website surface from beta.1 to the independently verified beta.2 asset.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 milestone protocol", "V-5", "V-6 honesty rule", "M6"],
+  "filesTouched": [
+    { "path": "ARCHITECTURE.md", "status": "modified" },
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "PRIVACY.md", "status": "modified" },
+    { "path": "PUBLIC_VERSION", "status": "modified" },
+    { "path": "README.md", "status": "modified" },
+    { "path": "SECURITY.md", "status": "modified" },
+    { "path": "docs/FAQ.md", "status": "modified" },
+    { "path": "docs/RELEASE-NOTES-0.1.0-beta.2.md", "status": "modified" },
+    { "path": "docs/RELEASE-ROLLBACK-0.1.0-beta.2.md", "status": "modified" },
+    { "path": "docs/RELEASE-ROLLBACK.md", "status": "modified" },
+    { "path": "docs/USER-GUIDE.md", "status": "modified" },
+    { "path": "docs/WINDOWS-BETA.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-22-beta2-publication.json", "status": "added" },
+    { "path": "tests/scripts/release-metadata.test.ts", "status": "modified" },
+    { "path": "tests/scripts/security-policy.test.ts", "status": "modified" },
+    { "path": "website/README.md", "status": "modified" },
+    { "path": "website/app/architecture/page.tsx", "status": "modified" },
+    { "path": "website/app/manual/page.tsx", "status": "modified" },
+    { "path": "website/app/page.tsx", "status": "modified" },
+    { "path": "website/app/shared.tsx", "status": "modified" },
+    { "path": "website/package-lock.json", "status": "modified" },
+    { "path": "website/package.json", "status": "modified" },
+    { "path": "website/public/release.json", "status": "modified" },
+    { "path": "website/tests/rendered-html.test.mjs", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/scottconverse/scadmill/releases/tag/v0.1.0-beta.2",
+      "accessedOn": "2026-07-22",
+      "purpose": "Publish and independently verify the exact public prerelease, tag target, asset names, byte lengths, checksum sidecar, and download URLs."
+    },
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29922772987",
+      "accessedOn": "2026-07-22",
+      "purpose": "Bind the signed installer and hosted Windows lifecycle to exact source commit 14d8424784cc0ca24cdf8184098098cfaa136be4 and retain all-eight-jobs-green CI evidence."
+    },
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29922880821",
+      "accessedOn": "2026-07-22",
+      "purpose": "Retain the isolated owner similarity-gate result for the exact release commit."
+    }
+  ],
+  "providedInputs": [
+    { "label": "Owner-provided ScadMill functional specification v0.6", "destination": "spec/scadmill-spec-v0.6.md", "sha256": "A2D12C68E23590DF061BF3E222F481C3FFC40ECA6541D6F3DF49FDA87C1DE15A" }
+  ],
+  "decisions": [
+    {
+      "id": "D-0528",
+      "topic": "Exact beta.2 publication and evidence boundary",
+      "decision": "Publish v0.1.0-beta.2 only from immutable commit 14d8424784cc0ca24cdf8184098098cfaa136be4, attach only the signed Windows setup and checksum sidecar, independently re-download and verify those public bytes, then advance current public metadata in one follow-up documentation commit without changing the packaged runtime.",
+      "rationale": "The exact runtime and installer had already completed their source-bound and hosted lifecycle gates. Keeping public metadata changes outside the immutable runtime tag preserves that evidence while allowing the live download contract to reference URLs that exist and were independently checked.",
+      "specBasis": ["V-5", "V-6 honesty rule", "Section 2.4 provenance ledger", "M6"]
+    },
+    {
+      "id": "D-0529",
+      "topic": "Installer and Sandbox claim separation",
+      "decision": "State that the exact signed setup passed the fresh hosted-Windows lifecycle and that the exact source-bound runtime separately passed the Windows Sandbox newcomer walkthrough and literal one-hour soak; never claim that the signed setup itself ran in Sandbox.",
+      "rationale": "Both evidence sets are strong but prove different boundaries. Separating them prevents a broader installer claim than the retained evidence supports.",
+      "specBasis": ["V-5", "V-6 honesty rule"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Every current first-party public surface must advance atomically from beta.1 to the exact beta.2 installer contract.",
+      "test": "Change the release contract assertions first, observe failures against beta.1 metadata and documents, update all current surfaces, and rerun only the affected tests.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/release-metadata.test.ts tests/scripts/security-policy.test.ts",
+        "observedAt": "2026-07-22T08:34:43-06:00",
+        "outcome": "RED: 2 files and 3 tests failed because PUBLIC_VERSION, README, website metadata, supported security version, download links, and installer hash still identified beta.1."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/release-metadata.test.ts tests/scripts/security-policy.test.ts",
+        "observedAt": "2026-07-22T08:41:40-06:00",
+        "outcome": "GREEN: 2 files and 3 tests passed after one targeted correction added the product-site link required by the release-notes surface contract."
+      }
+    },
+    {
+      "criterion": "The beta.2 landing page, user manual, and architecture routes must build and render with the current public version and honest shipped-capability claims.",
+      "test": "Build the production website and render all three public routes through the packaged worker test harness.",
+      "red": {
+        "command": "Not separately executed; covered by the preceding release-contract RED before website source updates.",
+        "observedAt": "2026-07-22T08:34:43-06:00",
+        "outcome": "PROCESS GAP RECORDED: the rendered-HTML assertion was changed before the website source, but its standalone RED was not executed. The same beta.1-to-beta.2 contract did fail in the root public-surface test, and the production website build/render was then executed green."
+      },
+      "green": {
+        "command": "npm.cmd test",
+        "observedAt": "2026-07-22T08:42:00-06:00",
+        "outcome": "GREEN: vinext production build completed; landing, /manual, and /architecture rendered successfully; 3/3 tests passed with zero failures or skips."
+      }
+    },
+    {
+      "criterion": "Public release bytes must match the hosted signed candidate exactly and the tag must remain bound to the reviewed commit.",
+      "test": "Download only the two assets from the public prerelease into a fresh directory; verify filenames, byte lengths, SHA-256 values, checksum sidecar, Authenticode signer, release metadata, and dereferenced remote tag target.",
+      "red": {
+        "command": "Independent artifact inventory reconciliation before publication",
+        "observedAt": "2026-07-22T08:25:00-06:00",
+        "outcome": "RED discrepancy: an earlier handoff listed a stale 211,558,372-byte installer size. The exact downloaded CI asset and matching checksum identified the authoritative 211,574,008-byte file; publication was held until reconciled."
+      },
+      "green": {
+        "command": "gh release download v0.1.0-beta.2 --repo scottconverse/scadmill --dir <fresh-directory> --pattern 'ScadMill_0.1.0-beta.2_x64-setup.exe*'; Get-FileHash; Get-AuthenticodeSignature; gh release view; git ls-remote",
+        "observedAt": "2026-07-22T08:33:35-06:00",
+        "outcome": "GREEN: exactly two public assets; installer 211,574,008 bytes; SHA-256 49C107B1648D918B7DAF16B47B4F3BAD0500EDB160D8E734E6C400E7E2578A91; matching sidecar; valid Scott Converse Authenticode signature; prerelease public; remote tag dereferenced to 14d8424784cc0ca24cdf8184098098cfaa136be4."
+      }
+    },
+    {
+      "criterion": "Final public copy must not retain a stale installer hash, development-only labels for shipped M5/M6 features, pre-M6 STL-only architecture, or an overclaim that the signed setup itself passed the Sandbox walkthrough.",
+      "test": "Turn the independent review findings into exact cross-surface assertions before correcting the documentation and rendered website.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/release-metadata.test.ts",
+        "observedAt": "2026-07-22T08:48:24-06:00",
+        "outcome": "RED: 1 file ran 3 tests; 2 failed on the beta.1 hash still present in the beta.2 user guide and on development-build qualifiers. The added contract also covered hosted-Windows/source-bound evidence separation and color-preserving 3MF/SVG architecture."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/release-metadata.test.ts; cd website; npm.cmd test",
+        "observedAt": "2026-07-22T08:49:52-06:00",
+        "outcome": "GREEN in two bounded executions: 3/3 release-metadata tests passed; the production website rebuilt and landing, /manual, and /architecture passed 3/3 rendered-route tests with zero failures or skips."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "urn:scadmill:beta2-stale-installer-size",
+      "sought": "Use the handoff's earlier installer byte length in public documentation.",
+      "confirmation": "Direct recursive inventory, GitHub asset metadata, the checksum-matching executable, and a fresh public download proved the exact file is 211,574,008 bytes. The stale 211,558,372 figure was rejected before publication."
+    }
+  ],
+  "questions": [
+    "Q-0042 remains open: it does not block the honestly labeled Windows beta.2 release, but it blocks claiming that AC-15.k's contradictory Base Material XML tag wording is literally satisfied while the normative Color encoding remains required."
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

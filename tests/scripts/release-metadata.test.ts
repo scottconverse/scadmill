@@ -4,9 +4,10 @@ import { describe, expect, it } from "vitest";
 
 const ROOT = resolve(import.meta.dirname, "../..");
 const CANDIDATE_VERSION = "0.1.0-beta.2";
-const PUBLIC_VERSION = "0.1.0-beta.1";
+const PUBLIC_VERSION = "0.1.0-beta.2";
 const INSTALLER = `ScadMill_${PUBLIC_VERSION}_x64-setup.exe`;
-const INSTALLER_SHA256 = "D196878A49804F852C49A81ACBB4AC5C232A88DA737F2D756F9B6376E435A588";
+const INSTALLER_SIZE = 211_574_008;
+const INSTALLER_SHA256 = "49C107B1648D918B7DAF16B47B4F3BAD0500EDB160D8E734E6C400E7E2578A91";
 const PUBLIC_SITE = "https://scadmill-beta.sconverse.chatgpt.site";
 
 function text(path: string): string {
@@ -24,7 +25,7 @@ function lockedPackageVersion(lockfile: string, name: string): string | undefine
 }
 
 describe("public beta release metadata", () => {
-  it("separates the exact candidate application version from the current public release", () => {
+  it("aligns the exact application version with the current public release", () => {
     expect(text("CANDIDATE_VERSION").trim()).toBe(CANDIDATE_VERSION);
     expect(JSON.parse(text("package.json")).version).toBe(CANDIDATE_VERSION);
     expect(JSON.parse(text("src/desktop-shell/src-tauri/tauri.conf.json")).version)
@@ -53,8 +54,15 @@ describe("public beta release metadata", () => {
     expect(websiteManifest.version).toBe(PUBLIC_VERSION);
     expect(publicRelease.version).toBe(PUBLIC_VERSION);
     expect(publicRelease.filename).toBe(INSTALLER);
+    expect(publicRelease.sizeBytes).toBe(INSTALLER_SIZE);
     expect(publicRelease.sha256).toBe(INSTALLER_SHA256);
     expect(publicRelease.site).toBe(PUBLIC_SITE);
+    expect(publicRelease.releasePage).toBe(
+      `https://github.com/scottconverse/scadmill/releases/tag/v${PUBLIC_VERSION}`,
+    );
+    expect(publicRelease.download).toBe(
+      `https://github.com/scottconverse/scadmill/releases/download/v${PUBLIC_VERSION}/${INSTALLER}`,
+    );
   });
 
   it("prints the current version on every public product surface", () => {
@@ -69,6 +77,7 @@ describe("public beta release metadata", () => {
       "docs/WINDOWS-BETA.md",
       `docs/RELEASE-NOTES-${PUBLIC_VERSION}.md`,
       "docs/RELEASE-ROLLBACK.md",
+      `docs/RELEASE-ROLLBACK-${PUBLIC_VERSION}.md`,
       "website/README.md",
       "website/app/page.tsx",
       "website/app/manual/page.tsx",
@@ -85,13 +94,44 @@ describe("public beta release metadata", () => {
       }
     }
 
-    for (const surface of ["README.md", "docs/WINDOWS-BETA.md", `docs/RELEASE-NOTES-${PUBLIC_VERSION}.md`]) {
+    for (const surface of ["README.md", "docs/USER-GUIDE.md", "docs/WINDOWS-BETA.md", `docs/RELEASE-NOTES-${PUBLIC_VERSION}.md`]) {
       expect(text(surface), surface).toContain(INSTALLER);
       expect(text(surface), surface).toContain(INSTALLER_SHA256);
     }
 
     for (const surface of ["README.md", "ARCHITECTURE.md", "docs/USER-GUIDE.md", `docs/RELEASE-NOTES-${PUBLIC_VERSION}.md`, "website/README.md"]) {
       expect(text(surface), surface).toContain(PUBLIC_SITE);
+    }
+  });
+
+  it("keeps shipped maturity, evidence boundaries, and M6 geometry honest", () => {
+    const currentCapabilitySurfaces = [
+      "README.md",
+      "ARCHITECTURE.md",
+      "docs/FAQ.md",
+      "docs/USER-GUIDE.md",
+      "docs/WINDOWS-BETA.md",
+      `docs/RELEASE-NOTES-${PUBLIC_VERSION}.md`,
+      "website/app/page.tsx",
+      "website/app/manual/page.tsx",
+      "website/app/architecture/page.tsx",
+    ];
+
+    for (const surface of currentCapabilitySurfaces) {
+      expect(text(surface), surface).not.toMatch(/development (?:branch|builds?)/iu);
+    }
+
+    for (const surface of ["README.md", "docs/USER-GUIDE.md", "website/app/architecture/page.tsx"]) {
+      const contents = text(surface);
+      expect(contents, surface).not.toContain("Windows Sandbox install-to-uninstall");
+      expect(contents, surface).toContain("hosted-Windows");
+      expect(contents, surface).toContain("source-bound");
+    }
+
+    for (const surface of ["README.md", "docs/USER-GUIDE.md", "website/app/manual/page.tsx", "website/app/architecture/page.tsx"]) {
+      const contents = text(surface);
+      expect(contents, surface).toContain("color-preserving 3MF");
+      expect(contents, surface).toContain("SVG");
     }
   });
 });

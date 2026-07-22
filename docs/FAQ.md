@@ -2,7 +2,7 @@
 
 ## Where can I download the Windows beta?
 
-Download `0.1.0-beta.1` from the [official GitHub release](https://github.com/scottconverse/scadmill/releases/tag/v0.1.0-beta.1). It is a 64-bit Windows desktop beta. Verify the exact byte length, SHA-256, and Windows signer in the [Windows beta guide](WINDOWS-BETA.md); GitHub Actions artifacts are not supported installers.
+Download `0.1.0-beta.2` from the [official GitHub release](https://github.com/scottconverse/scadmill/releases/tag/v0.1.0-beta.2). It is a 64-bit Windows desktop beta. Verify the exact byte length, SHA-256, and Windows signer in the [Windows beta guide](WINDOWS-BETA.md); GitHub Actions artifacts are not supported installers.
 
 ## Why can I edit in the browser but not render?
 
@@ -40,7 +40,7 @@ IndexedDB cannot provide real OS-trash semantics. The browser omits the action i
 
 ## Can I recover after a crash?
 
-ScadMill records recoverable unsaved buffers and presents them on restart. The published `0.1.0-beta.1` package passed normal restart and forced-process recovery in its isolated installer lifecycle evidence.
+ScadMill records recoverable unsaved buffers and presents them on restart. The published `0.1.0-beta.2` runtime passed normal restart, crash recovery, and clean teardown in retained isolated evidence.
 
 ## How is native/browser SVG parity checked?
 
@@ -62,6 +62,6 @@ If a client cannot connect, confirm the GUI is running, the toggle is on, the co
 
 Messages and selected context go only to the provider/model you choose for that project conversation. ScadMill does not proxy them through a ScadMill service. Named provider configurations have separate secrets; desktop stores them in the OS credential store, while the browser uses session storage unless you explicitly opt into the warning-labeled persistent storage setting. Settings export and saved conversations exclude exact configured secret values.
 
-## Which later capabilities are not in this beta?
+## Which M5 and M6 capabilities are in this beta?
 
-AI assistance and the local MCP bridge are present in the current M4 workbench. The development branch has completed the M5 and M6 capability scope, including printability reporting, desktop slicer handoff, per-project engine management, headless automation, color/multipart preview, color-preserving 3MF export, and embedded Kiri:Moto design-time estimates. Those later capabilities are not claimed by this beta until a new candidate passes the release gates.
+AI assistance and the local MCP bridge are present in the current workbench. The `0.1.0-beta.2` Windows beta also ships the completed M5 and M6 desktop capability scope, including printability reporting, desktop slicer handoff, per-project engine management, headless automation, color/multipart preview, color-preserving 3MF export, and embedded Kiri:Moto design-time estimates.

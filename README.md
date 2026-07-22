@@ -8,9 +8,9 @@
 
 **A source-first CAD workbench for makers who want a capable editor, real geometry, and local project control—while keeping ordinary OpenSCAD source as the durable artifact.**
 
-[Product site](https://scadmill-beta.sconverse.chatgpt.site) · [Download Windows beta](https://github.com/scottconverse/scadmill/releases/download/v0.1.0-beta.1/ScadMill_0.1.0-beta.1_x64-setup.exe) · [User manual](https://scadmill-beta.sconverse.chatgpt.site/manual) · [Architecture](https://scadmill-beta.sconverse.chatgpt.site/architecture)
+[Product site](https://scadmill-beta.sconverse.chatgpt.site) · [Download Windows beta](https://github.com/scottconverse/scadmill/releases/download/v0.1.0-beta.2/ScadMill_0.1.0-beta.2_x64-setup.exe) · [User manual](https://scadmill-beta.sconverse.chatgpt.site/manual) · [Architecture](https://scadmill-beta.sconverse.chatgpt.site/architecture)
 
-[![Release](https://img.shields.io/github/v/release/scottconverse/scadmill?include_prereleases&sort=semver&label=release&color=f36b32)](https://github.com/scottconverse/scadmill/releases/tag/v0.1.0-beta.1)
+[![Release](https://img.shields.io/github/v/release/scottconverse/scadmill?include_prereleases&sort=semver&label=release&color=f36b32)](https://github.com/scottconverse/scadmill/releases/tag/v0.1.0-beta.2)
 [![CI](https://github.com/scottconverse/scadmill/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/scottconverse/scadmill/actions/workflows/ci.yml)
 [![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-52718d)](docs/WINDOWS-BETA.md)
 [![License](https://img.shields.io/badge/license-Apache--2.0-07111f)](LICENSE)
@@ -20,7 +20,7 @@
 </div>
 
 > [!IMPORTANT]
-> **Current release:** `0.1.0-beta.1` is a signed 64-bit Windows desktop beta. Rendering requires a separate, hash-verified official OpenSCAD `2026.06.12` snapshot. ScadMill does not bundle or modify OpenSCAD.
+> **Current release:** `0.1.0-beta.2` is a signed 64-bit Windows desktop beta. Rendering requires a separate, hash-verified official OpenSCAD `2026.06.12` snapshot. ScadMill does not bundle or modify OpenSCAD.
 
 ## Why ScadMill
 
@@ -68,7 +68,7 @@ flowchart LR
     SOURCE["Ordinary .scad source"] --> WORKBENCH["ScadMill workbench"]
     WORKBENCH --> REQUEST["Immutable render request"]
     REQUEST --> ENGINE["Pinned OpenSCAD process"]
-    ENGINE --> GEOMETRY["Validated STL or SVG"]
+    ENGINE --> GEOMETRY["Validated color-preserving 3MF or sanitized SVG"]
     GEOMETRY --> VIEWER["2D / 3D inspection"]
     GEOMETRY -->|"full render only"| EXPORT["Model export"]
 ```
@@ -77,16 +77,16 @@ ScadMill owns editing, project state, parameters, viewers, and review flows. Ope
 
 ## Install and render your first model
 
-1. Download [`ScadMill_0.1.0-beta.1_x64-setup.exe`](https://github.com/scottconverse/scadmill/releases/download/v0.1.0-beta.1/ScadMill_0.1.0-beta.1_x64-setup.exe) from the official release.
-2. Verify SHA-256 `D196878A49804F852C49A81ACBB4AC5C232A88DA737F2D756F9B6376E435A588` and a valid Windows signature from Scott Converse.
+1. Download [`ScadMill_0.1.0-beta.2_x64-setup.exe`](https://github.com/scottconverse/scadmill/releases/download/v0.1.0-beta.2/ScadMill_0.1.0-beta.2_x64-setup.exe) from the official release.
+2. Verify SHA-256 `49C107B1648D918B7DAF16B47B4F3BAD0500EDB160D8E734E6C400E7E2578A91` and a valid Windows signature from Scott Converse.
 3. Download and verify the required official [OpenSCAD `2026.06.12` Windows snapshot](docs/WINDOWS-BETA.md#install-the-required-openscad-engine).
 4. Start ScadMill, choose **Configure engine**, and select the verified `openscad.exe`.
 5. Enter `cube([20, 20, 20]);`, press <kbd>F5</kbd>, and orbit the rendered cube.
 
 ```powershell
 # Verify the downloaded ScadMill installer before running it.
-Get-FileHash -Algorithm SHA256 -LiteralPath .\ScadMill_0.1.0-beta.1_x64-setup.exe
-Get-AuthenticodeSignature -LiteralPath .\ScadMill_0.1.0-beta.1_x64-setup.exe |
+Get-FileHash -Algorithm SHA256 -LiteralPath .\ScadMill_0.1.0-beta.2_x64-setup.exe
+Get-AuthenticodeSignature -LiteralPath .\ScadMill_0.1.0-beta.2_x64-setup.exe |
   Format-List Status, StatusMessage, SignerCertificate
 ```
 
@@ -123,16 +123,16 @@ Report suspected vulnerabilities through [GitHub private vulnerability reporting
 
 ## Current product status
 
-| Surface or capability | Status in `0.1.0-beta.1` | Notes |
+| Surface or capability | Status in `0.1.0-beta.2` | Notes |
 |---|---:|---|
-| Windows 10/11 x64 desktop | **Public beta** | Signed installer; install, update, restart, recovery, and uninstall paths have retained evidence. |
+| Windows 10/11 x64 desktop | **Public beta** | The exact signed setup passed fresh hosted-Windows install, association, launch, window-restoration, and uninstall evidence; source-bound runtime recovery is qualified separately. |
 | Editing, projects, Customizer, native render, viewers, export | **Available** | Requires the separately installed exact OpenSCAD snapshot for rendering and export. |
 | Animation, render cache, geometry delta, thumbnails | **Available** | Persistent render caching is opt-in per project and off by default. |
 | Optional AI and local MCP | **Beta** | Provider configuration and MCP permissions are explicit; there is no ScadMill AI proxy. |
 | Browser-source composition and OpenSCAD WASM path | **Implemented, not distributed** | No public browser application or WASM engine package is offered by this release. |
 | macOS and Linux installers | **Not released** | Windows desktop is the approved first public target. |
-| M5 history, batch export, libraries, intelligence, navigation, split editor, section view, camera bookmarks | **Implemented on `main`, not in this beta** | Development builds add the complete M5 scope, including a real axis-aligned clipping plane and per-project named camera views. |
-| M6: printability, slicer handoff, engine manager, headless CLI, color/parts, colored 3MF, manufacturing estimates | **Implemented on `main`, not in this beta** | The development branch includes every listed M6 capability. Manufacturing estimates use embedded Kiri:Moto 4.7.1 with explicit generic profiles and estimate-only labeling; M6 qualification and the next public release remain separate gates. |
+| M5 history, batch export, libraries, intelligence, navigation, split editor, section view, camera bookmarks | **Available** | The complete M5 desktop scope ships in this beta. |
+| M6: printability, slicer handoff, engine manager, headless CLI, color/parts, colored 3MF, manufacturing estimates | **Available** | Manufacturing estimates use embedded Kiri:Moto 4.7.1 with explicit generic profiles and estimate-only labeling. |
 
 > [!NOTE]
 > The Radeon 780M was the release performance-evidence host. It is **not** a minimum GPU requirement.
@@ -144,12 +144,12 @@ The public installer is not inferred from a successful source build. Its exact b
 - Hosted TypeScript/browser and Rust/native CI
 - Isolated owner-run similarity gate that keeps prohibited comparison repositories away from implementers
 - Signed-installer hash and Authenticode verification
-- Clean Windows Sandbox install-to-uninstall walkthrough
+- Exact signed setup fresh hosted-Windows lifecycle, plus a separate source-bound Windows Sandbox newcomer walkthrough
 - One-hour edit/render reliability soak with engine-kill recovery
 - Owner-designated Radeon 780M two-million-triangle viewer qualification
 - Dependency-license, third-party-notice, source-policy, and append-only provenance checks
 
-See the [release notes](docs/RELEASE-NOTES-0.1.0-beta.1.md), [verification guide](docs/WINDOWS-BETA.md), and [provenance ledger](PROVENANCE.md) for the exact boundaries of those claims.
+See the [release notes](docs/RELEASE-NOTES-0.1.0-beta.2.md), [verification guide](docs/WINDOWS-BETA.md), and [provenance ledger](PROVENANCE.md) for the exact boundaries of those claims.
 
 ## Documentation
 

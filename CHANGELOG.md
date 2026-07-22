@@ -4,14 +4,20 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ## [Unreleased]
 
+No unreleased changes.
+
+## [0.1.0-beta.2] - 2026-07-22
+
 ### Release status
 
-- `0.1.0-beta.2` is the next Windows candidate and is not public yet. Application manifests identify the candidate independently from `PUBLIC_VERSION`, so the live site and supported-download documentation remain on `0.1.0-beta.1` until the beta.2 signed installer passes exact-candidate V-5 evidence and is published.
+- `0.1.0-beta.2` is the current public 64-bit Windows desktop beta. The supported download is the signed setup attached to the [`v0.1.0-beta.2` GitHub prerelease](https://github.com/scottconverse/scadmill/releases/tag/v0.1.0-beta.2); CI artifacts are verification inputs, not supported downloads.
 - `0.1.0-beta.1` is the first public 64-bit Windows desktop beta. The supported download is the signed setup attached to the `v0.1.0-beta.1` GitHub release; CI artifacts are verification inputs, not supported downloads. No public web application is included.
-- The exact signed setup passed the literal one-hour N-2 soak, clean Windows Sandbox newcomer walkthrough, Radeon 780M qualification, signed-installer lifecycle, exact-head hosted CI, and isolated similarity gate. The owner resolved Q-0038 by selecting Apache-2.0 for ScadMill's original application code and Q-0039 by selecting GitHub private vulnerability reporting without a bounty or response-time SLA.
+- The exact beta.2 signed setup passed a fresh hosted-Windows install, association, launch, window-restoration, and uninstall lifecycle. The exact source-bound runtime separately passed the literal one-hour N-2 soak, clean Windows Sandbox newcomer walkthrough, Radeon 780M qualification, exact-head hosted CI, and isolated similarity gate. The owner resolved Q-0038 by selecting Apache-2.0 for ScadMill's original application code and Q-0039 by selecting GitHub private vulnerability reporting without a bounty or response-time SLA.
 - The M3 parity/compliance execution passed on historical candidate `1b6343a`. That evidence validates the M3 implementation but does not release the OpenSCAD WebAssembly pair and does not qualify the current Windows beta head.
 
 ### Added
+
+- Published the signed `ScadMill_0.1.0-beta.2_x64-setup.exe` Windows prerelease: 211,574,008 bytes, SHA-256 `49C107B1648D918B7DAF16B47B4F3BAD0500EDB160D8E734E6C400E7E2578A91`, valid Windows signer `CN=Scott Converse, O=Scott Converse, L=Longmont, S=co, C=US`, and immutable source commit `14d8424784cc0ca24cdf8184098098cfaa136be4`.
 
 - Added M6 design-time manufacturing estimates for the last full STL or 3MF render. On explicit request, ScadMill preprocesses geometry in a bounded worker and runs the checksummed, embedded Kiri:Moto 4.7.1 FDM engine locally against a selected generic machine profile. The panel reports estimated time and filament use, names the engine and profile, discards generated G-code, makes no print-ready claim, and tells users to use their real slicer settings and printer tuning for manufacturing.
 
@@ -181,7 +187,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 - Made the Windows Sandbox host wrapper wait for the mapped guest exit-code file to become both complete and readable. A guest can create that file before closing its final write handle; the host now retries bounded file-sharing failures plus empty, partial, malformed, and out-of-range payloads until the existing deadline, then applies the unchanged pass/fail and retained-evidence checks.
 
-- Replaced quadratic model-history thumbnail copying with an incremental bounded view: each render now adds only its new snapshot, each thumbnail update replaces only its matching snapshot, unchanged PNG storage is reused, and the existing 100-snapshot workspace cap still evicts the oldest entry. This addresses the WebView allocation growth exposed by the beta.2 literal one-hour N-2 candidate without weakening the raw 1.5x memory ceiling; a new literal pass is still required before release.
+- Replaced quadratic model-history thumbnail copying with an incremental bounded view: each render now adds only its new snapshot, each thumbnail update replaces only its matching snapshot, unchanged PNG storage is reused, and the existing 100-snapshot workspace cap still evicts the oldest entry. This addresses the WebView allocation growth exposed by the beta.2 literal one-hour N-2 candidate without weakening the raw 1.5x memory ceiling; the exact release candidate subsequently passed the literal one-hour gate.
 
 - Made the packaged thumbnail-persistence oracle format-neutral after M6 switched viewer renders from STL to Color-encoded 3MF. The gate now drains the exact paused-animation thumbnail, excludes that identity while discovering the fresh target thumbnail, and requires the target's canonical semantic identity across Files, Welcome, restart, and cold-cache recovery instead of comparing it with an unrelated STL export hash.
 
@@ -319,7 +325,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Verification status
 
-- Historical M3 candidate `1b6343a` passed all six native/WASM parity cases under the owner-approved CRLF-to-LF-only rule and produced the verified corresponding-source compliance package. The Windows `0.1.0-beta.1` release is qualified by the exact product/source-tree, signed-installer, soak, performance, hosted, similarity, and clean Sandbox evidence recorded above.
+- Historical M3 candidate `1b6343a` passed all six native/WASM parity cases under the owner-approved CRLF-to-LF-only rule and produced the verified corresponding-source compliance package. The Windows `0.1.0-beta.2` release is qualified by the exact product/source-tree, signed-installer lifecycle, soak, performance, hosted, similarity, and clean Sandbox runtime evidence recorded above.
 - FR-2.5 per-candidate qualification is intentionally external: accept it only from a retained Radeon 780M evidence envelope bound to the exact candidate source tree and profiler harness.
 - `cargo audit` reports zero vulnerability failures but 17 pre-existing informational warnings in the current Tauri dependency graph, including the GTK3/glib unsoundness advisory and unmaintained GTK3, proc-macro-error, and UNIC families; current compatible upstream releases do not remove them.
 - M4 FR-15.1 render cache: successful 2D/3D results use a typed content-addressed key over resolved project inputs, parameters, quality policy, and verified engine build identity; a bounded 512 MiB memory LRU reuses unchanged renders without invoking the engine again. Desktop disk caching is default-off, persisted independently by opaque project identity, unavailable to scratch work, and excluded from portable global settings. Its app-cache records use strict integrity validation, a 4 MiB IPC-safe record cap, sidecar LRU metadata, cold-start hits, explicit stored-data disclosure, and a per-project clear action; disabling stops disk-tier use without silently claiming deletion. Cache hits are labeled at the status bar, payloads are cloned on read/write, and failures, stale completions, and superseded work are never cached.

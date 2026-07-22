@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Security fixes target the latest public Windows beta, currently `0.1.0-beta.1`. Older beta builds and unpublished GitHub Actions artifacts are not supported distributions.
+Security fixes target the latest public Windows beta, currently `0.1.0-beta.2`. Older beta builds and unpublished GitHub Actions artifacts are not supported distributions.
 
 ## Report a vulnerability privately
 

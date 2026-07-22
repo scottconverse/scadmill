@@ -6,7 +6,7 @@ export function Header() {
 }
 
 export function ReleaseBar() {
-  return <div className="release-bar"><div className="shell"><span>WINDOWS BETA</span><p>{RELEASE.version} is public, signed, and sandbox-tested.</p><a href={RELEASE.releasePage}>View release →</a></div></div>;
+  return <div className="release-bar"><div className="shell"><span>WINDOWS BETA</span><p>{RELEASE.version} is public, signed, and release-tested.</p><a href={RELEASE.releasePage}>View release →</a></div></div>;
 }
 
 export function Footer() {

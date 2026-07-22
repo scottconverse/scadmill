@@ -3,7 +3,7 @@
 ScadMill has no telemetry and does not send model source, project files, settings, engine output,
 diagnostics, or secrets to a ScadMill service.
 
-ScadMill `0.1.0-beta.1` is a public Windows desktop beta. There is no hosted web application. The web sections below document implemented
+ScadMill `0.1.0-beta.2` is a public Windows desktop beta. There is no hosted web application. The web sections below document implemented
 source behavior for a future, separately qualified web publication; they are not claims about a
 currently operated ScadMill service.
 

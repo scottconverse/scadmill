@@ -1,6 +1,6 @@
 # ScadMill architecture
 
-**Release context:** ScadMill `0.1.0-beta.1` public Windows beta. The source tree also contains implemented web composition work that is not a public hosted product.
+**Release context:** ScadMill `0.1.0-beta.2` public Windows beta. The source tree also contains implemented web composition work that is not a public hosted product.
 
 **Published architecture guide:** <https://scadmill-beta.sconverse.chatgpt.site/architecture>
 
@@ -62,8 +62,8 @@ Tauri owns OS dialogs, native menus, `.scad` association and single-instance rou
 
 ## Provenance and supply-chain gates
 
-Non-trivial changes have append-only records under `provenance/entries`. npm and Rust dependency licenses are checked. Engine, toolchain, and relevant packages are pinned. The owner similarity harness runs only in isolated hosted CI. The `0.1.0-beta.1` release also passed hosted CI, a literal one-hour soak, owner-designated Radeon 780M performance evidence, and a clean Windows Sandbox install-to-uninstall walkthrough.
+Non-trivial changes have append-only records under `provenance/entries`. npm and Rust dependency licenses are checked. Engine, toolchain, and relevant packages are pinned. The owner similarity harness runs only in isolated hosted CI. The `0.1.0-beta.2` release also passed hosted CI, a literal one-hour soak, owner-designated Radeon 780M performance evidence, a source-bound Windows Sandbox newcomer walkthrough, and an exact signed-installer hosted Windows lifecycle.
 
 ## Extension seams through M6
 
-The ports and worker boundaries support later public web distribution. M5 and the complete M6 capability scope—including local Kiri:Moto manufacturing estimates—are implemented on the development branch; none is a claim about the current beta until a later candidate passes its release gates. Platform behavior belongs in adapters; reusable behavior belongs in application services; UI consumes declared capabilities.
+The ports and worker boundaries support later public web distribution. M5 and the complete M6 desktop capability scope—including local Kiri:Moto manufacturing estimates—ship in the current Windows beta. Platform behavior belongs in adapters; reusable behavior belongs in application services; UI consumes declared capabilities.

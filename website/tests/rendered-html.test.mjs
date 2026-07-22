@@ -13,8 +13,10 @@ test("renders the honest, versioned product landing page", async () => {
   assert.equal(response.status, 200);
   const html = await response.text();
   assert.match(html, /OpenSCAD,[\s\S]*without losing the code/);
-  assert.match(html, /0\.1\.0-beta\.1/);
+  assert.match(html, /0\.1\.0-beta\.2/);
   assert.match(html, /Download Windows beta/);
+  assert.match(html, /Lifecycle-tested/);
+  assert.match(html, /Printability,[\s\S]*headless CLI,[\s\S]*manufacturing estimates/);
   assert.match(html, /No public browser app yet/);
   assert.match(html, /Architecture/);
   assert.doesNotMatch(html, /Starter Project|taking shape|codex-preview/i);
@@ -26,6 +28,13 @@ for (const [path, expected] of [["/manual", "Official user manual"], ["/architec
     assert.equal(response.status, 200);
     const html = await response.text();
     assert.match(html, new RegExp(expected));
-    assert.match(html, /0\.1\.0-beta\.1/);
+    assert.match(html, /0\.1\.0-beta\.2/);
+    assert.doesNotMatch(html, /development (?:branch|builds?)/i);
+    assert.match(html, /color-preserving 3MF/);
+    if (path === "/architecture") {
+      assert.match(html, /hosted-Windows/);
+      assert.match(html, /source-bound/);
+      assert.doesNotMatch(html, /Windows Sandbox install-to-uninstall/);
+    }
   });
 }

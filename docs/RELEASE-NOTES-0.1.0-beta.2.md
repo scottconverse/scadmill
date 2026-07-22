@@ -1,8 +1,8 @@
 # ScadMill 0.1.0-beta.2
 
-**Status:** Release candidate preparation. This version is not the supported public download until the signed GitHub release is published and this notice is updated with its exact verified installer facts.
+**Status:** Published Windows prerelease. Download only from the [official GitHub release](https://github.com/scottconverse/scadmill/releases/tag/v0.1.0-beta.2). The product site and current manual are at [scadmill-beta.sconverse.chatgpt.site](https://scadmill-beta.sconverse.chatgpt.site).
 
-ScadMill 0.1.0-beta.2 brings the completed M5 and M6 capability set into the next Windows desktop beta candidate. It remains a source-first OpenSCAD workbench: projects stay ordinary files, OpenSCAD remains a separate unmodified engine, and preview output is never used for export.
+ScadMill 0.1.0-beta.2 brings the completed M5 and M6 capability set into the public Windows desktop beta. It remains a source-first OpenSCAD workbench: projects stay ordinary files, OpenSCAD remains a separate unmodified engine, and preview output is never used for export.
 
 ## What is new since 0.1.0-beta.1
 
@@ -21,21 +21,28 @@ ScadMill 0.1.0-beta.2 brings the completed M5 and M6 capability set into the nex
 
 ## Platform and engine
 
-- Candidate platform: 64-bit Windows 10 or 11.
+- Platform: 64-bit Windows 10 or 11.
 - Required rendering engine: the separate official OpenSCAD 2026.06.12 snapshot recorded in `ENGINE_VERSION`.
 - Product license: Apache-2.0. Third-party and separately distributed components retain their own licenses.
-- No public browser application, macOS installer, or Linux installer is included in this Windows-first candidate.
+- No public browser application, macOS installer, or Linux installer is included in this Windows-first release.
 
-## Candidate verification
+## Download and verification
 
-The source candidate must pass hosted CI, the isolated similarity gate, the literal one-hour reliability soak, the owner-designated Radeon 780M viewer profile, exact signed-installer hash and Authenticode verification, and a clean Windows Sandbox install-to-uninstall walkthrough before publication. GitHub Actions artifacts are evidence inputs, not supported downloads.
+- Filename: `ScadMill_0.1.0-beta.2_x64-setup.exe`
+- Byte length: `211574008`
+- SHA-256: `49C107B1648D918B7DAF16B47B4F3BAD0500EDB160D8E734E6C400E7E2578A91`
+- Windows signer: `CN=Scott Converse, O=Scott Converse, L=Longmont, S=co, C=US`
+- Source commit: `14d8424784cc0ca24cdf8184098098cfaa136be4`
 
-The exact installer filename, byte length, SHA-256, signer, source commit, and evidence links will be added only after those checks pass.
+The exact signed setup passed a fresh hosted-Windows install, `.scad` association, active launch, normal and off-monitor window restoration, and uninstall lifecycle. The exact source-bound runtime separately passed hosted CI, the isolated similarity gate, the literal one-hour reliability soak, the Windows Sandbox newcomer walkthrough, crash recovery, orphan cleanup, and the owner-designated Radeon 780M viewer profile. GitHub Actions artifacts are evidence inputs, not supported downloads.
+
+- [Hosted CI — eight jobs passed](https://github.com/scottconverse/scadmill/actions/runs/29922772987)
+- [Isolated similarity gate — passed](https://github.com/scottconverse/scadmill/actions/runs/29922880821)
 
 ## Known specification question
 
-Q-0042 records a literal XML-tag contradiction between the required OpenSCAD Color mode and AC-15.k's Base Material tag names. The candidate uses the normative Color encoding, preserves two separately colored and positioned objects, round-trips both meshes, and tells users to assign filaments per object. It does not claim that the contradictory Base Material tag wording is satisfied without an owner amendment.
+Q-0042 records a literal XML-tag contradiction between the required OpenSCAD Color mode and AC-15.k's Base Material tag names. The release uses the normative Color encoding, preserves two separately colored and positioned objects, round-trips both meshes, and tells users to assign filaments per object. It does not claim that the contradictory Base Material tag wording is satisfied without an owner amendment.
 
 ## Previous release and rollback
 
-The previous public version is `0.1.0-beta.1`. See [RELEASE-ROLLBACK-0.1.0-beta.2.md](RELEASE-ROLLBACK-0.1.0-beta.2.md) for the candidate withdrawal and downgrade boundary.
+The previous public version is `0.1.0-beta.1`. See [RELEASE-ROLLBACK-0.1.0-beta.2.md](RELEASE-ROLLBACK-0.1.0-beta.2.md) for the release withdrawal and downgrade boundary.
