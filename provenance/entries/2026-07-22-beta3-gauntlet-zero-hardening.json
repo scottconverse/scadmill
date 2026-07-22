@@ -1,0 +1,194 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-22-beta3-gauntlet-zero-hardening",
+  "createdAt": "2026-07-22T17:33:34-06:00",
+  "summary": "Close the beta.3 full-gauntlet product, documentation, evidence-retention, dependency-security, provenance, batch-export, and Windows update/repair findings before protected merge and publication.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "AC-4.a", "AC-15.d", "V-2", "V-4", "V-5", "V-6", "M5", "M6"],
+  "filesTouched": [
+    { "path": ".github/workflows/ci.yml", "status": "modified" },
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "PRIVACY.md", "status": "modified" },
+    { "path": "docs/WINDOWS-BETA.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-22-beta3-gauntlet-zero-hardening.json", "status": "added" },
+    { "path": "scripts/check-provenance.mjs", "status": "modified" },
+    { "path": "scripts/windows/test-update-repair-lifecycle.ps1", "status": "added" },
+    { "path": "spec/QUESTIONS.md", "status": "modified" },
+    { "path": "src/ui/Workbench.tsx", "status": "modified" },
+    { "path": "src/ui/ai/AiConversationPanel.tsx", "status": "modified" },
+    { "path": "src/ui/ai/AiWorkbenchPanel.tsx", "status": "modified" },
+    { "path": "src/ui/settings/SettingsDialog.tsx", "status": "modified" },
+    { "path": "src/ui/settings/SettingsLauncher.tsx", "status": "modified" },
+    { "path": "src/ui/settings/settings-dialog-helpers.ts", "status": "added" },
+    { "path": "src/ui/viewer/ViewerPane.tsx", "status": "modified" },
+    { "path": "src/ui/workbench.css", "status": "modified" },
+    { "path": "tests/e2e/batch-export.e2e.ts", "status": "added" },
+    { "path": "tests/scripts/ci-workflow.test.ts", "status": "modified" },
+    { "path": "tests/scripts/provenance-cli.test.ts", "status": "added" },
+    { "path": "tests/scripts/release-metadata.test.ts", "status": "modified" },
+    { "path": "tests/scripts/windows-installer.test.ts", "status": "modified" },
+    { "path": "tests/scripts/windows-update-repair.test.ts", "status": "added" },
+    { "path": "tests/ui/ai/AiConversationPanel.test.tsx", "status": "modified" },
+    { "path": "tests/ui/ai/AiWorkbenchPanel.test.tsx", "status": "modified" },
+    { "path": "tests/ui/settings/SettingsLauncher.test.tsx", "status": "modified" },
+    { "path": "tests/ui/viewer/ViewerPane.test.tsx", "status": "modified" },
+    { "path": "website/app/manual/page.tsx", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/actions/dependency-review-action/releases/tag/v5.0.0",
+      "accessedOn": "2026-07-22",
+      "purpose": "Pin the official dependency-review action to release commit a1d282b36b6f3519aa1f3fc636f609c47dddb294 and confirm the high-severity failure contract."
+    },
+    {
+      "url": "https://github.com/scottconverse/scadmill/releases/tag/v0.1.0-beta.2",
+      "accessedOn": "2026-07-22",
+      "purpose": "Bind the update lifecycle to the exact prior public signed installer and published SHA-256."
+    },
+    {
+      "url": "https://docs.github.com/en/rest/repos/repos#enable-vulnerability-alerts",
+      "accessedOn": "2026-07-22",
+      "purpose": "Enable and verify repository vulnerability alerts and automated Dependabot security fixes through the official GitHub API."
+    }
+  ],
+  "providedInputs": [
+    { "label": "Owner-provided ScadMill functional specification v0.6 with amendments", "destination": "spec/scadmill-spec-v0.6.md", "sha256": "32E06298C4538860A4E703650853C869162EB3262A57A933662296DEB07C5528" }
+  ],
+  "decisions": [
+    {
+      "id": "D-0536",
+      "topic": "Fail-closed provenance and immutable release paths",
+      "decision": "Resolve an explicit comparison commit for every CI event, reject CI provenance validation without it, merge beta.3 through a protected pull request, and protect main plus published v* tags from direct rewrite or deletion.",
+      "rationale": "Append-only validation must not silently become baseline validation on direct pushes, tag creation, or manual runs, and documented immutable release identities require repository enforcement.",
+      "specBasis": ["Section 2.4 provenance ledger", "V-2", "V-5"]
+    },
+    {
+      "id": "D-0537",
+      "topic": "Dependency vulnerability enforcement",
+      "decision": "Enable GitHub vulnerability alerts and automated security updates, and run the official commit-pinned dependency-review action on every pull request with high severity as the rejection threshold.",
+      "rationale": "Exact lockfiles and license review do not detect later vulnerability disclosures or high-impact vulnerable dependency changes across npm and Cargo graphs.",
+      "specBasis": ["V-2", "V-5", "Section 6 dependency policy"]
+    },
+    {
+      "id": "D-0538",
+      "topic": "Windows maintenance-release lifecycle boundary",
+      "decision": "Treat beta.2 install-over, beta.3 same-version repair, uninstall state preservation, and beta.3 reinstall as mandatory signed-setup evidence in addition to the clean-install lifecycle.",
+      "rationale": "A maintenance beta primarily serves existing beta users; clean install and uninstall alone cannot detect update, repair, or retained-state regressions.",
+      "specBasis": ["V-5", "M6 release gate"]
+    },
+    {
+      "id": "D-0539",
+      "topic": "Normative batch-export end-to-end evidence",
+      "decision": "Run the real batch-export UI through the WASM engine and browser artifact destination on Windows and Linux, retain exact STL bytes and hashes, and deliberately fail item two while proving items one and three remain correct.",
+      "rationale": "Component coverage cannot prove the required V-4 wiring, sequential engine execution, download identity, or AC-15.d partial-failure behavior in production composition.",
+      "specBasis": ["FR-15.4", "AC-15.d", "V-4"]
+    },
+    {
+      "id": "D-0540",
+      "topic": "Viewer status and AI setup affordance ownership",
+      "decision": "Anchor the dimensions readout inside the model surface and deep-link the unconfigured AI action into the AI settings section with focus return to its invoker.",
+      "rationale": "Status geometry must not obscure details controls, and an optional-feature empty state must provide a complete accessible path to the configuration it names.",
+      "specBasis": ["C2 viewer", "C10 AI panel", "N-3 accessibility", "N-7 honesty"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Viewer dimensions stay within the model surface, and unconfigured AI opens and focuses its settings with focus restoration.",
+      "test": "Add focused component and launcher assertions for model-surface containment, details separation, the Open settings action, AI-section focus, and invoker focus restoration.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/viewer/ViewerPane.test.tsx tests/ui/ai/AiConversationPanel.test.tsx tests/ui/ai/AiWorkbenchPanel.test.tsx tests/ui/settings/SettingsLauncher.test.tsx",
+        "observedAt": "2026-07-22T17:33:34-06:00",
+        "outcome": "RED across bounded slices: the model-surface wrapper was absent; both AI panels lacked Open settings; and Settings could not be opened directly at the AI section. Original slice timestamps were not retained, so this record time follows the observations."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/viewer/ViewerPane.test.tsx tests/ui/ai/AiConversationPanel.test.tsx tests/ui/ai/AiWorkbenchPanel.test.tsx tests/ui/settings/SettingsLauncher.test.tsx",
+        "observedAt": "2026-07-22T17:30:48-06:00",
+        "outcome": "GREEN inside the combined focused verification: all four files passed as part of 83/83 focused tests."
+      }
+    },
+    {
+      "criterion": "Release workflows retain parity evidence, bind setup payload to the canonical build, reject missing CI provenance bases, and require the prior-public update/repair lifecycle.",
+      "test": "Mutation-lock the workflow contracts, spawn the provenance CLI without a CI base, parse the Windows lifecycle script, and verify exact step ordering and hashes before signing/upload.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/ci-workflow.test.ts tests/scripts/windows-installer.test.ts tests/scripts/windows-update-repair.test.ts tests/scripts/provenance-cli.test.ts",
+        "observedAt": "2026-07-22T17:24:09-06:00",
+        "outcome": "RED observations: parity upload warned, canonical/packaged hashes were not compared, the update/repair script was absent, and CI without a comparison base exited zero."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/ci-workflow.test.ts tests/scripts/windows-installer.test.ts tests/scripts/windows-update-repair.test.ts tests/scripts/provenance-cli.test.ts",
+        "observedAt": "2026-07-22T17:30:48-06:00",
+        "outcome": "GREEN inside the combined focused verification: all workflow, installer, update, and provenance assertions passed as part of 83/83 focused tests."
+      }
+    },
+    {
+      "criterion": "V-4 and AC-15.d require a real three-set batch-export flow and retained partial-failure evidence.",
+      "test": "Create three saved sets through the production UI, download and inspect three binary STLs, deliberately fail the middle set, verify no failed artifact, and re-hash the preserved first artifact.",
+      "red": {
+        "command": "$env:SCADMILL_BATCH_EXPORT_ARTIFACT_DIR='test-results/batch-export-local-evidence'; pnpm.cmd exec playwright test tests/e2e/batch-export.e2e.ts --reporter=list",
+        "observedAt": "2026-07-22T17:29:51-06:00",
+        "outcome": "RED after entering product behavior: an intentionally broad Parameter set label matched seven controls. The locator was made exact; no product behavior failed."
+      },
+      "green": {
+        "command": "$env:SCADMILL_BATCH_EXPORT_ARTIFACT_DIR='test-results/batch-export-local-evidence'; pnpm.cmd exec playwright test tests/e2e/batch-export.e2e.ts --reporter=list",
+        "observedAt": "2026-07-22T17:31:17-06:00",
+        "outcome": "GREEN: 1/1 production-composition journey passed in 10.1 seconds; five exact STL downloads and evidence JSON were retained, including success/failure/success state and preserved item-one hash."
+      }
+    },
+    {
+      "criterion": "Canonical documentation must describe the shipped engine manager, current parity proof, no automatic updater, and present-tense uninstall behavior without contradiction.",
+      "test": "Add public-surface and question-ledger assertions for both verified engine setup paths, resolved parity closure, release-neutral updater language, current index wording, and public uninstall copy.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/release-metadata.test.ts --reporter=verbose",
+        "observedAt": "2026-07-22T17:33:34-06:00",
+        "outcome": "RED: five intended assertions failed against contradictory or stale copy. Original slice timestamp was not retained, so this record time follows the observation."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/release-metadata.test.ts --reporter=verbose",
+        "observedAt": "2026-07-22T17:30:48-06:00",
+        "outcome": "GREEN inside the combined focused verification: the release metadata file passed all nine assertions."
+      }
+    },
+    {
+      "criterion": "Repository dependency monitoring must be active before public release.",
+      "test": "Enable vulnerability alerts and automated security fixes through the GitHub API, re-read security_and_analysis, and enumerate open Dependabot alerts.",
+      "red": {
+        "command": "gh api repos/scottconverse/scadmill/vulnerability-alerts; gh api repos/scottconverse/scadmill/dependabot/alerts",
+        "observedAt": "2026-07-22T17:20:40-06:00",
+        "outcome": "RED external state: vulnerability alerts returned 404 disabled and Dependabot alerts returned 403 disabled."
+      },
+      "green": {
+        "command": "gh api --method PUT repos/scottconverse/scadmill/vulnerability-alerts; gh api --method PUT repos/scottconverse/scadmill/automated-security-fixes; gh api repos/scottconverse/scadmill --jq .security_and_analysis; gh api repos/scottconverse/scadmill/dependabot/alerts",
+        "observedAt": "2026-07-22T17:20:49-06:00",
+        "outcome": "GREEN external state: both enable calls returned HTTP 204, dependabot_security_updates reports enabled, secret scanning/push protection remain enabled, and the open-alert count is zero."
+      }
+    },
+    {
+      "criterion": "The integrated candidate change must compile, satisfy the source policy, pass the complete JavaScript suite, build production bytes, retain allowed licenses/notices, and avoid LFS or oversized tracked blobs.",
+      "test": "Run the aggregate local web/policy chain once, stop at the first failing stage, correct only the reported compile/lint defects, and continue from the failed stage without restarting completed checks.",
+      "red": {
+        "command": "pnpm.cmd check:generated; pnpm.cmd typecheck",
+        "observedAt": "2026-07-22T17:35:52-06:00",
+        "outcome": "RED at TypeScript with four exact integration errors: a DocumentBuffer shadowed global document, the environment clone narrowed away one key, and two DOM queries were typed as Element instead of HTMLElement. The aggregate stopped immediately."
+      },
+      "green": {
+        "command": "pnpm.cmd typecheck; pnpm.cmd exec biome lint <changed files>; node scripts/check-source-policy.mjs; pnpm.cmd test; pnpm.cmd build; pnpm.cmd check:licenses all; pnpm.cmd check:notices; pnpm.cmd check:blobs",
+        "observedAt": "2026-07-22T17:39:25-06:00",
+        "outcome": "GREEN without restarting completed stages: TypeScript passed; changed-file Biome lint and full source policy passed with SettingsDialog and ViewerPane at 399 lines; 245 files and 1,734 tests passed with one explicit skip; production built; 120 npm and 507 Cargo license records passed; notices were current for 26 npm and 279 Cargo packages; 1,051 tracked files passed with zero Git LFS pointers."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "urn:scadmill:batch-export-locator-scope",
+      "sought": "Use the shortest accessible label for the parameter-set selector.",
+      "confirmation": "The real DOM correctly exposed several longer labels beginning with Parameter set. The journey now uses an exact accessible-name match and reached the real engine/download assertions without weakening product semantics."
+    },
+    {
+      "url": "urn:scadmill:focused-tests-do-not-substitute-for-typecheck",
+      "sought": "Treat focused component-test success as sufficient integration proof for the new Settings and viewer wiring.",
+      "confirmation": "The first aggregate TypeScript check rejected four compile-only integration issues despite all focused behavior tests passing. Each exact type defect was corrected, the two UI files were refactored back under the 400-line cap, and only the affected checks were rerun before the aggregate continued."
+    }
+  ],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

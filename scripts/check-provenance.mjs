@@ -9,6 +9,10 @@ const base =
   (baseArgument >= 0 ? process.argv[baseArgument + 1] : undefined) ??
   process.env.SCADMILL_PROVENANCE_BASE;
 
+if (!base && process.env.CI) {
+  errors.push("CI provenance validation requires an explicit comparison base");
+}
+
 if (base) {
   if (!/^[A-Fa-f0-9]{7,64}$/u.test(base)) {
     errors.push("provenance PR base must be a 7-64 character hexadecimal git object id");

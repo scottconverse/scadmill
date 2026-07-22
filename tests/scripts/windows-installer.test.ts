@@ -34,6 +34,23 @@ function namedStep(job: WorkflowJob, name: string): WorkflowStep {
   return step;
 }
 
+function assertCanonicalPayloadIdentity(run: string | undefined): void {
+  expect(run).toContain(
+    "$builtHash = Get-FileHash -Algorithm SHA256 -LiteralPath $application",
+  );
+  expect(run).toContain(
+    "$packagedHash = Get-FileHash -Algorithm SHA256 -LiteralPath $packagedApplication",
+  );
+  expect(run).toContain("$builtHash.Hash -cne $packagedHash.Hash");
+  expect(run).toContain("Built application SHA256: $($builtHash.Hash)");
+  expect(run).toContain("Exact setup application payload SHA256: $($packagedHash.Hash)");
+  expect(run).toContain("The built application differs from the exact setup payload.");
+  expect(run).toContain('"built_sha256=$($builtHash.Hash)"');
+  expect(run).toContain('"packaged_sha256=$($packagedHash.Hash)"');
+  expect(run).toContain('"matched=true"');
+  expect(run).toContain('"SCADMILL_INSTALLER_IDENTITY_EVIDENCE=$identityEvidence"');
+}
+
 describe("installer lifecycle contract", () => {
   it("produces an offline current-user NSIS installer with static Visual C++ linkage", async () => {
     const root = process.cwd();
@@ -135,6 +152,7 @@ describe("installer lifecycle contract", () => {
       job,
       "Verify setup artifact and static Visual C++ runtime linkage",
     );
+    const sign = namedStep(job, "Sign setup executable");
     const noticesCheck = namedStep(job, "Verify distributable third-party notices");
     const build = namedStep(job, "Build offline NSIS setup");
     const hash = namedStep(job, "Hash exact setup bytes before lifecycle");
@@ -205,10 +223,21 @@ describe("installer lifecycle contract", () => {
     expect(job.steps.indexOf(hash)).toBeLessThan(job.steps.indexOf(lifecycleStep));
     expect(job.steps.indexOf(noticesCheck)).toBeLessThan(job.steps.indexOf(build));
     expect(job.steps.indexOf(build)).toBeLessThan(job.steps.indexOf(buildProof));
+    expect(job.steps.indexOf(buildProof)).toBeLessThan(job.steps.indexOf(sign));
     expect(job.steps.indexOf(lifecycleStep)).toBeLessThan(job.steps.indexOf(upload));
     expect(buildProof.run).toContain("7z e -y");
     expect(buildProof.run).toContain("SCADMILL_PACKAGED_APP=$packagedApplication");
     expect(buildProof.run).toContain("/dependents $packagedApplication");
+    assertCanonicalPayloadIdentity(buildProof.run);
+    expect(() => assertCanonicalPayloadIdentity(
+      buildProof.run?.replace(
+        "$builtHash.Hash -cne $packagedHash.Hash",
+        "$builtHash.Hash -ceq $packagedHash.Hash",
+      ),
+    )).toThrow();
+    expect(() => assertCanonicalPayloadIdentity(
+      buildProof.run?.replace("$builtHash.Hash -cne $packagedHash.Hash", ""),
+    )).toThrow();
     expect(lifecycleStep.run).toContain("-ExpectedApplication $env:SCADMILL_PACKAGED_APP");
     expect(lifecycleStep.run).toContain("-ExpectedNotices ./THIRD-PARTY-NOTICES.txt");
     expect(lifecycleStep.run).toContain("Tee-Object -FilePath $log");

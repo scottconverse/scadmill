@@ -195,6 +195,7 @@ button.console-diagnostic:hover, button.console-diagnostic:focus-visible { backg
 .viewer-toolbar button[aria-pressed="true"] { border-color: var(--chrome-accent); background: var(--chrome-active); }
 .viewer-toggle { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; font-size: 11px; white-space: nowrap; }
 .viewer-content { position: relative; display: grid; min-width: 0; min-height: 0; grid-template-columns: minmax(0, 1fr) minmax(180px, 25%); }
+.viewer-model-surface { position: relative; display: grid; min-width: 0; min-height: 0; overflow: hidden; }
 .viewer-details { min-width: 0; min-height: 0; padding: 10px; overflow: auto; border-left: 1px solid var(--chrome-border); background: var(--chrome-surface); color: var(--chrome-text); font-size: 12px; }
 .viewer-details section + section { margin-top: 14px; }
 .viewer-details h3 { margin: 0 0 7px; font-size: 12px; }
@@ -226,14 +227,14 @@ button.console-diagnostic:hover, button.console-diagnostic:focus-visible { backg
 .model-viewer canvas[data-viewer-tool="measure"], .model-viewer canvas[data-viewer-tool="annotate"] { cursor: crosshair; }
 .viewer-spatial-label { position: absolute; z-index: 4; max-width: 180px; padding: 3px 5px; border: 1px solid currentcolor; border-radius: 4px; background: var(--chrome-surface-raised); font-size: 11px; font-weight: 700; pointer-events: none; transform: translate(-50%, -50%); }
 .svg-viewer-shell { position: relative; display: grid; min-width: 0; min-height: 0; grid-template-rows: minmax(0, 1fr) auto; background: var(--viewer-background); }
-.viewer-content > .model-viewer, .viewer-content > .svg-viewer-shell { min-width: 0; min-height: 0; }
+.viewer-model-surface > .model-viewer, .viewer-model-surface > .svg-viewer-shell { min-width: 0; min-height: 0; }
 .svg-viewer { position: relative; min-width: 0; min-height: 0; overflow: hidden; padding: 0; border: 0; background: var(--viewer-background); color: var(--chrome-text); cursor: grab; touch-action: none; }
 .svg-viewer:active { cursor: grabbing; }
 .svg-viewer img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; transform-origin: center; user-select: none; }
 .svg-viewer-controls { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 7px 10px; border-top: 1px solid var(--chrome-border); background: var(--chrome-surface); color: var(--chrome-text); font-size: 12px; font-variant-numeric: tabular-nums; }
 .svg-viewer-controls button { border: 1px solid var(--chrome-border); border-radius: 4px; background: var(--chrome-surface-raised); color: var(--chrome-text); cursor: pointer; }
 .viewer-empty { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; color: var(--chrome-text-muted); pointer-events: none; }
-.bounds-readout { position: absolute; right: 14px; bottom: 14px; padding: 7px 10px; border: 1px solid var(--chrome-border); border-radius: 6px; background: var(--chrome-surface); color: var(--chrome-text); font-variant-numeric: tabular-nums; }
+.bounds-readout { position: absolute; z-index: 4; right: 14px; bottom: 14px; padding: 7px 10px; border: 1px solid var(--chrome-border); border-radius: 6px; background: var(--chrome-surface); color: var(--chrome-text); font-variant-numeric: tabular-nums; }
 .render-error { position: absolute; inset: auto 14px 14px 14px; padding: 10px; border: 1px solid var(--chrome-badge-error); border-radius: 6px; background: var(--chrome-surface); color: var(--chrome-badge-error); white-space: pre-wrap; }
 .viewer-transient-stack { position: absolute; z-index: 9; top: 48px; right: 14px; left: 14px; display: grid; gap: 8px; pointer-events: none; }
 .viewer-transient-stack-with-toolbar { top: 88px; }

@@ -25,11 +25,12 @@ export interface AiWorkbenchPanelProps {
   readonly onApproveReview: (review: McpPendingReview) => Promise<void>;
   readonly onCopy?: (text: string) => Promise<void>;
   readonly onInsertAtCursor: (code: string) => void;
+  readonly onOpenSettings?: () => void;
 }
 
 export function AiWorkbenchPanel({
   runtime, aiFetch = () => globalThis.fetch.bind(globalThis), profile, secretStore, document, projectIdentity, contextInputs, agentToolHandler,
-  pendingReview, onApproveReview, onCopy, onInsertAtCursor,
+  pendingReview, onApproveReview, onCopy, onInsertAtCursor, onOpenSettings,
 }: AiWorkbenchPanelProps) {
   const bridge = useMemo(
     () => createAiConversationBridge(runtime, profile, secretStore, aiFetch),
@@ -55,6 +56,7 @@ export function AiWorkbenchPanel({
     onApplyEdit={bridge.applyEdit}
     onCopy={onCopy}
     onInsertAtCursor={onInsertAtCursor}
+    onOpenSettings={onOpenSettings}
     persistence={persistence}
     requestAgentTurn={bridge.requestAgentTurn}
     requestStream={bridge.requestStream}

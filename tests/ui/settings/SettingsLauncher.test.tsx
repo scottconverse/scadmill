@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { createRef } from "react";
 import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -12,7 +13,7 @@ import {
 import { EPHEMERAL_SECRET_STORE } from "../../../src/application/settings/secret-store";
 import type { SecretStore } from "../../../src/application/settings/secret-store";
 import { messages } from "../../../src/messages/en";
-import { SettingsLauncher } from "../../../src/ui/settings/SettingsLauncher";
+import { SettingsLauncher, type SettingsLauncherHandle } from "../../../src/ui/settings/SettingsLauncher";
 
 const engine: EngineService = {
   render: vi.fn(),
@@ -29,6 +30,34 @@ function deferred<T>() {
 }
 
 describe("SettingsLauncher", () => {
+  it("opens at the requested AI section and restores focus to the invoking control", async () => {
+    const runtime = createWorkbenchRuntime(engine);
+    const launcherRef = createRef<SettingsLauncherHandle>();
+    const view = render(
+      <main className="workbench">
+        <button
+          onClick={(event) => launcherRef.current?.open("ai", event.currentTarget)}
+          type="button"
+        >Configure AI</button>
+        <SettingsLauncher
+          engineLabel="OpenSCAD 2026.06.12"
+          ref={launcherRef}
+          runtime={runtime}
+          secretStore={EPHEMERAL_SECRET_STORE}
+        />
+      </main>,
+    );
+    const invokingControl = view.getByRole("button", { name: "Configure AI" });
+
+    invokingControl.focus();
+    fireEvent.click(invokingControl);
+
+    expect(view.getByRole("dialog", { name: messages.settingsTitle })).toBeVisible();
+    await waitFor(() => expect(view.getByLabelText(messages.aiProvider)).toHaveFocus());
+    fireEvent.click(view.getByRole("button", { name: messages.closeSettings }));
+    await waitFor(() => expect(invokingControl).toHaveFocus());
+  });
+
   it("keeps the dialog open until the latest AI endpoint is durably persisted", async () => {
     const pendingSave = deferred<void>();
     const save = vi.fn((_serializedSettings: string) => pendingSave.promise);

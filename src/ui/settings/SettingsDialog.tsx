@@ -1,4 +1,4 @@
-import { cloneElement, isValidElement, useEffect, useId, useMemo, useRef, useState, type ReactElement, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
+import { cloneElement, isValidElement, useId, useMemo, useRef, useState, type ReactElement, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { createKeybindingSettings, type KeybindingCommand } from "../../application/commands/default-keybindings";
 import { parsePersistedSettings, serializePersistedSettings, SETTINGS_SIZE_LIMIT_BYTES } from "../../application/settings/settings-codec";
 import type { PersistedSettings, SettingsSection } from "../../application/settings/settings-schema";
@@ -12,8 +12,10 @@ import { AiProviderConfigurations } from "./AiProviderConfigurations";
 import { type SettingsUpdater, useAiSecretController } from "./use-ai-secret";
 import type { EngineVersionManagerPort } from "../../application/engine/engine-version-manager";
 import { EngineVersionSettings } from "./EngineVersionSettings";
+import { numericValue, useInitialSettingsFocus } from "./settings-dialog-helpers";
 export interface SettingsDialogProps {
   readonly engineLabel: string;
+  readonly initialSection?: SettingsSection;
   readonly secretStore: SecretStore;
   readonly settings: PersistedSettings;
   readonly onChange: (settings: PersistedSettings) => void;
@@ -84,12 +86,9 @@ function Section({
     </section>
   );
 }
-function numericValue(value: string, minimum: number, maximum: number): number | null {
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed >= minimum && parsed <= maximum ? parsed : null;
-}
 export function SettingsDialog({
   engineLabel,
+  initialSection,
   secretStore,
   settings,
   onChange,
@@ -133,7 +132,7 @@ export function SettingsDialog({
   const secretMutationInFlight = aiSecret.mutationInFlight || profileSecretMutations > 0;
   const closeBlocked = secretMutationInFlight || settingsMutationInFlight;
   const importBlocked = settingsMutationsBlocked || secretMutationInFlight;
-  useEffect(() => searchInput.current?.focus(), []);
+  useInitialSettingsFocus(initialSection, searchInput);
   const restoreSection = (section: SettingsSection) => {
     if (section === "ai") aiSecret.restore();
     else void Promise.resolve(onRestore(section)).catch(() => undefined);

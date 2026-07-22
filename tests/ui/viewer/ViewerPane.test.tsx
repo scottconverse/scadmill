@@ -89,6 +89,18 @@ function Harness({ result }: { result?: RenderResult }) {
 }
 
 describe("ViewerPane result routing", () => {
+  it("keeps the bounds readout inside the model surface and outside the details panel", async () => {
+    const view = render(<Harness result={threeD} />);
+
+    const boundsReadout = view.container.querySelector<HTMLElement>(".bounds-readout");
+    expect(boundsReadout).not.toBeNull();
+    const modelSurface = view.getByTestId("viewer-model-surface");
+    expect(modelSurface).toContainElement(boundsReadout);
+    expect(view.container.querySelector<HTMLElement>(".viewer-details"))
+      .not.toContainElement(boundsReadout);
+    expect(await view.findByTestId("model-viewer")).toBeVisible();
+  });
+
   it("exposes the current semantic geometry identity for packaged cache verification", () => {
     const geometryIdentity = `sha256:${"a".repeat(64)}`;
     const result: RenderResult = {

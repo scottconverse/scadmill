@@ -29,6 +29,12 @@ function namedStepBlock(jobId: string, stepName: string): string {
   return nextStep === -1 ? remainder : remainder.slice(0, nextStep);
 }
 
+function assertParityEvidenceUploadContract(step: string): void {
+  expect(step).toContain("        if: always()\n");
+  expect(step).toContain("          path: test-results/ac4-parity\n");
+  expect(step).toContain("          if-no-files-found: error\n");
+}
+
 describe("regular CI workflow contract", () => {
   it("runs the full workflow for main and release-tag pushes", () => {
     expect(workflow).toContain("    branches: [main]\n    tags: ['v*']");
@@ -62,6 +68,31 @@ describe("regular CI workflow contract", () => {
     expect(jobBlock("native").includes("name: Rust license policy")).toBe(true);
   });
 
+  it("fails closed on high-impact dependency changes and every CI provenance path", () => {
+    const web = jobBlock("web");
+    const dependencyReview = namedStepBlock("web", "Review dependency changes");
+    const base = namedStepBlock("web", "Resolve provenance comparison base");
+    const provenance = namedStepBlock("web", "Provenance ledger");
+
+    expect(dependencyReview).toContain("if: github.event_name == 'pull_request'");
+    expect(dependencyReview).toContain(
+      "uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294",
+    );
+    expect(dependencyReview).toContain("fail-on-severity: high");
+    expect(dependencyReview).toContain("license-check: false");
+    expect(web).toContain("fetch-depth: 0");
+    expect(base).toContain(`PUSH_BEFORE: \${{ github.event.before }}`);
+    expect(base).toContain("base=\"$(git rev-parse HEAD^)\"");
+    expect(base).toContain("git cat-file -e \"$base^{commit}\"");
+    expect(provenance).toContain(
+      `SCADMILL_PROVENANCE_BASE: \${{ steps.provenance-base.outputs.base }}`,
+    );
+    expect(() => {
+      expect(provenance.replace("steps.provenance-base.outputs.base", "github.event.pull_request.base.sha"))
+        .toContain(`SCADMILL_PROVENANCE_BASE: \${{ steps.provenance-base.outputs.base }}`);
+    }).toThrow();
+  });
+
   it("runs browser acceptance on both Linux and Windows for V-4", () => {
     const acceptance = jobBlock("e2e");
 
@@ -71,6 +102,27 @@ describe("regular CI workflow contract", () => {
     expect(acceptance.includes("if: runner.os == 'Linux'")).toBe(true);
     expect(acceptance.includes("if: runner.os == 'Windows'")).toBe(true);
     expect(acceptance.includes("run: pnpm test:e2e")).toBe(true);
+  });
+
+  it("retains production-composition batch-export evidence fail-closed on both browser platforms", () => {
+    const acceptance = jobBlock("e2e");
+    const browser = namedStepBlock("e2e", "Browser acceptance tests");
+    const upload = namedStepBlock("e2e", "Retain batch export acceptance evidence");
+
+    expect(acceptance).toMatch(/os:\s*\[\s*ubuntu-latest,\s*windows-latest\s*\]/u);
+    expect(browser).not.toContain("if:");
+    expect(browser).toContain(
+      "SCADMILL_BATCH_EXPORT_ARTIFACT_DIR: test-results/batch-export-evidence",
+    );
+    expect(browser).toContain("run: pnpm test:e2e");
+    expect(upload).toContain("        if: always()\n");
+    expect(upload).toContain(`          name: batch-export-evidence-\${{ runner.os }}\n`);
+    expect(upload).toContain("          path: test-results/batch-export-evidence\n");
+    expect(upload).toContain("          if-no-files-found: error\n");
+    expect(() => {
+      expect(upload.replace("if-no-files-found: error", "if-no-files-found: warn"))
+        .toContain("          if-no-files-found: error\n");
+    }).toThrow();
   });
 
   it("stages the source-built WASM only inside ephemeral verification jobs", () => {
@@ -91,6 +143,15 @@ describe("regular CI workflow contract", () => {
     expect(namedStepBlock("e2e", "Verify and stage ignored WASM runtime paths"))
       .not.toContain("if:");
     expect(jobBlock("parity")).toContain('"SCADMILL_AC4_OPENSCAD=$executable"');
+  });
+
+  it("fails closed when retained native/WASM parity evidence is missing", () => {
+    const upload = namedStepBlock("parity", "Retain raw and canonical parity evidence");
+
+    assertParityEvidenceUploadContract(upload);
+    expect(() => assertParityEvidenceUploadContract(
+      upload.replace("if-no-files-found: error", "if-no-files-found: warn"),
+    )).toThrow();
   });
 
   it("preflights signing before build, then signs, verifies, hashes, and uploads Windows setup", () => {

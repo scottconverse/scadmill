@@ -34,6 +34,8 @@ ScadMill requires the exact official OpenSCAD development snapshot recorded in [
 - Archive SHA-256: `3AA51474EA66609FB3FAFA4AA7F2AB4B6FE3FF50C130184F11BBE3818F3EF5AA`
 - Extracted `openscad.exe` SHA-256: `DE9A0C732C23C3FEB0B49CF938777AA0AEE3E206DB9E98571672CACC4816C524`
 
+ScadMill offers two user-initiated, checksum-verifying setup paths. After ScadMill is installed, open **Settings → Engine** and choose **Download official OpenSCAD 2026.06.12**; the app discloses the archive hash, refuses redirects, verifies the archive and extracted executable, and installs the verified engine only after that explicit action. Or use the manual verified setup below when you prefer to control the download and extraction location yourself.
+
 Download the ZIP from the official link, then verify it before extraction:
 
 ```powershell
@@ -73,7 +75,7 @@ Use **Render preview** or F5 for preview-quality geometry. Use **Full render** o
 
 - This release target is Windows desktop only. macOS, Linux, and public web distribution remain future release work.
 - The Radeon 780M is the owner-designated performance-evidence host, not a minimum supported GPU.
-- The exact OpenSCAD snapshot is a separate required download and is not managed or updated by ScadMill.
+- OpenSCAD remains a separate required artifact. ScadMill never downloads or updates OpenSCAD automatically; installation through the engine manager requires an explicit user action and the manual verified setup remains available.
 - The complete M5 and M6 desktop capability scope—including printability, slicer handoff, engine management, headless CLI, color/multipart preview, color-preserving 3MF export, and design-time manufacturing estimates—is included in this beta.
 - AI assistance sends only the conversation and context you select to the provider endpoint you configure. ScadMill does not operate an AI proxy. See [`PRIVACY.md`](../PRIVACY.md).
 - The local MCP bridge is off by default. Mutation tools remain denied unless you grant a session permission, and accepted requests still require review before changing a project.
@@ -83,7 +85,7 @@ Report suspected vulnerabilities through the private channel described in [`SECU
 
 ## Uninstall and retained data
 
-After publication, uninstall ScadMill through **Windows Settings → Apps → Installed apps → ScadMill → Uninstall**. The installer lifecycle removes the installed application and ScadMill's `.scad` association. User-selected project folders and `.scad` files remain outside the application install directory.
+To uninstall ScadMill through **Windows Settings → Apps → Installed apps**, open the ScadMill entry and choose **Uninstall**. The installer lifecycle removes the installed application and ScadMill's `.scad` association. User-selected project folders and `.scad` files remain outside the application install directory.
 
 Uninstall is not an all-data-erasure promise. Before uninstalling, clear every configured AI key from **Settings → AI** and clear each project's durable render cache from **Settings → Rendering** if you do not want those records retained. Settings, recovery information, cache records, or operating-system credential records may otherwise remain in the Windows user profile. ScadMill does not yet provide one command that erases every desktop store.
 

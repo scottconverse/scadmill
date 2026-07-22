@@ -22,8 +22,7 @@ response limits, and refuses redirects. Each request contains the conversation p
 the source, diagnostics, parameters, or viewer screenshot context selected in the panel. ScadMill
 does not proxy these requests through a ScadMill service. Other reserved network paths are an
 opt-in desktop update check and explicit library or engine-version downloads. Enabling the current
-update-check preference does not start a network request because the updater itself arrives in a
-later milestone.
+update-check preference does not start a network request; no automatic updater is included in this beta.
 
 Web share links gzip the active single-file source into the URL fragment. Browsers do not send
 fragments in HTTP requests, so the source does not touch the hosting server. The source is still

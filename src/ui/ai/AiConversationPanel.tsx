@@ -29,10 +29,11 @@ export interface AiConversationPanelProps {
   readonly onApplyEdit?: (proposal: ProposedEdit) => void | Promise<void>;
   readonly onCopy?: (text: string) => Promise<void>;
   readonly onInsertAtCursor?: (text: string) => void;
+  readonly onOpenSettings?: () => void;
   readonly persistence?: ConversationPersistence;
 }
 
-export function AiConversationPanel({ configured, contextInputs, currentSource, sourceForDocument, documentId, requestStream, requestAgentTurn, agentToolHandler, approveAgentReview, configurations = [], loadConfigurationSecret, loadPersistenceSecrets, configurationRequiresSecret = () => true, onApplyEdit, onCopy, onInsertAtCursor, persistence = EPHEMERAL_CONVERSATION_PERSISTENCE }: AiConversationPanelProps) {
+export function AiConversationPanel({ configured, contextInputs, currentSource, sourceForDocument, documentId, requestStream, requestAgentTurn, agentToolHandler, approveAgentReview, configurations = [], loadConfigurationSecret, loadPersistenceSecrets, configurationRequiresSecret = () => true, onApplyEdit, onCopy, onInsertAtCursor, onOpenSettings, persistence = EPHEMERAL_CONVERSATION_PERSISTENCE }: AiConversationPanelProps) {
   const [state, dispatch] = useReducer(conversationReducer, persistence, loadConversation);
   const [input, setInput] = useState("");
   const [error, setError] = useState<string>();
@@ -95,7 +96,7 @@ export function AiConversationPanel({ configured, contextInputs, currentSource, 
       if (generation === saveGeneration.current) saveConversation(persistence, state, secrets);
     }, () => setError(messages.aiConversationPersistenceFailed));
   }, [loadPersistenceSecrets, persistence, secretStatus, state]);
-  if (!configured) return <section aria-label={messages.activityAi}><p>{messages.aiNotConfigured}</p><p>{messages.aiSetupGuidance}</p></section>;
+  if (!configured) return <section aria-label={messages.activityAi}><p>{messages.aiNotConfigured}</p><p>{messages.aiSetupGuidance}</p>{onOpenSettings && <button onClick={onOpenSettings} type="button">{messages.openSettings}</button>}</section>;
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     const content = input.trim();

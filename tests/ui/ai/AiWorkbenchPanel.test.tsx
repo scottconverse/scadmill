@@ -26,6 +26,7 @@ describe("AiWorkbenchPanel", () => {
       clear: vi.fn().mockResolvedValue(undefined),
     };
     const aiFetch = vi.fn(() => vi.fn());
+    const onOpenSettings = vi.fn();
 
     render(<AiWorkbenchPanel
       agentToolHandler={{ call: vi.fn().mockResolvedValue({}) }}
@@ -34,6 +35,7 @@ describe("AiWorkbenchPanel", () => {
       document={document}
       onApproveReview={vi.fn().mockResolvedValue(undefined)}
       onInsertAtCursor={vi.fn()}
+      onOpenSettings={onOpenSettings}
       pendingReview={() => undefined}
       profile={profile}
       projectIdentity="scratch"
@@ -42,6 +44,8 @@ describe("AiWorkbenchPanel", () => {
     />);
 
     expect(screen.getByText("AI is not configured.")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Open settings" }));
+    expect(onOpenSettings).toHaveBeenCalledOnce();
     expect(screen.queryByRole("button", { name: "Send" })).not.toBeInTheDocument();
     await waitFor(() => expect(aiFetch).not.toHaveBeenCalled());
   });
