@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-22-beta2-hosted-ci-corrections",
+  "createdAt": "2026-07-22T02:05:43-06:00",
+  "summary": "Correct three exact-head beta.2 hosted-CI failures: a stale production-static test inventory, a non-Windows Rust import, and an overbroad editor selector that counted the two read-only History comparison editors as document duplication.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "M4 hosted browser evidence", "V-5 release gate", "V-6 honesty rule", "M6"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-22-beta2-hosted-ci-corrections.json", "status": "added" },
+    { "path": "src/desktop-shell/src-tauri/src/engine_version_manager.rs", "status": "modified" },
+    { "path": "tests/e2e/m4-hosted-journey.e2e.ts", "status": "modified" },
+    { "path": "tests/scripts/production-static-browser.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [
+    { "label": "Owner-provided ScadMill functional specification v0.6", "destination": "spec/scadmill-spec-v0.6.md", "sha256": "A2D12C68E23590DF061BF3E222F481C3FFC40ECA6541D6F3DF49FDA87C1DE15A" }
+  ],
+  "decisions": [
+    {
+      "id": "D-0517",
+      "topic": "Production-static test inventory assertion",
+      "decision": "Assert the imported Playwright configuration's testMatch value structurally instead of matching an exact source-code string.",
+      "rationale": "The shipped offline manufacturing-estimate journey was correctly added to the configuration, but the raw-source assertion still encoded the previous two-test spelling. Structural comparison checks behavior and fails when the configured inventory is actually wrong.",
+      "specBasis": ["AC-15.n", "V-5 release gate"]
+    },
+    {
+      "id": "D-0518",
+      "topic": "Windows-only engine launcher import",
+      "decision": "Compile the std::process::Command import only on Windows, matching the Windows-only code that consumes it.",
+      "rationale": "The exact Ubuntu Clippy gate correctly rejected the unconditional unused import; target-gating the import preserves behavior and makes the platform boundary explicit.",
+      "specBasis": ["FR-13.4", "V-5 release gate"]
+    },
+    {
+      "id": "D-0519",
+      "topic": "Hosted editor-source evidence scope",
+      "decision": "Read source from the focused workbench editor group rather than concatenating every CodeMirror line mounted anywhere in the page.",
+      "rationale": "The retained hosted trace proves one approval click and one real main.scad line. Opening History also mounts Current source and Snapshot source as two read-only CodeMirror panes, so the old global selector falsely reported the same source three times.",
+      "specBasis": ["M4 hosted browser evidence", "M6 model history", "V-5 release gate", "V-6 honesty rule"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The production-static gate must verify the complete configured browser inventory without coupling to formatting.",
+      "test": "Run the exact production-static browser contract test after importing and comparing the effective configuration.",
+      "red": {
+        "command": "GitHub Actions run 29901901515, Web checks",
+        "observedAt": "2026-07-22T08:03:04Z",
+        "outcome": "RED: one stale exact-source-string assertion failed after AC-15.n legitimately added manufacturing-estimate-offline.e2e.ts; the remaining 1,691 tests passed and one was skipped."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/production-static-browser.test.ts",
+        "observedAt": "2026-07-22T02:04:36-06:00",
+        "outcome": "GREEN: one test file and all 3 contract tests passed."
+      }
+    },
+    {
+      "criterion": "Desktop Rust must remain warning-free on non-Windows hosted targets.",
+      "test": "Target-gate the Windows process launcher import and run formatting plus Clippy with warnings denied.",
+      "red": {
+        "command": "GitHub Actions run 29901901515, Native checks",
+        "observedAt": "2026-07-22T08:03:04Z",
+        "outcome": "RED: Ubuntu Clippy rejected the unconditional std::process::Command import as unused."
+      },
+      "green": {
+        "command": "cargo fmt --manifest-path src/desktop-shell/src-tauri/Cargo.toml --check; cargo clippy --manifest-path src/desktop-shell/src-tauri/Cargo.toml --all-targets -- -D warnings",
+        "observedAt": "2026-07-22T02:05:17-06:00",
+        "outcome": "GREEN: formatting passed and desktop Clippy completed with warnings denied."
+      }
+    },
+    {
+      "criterion": "Hosted approval evidence must distinguish the editable document from read-only History comparisons.",
+      "test": "Inspect the retained failing trace, scope editorSource to the focused workbench editor, and run the single hosted M4 journey once.",
+      "red": {
+        "command": "GitHub Actions run 29901901515 artifact m4-hosted-browser-evidence, trace from tests/e2e/m4-hosted-journey.e2e.ts",
+        "observedAt": "2026-07-22T08:03:04Z",
+        "outcome": "RED: the global .cm-line selector joined three CodeMirror instances. The retained trace showed exactly one AGENT_SOURCE in Current source, one in Snapshot source, and one in the actual main.scad editor after a single approval click; no document duplication occurred."
+      },
+      "green": {
+        "command": "pnpm.cmd exec playwright test --config tests/e2e/m4-hosted.playwright.config.ts",
+        "observedAt": "2026-07-22T02:04:53-06:00",
+        "outcome": "GREEN: the complete hosted M4 journey passed 1/1 in 13.9 seconds using the focused-editor selector."
+      }
+    },
+    {
+      "criterion": "The correction set must preserve TypeScript, source-policy, and Rust quality gates.",
+      "test": "Run typecheck, lint/source policy, Rust formatting, and desktop Clippy once after the targeted corrections.",
+      "red": {
+        "command": "GitHub Actions run 29901901515",
+        "observedAt": "2026-07-22T08:03:04Z",
+        "outcome": "RED: the exact-head hosted run exposed the three failures recorded above; no blind rerun was used."
+      },
+      "green": {
+        "command": "pnpm.cmd typecheck; pnpm.cmd lint; cargo fmt --manifest-path src/desktop-shell/src-tauri/Cargo.toml --check; cargo clippy --manifest-path src/desktop-shell/src-tauri/Cargo.toml --all-targets -- -D warnings",
+        "observedAt": "2026-07-22T02:05:17-06:00",
+        "outcome": "GREEN: TypeScript, Biome over 613 files, source policy, Rust formatting, and warning-denied Clippy all passed."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": ["Q-0042 remains the only literal M6 specification contradiction and is unaffected by these hosted-CI corrections."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

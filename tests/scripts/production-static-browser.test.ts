@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import defaultPlaywrightConfig from "../../playwright.config";
+import productionPlaywrightConfig from "../../playwright.production-static.config";
 import { webBasePath } from "../../vite.config";
 
 function readIfPresent(path: string): string {
@@ -49,9 +50,11 @@ describe("production static browser evidence contract", () => {
     expect(viteSource).toContain("SCADMILL_WEB_BASE_PATH");
     expect(serverSource).toContain('resolve(process.env.SCADMILL_STATIC_ROOT || "dist")');
     expect(serverSource).toContain("SCADMILL_STATIC_BASE_PATH");
-    expect(configSource).toContain(
-      'testMatch: ["m3-production-static.e2e.ts", "m4-cache-paint.e2e.ts"]',
-    );
+    expect(productionPlaywrightConfig.testMatch).toEqual([
+      "m3-production-static.e2e.ts",
+      "m4-cache-paint.e2e.ts",
+      "manufacturing-estimate-offline.e2e.ts",
+    ]);
     expect(defaultPlaywrightConfig.testIgnore).toEqual([
       "m3-production-static.e2e.ts",
       "m4-cache-paint.e2e.ts",

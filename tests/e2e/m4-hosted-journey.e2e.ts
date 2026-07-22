@@ -16,7 +16,9 @@ const AGENT_SOURCE = "cube([16, 10, 10]); // approved hosted agent proposal";
 const SYNTHETIC_SECRET = "scadmill-m4-hosted-synthetic-secret";
 
 async function editorSource(page: Page): Promise<string> {
-  return (await page.locator(".cm-line").allTextContents()).join("\n");
+  return (await page.locator(
+    ".editor-panel .editor-group-focused .cm-line",
+  ).allTextContents()).join("\n");
 }
 
 async function replaceEditorSource(page: Page, source: string): Promise<void> {
