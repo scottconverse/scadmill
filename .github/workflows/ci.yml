@@ -643,6 +643,8 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Windows Sandbox exit-code handoff regression
+        run: pnpm exec vitest run tests/scripts/packaged-desktop-evidence.test.ts -t "behaviorally waits"
       - name: Verify distributable third-party notices
         run: pnpm check:notices
       - name: Build offline NSIS setup

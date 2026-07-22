@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-22-beta2-parser-worker-memory",
+  "createdAt": "2026-07-22T06:32:30-06:00",
+  "summary": "Recycle the reusable mesh-parser worker before one V8 isolate can accumulate an hour of 3MF parsing allocations, and make the host wait for the mapped guest exit code to become readable.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "FR-4.3", "FR-15.14", "N-1 responsiveness", "N-2 reliability soak", "V-5 release gate", "V-6 honesty rule"],
+  "filesTouched": [
+    { "path": ".github/workflows/ci.yml", "status": "modified" },
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-22-beta2-parser-worker-memory.json", "status": "added" },
+    { "path": "scripts/windows/run-packaged-desktop-evidence.ps1", "status": "modified" },
+    { "path": "src/application/geometry/stl-parser-worker-client.ts", "status": "modified" },
+    { "path": "tests/application/geometry/stl-parser-worker-client.test.ts", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [
+    { "label": "Owner-provided ScadMill functional specification v0.6", "destination": "spec/scadmill-spec-v0.6.md", "sha256": "A2D12C68E23590DF061BF3E222F481C3FFC40ECA6541D6F3DF49FDA87C1DE15A" }
+  ],
+  "decisions": [
+    {
+      "id": "D-0525",
+      "topic": "Bounded reusable mesh-parser worker lifetime",
+      "decision": "Reuse one healthy mesh-parser worker for at most 16 successful STL/3MF parses, then clear its callbacks, terminate it, and construct a fresh worker for the next parse. Retire immediately on abort, error, invalid response, or transfer failure as before. Keep the 16-parse limit inside the product rather than changing N-2 or forcing garbage collection.",
+      "rationale": "The second exact literal candidate again completed 120 edit/render cycles but showed the same renderer-only linear growth and late V8-style private-memory spikes after D-0524 removed quadratic thumbnail copies. Native rendering now supplies Color-encoded 3MF, so the persistent worker performs unzip and XML/object parsing for every accepted mesh. Sixteen parses bound one isolate to roughly eight minutes at the literal cadence, cause recycling inside the 5-15 minute baseline window, and preserve reuse for normal bursts without contaminating evidence through explicit GC.",
+      "specBasis": ["FR-4.3", "FR-15.14", "N-1 responsiveness", "N-2 reliability soak", "V-5 release gate"]
+    },
+    {
+      "id": "D-0526",
+      "topic": "Mapped Sandbox exit-code handoff",
+      "decision": "After the guest creates the mapped exit-code file, retry file-sharing failures and any empty, partial, malformed, or out-of-range payload at 250 ms until the existing overall deadline. Accept only a complete invariant signed 32-bit integer, exercise the behavior in hosted Windows CI, then apply the unchanged nonzero-exit, GUEST_PASS, evidence-status, hash, and cleanup checks.",
+      "rationale": "The failed literal guest correctly wrote exit code 1 and failed evidence, but the host first observed the file while the guest still held its final write handle and raised an IOException before it could issue the intended retained-evidence failure. Waiting for a complete readable integer preserves fail-closed semantics and avoids misclassifying a mapped-folder timing race as missing evidence.",
+      "specBasis": ["N-2 reliability soak", "V-5 release gate", "V-6 honesty rule"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "One parser worker must not retain an unbounded number of successful 3MF/STL parse allocations.",
+      "test": "Drive 17 sequential successful parses through the reusable client, require the first worker to terminate exactly at the 16-parse boundary, require a second worker for parse 17, and retain all existing abort/error/overlap/transfer/disposal tests.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/application/geometry/stl-parser-worker-client.test.ts",
+        "observedAt": "2026-07-22T06:29:11-06:00",
+        "outcome": "RED: 1 failed and 13 passed. The new bounded-lifetime constant/behavior did not exist, so the factory never reached the required fresh-worker assertion."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/application/geometry/stl-parser-worker-client.test.ts tests/ui/viewer/ModelViewer.theme.test.tsx; pnpm.cmd exec biome lint src/application/geometry/stl-parser-worker-client.ts tests/application/geometry/stl-parser-worker-client.test.ts; pnpm.cmd run typecheck",
+        "observedAt": "2026-07-22T06:29:31-06:00",
+        "outcome": "GREEN: 2 files and 37 tests passed; targeted lint and TypeScript passed. Parse 17 uses a fresh worker, the first worker terminates once, and final disposal terminates the replacement once."
+      }
+    },
+    {
+      "criterion": "The host must not parse a mapped guest exit-code file until the guest write is complete, and must remain deadline-bounded and fail-closed.",
+      "test": "Execute the extracted production helper in PowerShell: require exact zero and nonzero values to return, empty/whitespace/partial/malformed values to retry until rewritten, a file-sharing lock to retry until released, and persistent malformed/overflow/missing values to fail closed at the deadline. Keep the static host-wiring assertion and run the behavioral case in hosted Windows CI.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts -t \"waits for the guest exit-code\"",
+        "observedAt": "2026-07-22T06:31:06-06:00",
+        "outcome": "RED: 1 failed and 57 skipped. The host still parsed the file immediately with Get-Content after first existence."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts -t \"behaviorally waits\"",
+        "observedAt": "2026-07-22T06:45:28-06:00",
+        "outcome": "GREEN: 1 test passed and 58 were skipped in 8.18 seconds. The test executed the exact production helper and returned exact zero/nonzero values, retried empty/whitespace/partial/malformed/overflow payloads until valid replacement, retried an exclusive file-sharing lock until release, and failed closed at the deadline for persistent malformed, persistent overflow, and missing files."
+      }
+    },
+    {
+      "criterion": "A second failed literal candidate must remain failed and supply exact retained evidence before another correction is attempted.",
+      "test": "Run one exact-head literal one-hour Windows Sandbox candidate, reconstruct all memory samples, and preserve guest failure plus clean host teardown without rerun.",
+      "red": {
+        "command": "scripts/windows/run-packaged-desktop-evidence.ps1 -OutputDirectory work/scadmill-beta2-d20a85f-literal-sandbox-r1 -N2SoakMode literal",
+        "observedAt": "2026-07-22T12:27:31Z",
+        "outcome": "RED: all 120 cycles and exactly one expected crash/recovery passed; 55 samples established baseline 378,198,016 bytes and ceiling 567,297,024; final median ratio 1.3291 and rolling median passed, but raw max 601,030,656 bytes failed. Evidence status was failed and cleanup left no exact Sandbox session or staging directory. A separate host read race surfaced after the guest wrote exit code 1."
+      },
+      "green": {
+        "command": "Focused D-0525/D-0526 RED/GREEN tests; exact accelerated and literal qualification follow only on a new clean committed candidate.",
+        "observedAt": "2026-07-22T06:32:30-06:00",
+        "outcome": "GREEN for the bounded corrections only. The d20a85f literal run remains failed and no beta.2 release claim is made."
+      }
+    },
+    {
+      "criterion": "The bounded worker and host-handoff corrections must preserve the full application, policy, build, license, provenance, and public-version contracts.",
+      "test": "Run one aggregate verification pass after all review corrections, without blind reruns.",
+      "red": {
+        "command": "Independent D-0525/D-0526 adversarial review",
+        "observedAt": "2026-07-22T06:43:47-06:00",
+        "outcome": "RED REVIEW: 0 blocker, 0 critical, 1 major, 0 minor, 0 nit. The behavioral evidence command and timestamp were stale and the persistent-overflow claim exceeded the then-current test."
+      },
+      "green": {
+        "command": "pnpm.cmd test; pnpm.cmd lint; pnpm.cmd build:desktop; pnpm.cmd check:licenses all; pnpm.cmd check:provenance; pnpm.cmd check:public-surfaces",
+        "observedAt": "2026-07-22T06:46:24-06:00",
+        "outcome": "GREEN: 242 test files passed and 1 skipped; 1,714 tests passed and 1 skipped. Biome checked 616 files and source policy passed. The desktop Vite build passed with its existing chunk-size advisory. License policy passed for 120 npm and 507 Rust packages. Provenance passed, and 2 public-surface tests passed. Final independent review reported 0 blocker, 0 critical, 0 major, 0 minor, 0 nit."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": ["Q-0042 remains the only literal M6 specification contradiction and is unaffected by parser-worker recycling or host handoff."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

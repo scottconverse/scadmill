@@ -1,6 +1,8 @@
+import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { promisify } from "node:util";
 
 import { Window } from "happy-dom";
 
@@ -41,6 +43,7 @@ import {
 } from "../../scripts/lib/packaged-desktop-evidence.mjs";
 
 const temporaryRoots: string[] = [];
+const execFileAsync = promisify(execFile);
 
 afterEach(async () => {
   await Promise.all(temporaryRoots.splice(0).map((root) => rm(root, { force: true, recursive: true })));
@@ -826,6 +829,157 @@ describe("packaged desktop evidence helpers", () => {
       'Get-Command "pnpm.cmd" -CommandType Application -ErrorAction Stop\n',
     );
   });
+
+  it("waits for the guest exit-code file to become readable before parsing it", async () => {
+    const wrapper = await readFile(
+      join(process.cwd(), "scripts", "windows", "run-packaged-desktop-evidence.ps1"),
+      "utf8",
+    );
+    expect(wrapper).toContain("function Wait-SandboxExitCode");
+    expect(wrapper).toContain("catch [IO.IOException]");
+    expect(wrapper).toContain("[int]::TryParse(");
+    expect(wrapper).toContain("Start-Sleep -Milliseconds 250");
+    expect(wrapper).toContain("$exitCode = Wait-SandboxExitCode -Path $exitFile -Deadline $deadline");
+    expect(wrapper).not.toContain("[int](Get-Content -Raw -LiteralPath $exitFile)");
+  });
+
+  it.runIf(process.platform === "win32")(
+    "behaviorally waits for a complete strict guest exit code and fails closed",
+    async () => {
+      const root = await mkdtemp(join(tmpdir(), "scadmill-exit-code-"));
+      temporaryRoots.push(root);
+      const wrapper = await readFile(
+        join(process.cwd(), "scripts", "windows", "run-packaged-desktop-evidence.ps1"),
+        "utf8",
+      );
+      const helperMatch = wrapper.match(
+        /function Wait-SandboxExitCode[\s\S]*?\r?\n\}\r?\n(?=\r?\nif \(\$TimeoutSeconds)/u,
+      );
+      expect(helperMatch).not.toBeNull();
+      const harness = join(root, "invoke-exit-code-wait.ps1");
+      await writeFile(
+        harness,
+        `param([string] $ExitPath, [int] $DeadlineMilliseconds, [string] $ReadyPath)\n${helperMatch?.[0] ?? ""}\n[IO.File]::WriteAllText($ReadyPath, "ready")\ntry {\n  $value = Wait-SandboxExitCode -Path $ExitPath -Deadline ((Get-Date).AddMilliseconds($DeadlineMilliseconds))\n  [Console]::Out.Write("VALUE:$value")\n  exit 0\n} catch {\n  [Console]::Error.Write($_.Exception.Message)\n  exit 7\n}\n`,
+        "utf8",
+      );
+      let invocation = 0;
+      const startWait = (path: string, deadlineMilliseconds = 650) => {
+        invocation += 1;
+        const readyPath = join(root, `wait-ready-${invocation}.txt`);
+        return {
+          readyPath,
+          result: execFileAsync(
+            "powershell.exe",
+            [
+              "-NoLogo",
+              "-NoProfile",
+              "-NonInteractive",
+              "-ExecutionPolicy",
+              "Bypass",
+              "-File",
+              harness,
+              path,
+              String(deadlineMilliseconds),
+              readyPath,
+            ],
+            { encoding: "utf8", timeout: 5_000, windowsHide: true },
+          ),
+        };
+      };
+      const waitUntilReady = async (readyPath: string) => {
+        for (let attempt = 0; attempt < 80; attempt += 1) {
+          try {
+            if ((await readFile(readyPath, "utf8")) === "ready") return;
+          } catch {
+            // The child has not reached the production helper yet.
+          }
+          await new Promise((resolve) => setTimeout(resolve, 25));
+        }
+        throw new Error("The PowerShell exit-code harness did not become ready.");
+      };
+      const runWait = (path: string, deadlineMilliseconds = 650) =>
+        startWait(path, deadlineMilliseconds).result;
+
+      const zero = join(root, "zero.txt");
+      const nonzero = join(root, "nonzero.txt");
+      await writeFile(zero, "0\r\n", "utf8");
+      await writeFile(nonzero, "9\n", "utf8");
+      await expect(runWait(zero)).resolves.toMatchObject({ stdout: "VALUE:0" });
+      await expect(runWait(nonzero)).resolves.toMatchObject({ stdout: "VALUE:9" });
+
+      for (const [name, contents] of [
+        ["empty", ""],
+        ["whitespace", " \r\n"],
+        ["partial", "+"],
+        ["malformed", "not-an-exit-code"],
+        ["overflow", "2147483648"],
+      ] as const) {
+        const path = join(root, `${name}.txt`);
+        await writeFile(path, contents, "utf8");
+        const waiting = startWait(path, 1_600);
+        await waitUntilReady(waiting.readyPath);
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        await writeFile(path, "7", "utf8");
+        await expect(waiting.result).resolves.toMatchObject({ stdout: "VALUE:7" });
+      }
+
+      for (const [name, contents] of [
+        ["persistent-malformed", "not-an-exit-code"],
+        ["persistent-overflow", "2147483648"],
+      ] as const) {
+        const path = join(root, `${name}.txt`);
+        await writeFile(path, contents, "utf8");
+        await expect(runWait(path)).rejects.toMatchObject({
+          code: 7,
+          stderr: "Timed out waiting for a complete packaged desktop evidence exit code.",
+        });
+      }
+
+      const locked = join(root, "locked.txt");
+      const lockReady = join(root, "lock-ready.txt");
+      const lockHarness = join(root, "hold-exclusive-lock.ps1");
+      await writeFile(locked, "1", "utf8");
+      await writeFile(
+        lockHarness,
+        `param([string] $LockedPath, [string] $ReadyPath)\n$stream = [IO.File]::Open($LockedPath, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)\ntry {\n  [IO.File]::WriteAllText($ReadyPath, "ready")\n  Start-Sleep -Milliseconds 550\n} finally {\n  $stream.Dispose()\n}\n`,
+        "utf8",
+      );
+      const lock = execFileAsync(
+        "powershell.exe",
+        [
+          "-NoLogo",
+          "-NoProfile",
+          "-NonInteractive",
+          "-ExecutionPolicy",
+          "Bypass",
+          "-File",
+          lockHarness,
+          locked,
+          lockReady,
+        ],
+        { encoding: "utf8", timeout: 5_000, windowsHide: true },
+      );
+      let ready = false;
+      for (let attempt = 0; attempt < 80; attempt += 1) {
+        try {
+          ready = (await readFile(lockReady, "utf8")) === "ready";
+        } catch {
+          await new Promise((resolve) => setTimeout(resolve, 25));
+        }
+        if (ready) break;
+      }
+      expect(ready).toBe(true);
+      await expect(runWait(locked, 2_000)).resolves.toMatchObject({ stdout: "VALUE:1" });
+      await expect(lock).resolves.toMatchObject({ stderr: "" });
+
+      const missing = join(root, "never-created.txt");
+      await expect(runWait(missing)).rejects.toMatchObject({
+        code: 7,
+        stderr: "Timed out waiting for a complete packaged desktop evidence exit code.",
+      });
+    },
+    25_000,
+  );
 
   it("fails closed when packaged process inspection cannot complete", async () => {
     const [runner, wrapper] = await Promise.all([

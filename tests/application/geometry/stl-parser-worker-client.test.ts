@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   createReusableBinaryStlParser,
+  MAX_REUSABLE_MESH_PARSE_COUNT,
   parseBinaryStlOffThread,
   type StlParserWorkerLike,
 } from "../../../src/application/geometry/stl-parser-worker-client";
@@ -72,6 +73,43 @@ describe("off-thread binary STL parsing", () => {
     expect(terminate).not.toHaveBeenCalled();
     parser.dispose();
     expect(terminate).toHaveBeenCalledOnce();
+  });
+
+  it("recycles a successful reusable worker at the bounded parse limit", async () => {
+    const workers: StlParserWorkerLike[] = [];
+    const factory = vi.fn(() => {
+      const worker = {
+        onmessage: null,
+        onerror: null,
+        postMessage() {
+          queueMicrotask(() => this.onmessage?.({ data: validWorkerResponse() }));
+        },
+        terminate: vi.fn(),
+      } satisfies StlParserWorkerLike;
+      workers.push(worker);
+      return worker;
+    });
+    const parser = createReusableBinaryStlParser(factory);
+
+    for (let index = 0; index < MAX_REUSABLE_MESH_PARSE_COUNT - 1; index += 1) {
+      await parser.parse(oneTriangleBytes());
+    }
+
+    expect(factory).toHaveBeenCalledOnce();
+    expect(workers[0]?.terminate).not.toHaveBeenCalled();
+
+    await parser.parse(oneTriangleBytes());
+
+    expect(factory).toHaveBeenCalledOnce();
+    expect(workers[0]?.terminate).toHaveBeenCalledOnce();
+
+    await parser.parse(oneTriangleBytes());
+
+    expect(factory).toHaveBeenCalledTimes(2);
+    expect(workers[0]?.terminate).toHaveBeenCalledOnce();
+    expect(workers[1]?.terminate).not.toHaveBeenCalled();
+    parser.dispose();
+    expect(workers[1]?.terminate).toHaveBeenCalledOnce();
   });
 
   it("replaces an aborted reusable worker before the next parse", async () => {

@@ -175,6 +175,10 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Fixed
 
+- Bounded the reusable 3MF/STL parser worker to 16 successful mesh parses before retirement and fresh-isolate replacement. This prevents unzip/XML/parser heap growth from accumulating in one WebView renderer for the full N-2 hour while retaining worker reuse for ordinary render bursts; abort, error, overlap, transfer, and final-disposal behavior remain fail-closed.
+
+- Made the Windows Sandbox host wrapper wait for the mapped guest exit-code file to become both complete and readable. A guest can create that file before closing its final write handle; the host now retries bounded file-sharing failures plus empty, partial, malformed, and out-of-range payloads until the existing deadline, then applies the unchanged pass/fail and retained-evidence checks.
+
 - Replaced quadratic model-history thumbnail copying with an incremental bounded view: each render now adds only its new snapshot, each thumbnail update replaces only its matching snapshot, unchanged PNG storage is reused, and the existing 100-snapshot workspace cap still evicts the oldest entry. This addresses the WebView allocation growth exposed by the beta.2 literal one-hour N-2 candidate without weakening the raw 1.5x memory ceiling; a new literal pass is still required before release.
 
 - Made the packaged thumbnail-persistence oracle format-neutral after M6 switched viewer renders from STL to Color-encoded 3MF. The gate now drains the exact paused-animation thumbnail, excludes that identity while discovering the fresh target thumbnail, and requires the target's canonical semantic identity across Files, Welcome, restart, and cold-cache recovery instead of comparing it with an unrelated STL export hash.

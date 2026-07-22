@@ -212,6 +212,32 @@ function Get-CapturedSandboxSession([object] $Identity) {
   return @($candidate)
 }
 
+function Wait-SandboxExitCode([string] $Path, [DateTime] $Deadline) {
+  do {
+    if (Test-Path -LiteralPath $Path -PathType Leaf) {
+      try {
+        $rawExitCode = [IO.File]::ReadAllText($Path, [Text.Encoding]::UTF8).Trim()
+        [int] $parsedExitCode = 0
+        if (
+          $rawExitCode -cmatch '^-?(0|[1-9][0-9]*)$' -and
+          [int]::TryParse(
+            $rawExitCode,
+            [Globalization.NumberStyles]::Integer,
+            [Globalization.CultureInfo]::InvariantCulture,
+            [ref] $parsedExitCode
+          )
+        ) {
+          return $parsedExitCode
+        }
+      } catch [IO.IOException] {
+        # The guest may create the mapped file before closing its final write handle.
+      }
+    }
+    Start-Sleep -Milliseconds 250
+  } while ((Get-Date) -lt $Deadline)
+  throw "Timed out waiting for a complete packaged desktop evidence exit code."
+}
+
 if ($TimeoutSeconds -lt 60) { throw "TimeoutSeconds must be at least 60." }
 $n2SoakConfiguration = switch ($N2SoakMode) {
   "disabled" {
@@ -510,13 +536,7 @@ try {
 
   $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
   $exitFile = Join-Path $outputPath "sandbox-exit-code.txt"
-  while ((Get-Date) -lt $deadline -and -not (Test-Path -LiteralPath $exitFile -PathType Leaf)) {
-    Start-Sleep -Milliseconds 250
-  }
-  if (-not (Test-Path -LiteralPath $exitFile -PathType Leaf)) {
-    throw "Timed out waiting for packaged desktop evidence after $TimeoutSeconds seconds."
-  }
-  $exitCode = [int](Get-Content -Raw -LiteralPath $exitFile)
+  $exitCode = Wait-SandboxExitCode -Path $exitFile -Deadline $deadline
   $evidencePath = Join-Path $outputPath "evidence.json"
   $guestPassPath = Join-Path $outputPath "GUEST_PASS"
   if ($exitCode -ne 0 -or -not (Test-Path -LiteralPath $guestPassPath) -or -not (Test-Path -LiteralPath $evidencePath)) {

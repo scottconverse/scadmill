@@ -22,6 +22,7 @@ export interface ReusableBinaryStlParser {
 }
 
 const MAX_MAIN_THREAD_STL_BYTES = 1024 * 1024;
+export const MAX_REUSABLE_MESH_PARSE_COUNT = 16;
 const MAIN_THREAD_LIMIT_ERROR = "The model is too large to display without Web Worker support.";
 const WORKER_START_ERROR = "The STL parser worker could not start.";
 
@@ -205,13 +206,17 @@ export function createReusableBinaryStlParser(
   }
 
   let worker: StlParserWorkerLike | undefined;
+  let successfulParseCount = 0;
   let cancelActive: (() => void) | undefined;
   let disposed = false;
   const retire = (candidate: StlParserWorkerLike) => {
     candidate.onmessage = null;
     candidate.onerror = null;
     candidate.terminate();
-    if (worker === candidate) worker = undefined;
+    if (worker === candidate) {
+      worker = undefined;
+      successfulParseCount = 0;
+    }
   };
 
   return {
@@ -220,7 +225,10 @@ export function createReusableBinaryStlParser(
       if (signal?.aborted) return Promise.reject(abortError());
       if (cancelActive) return Promise.reject(new Error("The STL parser is already parsing."));
       try {
-        worker ??= factory();
+        if (!worker) {
+          worker = factory();
+          successfulParseCount = 0;
+        }
       } catch {
         return Promise.reject(new Error(WORKER_START_ERROR));
       }
@@ -248,7 +256,8 @@ export function createReusableBinaryStlParser(
           try {
             const parsed = decodedWorkerResult(event.data);
             settled = true;
-            clear(false);
+            successfulParseCount += 1;
+            clear(successfulParseCount >= MAX_REUSABLE_MESH_PARSE_COUNT);
             resolve(parsed);
           } catch (error) {
             fail(error instanceof Error ? error : new Error("The STL parser worker failed."));
