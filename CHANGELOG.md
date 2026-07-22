@@ -6,6 +6,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Release status
 
+- `0.1.0-beta.2` is the next Windows candidate and is not public yet. Application manifests identify the candidate independently from `PUBLIC_VERSION`, so the live site and supported-download documentation remain on `0.1.0-beta.1` until the beta.2 signed installer passes exact-candidate V-5 evidence and is published.
 - `0.1.0-beta.1` is the first public 64-bit Windows desktop beta. The supported download is the signed setup attached to the `v0.1.0-beta.1` GitHub release; CI artifacts are verification inputs, not supported downloads. No public web application is included.
 - The exact signed setup passed the literal one-hour N-2 soak, clean Windows Sandbox newcomer walkthrough, Radeon 780M qualification, signed-installer lifecycle, exact-head hosted CI, and isolated similarity gate. The owner resolved Q-0038 by selecting Apache-2.0 for ScadMill's original application code and Q-0039 by selecting GitHub private vulnerability reporting without a bounty or response-time SLA.
 - The M3 parity/compliance execution passed on historical candidate `1b6343a`. That evidence validates the M3 implementation but does not release the OpenSCAD WebAssembly pair and does not qualify the current Windows beta head.

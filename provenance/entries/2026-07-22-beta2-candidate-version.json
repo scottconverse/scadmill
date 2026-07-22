@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-22-beta2-candidate-version",
+  "createdAt": "2026-07-22T01:51:43-06:00",
+  "summary": "Stage the complete M5/M6 application as Windows candidate 0.1.0-beta.2 without changing the still-public 0.1.0-beta.1 site, installer, or support claims before release proof exists.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "FR-13.4", "V-5 release gate", "V-6 honesty rule", "M6"],
+  "filesTouched": [
+    { "path": "CANDIDATE_VERSION", "status": "added" },
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "docs/RELEASE-NOTES-0.1.0-beta.2.md", "status": "added" },
+    { "path": "docs/RELEASE-ROLLBACK-0.1.0-beta.2.md", "status": "added" },
+    { "path": "index.html", "status": "modified" },
+    { "path": "package.json", "status": "modified" },
+    { "path": "provenance/entries/2026-07-22-beta2-candidate-version.json", "status": "added" },
+    { "path": "src/desktop-shell/src-tauri/Cargo.lock", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/Cargo.toml", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/tauri.conf.json", "status": "modified" },
+    { "path": "src/native-engine/Cargo.lock", "status": "modified" },
+    { "path": "src/native-engine/Cargo.toml", "status": "modified" },
+    { "path": "tests/scripts/release-metadata.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [
+    { "label": "Owner-provided ScadMill functional specification v0.6", "destination": "spec/scadmill-spec-v0.6.md", "sha256": "A2D12C68E23590DF061BF3E222F481C3FFC40ECA6541D6F3DF49FDA87C1DE15A" }
+  ],
+  "decisions": [
+    {
+      "id": "D-0515",
+      "topic": "Next Windows beta version",
+      "decision": "Stage the completed M5/M6 application as 0.1.0-beta.2, the next version explicitly anticipated by the existing beta.1 rollback plan, while retaining beta.1 as the immutable previous public release.",
+      "rationale": "The next prerelease replaces rather than rewrites the first beta and keeps the established 0.1.0 beta line while the product remains Windows-first and pre-1.0.",
+      "specBasis": ["FR-13.4", "V-5 release gate", "docs/RELEASE-ROLLBACK.md"]
+    },
+    {
+      "id": "D-0516",
+      "topic": "Candidate versus public version truth",
+      "decision": "Track the application build version in CANDIDATE_VERSION and native/web application manifests independently from PUBLIC_VERSION and website release.json. Do not advance the live site, supported download, security support line, or public documentation until the signed candidate passes and is published.",
+      "rationale": "A signed installer hash is unknowable before the hosted artifact exists. Separating candidate and public facts avoids both a circular build/hash workflow and a false live download claim during qualification.",
+      "specBasis": ["V-5 release gate", "V-6 honesty rule", "N-7 UI honesty"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Candidate application metadata may advance without mutating the current public release contract.",
+      "test": "Require all application manifests, both Cargo lockfiles, the application title, and CANDIDATE_VERSION to agree on beta.2 while PUBLIC_VERSION and the website continue to identify the real beta.1 download and checksum.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/release-metadata.test.ts --reporter=dot",
+        "observedAt": "2026-07-22T01:50:46-06:00",
+        "outcome": "RED: CANDIDATE_VERSION did not exist and every application manifest still identified beta.1."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/release-metadata.test.ts --reporter=dot; cargo metadata --locked --no-deps --format-version 1 for both manifests",
+        "observedAt": "2026-07-22T01:51:43-06:00",
+        "outcome": "GREEN: both release-metadata tests passed, both locked Cargo graphs accepted beta.2, and the public site/download contract remained exactly beta.1."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": ["Q-0042 remains the only literal M6 specification contradiction; the release notes do not claim its prohibited Base Material tag wording is satisfied."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
