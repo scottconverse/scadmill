@@ -2,6 +2,9 @@ import { createHash } from "node:crypto";
 import { open, readFile, writeFile } from "node:fs/promises";
 import { join, win32 } from "node:path";
 
+export const PACKAGED_WORKBENCH_EDITOR_SELECTOR =
+  ".editor-panel .editor-group-focused .cm-content";
+
 export const SET_PACKAGED_CONTROL_VALUE_SCRIPT = `
   const wanted = arguments[0];
   const visible = (element) => element.getClientRects().length > 0

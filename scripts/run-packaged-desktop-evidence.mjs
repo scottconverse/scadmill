@@ -26,6 +26,7 @@ import {
   clickVisibleEnabledButton,
   mcpEndpointManifestPath,
   mirrorWebViewDevToolsPort,
+  PACKAGED_WORKBENCH_EDITOR_SELECTOR,
   parseBinaryStl,
   parseSourceMetadata,
   parseWindowsNetstatTcpListeners,
@@ -695,22 +696,22 @@ async function captureProjectLayoutObservation(client, expectedDockWidth) {
 
 async function editorSource(client) {
   const source = await client.execute(`
-    const content = document.querySelector('.cm-content');
+    const content = document.querySelector(arguments[0]);
     const view = content?.cmView?.view;
     return view?.state?.doc?.toString() ?? content?.innerText ?? null;
-  `);
+  `, [PACKAGED_WORKBENCH_EDITOR_SELECTOR]);
   return typeof source === "string" ? source.replaceAll("\r\n", "\n") : null;
 }
 
 async function replaceEditorSource(client, source) {
-  const editor = await client.find(".cm-content");
+  const editor = await client.find(PACKAGED_WORKBENCH_EDITOR_SELECTOR);
   await client.clickElement(editor);
   await client.sendKeys(editor, `${CONTROL_KEY}a${NULL_KEY}${source}`);
   await waitFor(async () => (await editorSource(client)) === source, "exact editor source", 10_000, 50);
 }
 
 async function appendEditorSource(client, suffix) {
-  const editor = await client.find(".cm-content");
+  const editor = await client.find(PACKAGED_WORKBENCH_EDITOR_SELECTOR);
   await client.clickElement(editor);
   await client.sendKeys(editor, `${CONTROL_KEY}${END_KEY}${NULL_KEY}${suffix}`);
 }
@@ -1157,7 +1158,12 @@ try {
   await dismissWelcome(client);
 
   const cubeSource = "cube([10, 10, 10]);";
-  await waitFor(async () => Boolean(await client.find(".cm-content").catch(() => null)), "CodeMirror editor", 30_000, 100);
+  await waitFor(
+    async () => Boolean(await client.find(PACKAGED_WORKBENCH_EDITOR_SELECTOR).catch(() => null)),
+    "focused workbench CodeMirror editor",
+    30_000,
+    100,
+  );
   await replaceEditorSource(client, cubeSource);
   await clickButton(client, "Full render");
   await waitForBody(client, "10 × 10 × 10 mm", 60_000);

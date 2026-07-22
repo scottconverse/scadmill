@@ -57,6 +57,7 @@ export function sanitizeMcpEndpointManifest(
 export function sanitizeMcpTranscript(payload: unknown, token: string): unknown;
 
 export const CLICK_PACKAGED_BUTTON_SCRIPT: string;
+export const PACKAGED_WORKBENCH_EDITOR_SELECTOR: string;
 export function clickVisibleEnabledButton(
   client: { execute(script: string, args: readonly unknown[]): Promise<unknown> },
   text: string,

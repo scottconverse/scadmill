@@ -12,6 +12,7 @@ import {
   createCdpSocketLease,
   FIND_PACKAGED_TEXTAREA_CONTROL_SCRIPT,
   FOCUS_PACKAGED_TEXTAREA_CONTROL_SCRIPT,
+  PACKAGED_WORKBENCH_EDITOR_SELECTOR,
   insertTextThroughCdp,
   mcpEndpointManifestPath,
   mirrorWebViewDevToolsPort,
@@ -61,6 +62,25 @@ function binaryStl(triangles: readonly (readonly [number, number, number])[][]):
 }
 
 describe("packaged desktop evidence helpers", () => {
+  it("selects the focused workbench editor when History mounts read-only CodeMirror panes", () => {
+    const window = new Window();
+    window.document.body.innerHTML = `
+      <section class="history-panel">
+        <div class="cm-content" data-editor="history-current"></div>
+        <div class="cm-content" data-editor="history-snapshot"></div>
+      </section>
+      <section class="editor-panel">
+        <div class="editor-group editor-group-focused">
+          <div class="cm-content" data-editor="workbench"></div>
+        </div>
+      </section>
+    `;
+
+    expect(window.document.querySelectorAll(".cm-content")).toHaveLength(3);
+    expect(window.document.querySelector(PACKAGED_WORKBENCH_EDITOR_SELECTOR)
+      ?.getAttribute("data-editor")).toBe("workbench");
+  });
+
   it("derives the exact Windows MCP manifest identity from the absolute executable path", () => {
     expect(mcpEndpointManifestPath(
       "C:\\Program Files\\ScadMill\\scadmill.exe",

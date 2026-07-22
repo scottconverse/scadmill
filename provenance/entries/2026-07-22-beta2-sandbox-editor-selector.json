@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-22-beta2-sandbox-editor-selector",
+  "createdAt": "2026-07-22T02:25:34-06:00",
+  "summary": "Keep packaged Windows Sandbox automation bound to the focused workbench editor when the M6 model-history rail also mounts read-only CodeMirror comparison panes.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "N-2 reliability soak", "V-5 release gate", "V-6 honesty rule", "M6 model history"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-22-beta2-sandbox-editor-selector.json", "status": "added" },
+    { "path": "scripts/lib/packaged-desktop-evidence.d.mts", "status": "modified" },
+    { "path": "scripts/lib/packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "scripts/run-packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [
+    { "label": "Owner-provided ScadMill functional specification v0.6", "destination": "spec/scadmill-spec-v0.6.md", "sha256": "A2D12C68E23590DF061BF3E222F481C3FFC40ECA6541D6F3DF49FDA87C1DE15A" }
+  ],
+  "decisions": [
+    {
+      "id": "D-0520",
+      "topic": "Packaged editor automation scope",
+      "decision": "Define one packaged-workbench editor selector and use it for editor discovery, source reads, replacements, and appends instead of selecting the first global CodeMirror content node.",
+      "rationale": "The retained exact-head Sandbox screenshot and runner log prove the M4 walkthrough left History open with two read-only CodeMirror panes before N-2 began. The global selector chose Current source and WebDriver rejected the first cycle as non-interactable, while the focused main editor remained visible and healthy. Scoping to the focused editor group preserves the intended black-box interaction and prevents History or future comparison views from intercepting edits.",
+      "specBasis": ["N-2 reliability soak", "M6 model history", "V-5 release gate"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The packaged reliability harness must edit the focused workbench document even when History comparison editors are mounted first in DOM order.",
+      "test": "Reproduce the three-CodeMirror structure in a DOM fixture and require the shared selector to resolve the focused workbench editor.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts --reporter=dot",
+        "observedAt": "2026-07-22T02:24:52-06:00",
+        "outcome": "RED: the new regression test failed while 56 existing tests passed because no focused-workbench selector existed."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts --reporter=dot",
+        "observedAt": "2026-07-22T02:25:17-06:00",
+        "outcome": "GREEN: all 57 packaged-evidence helper tests passed; the fixture contained three .cm-content nodes and the selector resolved only the focused workbench editor."
+      }
+    },
+    {
+      "criterion": "A failed release soak attempt must be diagnosed from retained evidence before any rerun.",
+      "test": "Inspect the exact-head network-disabled Sandbox runner log, screenshot, and source metadata after the first attempted literal run.",
+      "red": {
+        "command": "scripts/windows/run-packaged-desktop-evidence.ps1 -OutputDirectory work/scadmill-beta2-adcd78a-literal-sandbox-r1 -N2SoakMode literal",
+        "observedAt": "2026-07-22T08:23:00Z",
+        "outcome": "RED before the timed soak began: the clean build and full pre-soak cube/export/MCP walkthrough passed, then the first N-2 edit failed with element not interactable. Retained screenshot 02-mcp-pending-diff.png showed History open with two read-only comparison editors before the real focused editor, proving selector interception rather than a product edit failure."
+      },
+      "green": {
+        "command": "Source inspection plus focused-selector regression test; runtime requalification follows only from a clean corrected commit.",
+        "observedAt": "2026-07-22T02:25:17-06:00",
+        "outcome": "GREEN for the targeted correction: every packaged editor read/write path now uses the shared focused-workbench selector and no generic find(\".cm-content\") remains. No claim is made that N-2 passed in the failed run."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": ["Q-0042 remains the only literal M6 specification contradiction and is unaffected by this release-harness correction."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
