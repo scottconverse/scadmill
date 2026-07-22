@@ -117,7 +117,7 @@ export const messages = {
   openProject: "Open project",
   openWelcome: "Welcome",
   welcomeTitle: "Welcome to ScadMill",
-  welcomeIntro: "Start from a blank file, reopen a project, or explore a built-in OpenSCAD model.",
+  welcomeIntro: "Start from a blank file, open a project, or explore a built-in OpenSCAD model.",
   closeWelcome: "Close welcome",
   welcomeStart: "Start",
   noRecentProjects: "Projects you open will appear here.",

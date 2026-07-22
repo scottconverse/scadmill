@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-22-a11-first-run-copy",
+  "createdAt": "2026-07-22T14:36:00-06:00",
+  "summary": "Resolve the M6 Color-versus-Base-Material specification contradiction as amendment A-11 and correct the fresh-profile Welcome instruction so it names the Open project action actually available on screen.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 owner amendment protocol",
+    "FR-14.1",
+    "FR-15.14",
+    "FR-15.15",
+    "AC-15.k",
+    "A-11",
+    "Q-0042"
+  ],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "docs/RELEASE-NOTES-0.1.0-beta.2.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-22-a11-first-run-copy.json", "status": "added" },
+    { "path": "spec/QUESTIONS.md", "status": "modified" },
+    { "path": "spec/scadmill-spec-v0.6.md", "status": "modified" },
+    { "path": "src/messages/en.ts", "status": "modified" },
+    { "path": "tests/scripts/release-metadata.test.ts", "status": "modified" },
+    { "path": "tests/ui/welcome/WelcomeLauncher.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [
+    {
+      "label": "Owner direction to fix the Q-0042 contradiction, correct the first-run copy defect, and preserve strict-zero gating",
+      "destination": "spec/scadmill-spec-v0.6.md",
+      "sha256": "32E06298C4538860A4E703650853C869162EB3262A57A933662296DEB07C5528"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D-0530",
+      "topic": "Q-0042 Color encoding resolution",
+      "decision": "Amend FR-15.15 and AC-15.k to require the pinned engine's standard Materials-extension Color encoding: two object meshes, one colorgroup with distinct color entries, object triangle/effective-property references that resolve to the intended colors, and no basematerials group.",
+      "rationale": "FR-15.14 and A-7 already prohibit Base Material because the pinned lazy-union engine path assigns the first color to every object in that mode. The exact-engine probe and shipped implementation use Color encoding successfully, so the older basematerials/displaycolor acceptance wording was internally contradictory and false.",
+      "specBasis": ["FR-15.14", "FR-15.15", "AC-15.k", "A-7", "A-11", "Q-0042"]
+    },
+    {
+      "id": "D-0531",
+      "topic": "Fresh-profile Welcome instruction",
+      "decision": "Say 'open a project' in the Welcome description and retain 'reopen' only for conditional recent-project buttons that actually exist.",
+      "rationale": "A genuinely fresh profile has an Open project action and no Reopen action. Naming the available control keeps first-run instructions literal without changing behavior.",
+      "specBasis": ["FR-14.1", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The normative M6 Color format must be internally consistent across FR-15.15, AC-15.k, the question queue, and current release notes.",
+      "test": "Require colorgroup/color wording and explicit Base Material rejection in the two spec sections, A-11 in the amendment log, Q-0042 resolved, and the current release notes labeled as a resolved correction.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/release-metadata.test.ts -t \"keeps the normative M6 color format internally consistent\"",
+        "observedAt": "2026-07-22T14:33:06-06:00",
+        "outcome": "RED: 1 test file failed; 1 test failed and 3 were skipped. FR-15.15 still required basematerials/displaycolor and contained no colorgroup requirement."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/welcome/WelcomeLauncher.test.tsx tests/scripts/release-metadata.test.ts",
+        "observedAt": "2026-07-22T14:35:49-06:00",
+        "outcome": "GREEN: 2 test files passed; all 8 tests passed."
+      }
+    },
+    {
+      "criterion": "A fresh-profile Welcome instruction must name the Open project action that is visible and must not imply a Reopen action before recent-project history exists.",
+      "test": "Render the Welcome dialog with no recent projects, require the corrected accessible description, require the Open project button, and require no Reopen button.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/welcome/WelcomeLauncher.test.tsx -t \"contains focus in the active dialog\"",
+        "observedAt": "2026-07-22T14:35:05-06:00",
+        "outcome": "RED: 1 test file failed; 1 test failed and 3 were skipped. The dialog said 'reopen a project' while the fresh surface exposed only Open project."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/welcome/WelcomeLauncher.test.tsx tests/scripts/release-metadata.test.ts",
+        "observedAt": "2026-07-22T14:35:49-06:00",
+        "outcome": "GREEN: 2 test files passed; all 8 tests passed."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "urn:scadmill:a11-test-assertion",
+      "sought": "Reject the obsolete Base Material requirement without rejecting the new explicit prohibition of Base Material.",
+      "confirmation": "The first GREEN attempt correctly changed the spec but the new test matched the prohibited token regardless of context. The assertion was narrowed to require the prohibition and reject displaycolor; a second formatting-only correction made it whitespace-insensitive before the focused suite passed."
+    }
+  ],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

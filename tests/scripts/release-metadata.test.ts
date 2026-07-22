@@ -134,4 +134,26 @@ describe("public beta release metadata", () => {
       expect(contents, surface).toContain("SVG");
     }
   });
+
+  it("keeps the normative M6 color format internally consistent", () => {
+    const spec = text("spec/scadmill-spec-v0.6.md");
+    const questions = text("spec/QUESTIONS.md");
+    const releaseNotes = text(`docs/RELEASE-NOTES-${PUBLIC_VERSION}.md`);
+    const fr1515 = spec.slice(spec.indexOf("- FR-15.15"), spec.indexOf("- FR-15.16"));
+    const ac15k = spec.slice(spec.indexOf("- AC-15.k"), spec.indexOf("- AC-15.l"));
+
+    expect(fr1515).toContain("<m:colorgroup>");
+    expect(fr1515).toContain("<m:color");
+    expect(fr1515).toMatch(/must\s+not contain a `<basematerials>` group/iu);
+    expect(fr1515).not.toContain("displaycolor");
+    expect(ac15k).toContain("<m:colorgroup>");
+    expect(ac15k).toContain("<m:color");
+    expect(ac15k).toMatch(/no `<basematerials>` group exists/iu);
+    expect(ac15k).not.toContain("displaycolor");
+    expect(spec).toMatch(/\| A-11 \|[^\n]+Q-0042/iu);
+    expect(questions).toMatch(/## Q-0042 — Resolved[^\n]*— owner-directed/iu);
+    expect(questions).not.toContain("Open/actionable — M6 engine-format contradiction");
+    expect(releaseNotes).toContain("## Resolved specification correction");
+    expect(releaseNotes).not.toContain("## Known specification question");
+  });
 });

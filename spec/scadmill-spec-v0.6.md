@@ -876,7 +876,9 @@ M0–M3.
 - FR-15.15 **(M6) Multi-object colored 3MF export** *(new, A-7)*. Exporting a model whose
   source contains multiple top-level `color()`-tagged solids produces a single 3MF in which
   **each solid is a separate object with its own correct color** (standard 3MF
-  `<basematerials>` displaycolor entries referenced per-object/per-triangle).
+  Materials-extension `<m:colorgroup>` containing distinct `<m:color color="#RRGGBBAA">`
+  entries referenced by each object's effective material/property indices). The export must
+  not contain a `<basematerials>` group.
   **Slicer honesty rule (normative):** mainstream slicers (PrusaSlicer, OrcaSlicer, Bambu
   Studio) do **not** read standard 3MF color metadata for filament assignment — they use their
   own proprietary extensions (confirmed by the OpenSCAD maintainers, upstream issue #5849).
@@ -924,8 +926,9 @@ M0–M3.
   the default engine (version() spy).
 - AC-15.k *(A-7)* A fixture with two top-level solids, `color("red")` and `color("blue")`,
   exports a 3MF whose XML (unzip `3D/3dmodel.model`) contains **two** `<object>` meshes and
-  a `<basematerials>` group with two distinct `displaycolor` values, each object's triangles
-  referencing its own material — machine-parsed assertion, no slicer required.
+  one `<m:colorgroup>` with distinct red and blue `<m:color color="#RRGGBBAA">` entries;
+  each object's triangle/effective-material references resolve to the correct color entry,
+  and no `<basematerials>` group exists — machine-parsed assertion, no slicer required.
 - AC-15.l *(A-7)* The same exported 3MF re-imported through the engine (or a 3MF library)
   reads back two meshes whose vertex counts match the originals — round-trip integrity, no
   object silently merged or dropped.
@@ -1747,3 +1750,4 @@ difference() {
 | A-8 | 2026-07-10 | §2.2 (items 3/5 new), §6 (approved list + notes), FR-15.16 (new), FR-15.17 (new), AC-15.n/o (new), milestones M5/M6 | Verified open-source leverage from an owner-run 120-candidate scan (every license read from primary sources). Approved: the OpenSCAD org's official tree-sitter grammar (MIT — direct structural use permitted and licensed reference for the fresh CodeMirror grammar; use only the `@openscad/`-scoped npm package), Leathong openscad-LSP (treat as Apache-2.0 — its MIT license file is missing upstream; its GPL-3 VS Code companion stays prohibited; one-formatter-authority rule), Kiri:Moto engine (MIT) for new FR-15.16 design-time estimates with strict estimate-labeling honesty rules, llguidance (MIT, optional constrained-decode lane). New FR-15.17 library-aware completions. §2.2 gains a safety-classified reference reading list; scan-confirmed gaps recorded (no CodeMirror-6 mode, no permissive highlighting grammar, no OpenSCAD constrained-decode grammar file exists anywhere — original work as assumed). Decisions already recorded under §2.7 for M0–M1 stand; nothing in A-8 retroactively invalidates merged work |
 | A-9 | 2026-07-14 | FR-2.5, M2-R04 | Removed the obsolete 2020-class integrated-GPU minimum. The hardware-disclosing two-million-triangle orbit gate remains ≥ 30 fps; AMD Radeon 780M is the owner-designated benchmark baseline, not a minimum supported-hardware claim. Per-candidate qualification is accepted only from retained external evidence bound to the exact candidate source tree and profiler harness. |
 | A-10 | 2026-07-19 | N-2, V-5, M4 | The Windows public-beta reliability soak is one continuous hour rather than eight. The hobbyist-oriented beta retains the 30-second edit/render cadence, midpoint verified engine-kill recovery, exact process-memory accounting, and 1.5× baseline ceiling; only the required duration is reduced. |
+| A-11 | 2026-07-22 | FR-15.15, AC-15.k, Q-0042 | Owner resolution: the multi-object 3MF requirement uses the same standard Materials-extension Color encoding mandated by FR-15.14: one `<m:colorgroup>` with distinct `<m:color>` entries referenced by the objects' triangles/effective material properties. The contradictory `<basematerials>`/`displaycolor` wording is removed and Base Material remains prohibited. Q-0042 is resolved. |

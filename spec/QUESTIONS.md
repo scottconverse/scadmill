@@ -13,7 +13,7 @@ Numbered questions are appended here under §2.7. Only the affected work item is
 | Open/actionable — scoped behavior | Q-0003, Q-0005–Q-0010, Q-0013, Q-0015–Q-0019, Q-0021–Q-0022, Q-0024–Q-0028, Q-0030–Q-0031 | Each blocks only the item named in its **Blocked** field; no question silently blocks unrelated work. |
 | Open/actionable — M4 scoped behavior | Q-0035–Q-0037 | Conservative implementation proceeds under §2.7; each question parks only alternate owner-selected semantics or final wording. |
 | Open/actionable — M5 scoped behavior | Q-0040, Q-0041 | History excludes automated animation frames; project search uses the conservative documented ignore-file policy. Only alternate owner-selected semantics are parked. |
-| Open/actionable — M6 engine-format contradiction | Q-0042 | Color preview/export proceeds with the normative `material-type=color` encoding; only the contradictory AC-15.k demand for Base Material XML tags is parked. |
+| Resolved — M6 engine format | Q-0042 | Amendment A-11 removes the contradictory Base Material XML wording. Color preview/export and AC-15.k consistently require `material-type=color` with `<m:colorgroup>`/`<m:color>` references. |
 | Resolved — public beta license | Q-0038 | The owner selected Apache-2.0 for ScadMill's original application code and installer license surface. |
 | Resolved — public beta security policy | Q-0039 | GitHub private vulnerability reporting is the documented channel; no bounty or response-time SLA is promised. |
 | Open/historical — delivered conservatively | Q-0004, Q-0011–Q-0012, Q-0014, Q-0020, Q-0023, Q-0029 | M2/M3 delivered the stricter or later capability named by each question. The owner answer still governs the historical milestone interpretation. |
@@ -71,12 +71,14 @@ Numbered questions are appended here under §2.7. Only the affected work item is
 - **Evidence:** The specification requires ignore-pattern support but does not name a file, grammar, or precedence rule. Inventing hidden permanent exclusions could make real source unreachable, while searching generated/vendor trees by default can create unsafe bulk replacements.
 - **Blocked:** Only an owner-selected alternate ignore grammar or precedence. The conservative implementation reads project-root `.gitignore` followed by `.scadmillignore`, applies familiar gitignore-style `*`, `**`, `?`, rooted, directory, comment, and negation rules with later matches winning, skips binary files, discloses the ignored-file count, and continues all unrelated M5 work.
 
-## Q-0042 — Open — 2026-07-21
+## Q-0042 — Resolved 2026-07-22 — owner-directed
 
 - **Section:** FR-15.14 engine-mode requirements; FR-15.15; AC-15.k; M6 color/3MF
 - **Question:** Should AC-15.k accept the pinned engine's standard 3MF Materials-extension Color encoding—`<m:colorgroup>` with distinct `<m:color color="#RRGGBBAA">` entries referenced by each object's triangles—instead of requiring `<basematerials>` and `displaycolor`, which are emitted only by the explicitly prohibited Base Material mode?
 - **Evidence:** A direct probe of the exact checksum-verified OpenSCAD 2026.06.12 Windows artifact with the normative centralized flags `--backend Manifold --enable lazy-union -O export-3mf/color-mode=model -O export-3mf/material-type=color` produced two separate `<object>` meshes. Their triangles referenced distinct entries in one `<m:colorgroup>`: red `#FF0000FF` and blue `#0000FFFF`. The same fixture with `material-type=basematerial` produced `<basematerials>` and `displaycolor`, demonstrating that AC-15.k's literal XML requirement selects the mode FR-15.14 says to **never** use. The Color-mode artifact was 3,382 bytes with two objects and 152 triangles; the archive and executable hashes matched `ENGINE_VERSION` before execution.
-- **Blocked:** Only declaring the contradictory `<basematerials displaycolor>` wording of AC-15.k literally satisfied. Implementation, viewer color/material assertions, two-object preservation, distinct per-object Color references, round-trip integrity, and the slicer-honesty UI proceed using the normative Color encoding. Any switch to Base Material requires an amendment.
+- **Blocked:** No work remains blocked by this question.
+- **Owner decision (2026-07-22 / A-11):** Use the pinned engine's standard Materials-extension Color encoding consistently. FR-15.15 and AC-15.k require one `<m:colorgroup>` containing distinct `<m:color>` entries referenced by each object's triangles/effective material properties and explicitly reject `<basematerials>`.
+- **Resolution evidence:** The exact-engine probe already recorded above proves the amended wording matches the pinned engine's `material-type=color` output. Existing real-engine and parser tests require two colored objects, distinct Color-group references, successful round-trip geometry, and absence of Base Material XML.
 
 ## Q-0032 — Resolved 2026-07-14 — owner-directed
 

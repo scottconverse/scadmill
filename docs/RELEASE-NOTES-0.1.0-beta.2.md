@@ -39,9 +39,9 @@ The exact signed setup passed a fresh hosted-Windows install, `.scad` associatio
 - [Hosted CI — eight jobs passed](https://github.com/scottconverse/scadmill/actions/runs/29922772987)
 - [Isolated similarity gate — passed](https://github.com/scottconverse/scadmill/actions/runs/29922880821)
 
-## Known specification question
+## Resolved specification correction
 
-Q-0042 records a literal XML-tag contradiction between the required OpenSCAD Color mode and AC-15.k's Base Material tag names. The release uses the normative Color encoding, preserves two separately colored and positioned objects, round-trips both meshes, and tells users to assign filaments per object. It does not claim that the contradictory Base Material tag wording is satisfied without an owner amendment.
+Amendment A-11 resolved Q-0042 by removing contradictory Base Material XML wording from AC-15.k. The specification now consistently requires the OpenSCAD Color encoding used by beta.2: two separately colored and positioned objects, distinct `<m:color>` entries in one `<m:colorgroup>`, successful mesh round-trip, and no `<basematerials>` group.
 
 ## Previous release and rollback
 

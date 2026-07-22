@@ -142,8 +142,10 @@ describe("WelcomeLauncher", () => {
     const startup = ui.getByRole("checkbox", { name: "Show welcome screen on startup" });
 
     expect(dialog).toHaveAccessibleDescription(
-      "Start from a blank file, reopen a project, or explore a built-in OpenSCAD model.",
+      "Start from a blank file, open a project, or explore a built-in OpenSCAD model.",
     );
+    expect(ui.getByRole("button", { name: "Open project" })).toBeVisible();
+    expect(ui.queryByRole("button", { name: /^Reopen /u })).not.toBeInTheDocument();
     await waitFor(() => expect(ui.getByRole("button", { name: "New file" })).toHaveFocus());
     close.focus();
     await user.tab({ shift: true });

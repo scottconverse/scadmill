@@ -4,7 +4,10 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ## [Unreleased]
 
-No unreleased changes.
+### Fixed
+
+- Corrected the M6 specification's multi-object 3MF wording to require the same Color encoding the product and engine already use. Amendment A-11 resolves Q-0042 by replacing the contradictory Base Material tag requirement with machine-checked `<m:colorgroup>`/`<m:color>` references and an explicit rejection of `<basematerials>`.
+- Hardened repository enforcement: release-tag pushes now run the full CI workflow, the public website receives its own clean-install/lint/build/render job, and a tracked-blob policy rejects Git LFS pointers and accidental large files while bounding the four intentional large assets.
 
 ## [0.1.0-beta.2] - 2026-07-22
 

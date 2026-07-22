@@ -30,6 +30,22 @@ function namedStepBlock(jobId: string, stepName: string): string {
 }
 
 describe("regular CI workflow contract", () => {
+  it("runs the full workflow for main and release-tag pushes", () => {
+    expect(workflow).toContain("    branches: [main]\n    tags: ['v*']");
+    expect(jobBlock("web")).toContain("run: pnpm check:blobs");
+  });
+
+  it("builds, lints, and render-tests the public website", () => {
+    const website = jobBlock("website");
+
+    expect(website).toContain("name: Public website checks");
+    expect(website).toContain("cache-dependency-path: website/package-lock.json");
+    expect(website).toContain("working-directory: website");
+    expect(website).toContain("run: npm ci");
+    expect(website).toContain("run: npm run lint");
+    expect(website).toContain("run: npm test");
+  });
+
   it("runs desktop-shell Rust tests in the native V-2 lane", () => {
     expect(
       jobBlock("native").includes(

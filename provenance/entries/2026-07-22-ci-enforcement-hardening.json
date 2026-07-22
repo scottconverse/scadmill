@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-22-ci-enforcement-hardening",
+  "createdAt": "2026-07-22T14:42:45-06:00",
+  "summary": "Make ScadMill's actual repository gates enforce the public website and future release-tag paths, and add a zero-LFS tracked-blob policy without importing a contaminated Python/native-Windows gate list from another project.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.5 owner similarity-gate boundary",
+    "V-2 automated quality gates",
+    "V-5 release gate"
+  ],
+  "filesTouched": [
+    { "path": ".github/workflows/ci.yml", "status": "modified" },
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "package.json", "status": "modified" },
+    { "path": "provenance/entries/2026-07-22-ci-enforcement-hardening.json", "status": "added" },
+    { "path": "scripts/check-tracked-blobs.mjs", "status": "added" },
+    { "path": "scripts/lib/tracked-blob-policy.d.mts", "status": "added" },
+    { "path": "scripts/lib/tracked-blob-policy.mjs", "status": "added" },
+    { "path": "tests/scripts/ci-workflow.test.ts", "status": "modified" },
+    { "path": "tests/scripts/tracked-blob-policy.test.ts", "status": "added" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0532",
+      "topic": "CI coverage for public surfaces and tags",
+      "decision": "Run the full existing CI workflow for release-tag pushes and add a dedicated public-website job that performs npm clean install, lint, production build, and rendered-HTML tests.",
+      "rationale": "The root release-metadata tests check source claims but did not prove the separately locked website could install and render on GitHub. Tag pushes also bypassed every workflow trigger. Both are actual ScadMill enforcement gaps and can be closed without changing product behavior.",
+      "specBasis": ["V-2", "V-5"]
+    },
+    {
+      "id": "D-0533",
+      "topic": "Tracked blob and Git LFS policy",
+      "decision": "Reject every Git LFS pointer and every tracked file above 1 MiB except four exact intentional assets, each with its own modest upper cap.",
+      "rationale": "Release installers and evidence artifacts must remain outside Git history and the owner has a finite Git LFS budget. The repository legitimately tracks the embedded Kiri:Moto runtime and website social image, so exact path/cap exceptions distinguish deliberate dependencies from accidental binaries without forcing LFS.",
+      "specBasis": ["V-2", "Section 6 approved Kiri:Moto dependency"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Main and future release-tag pushes must run CI, including an independently installable and rendered public website.",
+      "test": "Inspect the workflow contract for the tag trigger, website clean install, lint, build/render test, and existing real jobs.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/ci-workflow.test.ts",
+        "observedAt": "2026-07-22T14:38:02-06:00",
+        "outcome": "RED: 1 test file failed; 2 tests failed and 6 passed. CI had no release-tag trigger and no website job."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/ci-workflow.test.ts",
+        "observedAt": "2026-07-22T14:38:21-06:00",
+        "outcome": "GREEN: 1 test file passed; all 8 tests passed."
+      }
+    },
+    {
+      "criterion": "Tracked history must contain no Git LFS pointers, no unapproved files over 1 MiB, and no named large asset above its explicit cap.",
+      "test": "Exercise ordinary files, bounded known assets, an accidental installer, an oversized known asset, and an LFS pointer; then scan the actual Git index.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/tracked-blob-policy.test.ts",
+        "observedAt": "2026-07-22T14:39:19-06:00",
+        "outcome": "RED: 1 test file failed; 3 tests failed and 1 passed because the policy scaffold accepted oversized and LFS entries."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/tracked-blob-policy.test.ts tests/scripts/ci-workflow.test.ts; pnpm.cmd check:blobs",
+        "observedAt": "2026-07-22T14:39:57-06:00",
+        "outcome": "GREEN: 2 test files passed; all 12 tests passed. The actual index passed with 1,042 files checked, zero Git LFS pointers, and every intentional large asset within its explicit cap."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "urn:scadmill:contaminated-cross-project-gate-list",
+      "sought": "Locate wheelhouse/, run_all.py, program/native-windows, rc18, ADR 0007, thumbnail-extraction posture, --public-beta, and an existing blob-size guard to port.",
+      "confirmation": "The terms were absent from the current tree, every local Git ref searched with pickaxe, beta.1 and beta.2 release trees, remote branches, and remote tags. ScadMill is TypeScript/Rust; the requested Python/native-Windows artifacts belong to another project. Only actual ScadMill enforcement gaps were changed."
+    },
+    {
+      "url": "urn:scadmill:owner-similarity-workflow",
+      "sought": "Turn the nightly/manual independence workflow into an ordinary edited PR gate.",
+      "confirmation": "Section 2.5 and the delivered workflow explicitly require implementers to copy it verbatim and never modify or run it locally. It remains untouched; hosted release use stays owner-controlled."
+    }
+  ],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

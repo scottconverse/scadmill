@@ -30,6 +30,7 @@
     "check:notices": "node scripts/generate-third-party-notices.mjs --check",
     "check:wasm-workflow": "node scripts/check-wasm-build-workflow.mjs",
     "check:public-surfaces": "vitest run tests/scripts/release-metadata.test.ts",
+    "check:blobs": "node scripts/check-tracked-blobs.mjs",
     "desktop": "cd src/desktop-shell && pnpm exec tauri"
   },
   "dependencies": {
