@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const ROOT = resolve(import.meta.dirname, "../..");
-const CANDIDATE_VERSION = "0.1.0-beta.2";
+const CANDIDATE_VERSION = "0.1.0-beta.3";
 const PUBLIC_VERSION = "0.1.0-beta.2";
 const INSTALLER = `ScadMill_${PUBLIC_VERSION}_x64-setup.exe`;
 const INSTALLER_SIZE = 211_574_008;
@@ -25,7 +25,7 @@ function lockedPackageVersion(lockfile: string, name: string): string | undefine
 }
 
 describe("public beta release metadata", () => {
-  it("aligns the exact application version with the current public release", () => {
+  it("separates the exact candidate application version from the current public release", () => {
     expect(text("CANDIDATE_VERSION").trim()).toBe(CANDIDATE_VERSION);
     expect(JSON.parse(text("package.json")).version).toBe(CANDIDATE_VERSION);
     expect(JSON.parse(text("src/desktop-shell/src-tauri/tauri.conf.json")).version)

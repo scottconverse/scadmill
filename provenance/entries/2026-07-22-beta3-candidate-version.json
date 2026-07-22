@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-22-beta3-candidate-version",
+  "createdAt": "2026-07-22T15:47:14-06:00",
+  "summary": "Stage the corrected complete M0-M6 application as Windows candidate 0.1.0-beta.3 without changing the still-public 0.1.0-beta.2 site, installer, or support claims before release proof exists.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "FR-13.4", "V-5 release gate", "V-6 honesty rule", "M6"],
+  "filesTouched": [
+    { "path": "CANDIDATE_VERSION", "status": "modified" },
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "docs/RELEASE-NOTES-0.1.0-beta.3.md", "status": "added" },
+    { "path": "docs/RELEASE-ROLLBACK-0.1.0-beta.3.md", "status": "added" },
+    { "path": "index.html", "status": "modified" },
+    { "path": "package.json", "status": "modified" },
+    { "path": "provenance/entries/2026-07-22-beta3-candidate-version.json", "status": "added" },
+    { "path": "src/desktop-shell/src-tauri/Cargo.lock", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/Cargo.toml", "status": "modified" },
+    { "path": "src/desktop-shell/src-tauri/tauri.conf.json", "status": "modified" },
+    { "path": "src/native-engine/Cargo.lock", "status": "modified" },
+    { "path": "src/native-engine/Cargo.toml", "status": "modified" },
+    { "path": "tests/scripts/release-metadata.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [
+    { "label": "Owner-provided ScadMill functional specification v0.6 with amendments through A-11", "destination": "spec/scadmill-spec-v0.6.md", "sha256": "32E06298C4538860A4E703650853C869162EB3262A57A933662296DEB07C5528" }
+  ],
+  "decisions": [
+    {
+      "id": "D-0534",
+      "topic": "Corrected Windows beta version",
+      "decision": "Stage the A-11, first-run-copy, and release-enforcement corrections as 0.1.0-beta.3 while preserving the immutable beta.2 tag and artifact.",
+      "rationale": "The existing beta.2 bytes cannot be changed in place. A new prerelease version is required to bind the corrected source, evidence, signature, and installer hash honestly.",
+      "specBasis": ["FR-13.4", "V-5 release gate", "docs/RELEASE-ROLLBACK.md"]
+    },
+    {
+      "id": "D-0535",
+      "topic": "Candidate versus public release truth",
+      "decision": "Advance CANDIDATE_VERSION and application manifests to beta.3 while retaining PUBLIC_VERSION, website release metadata, and supported-download documentation at beta.2 until the signed beta.3 installer passes and is published.",
+      "rationale": "The signed installer hash and size do not exist before the hosted artifact is produced. Separating candidate and public facts prevents circular builds and false public download claims.",
+      "specBasis": ["V-5 release gate", "V-6 honesty rule", "N-7 UI honesty"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The candidate application may advance to beta.3 without mutating the current beta.2 public release contract.",
+      "test": "Require application manifests, both Cargo lockfiles, application title, and CANDIDATE_VERSION to agree on beta.3 while PUBLIC_VERSION and website release.json continue identifying the exact beta.2 public artifact.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/release-metadata.test.ts --reporter=dot",
+        "observedAt": "2026-07-22T15:46:13-06:00",
+        "outcome": "RED: the candidate contract expected 0.1.0-beta.3 but CANDIDATE_VERSION and application manifests still identified 0.1.0-beta.2. One test failed and three passed."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/release-metadata.test.ts --reporter=dot",
+        "observedAt": "2026-07-22T15:47:07-06:00",
+        "outcome": "GREEN: all four release-metadata tests passed with beta.3 candidate metadata and the exact beta.2 public artifact contract unchanged."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

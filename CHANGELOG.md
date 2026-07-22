@@ -4,6 +4,10 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ## [Unreleased]
 
+### Release status
+
+- `0.1.0-beta.3` is the next Windows candidate and is not public yet. Application manifests identify the candidate independently from `PUBLIC_VERSION`, so the live site and supported-download documentation remain on `0.1.0-beta.2` until the exact signed beta.3 installer passes the release gate and is published.
+
 ### Fixed
 
 - Corrected the M6 specification's multi-object 3MF wording to require the same Color encoding the product and engine already use. Amendment A-11 resolves Q-0042 by replacing the contradictory Base Material tag requirement with machine-checked `<m:colorgroup>`/`<m:color>` references and an explicit rejection of `<basematerials>`.
