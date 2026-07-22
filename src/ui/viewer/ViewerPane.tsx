@@ -252,7 +252,7 @@ export function ViewerPane({
   return (
     <section
       className={`viewer-panel${visibleGeometry?.kind === "3d" ? " viewer-panel-with-toolbar" : ""}`}
-      aria-label={messages.viewerRegion}
+      aria-label={messages.viewerRegion} data-geometry-identity={visibleGeometry?.kind === "3d" ? visibleGeometry.mesh.geometryIdentity : visibleGeometry?.geometryIdentity}
     >
       <div className="panel-heading viewer-heading">
         <span>{messages.viewerRegion}</span>

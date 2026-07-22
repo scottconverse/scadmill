@@ -14,6 +14,7 @@ import {
   startScriptedM4LocalProviderMock,
   validateM4RawTranscriptSemantics,
   validateM4ZeroNetworkAttempts,
+  validateCachedPaint,
   waitForM4AiProposalOutcome,
 } from "../../scripts/lib/m4-packaged-walkthrough.mjs";
 import { messages } from "../../src/messages/en";
@@ -179,6 +180,7 @@ describe("M4 packaged newcomer walkthrough", () => {
       <span class="status-render">Rendered main.scad (3d)</span>
       <button type="button">Full render</button>
       <div class="viewer-pane"><canvas></canvas></div>
+      <section class="viewer-panel" data-geometry-identity="sha256:${"b".repeat(64)}"></section>
       <div class="console-run">initial preview</div>
     `;
     const button = window.document.querySelector("button");
@@ -233,6 +235,7 @@ describe("M4 packaged newcomer walkthrough", () => {
       <span class="status-render">Rendered main.scad (3d, cached)</span>
       <button type="button">Full render</button>
       <div class="viewer-pane"><canvas></canvas></div>
+      <section class="viewer-panel" data-geometry-identity="sha256:${"b".repeat(64)}"></section>
       <div class="console-run">initial preview</div>
       <span class="quality-badge">Preview quality</span>
     `;
@@ -514,14 +517,27 @@ describe("M4 packaged newcomer walkthrough", () => {
     expect(M4_DOM_SCRIPTS.animationPlayFrameCompleted).toContain("Frame 52 of 100");
     expect(M4_DOM_SCRIPTS.animationPlayFrameCompleted).not.toContain("Frame 51 of 100");
     expect(M4_DOM_SCRIPTS.thumbnailDecodedSnapshot).toContain("notBeforeMs");
-    expect(M4_DOM_SCRIPTS.thumbnailDecodedSnapshot).toContain("record.renderIdentity === expectedRenderIdentity");
+    expect(M4_DOM_SCRIPTS.thumbnailDecodedSnapshot).toContain("expectedRenderIdentity === null || record.renderIdentity === expectedRenderIdentity");
+    expect(M4_DOM_SCRIPTS.thumbnailDecodedSnapshot).toContain("excludedRenderIdentity === null || record.renderIdentity !== excludedRenderIdentity");
     expect(M4_DOM_SCRIPTS.thumbnailDecodedSnapshot).toContain("Date.parse(record.capturedAt) >= notBeforeMs");
     expect(M4_DOM_SCRIPTS.thumbnailDecodedSnapshot).toContain("}, 5000)");
     expect(M4_DOM_SCRIPTS.cachedPaint).toContain("document.querySelector('.quality-badge')");
     expect(M4_DOM_SCRIPTS.cachedPaint).toContain("observer.observe(document.body");
     expect(M4_DOM_SCRIPTS.cachedPaint).toContain("const waitForPreview = arguments[0]");
     expect(M4_DOM_SCRIPTS.cachedPaint).toContain("waitForPreview");
+    expect(M4_DOM_SCRIPTS.cachedPaint).toContain("viewerPanel.dataset.geometryIdentity");
     expect(M4_DOM_SCRIPTS.cachedPaint).toContain("render.click();");
+  });
+
+  it("rejects a cached paint whose semantic geometry identity is not the target", () => {
+    expect(() => validateCachedPaint({
+      elapsedMs: 42.25,
+      status: "Rendered main.scad (3d, cached)",
+      consoleRunsBefore: 3,
+      consoleRunsAfter: 3,
+      canvasVisible: true,
+      geometryIdentity: `sha256:${"a".repeat(64)}`,
+    }, 100, `sha256:${"b".repeat(64)}`)).toThrow("does not match the expected target");
   });
 
   it("rejects any unconfigured-AI renderer network attempt", () => {
@@ -940,6 +956,7 @@ describe("M4 packaged newcomer walkthrough", () => {
     let consoleRuns = 7;
     let sendCount = 0;
     let thumbnailPhase = "file-tree";
+    let thumbnailRequestCount = 0;
     const calls: string[] = [];
     const cachedPaintModes: unknown[] = [];
     const contextFixtureSource = "width = 10; // [1:1:20]\necho(m4_missing_context_value);\ncube([width, 10, 10]);";
@@ -1130,6 +1147,9 @@ describe("M4 packaged newcomer walkthrough", () => {
         if (script === M4_DOM_SCRIPTS.animationSnapshot) {
           return { frame: "Frame 52 of 100", time: "$t 0.51", fps: "24", playLabel: "Play animation", consoleRuns, overlapObserved: false };
         }
+        if (script === M4_DOM_SCRIPTS.viewerGeometryIdentity) {
+          return { geometryIdentity: `sha256:${"a".repeat(64)}` };
+        }
         if (script === M4_DOM_SCRIPTS.thumbnailSnapshot) {
           return {
             storageEntries: [{
@@ -1150,13 +1170,22 @@ describe("M4 packaged newcomer walkthrough", () => {
       },
       executeAsync: async (script: string, args?: readonly unknown[]) => {
         if (script === M4_DOM_SCRIPTS.thumbnailDecodedSnapshot) {
-          expect(args?.[3]).toBe(`sha256:${"b".repeat(64)}`);
+          thumbnailRequestCount += 1;
+          const animationIdentity = `sha256:${"a".repeat(64)}`;
+          const targetIdentity = `sha256:${"b".repeat(64)}`;
+          const renderIdentity = thumbnailRequestCount === 1 ? animationIdentity : targetIdentity;
+          const expectedArguments = thumbnailRequestCount === 1
+            ? [animationIdentity, null]
+            : thumbnailRequestCount === 2
+              ? [null, animationIdentity]
+              : [targetIdentity, null];
+          expect(args?.slice(3, 5)).toEqual(expectedArguments);
           return {
             storageEntries: [{
               key: `scadmill.desktop-render-thumbnails.v1:desktop-project:${"a".repeat(64)}`,
               value: JSON.stringify({
                 version: 1,
-                records: [{ documentPath: "main.scad", renderIdentity: `sha256:${"b".repeat(64)}`, capturedAt: "2026-07-18T12:00:00.000Z", pngBase64: pngBase64() }],
+                records: [{ documentPath: "main.scad", renderIdentity, capturedAt: "2026-07-18T12:00:00.000Z", pngBase64: pngBase64() }],
               }),
             }],
             fileTree: { count: thumbnailPhase === "file-tree" ? 1 : 0, src: thumbnailPhase === "file-tree" ? `data:image/png;base64,${pngBase64()}` : null, complete: true, naturalWidth: 240, naturalHeight: 160, decoded: true },
@@ -1182,7 +1211,7 @@ describe("M4 packaged newcomer walkthrough", () => {
         expect(script).toBe(M4_DOM_SCRIPTS.cachedPaint);
         cachedPaintModes.push(args?.[0]);
         calls.push("async:cached-paint");
-        return { elapsedMs: 42.25, status: "Rendered main.scad (3d, cached)", consoleRunsBefore: consoleRuns, consoleRunsAfter: consoleRuns, canvasVisible: true };
+        return { elapsedMs: 42.25, status: "Rendered main.scad (3d, cached)", consoleRunsBefore: consoleRuns, consoleRunsAfter: consoleRuns, canvasVisible: true, geometryIdentity: `sha256:${"b".repeat(64)}` };
       },
       captureScreenshot: async (name: string) => {
         calls.push(`screenshot:${name}`);
@@ -1235,7 +1264,6 @@ describe("M4 packaged newcomer walkthrough", () => {
       proposalSource,
       agentSource,
       projectPath: "main.scad",
-      expectedThumbnailRenderIdentity: `sha256:${"b".repeat(64)}`,
       cachePaintLimitMs: 100,
     });
 

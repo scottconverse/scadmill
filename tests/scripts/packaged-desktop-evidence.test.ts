@@ -991,7 +991,8 @@ describe("packaged desktop evidence helpers", () => {
     expect(runner).toContain("beforeCloseThumbnailRenderIdentity");
     expect(runner).toContain("persistedThumbnailSha256");
     expect(runner).toContain("persistedThumbnailRenderIdentity");
-    expect(runner).toContain(["expectedThumbnailRenderIdentity: `sha256:$", "{fingerprint(stlBytes).toLowerCase()}`"].join(""));
+    expect(runner).not.toContain(["expectedThumbnailRenderIdentity: `sha256:$", "{fingerprint(stlBytes).toLowerCase()}`"].join(""));
+    expect(runner).not.toContain("expectedThumbnailRenderIdentity:");
     expect(runner).toContain("await openDesktopProject(client, m4ProjectDirectory, expectedSource);");
     const restartBlock = runner.indexOf("restartApplication: async (expectedSource, expectedProjectPath) => {");
     const preExitThumbnail = runner.indexOf("const beforeCloseThumbnail =", restartBlock);

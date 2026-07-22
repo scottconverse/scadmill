@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-22-beta2-thumbnail-identity-oracle",
+  "createdAt": "2026-07-22T03:25:30-06:00",
+  "summary": "Bind packaged thumbnail persistence evidence to the fresh current render identity instead of the obsolete binary-STL export hash after M6 switched viewer geometry to Color-encoded 3MF.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "FR-15.2", "FR-15.13", "FR-15.14", "N-2 reliability soak", "V-5 release gate", "V-6 honesty rule"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-22-beta2-thumbnail-identity-oracle.json", "status": "added" },
+    { "path": "scripts/lib/m4-packaged-walkthrough.d.mts", "status": "modified" },
+    { "path": "scripts/lib/m4-packaged-walkthrough.mjs", "status": "modified" },
+    { "path": "scripts/run-packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "src/ui/viewer/ViewerPane.tsx", "status": "modified" },
+    { "path": "tests/scripts/m4-packaged-walkthrough.test.ts", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" },
+    { "path": "tests/ui/viewer/ViewerPane.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [
+    { "label": "Owner-provided ScadMill functional specification v0.6", "destination": "spec/scadmill-spec-v0.6.md", "sha256": "A2D12C68E23590DF061BF3E222F481C3FFC40ECA6541D6F3DF49FDA87C1DE15A" }
+  ],
+  "decisions": [
+    {
+      "id": "D-0523",
+      "topic": "Format-neutral packaged thumbnail identity oracle",
+      "decision": "Read the exact semantic geometry identity displayed for paused animation frame 52, wait until its matching thumbnail has persisted, then establish the target-render boundary. After the target full render, accept only a fresh thumbnail for the exact project path whose identity differs from the drained animation identity, and carry that discovered target identity unchanged through Files, Welcome, process restart, and an exact cold-cache paint comparison. Permit an optional precomputed identity only for bounded unit fixtures; do not derive production 3MF identity from an unrelated STL export.",
+      "rationale": "The M6 engine path renders 3D viewer geometry as Color-encoded 3MF, so its canonical semantic identity cannot equal the earlier binary-STL export hash. Exact-head Sandbox evidence passed the accelerated soak and AC-15.b geometry-unchanged step, then timed out only because the stale oracle demanded the STL digest. Draining the exact frame-52 generation before setting the target boundary and excluding its identity closes the delayed-animation race; exposing the accepted semantic identity on the viewer lets the cold-cache proof reject a fast but wrong geometry paint.",
+      "specBasis": ["FR-15.13", "FR-15.14", "FR-15.2", "V-5 release gate", "V-6 honesty rule"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The packaged release runner must not equate M6 3MF render identity with an STL export digest, must reject a delayed animation thumbnail, and must prove exact cold-cache geometry identity.",
+      "test": "Require the production runner to omit the STL-derived expected identity; drain frame 52 by its exact viewer identity; exclude that identity from target discovery; expose the semantic viewer identity; and reject a cached paint whose identity differs from the target.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/m4-packaged-walkthrough.test.ts tests/ui/viewer/ViewerPane.test.tsx",
+        "observedAt": "2026-07-22T03:31:30-06:00",
+        "outcome": "RED: 3 failed and 37 passed. The thumbnail poll had no excluded-identity condition, cached-paint evidence had no geometry identity, and ViewerPane exposed no semantic geometry identity. A second adversarial RED at 03:33:25 produced 1 failed and 22 passed because the validator accepted identity A when target identity B was required."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/m4-packaged-walkthrough.test.ts tests/scripts/packaged-desktop-evidence.test.ts tests/ui/viewer/ViewerPane.test.tsx tests/ui/viewer/ViewerPaneThumbnail.test.tsx",
+        "observedAt": "2026-07-22T03:34:00-06:00",
+        "outcome": "GREEN: 4 test files passed and 105 tests passed. The exact animation identity is drained and excluded, the target identity is reused across later surfaces, and a mismatched cold-cache geometry identity fails closed. TypeScript and targeted Biome lint also passed."
+      }
+    },
+    {
+      "criterion": "A failed accelerated qualification attempt must retain enough evidence to distinguish product behavior from a stale format-specific oracle.",
+      "test": "Inspect the exact-head network-disabled Sandbox r2 event stream, screenshots, soak summary, and final stack before making one targeted correction.",
+      "red": {
+        "command": "scripts/windows/run-packaged-desktop-evidence.ps1 -OutputDirectory work/scadmill-beta2-2504319-accelerated-sandbox-r2 -N2SoakMode accelerated",
+        "observedAt": "2026-07-22T09:22:56Z",
+        "outcome": "RED after product behavior passed: cube render/export/MCP passed; accelerated soak passed 31 cycles with final memory ratio 1.3417; Geometry unchanged and Geometry changed screenshots were retained; failure occurred only while waiting for a fresh thumbnail whose 3MF identity was incorrectly required to equal the earlier STL hash."
+      },
+      "green": {
+        "command": "Focused RED/GREEN tests and retained-evidence diagnosis; exact corrected-head qualification follows only after commit and hosted gates.",
+        "observedAt": "2026-07-22T03:25:20-06:00",
+        "outcome": "GREEN for the targeted oracle correction. No claim is made that the failed r2 run passed the full packaged gate."
+      }
+    },
+    {
+      "criterion": "The reviewed D-0523 candidate must pass the complete unit suite, desktop production build, source policy, license policy, public-surface checks, and provenance validation before commit.",
+      "test": "Run each bounded release check once after the independent review reached literal 0/0/0/0/0.",
+      "red": {
+        "command": "pnpm.cmd lint",
+        "observedAt": "2026-07-22T03:39:30-06:00",
+        "outcome": "RED: source policy reported ViewerPane.tsx at 404 physical lines after the new identity seam exceeded the 400-line UI limit. The new expression was compacted without changing behavior; the affected ViewerPane suite was rerun after that correction."
+      },
+      "green": {
+        "command": "pnpm.cmd test; pnpm.cmd build:desktop; pnpm.cmd lint; pnpm.cmd check:licenses all; pnpm.cmd check:public-surfaces; pnpm.cmd check:provenance",
+        "observedAt": "2026-07-22T03:40:06-06:00",
+        "outcome": "GREEN: full Vitest suite 242 passed/1 skipped files and 1708 passed/1 skipped tests; desktop Vite build completed; lint checked 616 files and source policy passed; npm licenses checked 120 packages and Rust licenses checked 507 packages; 2 public-surface tests passed; provenance validation passed. The post-compaction ViewerPane suite passed 18/18 tests."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": ["Q-0042 remains the only literal M6 specification contradiction and is unaffected by the format-neutral thumbnail oracle."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

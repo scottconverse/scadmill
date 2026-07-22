@@ -513,10 +513,12 @@ export const M4_DOM_SCRIPTS = Object.freeze({
     const expectedPath = arguments[1];
     const notBeforeMs = arguments[2];
     const expectedRenderIdentity = arguments[3];
+    const excludedRenderIdentity = arguments[4];
     const done = arguments[arguments.length - 1];
     if (!['fileTree', 'welcome'].includes(surface)
       || typeof expectedPath !== 'string' || !Number.isFinite(notBeforeMs)
-      || !/^sha256:[a-f0-9]{64}$/u.test(expectedRenderIdentity)) {
+      || (expectedRenderIdentity !== null && !/^sha256:[a-f0-9]{64}$/u.test(expectedRenderIdentity))
+      || (excludedRenderIdentity !== null && !/^sha256:[a-f0-9]{64}$/u.test(excludedRenderIdentity))) {
       done({ error: 'Thumbnail wait arguments are invalid.' });
       return;
     }
@@ -541,7 +543,8 @@ export const M4_DOM_SCRIPTS = Object.freeze({
         try {
           const envelope = JSON.parse(entry.value);
           const record = envelope?.records?.find((candidate) => candidate?.documentPath === expectedPath);
-          if (record && record.renderIdentity === expectedRenderIdentity
+          if (record && (expectedRenderIdentity === null || record.renderIdentity === expectedRenderIdentity)
+            && (excludedRenderIdentity === null || record.renderIdentity !== excludedRenderIdentity)
             && Date.parse(record.capturedAt) >= notBeforeMs) return record;
         } catch { /* Keep polling until a complete bounded envelope exists. */ }
       }
@@ -600,6 +603,10 @@ export const M4_DOM_SCRIPTS = Object.freeze({
       });
     }, 5000);
     void probe();
+  `,
+  viewerGeometryIdentity: `
+    const viewerPanel = document.querySelector('.viewer-panel');
+    return { geometryIdentity: viewerPanel?.dataset.geometryIdentity ?? '' };
   `,
   secretSurfaceSnapshot: `
     const storage = (area) => {
@@ -685,8 +692,10 @@ export const M4_DOM_SCRIPTS = Object.freeze({
     const render = [...document.querySelectorAll('button')]
       .find((button) => button.textContent?.trim() === 'Full render');
     const canvas = document.querySelector('.viewer-pane canvas, .model-viewer canvas, canvas');
+    const viewerPanel = document.querySelector('.viewer-panel');
     if (!(status instanceof HTMLElement) || !(render instanceof HTMLButtonElement)
-      || render.disabled || !(canvas instanceof HTMLCanvasElement)) {
+      || render.disabled || !(canvas instanceof HTMLCanvasElement)
+      || !(viewerPanel instanceof HTMLElement)) {
       done({ error: 'Cached paint controls are unavailable.' });
       return;
     }
@@ -730,6 +739,7 @@ export const M4_DOM_SCRIPTS = Object.freeze({
         consoleRunsAfter: document.querySelectorAll('.console-run').length,
         canvasVisible: canvas.getClientRects().length > 0
           && canvas.clientWidth > 0 && canvas.clientHeight > 0,
+        geometryIdentity: viewerPanel.dataset.geometryIdentity ?? '',
       })));
     };
     const observer = new MutationObserver(probe);
@@ -1275,12 +1285,17 @@ async function screenshot(automation, screenshots, name) {
   screenshots.push({ name, sha256: png.sha256, byteLength: png.byteLength });
 }
 
-function validateCachedPaint(value, limitMs) {
-  assert.ok(exactKeys(value, ["elapsedMs", "status", "consoleRunsBefore", "consoleRunsAfter", "canvasVisible"]), "Cached-paint observation has the wrong shape.");
+export function validateCachedPaint(value, limitMs, expectedGeometryIdentity) {
+  assert.ok(exactKeys(value, ["elapsedMs", "status", "consoleRunsBefore", "consoleRunsAfter", "canvasVisible", "geometryIdentity"]), "Cached-paint observation has the wrong shape.");
   assert.ok(Number.isFinite(value.elapsedMs) && value.elapsedMs >= 0 && value.elapsedMs < limitMs, `Cached full render painted in ${value.elapsedMs} ms, not under ${limitMs} ms.`);
   assert.match(value.status, /Rendered .+ \(3d, cached\)$/u, "Cached-paint status is not exact.");
   assert.equal(value.consoleRunsAfter, value.consoleRunsBefore, "Cached render launched an engine console run.");
   assert.equal(value.canvasVisible, true, "Cached render did not leave a visible viewer canvas.");
+  assert.match(value.geometryIdentity, /^sha256:[a-f0-9]{64}$/u, "Cached render geometry identity is invalid.");
+  if (expectedGeometryIdentity !== undefined) {
+    assert.match(expectedGeometryIdentity, /^sha256:[a-f0-9]{64}$/u, "Expected cached-render geometry identity is invalid.");
+    assert.equal(value.geometryIdentity, expectedGeometryIdentity, "Cached render geometry identity does not match the expected target.");
+  }
   return value;
 }
 
@@ -1362,7 +1377,9 @@ export async function runM4PackagedWalkthrough({
   for (const [name, value] of Object.entries({ initialSource, proposalSource, agentSource, projectPath })) {
     assert.ok(safeString(value, 1_000_000), `M4 ${name} is invalid.`);
   }
-  assert.match(expectedThumbnailRenderIdentity, /^sha256:[a-f0-9]{64}$/u, "M4 expected thumbnail geometry identity is invalid.");
+  if (expectedThumbnailRenderIdentity !== undefined) {
+    assert.match(expectedThumbnailRenderIdentity, /^sha256:[a-f0-9]{64}$/u, "M4 expected thumbnail geometry identity is invalid.");
+  }
   assert.ok(Number.isFinite(cachePaintLimitMs) && cachePaintLimitMs > 0 && cachePaintLimitMs <= 100, "M4 cache-paint limit must be greater than zero and no more than 100 ms.");
   assert.ok(["automated", "hosted-plus-manual"].includes(aiConversationMode), "M4 AI conversation mode is invalid.");
   assert.equal(await automation.readSource(), initialSource, "M4 walkthrough did not start from the declared source.");
@@ -1534,6 +1551,7 @@ export async function runM4PackagedWalkthrough({
     assert.equal(scrubFrame.consoleRunsAfter - scrubFrame.consoleRunsBefore, 1, "Frame 51 scrub did not complete exactly one new engine run.");
     assert.match(scrubFrame.status, /^Rendered /u, "Frame 51 scrub did not finish rendering.");
     await automation.setControl("Animation FPS", "24");
+    const animationThumbnailCaptureNotBeforeMs = Date.now();
     const playedFrame = await automation.executeAsync(M4_DOM_SCRIPTS.animationPlayFrameCompleted);
     assert.ok(exactKeys(playedFrame, ["consoleRunsBefore", "consoleRunsAfter", "status", "paused", "playLabel"]), "Animation Play evidence has the wrong shape.");
     assert.equal(playedFrame.consoleRunsBefore, scrubFrame.consoleRunsAfter, "Animation Play did not start from the completed scrub run.");
@@ -1561,6 +1579,17 @@ export async function runM4PackagedWalkthrough({
     order.push("animation");
     await screenshot(automation, screenshots, "04e-animation-frame-52.png");
 
+    const animationGeometry = await automation.execute(M4_DOM_SCRIPTS.viewerGeometryIdentity);
+    assert.ok(exactKeys(animationGeometry, ["geometryIdentity"]), "Animation geometry-identity observation has the wrong shape.");
+    assert.match(animationGeometry.geometryIdentity, /^sha256:[a-f0-9]{64}$/u, "Animation geometry identity is invalid.");
+    await automation.activateRail("Files");
+    assert.equal(await automation.execute(M4_DOM_SCRIPTS.focusFileTreeThumbnail, [projectPath]), true, "Active animation file could not be focused for thumbnail verification.");
+    const animationThumbnail = validateThumbnailSnapshot(await automation.executeAsync(
+      M4_DOM_SCRIPTS.thumbnailDecodedSnapshot,
+      ["fileTree", projectPath, animationThumbnailCaptureNotBeforeMs, animationGeometry.geometryIdentity, null],
+    ), projectPath, "fileTree");
+    assert.equal(animationThumbnail.renderIdentity, animationGeometry.geometryIdentity, "Paused animation thumbnail does not match frame 52 geometry.");
+
     const thumbnailCacheSource = `${initialSource}\n// M4 thumbnail cold-cache`;
     const thumbnailCaptureNotBeforeMs = Date.now();
     await automation.replaceSource(thumbnailCacheSource);
@@ -1569,15 +1598,19 @@ export async function runM4PackagedWalkthrough({
     assert.equal(await automation.execute(M4_DOM_SCRIPTS.focusFileTreeThumbnail, [projectPath]), true, "Active file could not be focused for thumbnail preview.");
     const fileTreeThumbnail = validateThumbnailSnapshot(await automation.executeAsync(
       M4_DOM_SCRIPTS.thumbnailDecodedSnapshot,
-      ["fileTree", projectPath, thumbnailCaptureNotBeforeMs, expectedThumbnailRenderIdentity],
+      ["fileTree", projectPath, thumbnailCaptureNotBeforeMs, expectedThumbnailRenderIdentity ?? null, animationThumbnail.renderIdentity],
     ), projectPath, "fileTree");
+    const targetThumbnailRenderIdentity = fileTreeThumbnail.renderIdentity;
+    if (expectedThumbnailRenderIdentity !== undefined) {
+      assert.equal(targetThumbnailRenderIdentity, expectedThumbnailRenderIdentity, "Fresh thumbnail geometry does not match the supplied target render.");
+    }
     order.push("thumbnail");
     await screenshot(automation, screenshots, "04f-file-tree-thumbnail.png");
     await automation.clickButton("Welcome");
     await automation.waitForText("Recent projects");
     const welcomeThumbnail = validateThumbnailSnapshot(await automation.executeAsync(
       M4_DOM_SCRIPTS.thumbnailDecodedSnapshot,
-      ["welcome", projectPath, thumbnailCaptureNotBeforeMs, expectedThumbnailRenderIdentity],
+      ["welcome", projectPath, thumbnailCaptureNotBeforeMs, targetThumbnailRenderIdentity, null],
     ), projectPath, "welcome");
     assert.equal(welcomeThumbnail.sha256, fileTreeThumbnail.sha256, "Welcome and file tree thumbnails differ.");
     await screenshot(automation, screenshots, "04g-welcome-recent-thumbnail.png");
@@ -1585,17 +1618,17 @@ export async function runM4PackagedWalkthrough({
 
     const restart = await automation.restartApplication(thumbnailCacheSource, projectPath);
     validateRestart(restart);
-    assert.equal(restart.persistedThumbnailRenderIdentity, expectedThumbnailRenderIdentity, "Persisted thumbnail geometry does not match the exact target render.");
+    assert.equal(restart.persistedThumbnailRenderIdentity, targetThumbnailRenderIdentity, "Persisted thumbnail geometry does not match the exact target render.");
     await automation.waitForText("ScadMill");
     await automation.clickButton("Welcome");
     await automation.waitForText("Recent projects");
     const restoredThumbnail = validateThumbnailSnapshot(await automation.executeAsync(
       M4_DOM_SCRIPTS.thumbnailDecodedSnapshot,
-      ["welcome", projectPath, thumbnailCaptureNotBeforeMs, expectedThumbnailRenderIdentity],
+      ["welcome", projectPath, thumbnailCaptureNotBeforeMs, targetThumbnailRenderIdentity, null],
     ), projectPath, "welcome");
     await automation.clickAria("Close welcome");
-    assert.equal(restoredThumbnail.renderIdentity, expectedThumbnailRenderIdentity, "Thumbnail geometry identity changed across restart.");
-    const coldCached = validateCachedPaint(await automation.executeAsync(M4_DOM_SCRIPTS.cachedPaint, [true]), cachePaintLimitMs);
+    assert.equal(restoredThumbnail.renderIdentity, targetThumbnailRenderIdentity, "Thumbnail geometry identity changed across restart.");
+    const coldCached = validateCachedPaint(await automation.executeAsync(M4_DOM_SCRIPTS.cachedPaint, [true]), cachePaintLimitMs, targetThumbnailRenderIdentity);
     order.push("restart");
     await screenshot(automation, screenshots, "04h-cold-cache-restored-thumbnail.png");
 

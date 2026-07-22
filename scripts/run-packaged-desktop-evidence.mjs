@@ -1448,7 +1448,6 @@ try {
     proposalSource: m4ProposalSource,
     agentSource: m4AgentSource,
     projectPath: "main.scad",
-    expectedThumbnailRenderIdentity: `sha256:${fingerprint(stlBytes).toLowerCase()}`,
     cachePaintLimitMs: 100,
     aiConversationMode: "hosted-plus-manual",
     automation: {

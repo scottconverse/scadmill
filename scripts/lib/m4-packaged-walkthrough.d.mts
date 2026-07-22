@@ -103,7 +103,7 @@ export interface M4PackagedWalkthroughOptions {
   readonly proposalSource: string;
   readonly agentSource: string;
   readonly projectPath: string;
-  readonly expectedThumbnailRenderIdentity: string;
+  readonly expectedThumbnailRenderIdentity?: string;
   readonly cachePaintLimitMs?: number;
   readonly aiConversationMode?: "automated";
 }
@@ -293,6 +293,12 @@ export function waitForM4AiProposalOutcome(
   readonly assistantHasExpected: boolean;
   readonly alertText: string;
 }>;
+
+export function validateCachedPaint(
+  value: unknown,
+  limitMs: number,
+  expectedGeometryIdentity?: string,
+): unknown;
 
 export function runM4PackagedWalkthrough(
   options: M4NativePackagedWalkthroughOptions,

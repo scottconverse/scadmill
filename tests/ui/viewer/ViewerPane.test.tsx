@@ -89,6 +89,19 @@ function Harness({ result }: { result?: RenderResult }) {
 }
 
 describe("ViewerPane result routing", () => {
+  it("exposes the current semantic geometry identity for packaged cache verification", () => {
+    const geometryIdentity = `sha256:${"a".repeat(64)}`;
+    const result: RenderResult = {
+      ...threeD,
+      mesh: { ...threeD.mesh, geometryIdentity },
+    };
+
+    const view = render(<Harness result={result} />);
+
+    expect(view.getByRole("region", { name: messages.viewerRegion }))
+      .toHaveAttribute("data-geometry-identity", geometryIdentity);
+  });
+
   it("lists separately colored 3MF parts and toggles their viewer visibility", async () => {
     const multipart: RenderResult = {
       ...threeD,
