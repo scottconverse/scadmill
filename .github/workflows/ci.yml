@@ -749,23 +749,21 @@ jobs:
             exit 1
           }
           $packagedApplication = $packagedApplications[0].FullName
-          $builtHash = Get-FileHash -Algorithm SHA256 -LiteralPath $application
-          $packagedHash = Get-FileHash -Algorithm SHA256 -LiteralPath $packagedApplication
-          Write-Host "Built application SHA256: $($builtHash.Hash)"
-          Write-Host "Exact setup application payload SHA256: $($packagedHash.Hash)"
-          if ($builtHash.Hash -cne $packagedHash.Hash) {
-            Write-Error "The built application differs from the exact setup payload."
-            exit 1
-          }
-
           $identityEvidenceRoot = Join-Path $env:RUNNER_TEMP "scadmill-windows-lifecycle"
           New-Item -ItemType Directory -Path $identityEvidenceRoot -Force | Out-Null
-          $identityEvidence = Join-Path $identityEvidenceRoot "built-packaged-identity.log"
-          @(
-            "built_sha256=$($builtHash.Hash)"
-            "packaged_sha256=$($packagedHash.Hash)"
-            "matched=true"
-          ) | Set-Content -LiteralPath $identityEvidence -Encoding utf8NoBOM
+          $identityEvidence = Join-Path $identityEvidenceRoot "built-packaged-identity.json"
+          node ./scripts/verify-tauri-bundle-identity.mjs `
+            --built $application `
+            --packaged $packagedApplication `
+            --out $identityEvidence
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "The built application and exact setup payload failed identity verification."
+            exit 1
+          }
+          $identity = Get-Content -Raw -LiteralPath $identityEvidence | ConvertFrom-Json
+          Write-Host "Built application SHA256: $($identity.builtSha256)"
+          Write-Host "Exact setup application payload SHA256: $($identity.packagedSha256)"
+          Write-Host "Normalized identity match: $($identity.normalizedMatch)"
 
           $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
           $visualStudio = (& $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath).Trim()

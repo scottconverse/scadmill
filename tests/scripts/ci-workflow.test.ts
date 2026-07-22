@@ -172,6 +172,10 @@ describe("regular CI workflow contract", () => {
     expect(installer).toContain('signing-account-name: "scottconverse-signing"');
     expect(installer).toContain('certificate-profile-name: "ScottConversePublic"');
     expect(installer).toContain("if ($signature.Status -ne 'Valid')");
+    expect(installer).toContain("node ./scripts/verify-tauri-bundle-identity.mjs");
+    expect(installer).toContain('"built-packaged-identity.json"');
+    expect(installer).toContain("Normalized identity match: $($identity.normalizedMatch)");
+    expect(installer).not.toContain("$builtHash.Hash -cne $packagedHash.Hash");
     expect(installer).not.toContain("azure/login");
     expect([preflight, build, sign, verify, hash, upload]).toEqual(
       [...[preflight, build, sign, verify, hash, upload]].sort((left, right) => left - right),

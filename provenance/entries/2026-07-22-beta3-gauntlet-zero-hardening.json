@@ -12,6 +12,9 @@
     { "path": "docs/WINDOWS-BETA.md", "status": "modified" },
     { "path": "provenance/entries/2026-07-22-beta3-gauntlet-zero-hardening.json", "status": "added" },
     { "path": "scripts/check-provenance.mjs", "status": "modified" },
+    { "path": "scripts/lib/tauri-bundle-identity.d.mts", "status": "added" },
+    { "path": "scripts/lib/tauri-bundle-identity.mjs", "status": "added" },
+    { "path": "scripts/verify-tauri-bundle-identity.mjs", "status": "added" },
     { "path": "scripts/windows/test-update-repair-lifecycle.ps1", "status": "added" },
     { "path": "spec/QUESTIONS.md", "status": "modified" },
     { "path": "src/ui/Workbench.tsx", "status": "modified" },
@@ -26,6 +29,7 @@
     { "path": "tests/scripts/ci-workflow.test.ts", "status": "modified" },
     { "path": "tests/scripts/provenance-cli.test.ts", "status": "added" },
     { "path": "tests/scripts/release-metadata.test.ts", "status": "modified" },
+    { "path": "tests/scripts/tauri-bundle-identity.test.ts", "status": "added" },
     { "path": "tests/scripts/windows-installer.test.ts", "status": "modified" },
     { "path": "tests/scripts/windows-update-repair.test.ts", "status": "added" },
     { "path": "tests/ui/ai/AiConversationPanel.test.tsx", "status": "modified" },
@@ -49,6 +53,11 @@
       "url": "https://docs.github.com/en/rest/repos/repos#enable-vulnerability-alerts",
       "accessedOn": "2026-07-22",
       "purpose": "Enable and verify repository vulnerability alerts and automated Dependabot security fixes through the official GitHub API."
+    },
+    {
+      "url": "https://github.com/tauri-apps/tauri/commit/0575dd287e021b61d2aedf64d62ae84a2c925fb4",
+      "accessedOn": "2026-07-22",
+      "purpose": "Verify from the official Tauri bundler source that NSIS packaging changes exactly one bundle-type token from __TAURI_BUNDLE_TYPE_VAR_UNK to __TAURI_BUNDLE_TYPE_VAR_NSS and restores the unpatched build executable afterward."
     }
   ],
   "providedInputs": [
@@ -89,6 +98,13 @@
       "decision": "Anchor the dimensions readout inside the model surface and deep-link the unconfigured AI action into the AI settings section with focus return to its invoker.",
       "rationale": "Status geometry must not obscure details controls, and an optional-feature empty state must provide a complete accessible path to the configuration it names.",
       "specBasis": ["C2 viewer", "C10 AI panel", "N-3 accessibility", "N-7 honesty"]
+    },
+    {
+      "id": "D-0541",
+      "topic": "Canonical Windows build-to-package identity",
+      "decision": "Compare the canonical unbundled application with the exact NSIS payload after reversing only the one documented Tauri UNK-to-NSS bundle-type token at the same unique byte offset, and reject missing, duplicate, moved, or additional byte differences.",
+      "rationale": "Tauri intentionally patches the packaged executable and then restores the unpatched build executable, so raw SHA-256 equality is impossible by design. Exact normalization of that single upstream-defined token preserves fail-closed identity proof without misclassifying the documented packaging transformation as corruption.",
+      "specBasis": ["V-5", "M6 release gate"]
     }
   ],
   "testEvidence": [
@@ -163,6 +179,20 @@
       }
     },
     {
+      "criterion": "The exact NSIS application payload differs from the canonical build only by Tauri's documented bundle-type token patch.",
+      "test": "Compare synthetic build/package byte streams and reject any missing, duplicate, moved, or extra byte difference; lock the Windows workflow to the verifier and retained JSON evidence.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/tauri-bundle-identity.test.ts",
+        "observedAt": "2026-07-22T17:50:28-06:00",
+        "outcome": "RED: the verifier module did not exist. Hosted Windows CI independently failed the earlier raw-hash equality because Tauri restores the unpatched build executable after packaging the NSS-token payload."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/tauri-bundle-identity.test.ts tests/scripts/ci-workflow.test.ts",
+        "observedAt": "2026-07-22T17:51:39-06:00",
+        "outcome": "GREEN: 14/14 focused tests passed; the verifier accepts only the unique same-offset UNK-to-NSS patch and rejects any other payload difference, while the workflow retains its JSON evidence before signing and lifecycle checks."
+      }
+    },
+    {
       "criterion": "The integrated candidate change must compile, satisfy the source policy, pass the complete JavaScript suite, build production bytes, retain allowed licenses/notices, and avoid LFS or oversized tracked blobs.",
       "test": "Run the aggregate local web/policy chain once, stop at the first failing stage, correct only the reported compile/lint defects, and continue from the failed stage without restarting completed checks.",
       "red": {
@@ -187,6 +217,11 @@
       "url": "urn:scadmill:focused-tests-do-not-substitute-for-typecheck",
       "sought": "Treat focused component-test success as sufficient integration proof for the new Settings and viewer wiring.",
       "confirmation": "The first aggregate TypeScript check rejected four compile-only integration issues despite all focused behavior tests passing. Each exact type defect was corrected, the two UI files were refactored back under the 400-line cap, and only the affected checks were rerun before the aggregate continued."
+    },
+    {
+      "url": "urn:scadmill:tauri-bundle-token-identity",
+      "sought": "Require raw SHA-256 equality between the post-bundle build path and the NSIS payload.",
+      "confirmation": "Hosted CI correctly exposed that Tauri packages an NSS-token executable then restores the canonical UNK-token build. Official upstream source confirmed the intentional one-token transformation. The corrected verifier normalizes only that exact unique token and rejects every other difference."
     }
   ],
   "questions": [],
