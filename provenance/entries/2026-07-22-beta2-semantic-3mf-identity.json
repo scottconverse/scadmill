@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-22-beta2-semantic-3mf-identity",
+  "createdAt": "2026-07-22T02:51:06-06:00",
+  "summary": "Make M4 geometry-delta identity stable for M6 Color-encoded 3MF renders and preserve multipart metadata across identity attachment and disk-cache round trips.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "FR-15.1", "FR-15.2", "AC-15.a", "AC-15.b", "FR-15.14", "FR-15.15", "N-7", "V-5 release gate"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-22-beta2-semantic-3mf-identity.json", "status": "added" },
+    { "path": "src/application/geometry/geometry-identity.ts", "status": "modified" },
+    { "path": "src/application/geometry/three-mf.ts", "status": "modified" },
+    { "path": "src/application/geometry/three-mf-canonicalizer-worker-client.ts", "status": "added" },
+    { "path": "src/application/geometry/three-mf-canonicalizer.worker.ts", "status": "added" },
+    { "path": "src/application/render-cache/render-disk-cache.ts", "status": "modified" },
+    { "path": "tests/application/geometry/geometry-identity.test.ts", "status": "modified" },
+    { "path": "tests/application/geometry/three-mf-canonicalizer-worker-client.test.ts", "status": "added" },
+    { "path": "tests/application/render-cache/render-disk-cache.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/3MFConsortium/spec_core/blob/master/3MF%20Core%20Specification.md",
+      "accessedOn": "2026-07-22",
+      "purpose": "Confirm from the official 3MF Consortium specification that build items and component references carry row-major affine transforms and that build transforms affect output geometry. No product or lookalike editor source was consulted."
+    }
+  ],
+  "providedInputs": [
+    { "label": "Owner-provided ScadMill functional specification v0.6", "destination": "spec/scadmill-spec-v0.6.md", "sha256": "A2D12C68E23590DF061BF3E222F481C3FFC40ECA6541D6F3DF49FDA87C1DE15A" }
+  ],
+  "decisions": [
+    {
+      "id": "D-0521",
+      "topic": "Semantic identity for Color-encoded 3MF renders",
+      "decision": "Hash a canonical 3MF geometry graph that retains mesh/topology, component and build references, and transforms while excluding ZIP packaging, comments, generated metadata and UUIDs, names, and material/color presentation. Perform archive decode and canonicalization in a dedicated one-shot worker using one combined rewrite pass; refuse large main-thread fallback. Preserve all existing mesh fields when replacing an engine-provided identity, and fail honestly without an identity if the 3MF cannot be canonicalized.",
+      "rationale": "The M6 native engine emits a fresh 3MF for every 3D render. Exact pinned-engine evidence proved bytewise archive and model-XML hashes change across identical renders solely because creation timestamps and production UUIDs change. Hashing those containers violates AC-15.b by reporting a comment-only edit as geometry change. Geometry transforms must remain identity-bearing because Q-0035 records signed position deltas; names and colors must not invent geometric change under N-7. Keeping bounded large-model canonicalization off the renderer thread avoids turning the fix into a UI stall.",
+      "specBasis": ["FR-15.2", "AC-15.b", "Q-0035", "FR-15.14", "FR-15.15", "N-7"]
+    },
+    {
+      "id": "D-0522",
+      "topic": "Multipart metadata through the render disk cache",
+      "decision": "Round-trip strictly validated contiguous multipart records through the optional disk cache and reject malformed part inventories instead of silently dropping or trusting them. Parts require a positive safe stats.triangles total, unique IDs, strict colors, contiguous safe ranges, positive safe counts, and an exact cumulative-total match.",
+      "rationale": "Color and part visibility are shipped render-result behavior. Identity attachment and disk-cache decoding both removed the parts field, so a cache hit could present less product state than the engine result. Retaining validated parts makes cached and uncached presentations behaviorally equivalent.",
+      "specBasis": ["FR-15.1", "FR-15.14", "FR-15.15", "AC-15.a", "N-7"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The exact pinned engine must produce one semantic identity across repeated unchanged 3MF renders even when its containers differ.",
+      "test": "Render the same checked-in stock-round-trip.scad fixture twice with the exact verified OpenSCAD 2026.06.12 executable, compare raw archive/model hashes, and hash both payloads through the new canonicalizer.",
+      "red": {
+        "command": "openscad.exe --export-format 3mf --backend Manifold --enable lazy-union -O export-3mf/color-mode=model -O export-3mf/material-type=color -o first.3mf stock-round-trip.scad; repeat to second.3mf",
+        "observedAt": "2026-07-22T02:44:41-06:00",
+        "outcome": "RED diagnostic: both renders reported the same six-facet geometry, but the raw 3MF archives and 3D/3dmodel.model payloads had different SHA-256 values; the XML diff was limited to CreationDate and generated production UUIDs."
+      },
+      "green": {
+        "command": "vite-node work/three-mf-identity-probe/probe.ts",
+        "observedAt": "2026-07-22T02:54:15-06:00",
+        "outcome": "GREEN: both exact-engine archives canonicalized to sha256:74508cb3367bdce6ddb507a66c1a39164b4d69a8ec048056294f4a4028e3bbb9. The temporary diagnostic script was removed after the bounded probe."
+      }
+    },
+    {
+      "criterion": "Cosmetic or container-only changes must not alter 3MF geometry identity, while coordinate and build-transform changes must.",
+      "test": "Hash equivalent synthetic 3MF archives with different entry order/compression, timestamps, UUIDs, names, and colors; then change one coordinate and one build transform.",
+      "red": {
+        "command": "npm.cmd test -- --run tests/application/geometry/geometry-identity.test.ts",
+        "observedAt": "2026-07-22T02:43:25-06:00",
+        "outcome": "RED: 1 of 3 tests failed because raw ZIP SHA-256 values differed for identical triangle geometry."
+      },
+      "green": {
+        "command": "npm.cmd test -- --run tests/application/geometry/geometry-identity.test.ts tests/application/geometry/three-mf.test.ts tests/application/render-cache/render-disk-cache.test.ts",
+        "observedAt": "2026-07-22T02:50:37-06:00",
+        "outcome": "GREEN after review corrections: all 29 focused geometry, worker-boundary, 3MF parser, and disk-cache tests passed; presentation-only variants matched, coordinate/transform variants differed, worker failures and compressed expansion stayed bounded, and malformed part inventories were rejected."
+      }
+    },
+    {
+      "criterion": "Multipart render metadata must survive disk-cache persistence and identity attachment.",
+      "test": "Persist a render carrying one validated part, retrieve it twice through the cloned disk-cache path, and compare the complete result.",
+      "red": {
+        "command": "npm.cmd test -- --run tests/application/render-cache/render-disk-cache.test.ts",
+        "observedAt": "2026-07-22T02:48:26-06:00",
+        "outcome": "RED: the round-trip result lacked mesh.parts while the other ten cache tests passed."
+      },
+      "green": {
+        "command": "npm.cmd run typecheck; npm.cmd test -- --run tests/application/geometry/geometry-identity.test.ts tests/application/geometry/three-mf.test.ts tests/application/render-cache/render-disk-cache.test.ts",
+        "observedAt": "2026-07-22T02:50:37-06:00",
+        "outcome": "GREEN after review corrections: TypeScript passed and all 29 focused tests passed with complete valid part metadata preserved and malformed inventories removed."
+      }
+    },
+    {
+      "criterion": "Large 3MF canonicalization must not block the renderer thread or allow unbounded main-thread fallback.",
+      "test": "Exercise a supplied worker boundary for transfer/response/retirement behavior, reject malformed responses, and attempt a greater-than-1-MiB fallback with Worker unavailable.",
+      "red": {
+        "command": "Bounded read-only pre-commit review of the semantic-identity diff",
+        "observedAt": "2026-07-22T02:56:30-06:00",
+        "outcome": "RED review: synchronous unzip/decode plus repeated whole-model rewrites could freeze the renderer and multiply memory for the 2M-triangle baseline."
+      },
+      "green": {
+        "command": "npm.cmd test -- --run tests/application/geometry/geometry-identity.test.ts tests/application/geometry/three-mf.test.ts tests/application/geometry/three-mf-canonicalizer-worker-client.test.ts tests/application/render-cache/render-disk-cache.test.ts; npm.cmd run typecheck",
+        "observedAt": "2026-07-22T02:59:44-06:00",
+        "outcome": "GREEN: 29 focused tests and TypeScript passed; production canonicalization is one combined pass in a one-shot worker, the original archive remains attached to the render result, workers always retire, main-thread fallback refuses archives over 1 MiB, and a highly compressed model expanding past the independent 8 MiB fallback cap is rejected before decompression."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": ["Q-0042 remains the only literal M6 specification contradiction and is unaffected by semantic geometry identity."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

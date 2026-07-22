@@ -11,7 +11,18 @@ import {
 function result(fill = 1): RenderSuccess3D {
   return {
     kind: "3d",
-    mesh: { format: "stl-binary", bytes: new Uint8Array([fill, 2, 3]), geometryIdentity: `geometry-${fill}` },
+    mesh: {
+      format: "stl-binary",
+      bytes: new Uint8Array([fill, 2, 3]),
+      geometryIdentity: `geometry-${fill}`,
+      parts: [{
+        id: "part-1",
+        name: "Cached part",
+        color: "#FF0000",
+        triangleOffset: 0,
+        triangleCount: 1,
+      }],
+    },
     stats: { triangles: 1, engineTimeMs: 12 },
     diagnostics: [],
     rawLog: "rendered",
@@ -87,6 +98,47 @@ describe("RenderDiskCache", () => {
     hit.result.mesh.bytes[0] = 99;
     expect((await cache.get("project-a", "key-a"))?.result).toEqual(result());
     expect(backing.touches).toEqual(["project-a:key-a", "project-a:key-a"]);
+  });
+
+  it("rejects a multipart inventory whose cumulative triangle range overflows", async () => {
+    const backing = storage();
+    const cache = new RenderDiskCache(backing);
+    const malformed = result();
+    malformed.stats = { triangles: Number.MAX_SAFE_INTEGER, engineTimeMs: 12 };
+    malformed.mesh.parts = [
+      { id: "one", name: "One", color: "#FF0000", triangleOffset: 0, triangleCount: Number.MAX_SAFE_INTEGER },
+      { id: "two", name: "Two", color: "#0000FF", triangleOffset: Number.MAX_SAFE_INTEGER, triangleCount: 1 },
+    ];
+    await cache.put("project-a", "overflow", malformed);
+
+    await expect(cache.get("project-a", "overflow")).resolves.toBeUndefined();
+    expect(backing.values.has("project-a:overflow")).toBe(false);
+  });
+
+  it.each([
+    ["missing triangle total", undefined, [{ id: "one", name: "One", color: "#FF0000", triangleOffset: 0, triangleCount: 1 }]],
+    ["offset gap", 2, [{ id: "one", name: "One", color: "#FF0000", triangleOffset: 1, triangleCount: 2 }]],
+    ["duplicate id", 2, [
+      { id: "same", name: "One", color: "#FF0000", triangleOffset: 0, triangleCount: 1 },
+      { id: "same", name: "Two", color: "#0000FF", triangleOffset: 1, triangleCount: 1 },
+    ]],
+    ["invalid color", 1, [{ id: "one", name: "One", color: "red", triangleOffset: 0, triangleCount: 1 }]],
+    ["zero count", 1, [{ id: "one", name: "One", color: "#FF0000", triangleOffset: 0, triangleCount: 0 }]],
+    ["unsafe count", 1, [{ id: "one", name: "One", color: "#FF0000", triangleOffset: 0, triangleCount: Number.MAX_SAFE_INTEGER + 1 }]],
+    ["total mismatch", 2, [{ id: "one", name: "One", color: "#FF0000", triangleOffset: 0, triangleCount: 1 }]],
+  ])("rejects malformed multipart cache data: %s", async (_label, triangles, parts) => {
+    const backing = storage();
+    const cache = new RenderDiskCache(backing);
+    const malformed = result();
+    malformed.stats = {
+      ...(typeof triangles === "number" ? { triangles } : {}),
+      engineTimeMs: 12,
+    };
+    malformed.mesh.parts = parts;
+    await cache.put("project-a", "malformed", malformed);
+
+    await expect(cache.get("project-a", "malformed")).resolves.toBeUndefined();
+    expect(backing.values.has("project-a:malformed")).toBe(false);
   });
 
   it("clears only the selected project's durable records", async () => {

@@ -175,6 +175,8 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Fixed
 
+- Made geometry-delta identity stable for Color-encoded 3MF renders by excluding ZIP packaging, generated timestamps/UUIDs, names, and material presentation while retaining mesh, topology, component/build references, and transforms. Canonicalization runs in a bounded one-shot worker, cosmetic edits now report `Geometry unchanged`, real coordinate/placement changes remain detectable, and strictly validated colored multipart metadata survives both identity attachment and optional disk-cache round trips.
+
 - The packaged M4 cold-start cache proof now waits for the deferred automatic cached preview to finish before clicking Full render. This prevents a pending preview from overwriting the full-quality cache transition; the measured <100 ms interval starts at the full-render click and still requires zero additional Console runs.
 
 - The packaged M4 cold-cache oracle now observes the whole viewer/status surface and requires the Preview-quality badge to disappear, so a cached preview followed by a cached full render is detected even when both operations share the same visible cached-status text. A restarted-runtime regression now also proves the disk result is retrieved without an engine invocation.

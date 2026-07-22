@@ -1,5 +1,5 @@
 import type { CacheableRenderResult, CachedRenderResult, RenderCache } from "./render-cache";
-import type { MeshFormat } from "../engine/contracts";
+import type { MeshFormat, RenderPart } from "../engine/contracts";
 import { cloneCacheableRenderResult } from "./render-cache";
 import {
   isSha256GeometryIdentity,
@@ -83,6 +83,44 @@ function validNonNegativeInteger(value: unknown): value is number {
   return Number.isSafeInteger(value) && (value as number) >= 0;
 }
 
+function decodeParts(value: unknown, totalTriangles: unknown): readonly RenderPart[] | undefined | null {
+  if (value === undefined) return undefined;
+  if (!validNonNegativeInteger(totalTriangles) || totalTriangles === 0) return null;
+  if (!Array.isArray(value) || value.length === 0) return null;
+  const parts: RenderPart[] = [];
+  const ids = new Set<string>();
+  let expectedOffset = 0;
+  for (const candidate of value) {
+    if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) return null;
+    const part = candidate as Record<string, unknown>;
+    if (
+      typeof part.id !== "string"
+      || part.id.length === 0
+      || ids.has(part.id)
+      || typeof part.name !== "string"
+      || part.name.length === 0
+      || typeof part.color !== "string"
+      || !/^#[\dA-F]{6}$/u.test(part.color)
+      || part.triangleOffset !== expectedOffset
+      || !Number.isSafeInteger(part.triangleCount)
+      || (part.triangleCount as number) <= 0
+    ) return null;
+    ids.add(part.id);
+    const triangleCount = part.triangleCount as number;
+    if (!Number.isSafeInteger(expectedOffset + triangleCount)) return null;
+    parts.push({
+      id: part.id,
+      name: part.name,
+      color: part.color,
+      triangleOffset: expectedOffset,
+      triangleCount,
+    });
+    expectedOffset += triangleCount;
+  }
+  if (expectedOffset !== totalTriangles) return null;
+  return parts;
+}
+
 function decodeResult(value: unknown): CacheableRenderResult | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
   const candidate = value as Record<string, unknown>;
@@ -123,6 +161,8 @@ function decodeResult(value: unknown): CacheableRenderResult | undefined {
     || (parsedStats.volumeMm3 !== undefined && !(typeof parsedStats.volumeMm3 === "number" && Number.isFinite(parsedStats.volumeMm3) && parsedStats.volumeMm3 >= 0))) return undefined;
   const meshFormats: readonly MeshFormat[] = ["stl-binary", "stl-ascii", "3mf", "off", "amf"];
   if (!meshFormats.includes(mesh.format as MeshFormat)) return undefined;
+  const parts = decodeParts(mesh.parts, parsedStats.triangles);
+  if (parts === null) return undefined;
   const min = parsedBounds?.min as number[] | undefined;
   const max = parsedBounds?.max as number[] | undefined;
   return {
@@ -131,6 +171,7 @@ function decodeResult(value: unknown): CacheableRenderResult | undefined {
       format: mesh.format as MeshFormat,
       bytes,
       ...(typeof mesh.geometryIdentity === "string" ? { geometryIdentity: mesh.geometryIdentity } : {}),
+      ...(parts ? { parts } : {}),
     },
     stats: {
       ...(typeof parsedStats.vertices === "number" ? { vertices: parsedStats.vertices } : {}),

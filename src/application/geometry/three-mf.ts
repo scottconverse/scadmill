@@ -14,6 +14,7 @@ const COLOR = /<(?:[\w.-]+:)?color\b([^>]*)\/?\s*>/giu;
 const OBJECT = /<(?:[\w.-]+:)?object\b([^>]*)>([\s\S]*?)<\/(?:[\w.-]+:)?object\s*>/giu;
 const VERTEX = /<(?:[\w.-]+:)?vertex\b([^>]*)\/?\s*>/giu;
 const TRIANGLE = /<(?:[\w.-]+:)?triangle\b([^>]*)\/?\s*>/giu;
+const CANONICALIZATION_TOKEN = /<!--[\s\S]*?-->|<(?:[\w.-]+:)?metadata\b[^>]*>(?:[\s\S]*?)<\/(?:[\w.-]+:)?metadata\s*>|<(?:[\w.-]+:)?metadata\b[^>]*\/\s*>|<(?:[\w.-]+:)?(?:basematerials|colorgroup|compositematerials|multiproperties|texture2dgroup)\b[^>]*>(?:[\s\S]*?)<\/(?:[\w.-]+:)?(?:basematerials|colorgroup|compositematerials|multiproperties|texture2dgroup)\s*>|\s+(?:(?:[\w.-]+:)?UUID|name|partnumber|pid|pindex|p1|p2|p3)\s*=\s*"[^"]*"|\s+/giu;
 
 function attributes(source: string): ReadonlyMap<string, string> {
   const result = new Map<string, string>();
@@ -72,7 +73,7 @@ function displayColor(source: string): { readonly css: string; readonly rgb: rea
   };
 }
 
-function modelXml(archive: Uint8Array): string {
+function modelXml(archive: Uint8Array, maxModelBytes = MAX_MODEL_BYTES): string {
   if (archive.byteLength === 0 || archive.byteLength > MAX_ARCHIVE_BYTES) {
     throw new Error("3MF archive exceeds the supported size.");
   }
@@ -80,7 +81,7 @@ function modelXml(archive: Uint8Array): string {
   const entries = unzipSync(archive, {
     filter: (entry: UnzipFileInfo) => {
       if (entry.name !== MODEL_PATH) return false;
-      if (entry.originalSize <= 0 || entry.originalSize > MAX_MODEL_BYTES) {
+      if (entry.originalSize <= 0 || entry.originalSize > maxModelBytes) {
         oversized = true;
         return false;
       }
@@ -95,6 +96,25 @@ function modelXml(archive: Uint8Array): string {
   } catch {
     throw new Error("3MF model XML is not valid UTF-8.");
   }
+}
+
+/**
+ * Returns a deterministic representation of the 3MF geometry graph. ZIP
+ * packaging, generated metadata/UUIDs, names, and material/color assignments
+ * are presentation details and deliberately do not participate. Meshes,
+ * topology, component/build references, and transforms remain represented.
+ */
+export function canonicalThreeMfGeometryBytes(
+  archive: Uint8Array,
+  maxModelBytes = MAX_MODEL_BYTES,
+): Uint8Array {
+  const xml = modelXml(archive, maxModelBytes);
+  triangleCount(xml);
+  unitScale(xml);
+  const canonical = xml.replace(CANONICALIZATION_TOKEN, (token) =>
+    token.trim().length === 0 ? " " : ""
+  ).trim();
+  return new TextEncoder().encode(`scadmill-3mf-geometry-v1\n${canonical}`);
 }
 
 function unitScale(xml: string): number {

@@ -1,4 +1,5 @@
 import type { RenderResult } from "../engine/contracts";
+import { canonicalThreeMfGeometryBytesOffThread } from "./three-mf-canonicalizer-worker-client";
 
 const SHA256_IDENTITY = /^sha256:[0-9a-f]{64}$/u;
 
@@ -30,8 +31,16 @@ export async function ensureGeometryIdentity(
 ): Promise<RenderResult> {
   if (result.kind === "failure") return result;
   if (result.kind === "3d") {
-    const geometryIdentity = await hash(result.mesh.bytes);
-    const mesh = { format: result.mesh.format, bytes: result.mesh.bytes };
+    const { geometryIdentity: _engineIdentity, ...mesh } = result.mesh;
+    let identityBytes: Uint8Array;
+    try {
+      identityBytes = result.mesh.format === "3mf"
+        ? await canonicalThreeMfGeometryBytesOffThread(result.mesh.bytes)
+        : result.mesh.bytes;
+    } catch {
+      return { ...result, mesh };
+    }
+    const geometryIdentity = await hash(identityBytes);
     return { ...result, mesh: geometryIdentity ? { ...mesh, geometryIdentity } : mesh };
   }
   const geometryIdentity = await hash(new TextEncoder().encode(result.svg));
