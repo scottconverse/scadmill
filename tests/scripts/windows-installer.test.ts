@@ -310,6 +310,33 @@ describe("installer lifecycle contract", () => {
     expect(linux.run).toContain("ps -eo pid=,ppid=,stat=,comm=,args=");
     expect(linux.run).toContain("AppImage launch proof failed");
     expect(linux.run).toContain("trap cleanup EXIT");
+    const processGroupProbe = `launcher_group_ready=0
+for _ in $(seq 1 20); do
+  if ! kill -0 "$launcher_pid" 2>/dev/null; then
+    break
+  fi
+  observed_launcher_pgid="$(ps -o pgid= -p "$launcher_pid" 2>/dev/null | tr -d ' ' || true)"
+  if [ -n "$observed_launcher_pgid" ] && [ "$observed_launcher_pgid" = "$launcher_pid" ]; then
+    launcher_pgid="$observed_launcher_pgid"
+    launcher_group_ready=1
+    break
+  fi
+  sleep 0.05
+done
+if [ "$launcher_group_ready" -ne 1 ]; then
+  write_diagnostics "the exact AppImage launcher did not become its own isolated process group."
+  exit 1
+fi`;
+    const cleanupTrap = linux.run?.indexOf("trap cleanup EXIT") ?? -1;
+    const launcherStart = linux.run?.indexOf(
+      'setsid env APPIMAGE_EXTRACT_AND_RUN=1 "$installed"',
+    ) ?? -1;
+    const processGroupStart = linux.run?.indexOf(processGroupProbe, launcherStart) ?? -1;
+    const windowProbeStart = linux.run?.indexOf("ready=0", processGroupStart) ?? -1;
+    expect(cleanupTrap).toBeGreaterThan(-1);
+    expect(launcherStart).toBeGreaterThan(cleanupTrap);
+    expect(processGroupStart).toBeGreaterThan(launcherStart);
+    expect(windowProbeStart).toBeGreaterThan(processGroupStart);
     expect(linux.run).toContain('rm -f "$installed" || cleanup_status=1');
     expect(linux.run).toContain('[ -e "$installed" ] || [ -e "$extract_root" ]');
     expect(linux.run).toContain("AppImage cleanup failed to remove");

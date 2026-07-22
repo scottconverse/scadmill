@@ -521,12 +521,23 @@ jobs:
 
           setsid env APPIMAGE_EXTRACT_AND_RUN=1 "$installed" >"$launch_log" 2>&1 &
           launcher_pid=$!
-          observed_launcher_pgid="$(ps -o pgid= -p "$launcher_pid" 2>/dev/null | tr -d ' ' || true)"
-          if [ -z "$observed_launcher_pgid" ] || [ "$observed_launcher_pgid" != "$launcher_pid" ]; then
+          launcher_group_ready=0
+          for _ in $(seq 1 20); do
+            if ! kill -0 "$launcher_pid" 2>/dev/null; then
+              break
+            fi
+            observed_launcher_pgid="$(ps -o pgid= -p "$launcher_pid" 2>/dev/null | tr -d ' ' || true)"
+            if [ -n "$observed_launcher_pgid" ] && [ "$observed_launcher_pgid" = "$launcher_pid" ]; then
+              launcher_pgid="$observed_launcher_pgid"
+              launcher_group_ready=1
+              break
+            fi
+            sleep 0.05
+          done
+          if [ "$launcher_group_ready" -ne 1 ]; then
             write_diagnostics "the exact AppImage launcher did not become its own isolated process group."
             exit 1
           fi
-          launcher_pgid="$observed_launcher_pgid"
           ready=0
           runtime_pid=""
           runtime=""

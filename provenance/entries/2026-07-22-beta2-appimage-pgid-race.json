@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-22-beta2-appimage-pgid-race",
+  "createdAt": "2026-07-22T07:04:10-06:00",
+  "summary": "Remove a Linux AppImage lifecycle false failure by bounding process-group identity discovery instead of sampling the new setsid launcher once immediately.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "V-5 release gate", "FR-13.4", "M6 release candidate"],
+  "filesTouched": [
+    { "path": ".github/workflows/ci.yml", "status": "modified" },
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-22-beta2-appimage-pgid-race.json", "status": "added" },
+    { "path": "tests/scripts/windows-installer.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29921233498/job/88926987101",
+      "accessedOn": "2026-07-22",
+      "purpose": "Inspect the exact c739d73 AppImage lifecycle failure. Build, hashing, extraction, and artifact retention passed; the immediate process-group read failed, while retained diagnostics 1.5 seconds later showed PID 16157 in session-leader state Rs running the exact copied AppImage."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0527",
+      "topic": "AppImage setsid process-group readiness",
+      "decision": "After starting the exact copied AppImage through setsid, poll process liveness and its process-group identity every 50 ms for at most 20 observations. Continue only when the process-group ID is nonempty and exactly equals the captured launcher PID; otherwise retain diagnostics and fail closed as before.",
+      "rationale": "The exact hosted failure sampled ps immediately after background launch and observed no stable matching process group, but its retained process tree showed the same captured PID as an Rs session leader moments later. A one-second readiness bound covers process publication without adding a workflow retry, weakening exact identity, trusting an unrelated process, or relaxing the subsequent exact-runtime hash and visible-window proof.",
+      "specBasis": ["V-5 release gate", "FR-13.4"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The AppImage lifecycle must allow bounded setsid identity publication while still requiring the captured launcher PID to become its own process group before window verification.",
+      "test": "Parse the production workflow and require a bounded liveness-aware process-group readiness loop plus the unchanged fail-closed branch.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/windows-installer.test.ts -t \"visible exact macOS/Linux\"",
+        "observedAt": "2026-07-22T07:02:59-06:00",
+        "outcome": "RED: 1 test failed and 3 skipped because the workflow had no bounded launcher_group_ready path and sampled ps only once immediately after setsid launch."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/windows-installer.test.ts -t \"visible exact macOS/Linux\"; pnpm.cmd exec biome lint tests/scripts/windows-installer.test.ts; pnpm.cmd check:provenance",
+        "observedAt": "2026-07-22T07:07:14-06:00",
+        "outcome": "GREEN after adversarial test hardening: 1 test passed and 3 skipped in 507 ms; targeted lint and provenance passed. The test requires the complete contiguous 20-observation block, 50 ms delay, liveness check, exact PGID-to-PID equality, validated assignment, diagnostic failure, exit ordering, and cleanup trap before launch. Exact hosted AppImage lifecycle confirmation remains required on the next committed head."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "local://.github/workflows/ci.yml",
+      "sought": "Removing process-group verification, retrying the entire CI job, or accepting any nonempty process group",
+      "confirmation": "Rejected. The captured PID must still become exactly its own group within one second, and every later hash, window, diagnostic, and cleanup assertion remains unchanged."
+    }
+  ],
+  "questions": ["No owner decision is required. The next exact hosted AppImage job must pass before the release candidate can advance."],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

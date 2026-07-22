@@ -175,6 +175,8 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Fixed
 
+- Made the Linux AppImage lifecycle proof wait up to one bounded second for `setsid` to publish the launcher's new process-group identity. The prior immediate `ps` read could race process initialization and fail even when retained diagnostics showed the launcher was already the correct session leader; the exact process-group, runtime-hash, visible-window, and cleanup requirements remain unchanged.
+
 - Bounded the reusable 3MF/STL parser worker to 16 successful mesh parses before retirement and fresh-isolate replacement. This prevents unzip/XML/parser heap growth from accumulating in one WebView renderer for the full N-2 hour while retaining worker reuse for ordinary render bursts; abort, error, overlap, transfer, and final-disposal behavior remain fail-closed.
 
 - Made the Windows Sandbox host wrapper wait for the mapped guest exit-code file to become both complete and readable. A guest can create that file before closing its final write handle; the host now retries bounded file-sharing failures plus empty, partial, malformed, and out-of-range payloads until the existing deadline, then applies the unchanged pass/fail and retained-evidence checks.
