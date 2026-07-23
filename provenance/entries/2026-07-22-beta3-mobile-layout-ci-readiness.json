@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-22-beta3-mobile-layout-ci-readiness",
+  "createdAt": "2026-07-22T20:18:39-06:00",
+  "summary": "Keep the mobile-layout browser acceptance assertion intact while giving its initial application mount a bounded budget under Windows runner contention.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["AC-0.c", "FR-0.6", "Windows beta release verification", "owner no-loop direction"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-22-beta3-mobile-layout-ci-readiness.json", "status": "added" },
+    { "path": "tests/e2e/c0-responsive.e2e.ts", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29973390577/job/89100002162",
+      "purpose": "Observed the exact final-main Windows browser-acceptance failure and bounded the correction to its mobile-layout startup assertion.",
+      "accessedOn": "2026-07-22"
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0548",
+      "topic": "Mobile layout acceptance startup budget",
+      "decision": "Give only the affected mobile-layout test a 60-second enclosing budget, wait up to 15 seconds for the workspace frame to mount, and then independently assert that its data-layout-mode is narrow.",
+      "rationale": "The final-main Windows run timed out before finding the narrow frame, and the focused local trace showed navigation could consume about 29 seconds of the old 30-second test budget while the eventual DOM was correct. Separating mount readiness from the layout assertion preserves the behavioral oracle without a retry or an assertion waiver.",
+      "specBasis": ["AC-0.c", "FR-0.6", "bounded release verification"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The mobile-web layout acceptance test tolerates a slow initial mount while still proving the complete narrow presentation.",
+      "test": "Run only the affected Playwright case after adding bounded mount readiness and retaining the narrow-mode, switcher, editor-position, and overflow assertions.",
+      "red": {
+        "command": "pnpm.cmd exec playwright test tests/e2e/c0-responsive.e2e.ts --grep \"uses the complete narrow presentation above the width breakpoint\"",
+        "observedAt": "2026-07-22T20:13:34-06:00",
+        "outcome": "RED: the 30-second test timed out after navigation consumed about 29 seconds; the trace's final DOM contained the correct workspace-frame with data-layout-mode=narrow."
+      },
+      "green": {
+        "command": "pnpm.cmd exec playwright test tests/e2e/c0-responsive.e2e.ts --grep \"uses the complete narrow presentation above the width breakpoint\"",
+        "observedAt": "2026-07-22T20:15:04-06:00",
+        "outcome": "GREEN: the single affected case passed in 4.3 seconds; 1 test passed with no retry."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
