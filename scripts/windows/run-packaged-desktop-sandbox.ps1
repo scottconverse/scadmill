@@ -53,6 +53,29 @@ $arguments = @(
 
 & "$local\tools\node.exe" @arguments *> (Join-Path $output "runner-console.txt")
 $exitCode = $LASTEXITCODE
+if ($exitCode -eq 0) {
+  $m5M6Arguments = @(
+    "$local\scripts\run-m5-m6-packaged-walkthrough.mjs",
+    "--app", "$local\app\scadmill.exe",
+    "--engine", "$local\engine\openscad.exe",
+    "--tauri-driver", "$local\tools\tauri-driver.exe",
+    "--native-driver", "$local\tools\msedgedriver.exe",
+    "--webview", "$local\webview",
+    "--source-metadata", "$local\scripts\source-metadata.json",
+    "--batch-evidence", "$local\scripts\ci\batch-export-evidence.json",
+    "--update-repair-evidence", "$local\scripts\ci\update-repair-evidence.json",
+    "--bundle-identity", "$local\scripts\ci\built-packaged-identity.json",
+    "--ci-metadata", "$local\scripts\ci\ci-metadata.json",
+    "--output", $output
+  )
+  & "$local\tools\node.exe" @m5M6Arguments *> (Join-Path $output "m5-m6-runner-console.txt")
+  $exitCode = $LASTEXITCODE
+  if ($exitCode -eq 0 -and (Test-Path -LiteralPath (Join-Path $output "m5-m6-packaged-walkthrough.json"))) {
+    Set-Content -LiteralPath (Join-Path $output "M5_M6_GUEST_PASS") -Value "M5/M6 packaged walkthrough passed" -Encoding ascii
+  } elseif ($exitCode -eq 0) {
+    $exitCode = 97
+  }
+}
 Set-Content -LiteralPath (Join-Path $output "sandbox-exit-code.txt") -Value $exitCode -Encoding ascii
 shutdown.exe /s /t 5 /f
 exit $exitCode

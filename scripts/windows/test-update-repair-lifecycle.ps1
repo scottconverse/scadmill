@@ -23,7 +23,7 @@ function New-LoopbackPort {
 function Invoke-DevToolsExpression([string]$WebSocketUrl, [string]$Expression) {
   $socket = [Net.WebSockets.ClientWebSocket]::new()
   $timeout = [Threading.CancellationTokenSource]::new()
-  $timeout.CancelAfter(10000)
+  $timeout.CancelAfter(20000)
   try {
     [void]$socket.ConnectAsync([Uri]$WebSocketUrl, $timeout.Token).GetAwaiter().GetResult()
     $request = @{
@@ -156,11 +156,20 @@ function Assert-CandidateApplication([string]$Stage) {
 
 function Assert-ApplicationState([string]$Application, [string]$Stage) {
   $expression = @"
-JSON.stringify({
-  autosave: JSON.parse(localStorage.getItem('scadmill.scratch-autosave.v2')),
-  proof: localStorage.getItem('scadmill.upgrade-proof.v1'),
-  editor: document.querySelector('.cm-content')?.innerText ?? ''
-})
+(async () => {
+  const deadline = Date.now() + 15000;
+  let editor = '';
+  while (Date.now() < deadline) {
+    editor = document.querySelector('.cm-content')?.innerText ?? '';
+    if (editor.includes('cube(42);')) break;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  return JSON.stringify({
+    autosave: JSON.parse(localStorage.getItem('scadmill.scratch-autosave.v2')),
+    proof: localStorage.getItem('scadmill.upgrade-proof.v1'),
+    editor
+  });
+})()
 "@
   $state = (Invoke-InstalledExpression $Application $expression) | ConvertFrom-Json
   if ($state.autosave.version -ne 2 -or $state.autosave.path -cne "UpgradeProof.scad") {

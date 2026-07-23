@@ -38,5 +38,10 @@ describe("Windows public-beta update and repair lifecycle", () => {
     expect(source).toContain("Get-FileHash -Algorithm SHA256 -LiteralPath $projectFile");
     expect(source).toContain("scadmill.scratch-autosave.v2");
     expect(source).toContain("scadmill.upgrade-proof.v1");
+    expect(source).toContain("async () =>");
+    expect(source).toContain("Date.now() + 15000");
+    expect(source).toContain("CancelAfter(20000)");
+    expect(source).toContain("editor.includes('cube(42);')");
+    expect(source).toContain("await new Promise((resolve) => setTimeout(resolve, 100))");
   });
 });

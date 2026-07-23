@@ -349,8 +349,8 @@ button.console-diagnostic:hover, button.console-diagnostic:focus-visible { backg
   .statusbar .theme-picker { min-width: 0; gap: 2px; }
   .statusbar .theme-picker > span { display: none; }
   .statusbar .theme-picker select { width: 68px; min-width: 0; font-size: 11px; }
-  .viewer-content { grid-template-columns: minmax(0, 1fr); }
-  .viewer-details { position: absolute; z-index: 5; right: 0; bottom: 0; max-width: min(240px, 72%); max-height: 48%; border-top: 1px solid var(--chrome-border); border-left: 1px solid var(--chrome-border); }
+  .viewer-content { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 48%); }
+  .viewer-details { position: static; width: 100%; max-width: none; max-height: none; border-top: 1px solid var(--chrome-border); border-left: 0; }
 }
 
 @media (max-width: 399px) {

@@ -1,4 +1,6 @@
 // @vitest-environment happy-dom
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { forwardRef, startTransition, Suspense, useImperativeHandle } from "react";
 import { act, fireEvent, render, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
@@ -89,6 +91,19 @@ function Harness({ result }: { result?: RenderResult }) {
 }
 
 describe("ViewerPane result routing", () => {
+  it("keeps narrow viewer details in flow so they cannot occlude model bounds", () => {
+    const stylesheet = readFileSync(resolve("src/ui/workbench.css"), "utf8");
+    const narrowStart = stylesheet.indexOf("@media (max-width: 599px)");
+    const narrowEnd = stylesheet.indexOf("@media (max-width: 399px)", narrowStart);
+    const narrowRules = stylesheet.slice(narrowStart, narrowEnd);
+    const detailsRule = narrowRules.match(/\.viewer-details\s*\{(?<body>[^}]*)\}/u)?.groups?.body ?? "";
+
+    expect(narrowStart).toBeGreaterThanOrEqual(0);
+    expect(narrowEnd).toBeGreaterThan(narrowStart);
+    expect(detailsRule).toMatch(/\bposition:\s*static\s*;/u);
+    expect(narrowRules).toMatch(/\.viewer-content\s*\{[^}]*grid-template-rows:/u);
+  });
+
   it("keeps the bounds readout inside the model surface and outside the details panel", async () => {
     const view = render(<Harness result={threeD} />);
 
