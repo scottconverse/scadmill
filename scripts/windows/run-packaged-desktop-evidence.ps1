@@ -327,11 +327,12 @@ $n2SoakConfiguration = switch ($N2SoakMode) {
     }
   }
 }
-$canonicalApplication = "src/desktop-shell/src-tauri/target/release/scadmill.exe"
+$canonicalApplication = "signed-installer-payload/scadmill.exe"
+$sourceBuiltApplication = "src/desktop-shell/src-tauri/target/release/scadmill.exe"
 $desktopManifest = "src/desktop-shell/src-tauri/Cargo.toml"
 $desktopTarget = "src/desktop-shell/src-tauri/target"
 $desktopShellDirectory = Join-Path $repo "src\desktop-shell"
-$applicationPath = Join-Path $repo ($canonicalApplication.Replace('/', '\'))
+$applicationPath = Join-Path $repo ($sourceBuiltApplication.Replace('/', '\'))
 $enginePath = Resolve-Directory $EngineDirectory "OpenSCAD directory"
 $tauriDriverPath = Resolve-File $TauriDriver "tauri-driver"
 $visualCppRuntimePath = Resolve-File $VisualCppRuntime "Visual C++ runtime"
@@ -353,6 +354,8 @@ $cargoCommand = Get-Command "cargo.exe" -CommandType Application -ErrorAction St
 $cargoPath = Resolve-File $cargoCommand.Source "Cargo"
 $rustcCommand = Get-Command "rustc.exe" -CommandType Application -ErrorAction Stop
 $rustcPath = Resolve-File $rustcCommand.Source "rustc"
+$sevenZipCommand = Get-Command "7z.exe" -CommandType Application -ErrorAction Stop
+$sevenZipPath = Resolve-File $sevenZipCommand.Source "7-Zip"
 $outputPath = [IO.Path]::GetFullPath($OutputDirectory)
 $repoPrefix = $repo.TrimEnd('\') + '\'
 if ($outputPath -eq $repo -or $outputPath.StartsWith($repoPrefix, [StringComparison]::OrdinalIgnoreCase)) {
@@ -443,6 +446,7 @@ $nodeVersion = Get-ToolVersion $nodePath "Node.js"
 $pnpmVersion = Get-ToolVersion $pnpmPath "pnpm"
 $cargoVersion = Get-ToolVersion $cargoPath "Cargo"
 $rustcVersion = Get-ToolVersion $rustcPath "rustc"
+$sevenZipVersion = Get-ToolVersion $sevenZipPath "7-Zip"
 $buildStartedAt = Format-IsoInstant (Get-Date)
 Invoke-LoggedCommand -Executable $pnpmPath -Arguments @("install", "--frozen-lockfile") -WorkingDirectory $repo -LogPath $dependencyInstallLog
 Invoke-LoggedCommand -Executable $cargoPath -Arguments @("clean", "--manifest-path", $desktopManifest, "--target-dir", $desktopTarget) -WorkingDirectory $repo -LogPath $desktopCleanLog
@@ -458,11 +462,8 @@ $builtBranch = Get-GitValue @("branch", "--show-current") "post-build source bra
 if ($builtCommit -ne $sourceCommit -or $builtTree -ne $sourceTree -or $builtBranch -ne $branch) {
   throw "Source identity changed during the evidence build."
 }
-$applicationPath = Resolve-File $applicationPath "just-built canonical ScadMill application"
-$applicationSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $applicationPath).Hash
-if ($applicationSha256 -cne [string]$bundleIdentity.builtSha256) {
-  throw "Cleanroom canonical application differs from exact CI's canonical application."
-}
+$sourceBuiltApplicationPath = Resolve-File $applicationPath "just-built source application"
+$sourceBuiltApplicationSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $sourceBuiltApplicationPath).Hash
 $ciMetadata = [ordered]@{
   schemaVersion = 1
   runId = $CiRunId
@@ -494,7 +495,13 @@ try {
   foreach ($directory in @("app", "tools", "scripts", "scripts\ci", "scripts\lib", "scripts\windows")) {
     New-Item -ItemType Directory -Force -Path (Join-Path $stage $directory) | Out-Null
   }
-  Copy-Item -LiteralPath $applicationPath -Destination (Join-Path $stage "app\scadmill.exe")
+  $packagedApplicationDirectory = Join-Path $stage "app"
+  $signedPayloadExtractLog = Join-Path $outputPath "signed-payload-extract.log"
+  Invoke-LoggedCommand -Executable $sevenZipPath -Arguments @(
+    "e", "-y", "-o$packagedApplicationDirectory", $installerPath, "scadmill.exe"
+  ) -WorkingDirectory $repo -LogPath $signedPayloadExtractLog
+  $applicationPath = Resolve-File (Join-Path $packagedApplicationDirectory "scadmill.exe") "signed installer payload"
+  $applicationSha256 = Assert-Hash $applicationPath ([string]$bundleIdentity.packagedSha256) "signed installer payload"
   Copy-Item -LiteralPath $tauriDriverPath -Destination (Join-Path $stage "tools\tauri-driver.exe")
   Copy-Item -LiteralPath $edgeDriverPath -Destination (Join-Path $stage "tools\msedgedriver.exe")
   Copy-Item -LiteralPath $nodePath -Destination (Join-Path $stage "tools\node.exe")
@@ -550,11 +557,13 @@ try {
         "cargo.exe clean --manifest-path src/desktop-shell/src-tauri/Cargo.toml --target-dir src/desktop-shell/src-tauri/target",
         "pnpm.cmd exec tauri build --no-bundle --ci -- --locked"
       )
+      sourceBuiltApplicationSha256 = $sourceBuiltApplicationSha256
       toolVersions = [ordered]@{
         node = $nodeVersion
         pnpm = $pnpmVersion
         cargo = $cargoVersion
         rustc = $rustcVersion
+        sevenZip = $sevenZipVersion
       }
     }
   } | ConvertTo-Json -Depth 8
@@ -686,7 +695,7 @@ try {
     $artifactEvent.source.sourceTree -ne $sourceTree -or
     $artifactEvent.source.applicationSha256 -ne $applicationSha256
   ) {
-    throw "Evidence source metadata does not match the just-built canonical application."
+    throw "Evidence source metadata does not match the exact signed installer payload."
   }
   if ((Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $outputPath "harness-manifest.json")).Hash -ne $harnessManifestSha256) {
     throw "Retained harness manifest changed after launch."

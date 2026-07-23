@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-22-beta3-exact-signed-payload-cleanroom",
+  "createdAt": "2026-07-22T19:34:00-06:00",
+  "summary": "Make the final cleanroom walkthrough exercise the exact application payload extracted from the signed installer instead of requiring non-reproducible cross-machine PE byte identity.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["M6 exit gate", "Windows signed-installer release evidence", "owner no-soak direction"],
+  "filesTouched": [
+    { "path": "CHANGELOG.md", "status": "modified" },
+    { "path": "provenance/entries/2026-07-22-beta3-exact-signed-payload-cleanroom.json", "status": "added" },
+    { "path": "scripts/lib/packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "scripts/run-m5-m6-packaged-walkthrough.mjs", "status": "modified" },
+    { "path": "scripts/windows/run-packaged-desktop-evidence.ps1", "status": "modified" },
+    { "path": "tests/scripts/m5-m6-packaged-walkthrough-wiring.test.ts", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" },
+    { "path": "tests/ui/ai/AiConversationPanel.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29971204992",
+      "purpose": "Bound the correction to the successful final-main CI run and its signed Windows setup, packaged-application identity, lifecycle, and batch artifacts.",
+      "accessedOn": "2026-07-22"
+    },
+    {
+      "url": "https://github.com/scottconverse/scadmill/pull/6#discussion_r3635016814",
+      "purpose": "Consumed the protected review finding that the metadata label had accidentally replaced the real local source-build path.",
+      "accessedOn": "2026-07-22"
+    },
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29972760113",
+      "purpose": "Observed the aggregate Linux web-check timeout for the rotated-provider-key UI test while the same focused test remained green.",
+      "accessedOn": "2026-07-22"
+    }
+  ],
+  "providedInputs": [
+    { "label": "Owner-provided ScadMill functional specification v0.6 with amendments", "destination": "spec/scadmill-spec-v0.6.md", "sha256": "32E06298C4538860A4E703650853C869162EB3262A57A933662296DEB07C5528" }
+  ],
+  "decisions": [
+    {
+      "id": "D-0546",
+      "topic": "Cleanroom application identity",
+      "decision": "Retain one locked clean source build as provenance, but extract the application from the exact signed installer, require its SHA-256 to equal the exact-CI packaged payload hash, and use those shipped bytes for the isolated Sandbox walkthrough.",
+      "rationale": "The previous cross-machine byte-equality check failed before Sandbox even though source, lockfiles, and Rust 1.96.0 matched. Direct PE inspection established the exact CI payload used MSVC linker 14.51 while the host clean build used 14.44, changing section layout, executable size, timestamp, and hash. A signed-payload hash check is stable across hosts and tests the artifact users receive without weakening source or CI binding.",
+      "specBasis": ["Windows signed-installer release evidence", "M6 exit gate", "no false compliance claims"]
+    },
+    {
+      "id": "D-0547",
+      "topic": "Aggregate UI-test scheduling budget",
+      "decision": "Raise only the rotated-provider-key test's rendered-text wait to 10 seconds and its enclosing test timeout to 15 seconds, without changing assertions or adding a retry.",
+      "rationale": "Exact-head CI run 29972760113 timed out at the prior DOM-wait bound under aggregate load after 1,740 tests passed; the unchanged focused test passed locally in 67 ms. The bounded budget preserves the persistence and redaction assertions while tolerating hosted-runner scheduling contention.",
+      "specBasis": ["AI conversation secret redaction", "release verification reliability", "owner no-loop direction"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The cleanroom walkthrough runs the exact application payload from the signed installer and fails closed on any payload hash mismatch.",
+      "test": "Require signed-payload extraction, packaged SHA-256 binding, shipped-byte source metadata, and M5/M6 identity checks.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts tests/scripts/m5-m6-packaged-walkthrough-wiring.test.ts --reporter=default",
+        "observedAt": "2026-07-22T19:31:55-06:00",
+        "outcome": "RED: 4 tests failed because the wrapper still staged a local rebuild, the source metadata still named the source-build path, and M5/M6 still compared against the exact-CI built hash."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts tests/scripts/m5-m6-packaged-walkthrough-wiring.test.ts --reporter=default",
+        "observedAt": "2026-07-22T19:33:01-06:00",
+        "outcome": "GREEN: 2 files and 60 tests passed after requiring exact signed-payload extraction and packaged-hash binding."
+      }
+    },
+    {
+      "criterion": "The retained clean source build resolves from its real Tauri target independently from the signed-payload metadata label.",
+      "test": "Require separate source-build and staged signed-payload paths in the wrapper contract.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts -t \"fails closed before staging unless a clean HEAD is built at the canonical target\" --reporter=default",
+        "observedAt": "2026-07-22T19:47:45-06:00",
+        "outcome": "RED: the focused test failed because no independent sourceBuiltApplication path existed; the wrapper incorrectly resolved the local build from the signed-payload metadata label."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts -t \"fails closed before staging unless a clean HEAD is built at the canonical target\" --reporter=default",
+        "observedAt": "2026-07-22T19:48:03-06:00",
+        "outcome": "GREEN: the focused regression passed after separating the real Tauri source-build target from the exact signed-payload staging identity."
+      }
+    },
+    {
+      "criterion": "The rotated-provider-key persistence test remains assertion-complete under bounded aggregate-runner contention.",
+      "test": "Run the exact focused UI test after increasing only its DOM and enclosing timeout budgets.",
+      "red": {
+        "command": "GitHub Actions web checks, run 29972760113",
+        "observedAt": "2026-07-22T19:50:18-06:00",
+        "outcome": "RED: 1 of 1,741 executed web tests timed out waiting for the replacement-provider-key reply; all other tests passed."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/ai/AiConversationPanel.test.tsx -t \"reloads a rotated provider key before every persistence transaction\" --reporter=default",
+        "observedAt": "2026-07-22T19:51:06-06:00",
+        "outcome": "GREEN: the unchanged focused behavior passed in 67 ms before applying the bounded aggregate-runner wait budget."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "urn:scadmill:cross-machine-pe-reproducibility",
+      "sought": "Treat byte-identical Windows rebuilds on different hosted and local MSVC installations as a release prerequisite.",
+      "confirmation": "Rejected after the fail-closed cleanroom gate exposed linker 14.51 versus 14.44 PE output differences. The replacement verifies the exact signed payload rather than weakening the comparison or accepting a locally rebuilt substitute."
+    }
+  ],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

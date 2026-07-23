@@ -916,7 +916,7 @@ function validateSourceLockfiles(lockfiles) {
 }
 
 function validateSourceBuild(build) {
-  if (!hasExactKeys(build, ["startedAt", "completedAt", "commands", "toolVersions"])) return false;
+  if (!hasExactKeys(build, ["startedAt", "completedAt", "commands", "sourceBuiltApplicationSha256", "toolVersions"])) return false;
   const started = Date.parse(build.startedAt);
   const completed = Date.parse(build.completedAt);
   const exactDates = Number.isFinite(started)
@@ -928,9 +928,9 @@ function validateSourceBuild(build) {
     && build.commands.length === SOURCE_BUILD_COMMANDS.length
     && build.commands.every((command, index) => command === SOURCE_BUILD_COMMANDS[index]);
   const versions = build.toolVersions;
-  const exactVersions = hasExactKeys(versions, ["node", "pnpm", "cargo", "rustc"])
+  const exactVersions = hasExactKeys(versions, ["node", "pnpm", "cargo", "rustc", "sevenZip"])
     && Object.values(versions).every((version) => safeText(version));
-  return exactDates && exactCommands && exactVersions;
+  return exactDates && exactCommands && sha(build.sourceBuiltApplicationSha256, 64) && exactVersions;
 }
 
 export function validateSourceMetadata(payload, expectedApplicationSha256) {
@@ -950,7 +950,7 @@ export function validateSourceMetadata(payload, expectedApplicationSha256) {
     || !sha(payload.sourceCommit, 40)
     || !sha(payload.sourceTree, 40)
     || !safeText(payload.branch, 256)
-    || payload.canonicalApplication !== "src/desktop-shell/src-tauri/target/release/scadmill.exe"
+    || payload.canonicalApplication !== "signed-installer-payload/scadmill.exe"
     || !sha(payload.applicationSha256, 64)
   ) {
     throw new Error("Source metadata must identify one canonical application and source tree.");

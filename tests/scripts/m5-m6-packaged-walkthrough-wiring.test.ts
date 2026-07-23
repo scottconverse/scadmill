@@ -26,7 +26,9 @@ describe("M5/M6 packaged walkthrough wiring", () => {
     expect(wrapper).not.toContain(".Contains($PathFragment");
     expect(wrapper).toContain("gh run view $CiRunId");
     expect(wrapper).toContain("Exact CI run head differs from source commit");
-    expect(wrapper).toContain("Cleanroom canonical application differs from exact CI's canonical application");
+    expect(wrapper).toContain('"signed installer payload"');
+    expect(wrapper).toContain("[string]$bundleIdentity.packagedSha256");
+    expect(wrapper).not.toContain("Cleanroom canonical application differs from exact CI's canonical application");
     expect(wrapper).toContain("Get-AuthenticodeSignature -LiteralPath $installerPath");
     expect(wrapper).toContain("Batch artifact byte count differs");
     expect(wrapper).toContain("hostM5M6Arguments");
@@ -34,6 +36,8 @@ describe("M5/M6 packaged walkthrough wiring", () => {
     expect(runner).toContain("view.dispatch({selection: {anchor: view.state.doc.length}})");
     expect(runner).toContain("BOSL2 removal state");
     expect(runner).toContain("Installed OpenSCAD versions could not be read.");
+    expect(runner).toContain("bundleIdentity.packagedSha256, sourceMetadata.applicationSha256");
+    expect(runner).not.toContain("bundleIdentity.builtSha256, sourceMetadata.applicationSha256");
     expect(runner).not.toContain("Engine version list could not be loaded");
   });
 });
