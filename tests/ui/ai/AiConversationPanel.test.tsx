@@ -114,9 +114,12 @@ describe("AiConversationPanel", () => {
     await waitFor(() => expect(screen.getByText("accepted")).toBeVisible());
   });
 
-  it("keeps the setup copy and no send control when unconfigured", () => {
-    render(<AiConversationPanel configured={false} currentSource="" documentId="d1" />);
+  it("keeps the setup copy, opens settings, and has no send control when unconfigured", () => {
+    const onOpenSettings = vi.fn();
+    render(<AiConversationPanel configured={false} currentSource="" documentId="d1" onOpenSettings={onOpenSettings} />);
     expect(screen.getByText("AI is not configured.")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Open settings" }));
+    expect(onOpenSettings).toHaveBeenCalledOnce();
     expect(screen.queryByRole("button", { name: "Send" })).not.toBeInTheDocument();
   });
 

@@ -34,6 +34,19 @@ function namedStep(job: WorkflowJob, name: string): WorkflowStep {
   return step;
 }
 
+function assertCanonicalPayloadIdentity(run: string | undefined): void {
+  expect(run).toContain("node ./scripts/verify-tauri-bundle-identity.mjs");
+  expect(run).toContain("--built $application");
+  expect(run).toContain("--packaged $packagedApplication");
+  expect(run).toContain("--out $identityEvidence");
+  expect(run).toContain('"built-packaged-identity.json"');
+  expect(run).toContain("if ($LASTEXITCODE -ne 0)");
+  expect(run).toContain("Built application SHA256: $($identity.builtSha256)");
+  expect(run).toContain("Exact setup application payload SHA256: $($identity.packagedSha256)");
+  expect(run).toContain("Normalized identity match: $($identity.normalizedMatch)");
+  expect(run).toContain('"SCADMILL_INSTALLER_IDENTITY_EVIDENCE=$identityEvidence"');
+}
+
 describe("installer lifecycle contract", () => {
   it("produces an offline current-user NSIS installer with static Visual C++ linkage", async () => {
     const root = process.cwd();
@@ -135,6 +148,7 @@ describe("installer lifecycle contract", () => {
       job,
       "Verify setup artifact and static Visual C++ runtime linkage",
     );
+    const sign = namedStep(job, "Sign setup executable");
     const noticesCheck = namedStep(job, "Verify distributable third-party notices");
     const build = namedStep(job, "Build offline NSIS setup");
     const hash = namedStep(job, "Hash exact setup bytes before lifecycle");
@@ -205,10 +219,21 @@ describe("installer lifecycle contract", () => {
     expect(job.steps.indexOf(hash)).toBeLessThan(job.steps.indexOf(lifecycleStep));
     expect(job.steps.indexOf(noticesCheck)).toBeLessThan(job.steps.indexOf(build));
     expect(job.steps.indexOf(build)).toBeLessThan(job.steps.indexOf(buildProof));
+    expect(job.steps.indexOf(buildProof)).toBeLessThan(job.steps.indexOf(sign));
     expect(job.steps.indexOf(lifecycleStep)).toBeLessThan(job.steps.indexOf(upload));
     expect(buildProof.run).toContain("7z e -y");
     expect(buildProof.run).toContain("SCADMILL_PACKAGED_APP=$packagedApplication");
     expect(buildProof.run).toContain("/dependents $packagedApplication");
+    assertCanonicalPayloadIdentity(buildProof.run);
+    expect(() => assertCanonicalPayloadIdentity(
+      buildProof.run?.replace(
+        "--packaged $packagedApplication",
+        "--packaged $application",
+      ),
+    )).toThrow();
+    expect(() => assertCanonicalPayloadIdentity(
+      buildProof.run?.replace("node ./scripts/verify-tauri-bundle-identity.mjs", ""),
+    )).toThrow();
     expect(lifecycleStep.run).toContain("-ExpectedApplication $env:SCADMILL_PACKAGED_APP");
     expect(lifecycleStep.run).toContain("-ExpectedNotices ./THIRD-PARTY-NOTICES.txt");
     expect(lifecycleStep.run).toContain("Tee-Object -FilePath $log");

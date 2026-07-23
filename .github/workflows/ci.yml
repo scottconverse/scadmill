@@ -39,6 +39,12 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      - name: Review dependency changes
+        if: github.event_name == 'pull_request'
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: high
+          license-check: false
       - name: Stage source-built WASM for ephemeral verification
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
@@ -73,10 +79,28 @@ jobs:
         run: pnpm check:licenses npm
       - name: OpenSCAD WASM workflow contract
         run: pnpm check:wasm-workflow
+      - name: Resolve provenance comparison base
+        id: provenance-base
+        shell: bash
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          zero='0000000000000000000000000000000000000000'
+          if [[ "$PR_BASE" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            base="$PR_BASE"
+          elif [[ "$PUSH_BEFORE" =~ ^[0-9a-fA-F]{40}$ && "$PUSH_BEFORE" != "$zero" ]]; then
+            base="$PUSH_BEFORE"
+          else
+            base="$(git rev-parse HEAD^)"
+          fi
+          git cat-file -e "$base^{commit}"
+          echo "base=$base" >> "$GITHUB_OUTPUT"
       - name: Provenance ledger
         run: pnpm check:provenance
         env:
-          SCADMILL_PROVENANCE_BASE: ${{ github.event.pull_request.base.sha }}
+          SCADMILL_PROVENANCE_BASE: ${{ steps.provenance-base.outputs.base }}
 
   e2e:
     name: Browser acceptance (${{ matrix.os }})
@@ -114,7 +138,16 @@ jobs:
         if: runner.os == 'Windows'
         run: pnpm exec playwright install chromium
       - name: Browser acceptance tests
+        env:
+          SCADMILL_BATCH_EXPORT_ARTIFACT_DIR: test-results/batch-export-evidence
         run: pnpm test:e2e
+      - name: Retain batch export acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: batch-export-evidence-${{ runner.os }}
+          path: test-results/batch-export-evidence
+          if-no-files-found: error
       - name: Production static browser acceptance
         if: runner.os == 'Linux'
         env:
@@ -189,7 +222,7 @@ jobs:
         with:
           name: ac4-parity-evidence
           path: test-results/ac4-parity
-          if-no-files-found: warn
+          if-no-files-found: error
 
   native:
     name: Native checks
@@ -716,8 +749,21 @@ jobs:
             exit 1
           }
           $packagedApplication = $packagedApplications[0].FullName
-          $packagedHash = Get-FileHash -Algorithm SHA256 -LiteralPath $packagedApplication
-          Write-Host "Exact setup application payload SHA256: $($packagedHash.Hash)"
+          $identityEvidenceRoot = Join-Path $env:RUNNER_TEMP "scadmill-windows-lifecycle"
+          New-Item -ItemType Directory -Path $identityEvidenceRoot -Force | Out-Null
+          $identityEvidence = Join-Path $identityEvidenceRoot "built-packaged-identity.json"
+          node ./scripts/verify-tauri-bundle-identity.mjs `
+            --built $application `
+            --packaged $packagedApplication `
+            --out $identityEvidence
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "The built application and exact setup payload failed identity verification."
+            exit 1
+          }
+          $identity = Get-Content -Raw -LiteralPath $identityEvidence | ConvertFrom-Json
+          Write-Host "Built application SHA256: $($identity.builtSha256)"
+          Write-Host "Exact setup application payload SHA256: $($identity.packagedSha256)"
+          Write-Host "Normalized identity match: $($identity.normalizedMatch)"
 
           $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
           $visualStudio = (& $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath).Trim()
@@ -738,6 +784,7 @@ jobs:
           "SCADMILL_INSTALLER=$($installers[0].FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
           "SCADMILL_BUILT_APP=$application" | Out-File -FilePath $env:GITHUB_ENV -Append
           "SCADMILL_PACKAGED_APP=$packagedApplication" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "SCADMILL_INSTALLER_IDENTITY_EVIDENCE=$identityEvidence" | Out-File -FilePath $env:GITHUB_ENV -Append
       - name: Sign setup executable
         if: env.SIGNING_CONFIGURED == 'true'
         uses: Azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2
@@ -783,6 +830,38 @@ jobs:
               -Installer $env:SCADMILL_INSTALLER `
               -ExpectedApplication $env:SCADMILL_PACKAGED_APP `
               -ExpectedNotices ./THIRD-PARTY-NOTICES.txt *>&1 |
+              Tee-Object -FilePath $log
+          } catch {
+            $_ | Format-List * -Force | Out-String | Add-Content -LiteralPath $log
+            throw
+          }
+      - name: Download previous public beta setup
+        shell: pwsh
+        run: |
+          $path = Join-Path $env:RUNNER_TEMP "ScadMill_0.1.0-beta.2_x64-setup.exe"
+          Invoke-WebRequest `
+            -Uri "https://github.com/scottconverse/scadmill/releases/download/v0.1.0-beta.2/ScadMill_0.1.0-beta.2_x64-setup.exe" `
+            -OutFile $path
+          $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $path).Hash
+          if ($hash -cne "49C107B1648D918B7DAF16B47B4F3BAD0500EDB160D8E734E6C400E7E2578A91") {
+            throw "The previous public beta installer hash is invalid."
+          }
+          if ((Get-AuthenticodeSignature -LiteralPath $path).Status -ne "Valid") {
+            throw "The previous public beta installer signature is invalid."
+          }
+          "SCADMILL_PREVIOUS_INSTALLER=$path" | Out-File -FilePath $env:GITHUB_ENV -Append
+      - name: Upgrade public beta, repair, uninstall, and reinstall exact setup
+        shell: pwsh
+        run: |
+          $logRoot = Join-Path $env:RUNNER_TEMP "scadmill-windows-lifecycle"
+          New-Item -ItemType Directory -Path $logRoot -Force | Out-Null
+          $log = Join-Path $logRoot "update-repair-lifecycle.log"
+          try {
+            & ./scripts/windows/test-update-repair-lifecycle.ps1 `
+              -PreviousInstaller $env:SCADMILL_PREVIOUS_INSTALLER `
+              -PreviousInstallerSha256 "49C107B1648D918B7DAF16B47B4F3BAD0500EDB160D8E734E6C400E7E2578A91" `
+              -CandidateInstaller $env:SCADMILL_INSTALLER `
+              -ExpectedCandidateApplication $env:SCADMILL_PACKAGED_APP *>&1 |
               Tee-Object -FilePath $log
           } catch {
             $_ | Format-List * -Force | Out-String | Add-Content -LiteralPath $log

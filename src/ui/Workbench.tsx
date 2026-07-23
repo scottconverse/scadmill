@@ -28,7 +28,7 @@ import { ManufacturingActivity } from "./manufacturing/ManufacturingActivity";
 import { HistoryActivityConnector, useMcpReviewApproval, useMcpStdio, useMcpViewportCapture } from "./mcp";
 import { ParameterPanelConnector } from "./parameters/ParameterPanelConnector";
 import { activePresentationToken, presentationHiddenByMode, RenderControls, RenderStatusText, sameRenderStateExceptCached, useWorkbenchRenderCommands } from "./render";
-import { SettingsLauncher } from "./settings/SettingsLauncher";
+import { SettingsLauncher, type SettingsLauncherHandle } from "./settings/SettingsLauncher";
 import { EnginePinMismatchBanner } from "./engine/EnginePinMismatchBanner";
 import { SearchActivity } from "./search/SearchActivity";
 import { useReadonlyStore } from "./use-readonly-store";
@@ -102,6 +102,7 @@ export function Workbench({
     runtime, project: projectState, workspace: documents, activePath: document.path,
     activeSource: document.source, storage: projectStorage });
   const workbenchRoot = useRef<HTMLElement>(null);
+  const settingsLauncher = useRef<SettingsLauncherHandle>(null);
   const editorSessions = useRef(new Map<string, CodeEditorSession>());
   const statusConsoleButton = useRef<HTMLButtonElement>(null);
   const [cursor, setCursor] = useState<CursorPosition>({ line: 1, column: 1 });
@@ -300,7 +301,7 @@ export function Workbench({
           <h1>{messages.appName}</h1>
         </div>
         <WelcomeLauncher documents={documents} project={projectState} runtime={runtime} showOnLaunch={controls.showWelcomeOnLaunch} onNewFile={fileCommands.newFile} onOpenProject={fileCommands.openProject} onOpenRecentProject={(projectId, displayName) => enqueueProject({ projectId, displayName })} onShowOnLaunchChange={(enabled) => runtime.dispatch({ kind: "set-welcome-on-launch", origin: "user", enabled })} />
-        <SettingsLauncher engineLabel={activeEngineLabel} engineVersionManager={engineVersionManager} runtime={runtime} secretStore={secretStore} renderDiskCacheAvailable={renderDiskCacheAvailable} mcpPort={mcpPort} mcpEnabled={mcpEnabled} onMcpEnabledChange={setMcpEnabled} mcpPermissions={mcpPermissions} onMcpPermissionChange={setMcpPermission} onEngineInventoryChanged={() => {
+        <SettingsLauncher engineLabel={activeEngineLabel} engineVersionManager={engineVersionManager} ref={settingsLauncher} runtime={runtime} secretStore={secretStore} renderDiskCacheAvailable={renderDiskCacheAvailable} mcpPort={mcpPort} mcpEnabled={mcpEnabled} onMcpEnabledChange={setMcpEnabled} mcpPermissions={mcpPermissions} onMcpPermissionChange={setMcpPermission} onEngineInventoryChanged={() => {
           setEngineInventoryRevision((revision) => revision + 1);
           onEngineInventoryChanged?.();
         }} />
@@ -352,7 +353,7 @@ export function Workbench({
         />
       </WorkbenchBanners>
       <WorkspaceFrame aiConfigured={(profile.ai.provider !== "none" && Boolean(profile.ai.model.trim() || profile.ai.models.length)) || profile.ai.configurations.length > 0} activityContent={{
-          ai: <AiWorkbenchPanel key={projectState.snapshot.workspaceIdentity} agentToolHandler={agentHandler} aiFetch={aiFetch} contextInputs={{ source: document.source, diagnostics: aiDiagnostics, parameters: aiParameters, screenshotDataUrl: viewerScreenshotDataUrl }} document={document} onApproveReview={approveMcpReview} onCopy={clipboard?.writeText} onInsertAtCursor={(code) => { const session = editorSessions.current.get(document.id); const head = session?.state.selection.main.head ?? document.source.length; const offset = Math.max(0, Math.min(document.source.length, head)); void runtime.dispatch({ kind: "edit-document", origin: "ai-panel", documentId: document.id, source: `${document.source.slice(0, offset)}${code}${document.source.slice(offset)}` }).catch(() => undefined); }} pendingReview={pendingReview} profile={profile} projectIdentity={projectState.snapshot.workspaceIdentity} runtime={runtime} secretStore={secretStore} />,
+          ai: <AiWorkbenchPanel key={projectState.snapshot.workspaceIdentity} agentToolHandler={agentHandler} aiFetch={aiFetch} contextInputs={{ source: document.source, diagnostics: aiDiagnostics, parameters: aiParameters, screenshotDataUrl: viewerScreenshotDataUrl }} document={document} onApproveReview={approveMcpReview} onCopy={clipboard?.writeText} onInsertAtCursor={(code) => { const session = editorSessions.current.get(document.id); const head = session?.state.selection.main.head ?? document.source.length; const offset = Math.max(0, Math.min(document.source.length, head)); void runtime.dispatch({ kind: "edit-document", origin: "ai-panel", documentId: document.id, source: `${document.source.slice(0, offset)}${code}${document.source.slice(offset)}` }).catch(() => undefined); }} onOpenSettings={() => { const activeElement = globalThis.document?.activeElement; settingsLauncher.current?.open("ai", activeElement instanceof HTMLElement ? activeElement : null); }} pendingReview={pendingReview} profile={profile} projectIdentity={projectState.snapshot.workspaceIdentity} runtime={runtime} secretStore={secretStore} />,
           files: <FilesActivity canReveal={canRevealProjectFiles} canTrash={canTrashProjectFiles} directoryPicker={directoryPicker} engine={engineAvailable ? engine : undefined} portability={projectPortability} recoveryPersistence={recoveryPersistence} projectTransitionsBlocked={recoveryPending} requestedExport={fileCommands.requestedExport} requestedNewFile={fileCommands.requestedNewFile} runtime={runtime} storage={projectStorage} workspaceDirectory={workspaceDirectory} />,
           history: <HistoryActivityConnector runtime={runtime} pendingReviews={pendingReviews} sourceForPath={sourceForMcpPath} onApprove={approveMcpReview} onDeny={dismissReview} />,
           libraries: <LibrariesActivity key={projectState.snapshot.workspaceIdentity} project={projectState} storage={projectStorage} onProjectFilesChanged={() => runtime.dispatch({ kind: "refresh-project", origin: "user" }).then(() => undefined)} />,

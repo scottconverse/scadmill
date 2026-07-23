@@ -156,4 +156,51 @@ describe("public beta release metadata", () => {
     expect(releaseNotes).toContain("## Resolved specification correction");
     expect(releaseNotes).not.toContain("## Known specification question");
   });
+
+  it("documents both explicit verified OpenSCAD setup paths without implying automatic management", () => {
+    const windowsBeta = text("docs/WINDOWS-BETA.md");
+
+    expect(windowsBeta).toContain("Download official OpenSCAD 2026.06.12");
+    expect(windowsBeta).toContain("never downloads or updates OpenSCAD automatically");
+    expect(windowsBeta).toContain("manual verified setup");
+    expect(windowsBeta).not.toContain("is not managed or updated by ScadMill");
+  });
+
+  it("records the completed Q-0034 parity proof instead of an unresolved rerun", () => {
+    const questions = text("spec/QUESTIONS.md");
+    const q0034 = questions.slice(
+      questions.indexOf("## Q-0034"),
+      questions.indexOf("## Q-0001"),
+    );
+
+    expect(q0034).toContain("All six required cases passed");
+    expect(q0034).toContain("historical M3 candidate `1b6343a`");
+    expect(q0034).not.toContain("remains unproven");
+    expect(q0034).not.toContain("must now rerun");
+  });
+
+  it("keeps the specification-question index visibly current", () => {
+    const questions = text("spec/QUESTIONS.md");
+
+    expect(questions).toContain("## Current queue index");
+    expect(questions).not.toMatch(/## Queue index — \d{4}-\d{2}-\d{2}/u);
+  });
+
+  it("describes the absent updater without promising an undefined later milestone", () => {
+    const privacy = text("PRIVACY.md");
+    const websiteManual = text("website/app/manual/page.tsx");
+
+    for (const surface of [privacy, websiteManual]) {
+      expect(surface).toContain("no automatic updater is included in this beta");
+      expect(surface).not.toContain("updater itself arrives in a later milestone");
+      expect(surface).not.toContain("updater itself is later work");
+    }
+  });
+
+  it("uses present-tense uninstall guidance on the published Windows surface", () => {
+    const windowsBeta = text("docs/WINDOWS-BETA.md");
+
+    expect(windowsBeta).toContain("To uninstall ScadMill through");
+    expect(windowsBeta).not.toContain("After publication, uninstall ScadMill through");
+  });
 });

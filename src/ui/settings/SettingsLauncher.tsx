@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import {
@@ -9,6 +9,7 @@ import type { WorkbenchRuntime } from "../../application/runtime/workbench-runti
 import type { McpServerPort } from "../../application/platform/scadmill-platform";
 import type { McpPermission, McpToolPermissionState } from "../../application/mcp/mcp-tools";
 import type { SecretStore } from "../../application/settings/secret-store";
+import type { SettingsSection } from "../../application/settings/settings-schema";
 import type { EngineVersionManagerPort } from "../../application/engine/engine-version-manager";
 import { inspectProjectEnginePin } from "../../application/engine/project-engine-pin";
 import { messages } from "../../messages/en";
@@ -29,8 +30,13 @@ export interface SettingsLauncherProps {
   readonly onEngineInventoryChanged?: () => void;
 }
 
-export function SettingsLauncher({ engineLabel, runtime, secretStore, renderDiskCacheAvailable = false, mcpPort, mcpEnabled = false, onMcpEnabledChange, mcpPermissions, onMcpPermissionChange, engineVersionManager, onEngineInventoryChanged }: SettingsLauncherProps) {
+export interface SettingsLauncherHandle {
+  readonly open: (section?: SettingsSection, returnFocusTo?: HTMLElement | null) => void;
+}
+
+export const SettingsLauncher = forwardRef<SettingsLauncherHandle, SettingsLauncherProps>(function SettingsLauncher({ engineLabel, runtime, secretStore, renderDiskCacheAvailable = false, mcpPort, mcpEnabled = false, onMcpEnabledChange, mcpPermissions, onMcpPermissionChange, engineVersionManager, onEngineInventoryChanged }, forwardedRef) {
   const [open, setOpen] = useState(false);
+  const [initialSection, setInitialSection] = useState<SettingsSection>();
   const [persistenceError, setPersistenceError] = useState<string | undefined>();
   const [persistenceInFlight, setPersistenceInFlight] = useState(0);
   const launcher = useRef<HTMLButtonElement>(null);
@@ -43,6 +49,12 @@ export function SettingsLauncher({ engineLabel, runtime, secretStore, renderDisk
   );
   const project = useReadonlyStore(runtime.project, (state) => state);
   const pinInspection = inspectProjectEnginePin(project.snapshot);
+  const openSettings = (section?: SettingsSection, returnFocusTo?: HTMLElement | null) => {
+    setInitialSection(section);
+    returnFocus.current = returnFocusTo ?? launcher.current;
+    setOpen(true);
+  };
+  useImperativeHandle(forwardedRef, () => ({ open: openSettings }));
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!matchesKeybinding(event, profile.keybindings.settings, primaryModifierForPlatform())) {
@@ -52,6 +64,7 @@ export function SettingsLauncher({ engineLabel, runtime, secretStore, renderDisk
       returnFocus.current = document.activeElement instanceof HTMLElement
         ? document.activeElement
         : launcher.current;
+      setInitialSection(undefined);
       setOpen(true);
     };
     globalThis.addEventListener?.("keydown", handleKeyDown);
@@ -85,7 +98,7 @@ export function SettingsLauncher({ engineLabel, runtime, secretStore, renderDisk
       <button
         aria-label={messages.openSettings}
         className="settings-launcher"
-        onClick={() => { returnFocus.current = launcher.current; setOpen(true); }}
+        onClick={() => openSettings(undefined, launcher.current)}
         ref={launcher}
         type="button"
       >{messages.settingsTitle}</button>
@@ -93,6 +106,7 @@ export function SettingsLauncher({ engineLabel, runtime, secretStore, renderDisk
         <SettingsDialog
           engineLabel={engineLabel}
           engineVersionManager={engineVersionManager}
+          initialSection={initialSection}
           projectMode={project.mode === "project"}
           projectEnginePin={pinInspection.kind === "pinned" ? pinInspection.version : undefined}
           onPinProjectEngine={(engineVersion) => persist({ kind: "pin-project-engine", origin: "user", engineVersion })}
@@ -146,4 +160,4 @@ export function SettingsLauncher({ engineLabel, runtime, secretStore, renderDisk
       )}
     </>
   );
-}
+});

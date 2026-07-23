@@ -295,43 +295,43 @@ export function ViewerPane({
         <ViewerCameraBookmarks bookmarks={cameraBookmarks} camera={viewer.camera} onDelete={onDeleteCameraBookmark} onRecall={(camera) => dispatchViewer({ kind: "set-camera", documentId, camera })} onSave={onSaveCameraBookmark} />
       )}
       <div className="viewer-content">
-        <Suspense fallback={<div className="surface-loading" role="status">{messages.loadingViewer}</div>}>
-          {visibleGeometry?.kind === "2d" ? (
-            <SvgViewer result={visibleGeometry} onPresentationFailed={onPresentationFailed} onPresentationReady={onPresentationReady} onThumbnail={onThumbnail} presentationToken={presentationToken} />
-          ) : visibleGeometry?.kind === "3d" ? (
-            <ModelViewer
-              annotations={viewer.annotations}
-              camera={viewer.camera}
-              clipping={viewer.clipping}
-              colors={colors}
-              dimmed={dimmed}
-              furniture={viewer.furniture}
-              measurements={viewer.measurements}
-              meshColor={meshColor}
-              mouseMapping={mouseMapping}
-              partVisibility={partVisibility}
-              onCameraChange={(camera) => dispatchViewer({ kind: "set-camera", documentId, camera })}
-              onDegradationChange={updateDegradation}
-              onPresentationFailed={onPresentationFailed}
-              onPointPick={pickPoint}
-              onFrameRendered={reportModelFrame}
-              ref={modelViewer}
-              result={visibleGeometry}
-              presentationToken={presentationToken}
-              tool={tool}
-            />
-          ) : !mismatch ? (
-            <ModelViewer
-              colors={colors}
-              emptyMessage={engineChecking
-                ? messages.modelCheckingEngine
-                : engineAvailable
-                  ? messages.modelAwaitingRender
-                  : messages.modelAwaitingEngine}
-              ref={modelViewer}
-            />
-          ) : null}
-        </Suspense>
+        <div className="viewer-model-surface" data-testid="viewer-model-surface">
+          <Suspense fallback={<div className="surface-loading" role="status">{messages.loadingViewer}</div>}>
+            {visibleGeometry?.kind === "2d" ? (
+              <SvgViewer result={visibleGeometry} onPresentationFailed={onPresentationFailed} onPresentationReady={onPresentationReady} onThumbnail={onThumbnail} presentationToken={presentationToken} />
+            ) : visibleGeometry?.kind === "3d" ? (
+              <ModelViewer
+                annotations={viewer.annotations} camera={viewer.camera}
+                clipping={viewer.clipping}
+                colors={colors} dimmed={dimmed}
+                furniture={viewer.furniture}
+                measurements={viewer.measurements}
+                meshColor={meshColor}
+                mouseMapping={mouseMapping}
+                partVisibility={partVisibility}
+                onCameraChange={(camera) => dispatchViewer({ kind: "set-camera", documentId, camera })}
+                onDegradationChange={updateDegradation}
+                onPresentationFailed={onPresentationFailed}
+                onPointPick={pickPoint}
+                onFrameRendered={reportModelFrame}
+                ref={modelViewer}
+                result={visibleGeometry} presentationToken={presentationToken}
+                tool={tool}
+              />
+            ) : !mismatch ? (
+              <ModelViewer
+                colors={colors}
+                emptyMessage={engineChecking
+                  ? messages.modelCheckingEngine
+                  : engineAvailable
+                    ? messages.modelAwaitingRender
+                    : messages.modelAwaitingEngine}
+                ref={modelViewer}
+              />
+            ) : null}
+          </Suspense>
+          {measuredBounds && <output className="bounds-readout">{measuredBounds}</output>}
+        </div>
         {visibleGeometry?.kind === "3d" && (
           <ViewerDetailsPanel
             annotations={viewer.annotations}
@@ -347,7 +347,6 @@ export function ViewerPane({
         )}
       </div>
       {mismatch && <p className="viewer-empty" role="status">{messages.viewerModeMismatch(mismatch)}</p>}
-      {measuredBounds && <output className="bounds-readout">{measuredBounds}</output>}
       {failure && (
         <button aria-label={messages.showRenderError} className="viewer-error-badge" onClick={onShowConsole} type="button">
           {messages.renderErrorBadge}

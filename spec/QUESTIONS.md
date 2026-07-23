@@ -2,7 +2,7 @@
 
 Numbered questions are appended here under §2.7. Only the affected work item is parked while the remaining milestone work continues.
 
-## Queue index — 2026-07-19
+## Current queue index
 
 | State | Questions | Milestone impact |
 |---|---|---|
@@ -102,9 +102,9 @@ Numbered questions are appended here under §2.7. Only the affected work item is
 - **Section:** A-1; AC-4.a; V-3; M3 native/WASM parity
 - **Question:** May AC-4.a compare a canonical SVG byte stream that converts only `CRLF` to `LF` before hashing, while retaining the original native and WASM artifacts and their raw hashes as evidence? If not, what amended parity rule should govern platform-native SVG line endings?
 - **Evidence:** The bounded real-engine parity lane used the exact pinned native executable and the verified source-built WASM worker. Appendix F1 and F2 produced byte-identical binary STL. Appendix F3 reached the required raw SVG comparison and failed: native Windows output was 7,617 bytes with SHA-256 `245607A17E3EDB938B5729DF1A959FE470996B40C69B71C4243B06A959F51628`; WASM output was 7,542 bytes with SHA-256 `C431C4A240E51316DDDCAF452D50D6E1F605FB31D8689A1159A1E6A44E221973`. The first difference was offset 37, native `0x0D` versus WASM `0x0A`, and the 75-byte total length delta is consistent with one extra carriage return on each native SVG line. Hosted CI runs `29553736010` on candidate `9ae1519` and `29557414112` on exact M3 candidate `1a5b38a` reproduced these exact lengths, hashes, and first differing bytes after verifying both engine artifacts. Run `29557414112` passed every other web, native, browser, production-static, DMG, AppImage, and signed Windows lifecycle job. No normalization or semantic comparison was applied. The three official example cases were not reached after this fail-fast mismatch.
-- **Blocked:** No owner behavior decision remains. AC-4.a/V-3 remains unproven until the amended canonical comparison completes for every required case.
+- **Blocked at opening:** Before the owner decision and amended rerun, AC-4.a/V-3 were unproven beyond the two raw-STL cases and the observed F3 line-ending difference. No owner behavior decision or parity work remains blocked now.
 - **Owner decision (2026-07-18):** Approve canonical SVG byte comparison that converts only `CRLF` to `LF` before comparing and hashing. Retain both original native/WASM SVG artifacts and their raw lengths and SHA-256 hashes alongside the canonical hashes; no other normalization or semantic-geometry fallback is authorized.
-- **Resolution evidence:** The retained raw F3 artifacts and hashes remain authoritative evidence of the platform line-ending difference. The parity lane must now rerun through all Appendix F and required official-example cases under the approved rule before AC-4.a/V-3 may be declared green.
+- **Resolution evidence:** All six required cases passed on historical M3 candidate `1b6343a` under the approved rule. The two 3D Appendix cases and all three required official examples matched raw binary STL exactly; F3 retained both raw SVG artifacts, lengths, and hashes, then matched after only `CRLF`-to-`LF` canonicalization. No other normalization or semantic fallback was applied. This closes AC-4.a/V-3 for the M3 implementation; current Windows-release qualification remains bound to its separate exact-candidate evidence.
 
 ## Q-0001 — Resolved 2026-07-11 — opened 2026-07-09
 
