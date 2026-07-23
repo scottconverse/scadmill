@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-22-beta3-cleanroom-manifest-roles",
+  "createdAt": "2026-07-22T22:32:46-06:00",
+  "summary": "Keep the strict cleanroom harness validator synchronized with the M5/M6 and exact-CI evidence roles staged by the Windows wrapper.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["M5/M6 packaged walkthrough", "Windows Sandbox cleanroom proof", "strict release evidence"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-22-beta3-cleanroom-manifest-roles.json", "status": "added" },
+    { "path": "scripts/lib/packaged-desktop-evidence.d.mts", "status": "modified" },
+    { "path": "scripts/lib/packaged-desktop-evidence.mjs", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29978931099",
+      "purpose": "Bound the cleanroom run to the exact-main CI installer, batch evidence, update/repair evidence, and packaged identity.",
+      "accessedOn": "2026-07-22"
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0556",
+      "topic": "Exact cleanroom harness role allow-list",
+      "decision": "Require the validator and declaration to enumerate every file role emitted by the wrapper, including the M5/M6 helper and runner plus exact-CI metadata, batch evidence, update/repair evidence, and bundle identity.",
+      "rationale": "The exact-main cleanroom run built successfully but rejected its own manifest before app launch because the generator had gained six required roles while the strict validator and type declaration retained the older role set. Synchronizing the explicit allow-list preserves fail-closed shape and hash validation without accepting arbitrary files.",
+      "specBasis": ["strict cleanroom evidence binding", "M5/M6 packaged walkthrough", "fail-closed manifest validation"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The strict harness manifest accepts exactly the files the wrapper stages for the M4, M5/M6, N2-disabled, source, and exact-CI evidence paths.",
+      "test": "Construct the complete generated manifest shape and require exact acceptance while retaining the isolation-policy rejection case.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts -t \"requires an exact isolated-Sandbox harness manifest\" --reporter=default",
+        "observedAt": "2026-07-22T22:32:12-06:00",
+        "outcome": "RED: 1/1 failed with 'Harness manifest has the wrong shape' after the regression fixture added the six roles present in the retained exact-main manifest."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts -t \"requires an exact isolated-Sandbox harness manifest\" --reporter=default",
+        "observedAt": "2026-07-22T22:32:36-06:00",
+        "outcome": "GREEN: 1/1 passed in 992 ms with 58 unrelated tests skipped and no retry."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
