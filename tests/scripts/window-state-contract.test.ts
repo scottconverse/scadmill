@@ -28,6 +28,11 @@ describe("desktop window-state contract", () => {
     expect(singleInstance).toBeGreaterThan(-1);
     expect(windowState).toBeGreaterThan(singleInstance);
     expect(build).toBeGreaterThan(windowState);
+    expect(rustShell).toContain(
+      "use tauri_plugin_window_state::{AppHandleExt as _, StateFlags};",
+    );
+    expect(rustShell).toContain("tauri::RunEvent::ExitRequested { .. }");
+    expect(rustShell).toContain("app.save_window_state(StateFlags::all())");
   });
 
   it("uses a macOS-safe application identifier consistently for packaged WebView evidence", () => {

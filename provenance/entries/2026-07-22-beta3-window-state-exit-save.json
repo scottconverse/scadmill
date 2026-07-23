@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-22-beta3-window-state-exit-save",
+  "createdAt": "2026-07-22T22:59:12-06:00",
+  "summary": "Persist the desktop window state explicitly on ExitRequested while the window still exists, before the plugin's final Exit fallback.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["desktop window-state persistence", "Windows installer lifecycle", "release verification reliability"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-22-beta3-window-state-exit-save.json", "status": "added" },
+    { "path": "src/desktop-shell/src-tauri/src/lib.rs", "status": "modified" },
+    { "path": "tests/scripts/window-state-contract.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29980271407/job/89120419164",
+      "purpose": "Observed an exact-main Windows lifecycle reopening at the default rectangle after the prior window closed normally, while the identical PR tree had restored the requested rectangle exactly.",
+      "accessedOn": "2026-07-22"
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0557",
+      "topic": "Deterministic window-state persistence boundary",
+      "decision": "Call the pinned official window-state plugin's save API on RunEvent::ExitRequested, when live windows are still available, while retaining the plugin's built-in Exit save as a fallback.",
+      "rationale": "The exact-main lifecycle completed install and two application-ready launches but reopened at the default rectangle after a normal close; the identical PR tree had restored the probe rectangle exactly 11 minutes earlier. The plugin's built-in disk save occurs on the later Exit event and discards save errors. Saving once at ExitRequested captures live window state before teardown and removes that timing dependency without retries or longer waits.",
+      "specBasis": ["persisted desktop window rectangle", "normal-close lifecycle", "owner no-loop direction"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The desktop shell performs an explicit pre-teardown state save on every normal exit request.",
+      "test": "Require the official plugin extension and StateFlags types, the ExitRequested event boundary, and the explicit save call in the desktop runtime contract; compile the Rust shell.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/window-state-contract.test.ts --reporter=default",
+        "observedAt": "2026-07-22T22:56:55-06:00",
+        "outcome": "RED: 1/3 failed because the desktop shell had no explicit ExitRequested save path."
+      },
+      "green": {
+        "command": "cargo.exe fmt --manifest-path src/desktop-shell/src-tauri/Cargo.toml -- --check; pnpm.cmd exec vitest run tests/scripts/window-state-contract.test.ts --reporter=default; cargo.exe check --manifest-path src/desktop-shell/src-tauri/Cargo.toml --locked",
+        "observedAt": "2026-07-22T22:59:06-06:00",
+        "outcome": "GREEN: formatting passed, the focused contract passed 3/3, and the locked desktop Rust shell compiled successfully."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "The pinned Apache-2.0/MIT tauri-plugin-window-state 2.4.1 source was read as an approved permissive dependency to verify event timing and its public save API; no prohibited source was consulted."
+}
