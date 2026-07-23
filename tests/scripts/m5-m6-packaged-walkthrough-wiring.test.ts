@@ -34,6 +34,9 @@ describe("M5/M6 packaged walkthrough wiring", () => {
     expect(wrapper).toContain("hostM5M6Arguments");
     expect(runner).toContain("screenshotElement");
     expect(runner).toContain("view.dispatch({selection: {anchor: view.state.doc.length}})");
+    expect(runner).toContain("PACKAGED_WORKBENCH_EDITOR_SELECTOR");
+    expect(runner).not.toContain("document.querySelector('.cm-content')");
+    expect(runner).not.toContain('client.find(".cm-content")');
     expect(runner).toContain("BOSL2 removal state");
     expect(runner).toContain("Installed OpenSCAD versions could not be read.");
     expect(runner).toContain("bundleIdentity.packagedSha256, sourceMetadata.applicationSha256");

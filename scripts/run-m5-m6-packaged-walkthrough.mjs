@@ -11,6 +11,7 @@ import {
 } from "./lib/m5-m6-packaged-walkthrough.mjs";
 import {
   mirrorWebViewDevToolsPort,
+  PACKAGED_WORKBENCH_EDITOR_SELECTOR,
   processHasExited,
   unwrapWebDriverValue,
   webViewAutomationArgument,
@@ -286,12 +287,12 @@ async function openProject(client, projectDirectory) {
 
 async function replaceSource(client, source) {
   const changed = await client.execute(`
-    const content = document.querySelector('.cm-content');
+    const content = document.querySelector(arguments[1]);
     const view = content?.cmView?.view;
     if (!view) return false;
     view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: arguments[0] } });
     return view.state.doc.toString();
-  `, [source]);
+  `, [source, PACKAGED_WORKBENCH_EDITOR_SELECTOR]);
   assert.equal(changed, source, "CodeMirror source replacement failed.");
 }
 
@@ -488,7 +489,10 @@ async function main() {
     assert.match(restoreLabel, /^Restore snapshot/u);
     await click(client, restoreLabel);
     const restoredSource = await waitFor(async () => {
-      const text = await client.execute("return document.querySelector('.cm-content')?.innerText ?? ''; ");
+      const text = await client.execute(
+        "return document.querySelector(arguments[0])?.innerText ?? ''; ",
+        [PACKAGED_WORKBENCH_EDITOR_SELECTOR],
+      );
       return text === source ? text : false;
     }, "restored model-history source", 15_000);
     pass("M5-HISTORY-RESTORE", { action: restoreLabel, restoredSourceSha256: sha256(restoredSource) });
@@ -514,14 +518,14 @@ async function main() {
     await waitText(client, "Installed v2.0.747");
     pass("M5-LIBRARIES-CATALOG", { entries: ["BOSL2", "MCAD", "dotSCAD"] });
     await replaceSource(client, `${source}\ncub`);
-    const editor = await client.find(".cm-content");
+    const editor = await client.find(PACKAGED_WORKBENCH_EDITOR_SELECTOR);
     const completionCursor = await client.execute(`
-      const view = document.querySelector('.cm-content')?.cmView?.view;
+      const view = document.querySelector(arguments[0])?.cmView?.view;
       if (!view) return null;
       view.dispatch({selection: {anchor: view.state.doc.length}});
       view.focus();
       return {anchor: view.state.selection.main.anchor, length: view.state.doc.length};
-    `);
+    `, [PACKAGED_WORKBENCH_EDITOR_SELECTOR]);
     assert.deepEqual(completionCursor, { anchor: source.length + 4, length: source.length + 4 },
       "Installed-library completion caret is not at the deterministic document end.");
     await client.sendKeys(editor, "\uE009 \uE000");
