@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-22-beta3-narrow-viewer-closure",
+  "createdAt": "2026-07-22T18:24:56-06:00",
+  "summary": "Close the final beta.3 UI/UX gauntlet finding by keeping narrow-viewer details in layout flow instead of overlaying the model bounds readout.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["C2 viewer", "N-3 accessibility", "N-7 honesty", "M6 release gate"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-22-beta3-narrow-viewer-closure.json", "status": "added" },
+    { "path": "src/ui/workbench.css", "status": "modified" },
+    { "path": "tests/ui/viewer/ViewerPane.test.tsx", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [
+    { "label": "Owner-provided ScadMill functional specification v0.6 with amendments", "destination": "spec/scadmill-spec-v0.6.md", "sha256": "32E06298C4538860A4E703650853C869162EB3262A57A933662296DEB07C5528" }
+  ],
+  "decisions": [
+    {
+      "id": "D-0542",
+      "topic": "Narrow viewer details layout",
+      "decision": "At widths through 599 pixels, place the viewer details panel in a dedicated grid row with static positioning instead of overlaying the model surface.",
+      "rationale": "The wide-layout containment fix prevented the dimensions readout from covering details, but the narrow absolute overlay reversed the collision and could hide the dimensions. Separate rows make the two surfaces non-overlapping by construction.",
+      "specBasis": ["C2 viewer", "N-3 accessibility", "N-7 honesty"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The narrow viewer details panel cannot occlude the bounds readout.",
+      "test": "Lock the 599-pixel breakpoint to a dedicated viewer-content row and static details positioning.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/ui/viewer/ViewerPane.test.tsx",
+        "observedAt": "2026-07-22T18:13:00-06:00",
+        "outcome": "RED: 1 failed and 19 passed because the narrow details rule used position:absolute instead of the required in-flow layout. The exact observation is retained in the final UI/UX gate report."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/viewer/ViewerPane.test.tsx --reporter=default; pnpm.cmd exec biome lint src/ui/workbench.css tests/ui/viewer/ViewerPane.test.tsx",
+        "observedAt": "2026-07-22T18:24:44-06:00",
+        "outcome": "GREEN: 1 test file and 20 tests passed; Biome checked both changed files with no fixes."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "urn:scadmill:narrow-viewer-breakpoint",
+      "sought": "Apply the reported overlap correction at an assumed 720-pixel breakpoint.",
+      "confirmation": "The stylesheet's actual compact-viewer transition is 599 pixels. The regression assertion and fix target that real rule rather than introducing a second breakpoint."
+    }
+  ],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
