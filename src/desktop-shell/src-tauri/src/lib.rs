@@ -14,6 +14,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tauri::{AppHandle, Manager, State, ipc::Channel};
+use tauri_plugin_window_state::{AppHandleExt as _, StateFlags};
 
 mod ai_http_broker;
 mod artifact_storage;
@@ -564,6 +565,11 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("ScadMill desktop runtime failed");
     app.run(|app, event| {
+        if matches!(&event, tauri::RunEvent::ExitRequested { .. })
+            && let Err(error) = app.save_window_state(StateFlags::all())
+        {
+            eprintln!("ScadMill could not persist window state before exit: {error}");
+        }
         #[cfg(target_os = "macos")]
         if let tauri::RunEvent::Opened { urls } = event {
             let pending = app.state::<associated_files::AssociatedFileQueue>();
