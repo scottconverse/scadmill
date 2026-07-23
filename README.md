@@ -8,9 +8,9 @@
 
 **A source-first CAD workbench for makers who want a capable editor, real geometry, and local project control—while keeping ordinary OpenSCAD source as the durable artifact.**
 
-[Product site](https://scadmill-beta.sconverse.chatgpt.site) · [Download Windows beta](https://github.com/scottconverse/scadmill/releases/download/v0.1.0-beta.2/ScadMill_0.1.0-beta.2_x64-setup.exe) · [User manual](https://scadmill-beta.sconverse.chatgpt.site/manual) · [Architecture](https://scadmill-beta.sconverse.chatgpt.site/architecture)
+[Product site](https://scadmill-beta.sconverse.chatgpt.site) · [Download Windows beta](https://github.com/scottconverse/scadmill/releases/download/v0.1.0-beta.3/ScadMill_0.1.0-beta.3_x64-setup.exe) · [User manual](https://scadmill-beta.sconverse.chatgpt.site/manual) · [Architecture](https://scadmill-beta.sconverse.chatgpt.site/architecture)
 
-[![Release](https://img.shields.io/github/v/release/scottconverse/scadmill?include_prereleases&sort=semver&label=release&color=f36b32)](https://github.com/scottconverse/scadmill/releases/tag/v0.1.0-beta.2)
+[![Release](https://img.shields.io/github/v/release/scottconverse/scadmill?include_prereleases&sort=semver&label=release&color=f36b32)](https://github.com/scottconverse/scadmill/releases/tag/v0.1.0-beta.3)
 [![CI](https://github.com/scottconverse/scadmill/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/scottconverse/scadmill/actions/workflows/ci.yml)
 [![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-52718d)](docs/WINDOWS-BETA.md)
 [![License](https://img.shields.io/badge/license-Apache--2.0-07111f)](LICENSE)
@@ -20,7 +20,7 @@
 </div>
 
 > [!IMPORTANT]
-> **Current release:** `0.1.0-beta.2` is a signed 64-bit Windows desktop beta. Rendering requires a separate, hash-verified official OpenSCAD `2026.06.12` snapshot. ScadMill does not bundle or modify OpenSCAD.
+> **Current release:** `0.1.0-beta.3` is a signed 64-bit Windows desktop beta. Rendering requires a separate, hash-verified official OpenSCAD `2026.06.12` snapshot. ScadMill does not bundle or modify OpenSCAD.
 
 ## Why ScadMill
 
@@ -77,16 +77,16 @@ ScadMill owns editing, project state, parameters, viewers, and review flows. Ope
 
 ## Install and render your first model
 
-1. Download [`ScadMill_0.1.0-beta.2_x64-setup.exe`](https://github.com/scottconverse/scadmill/releases/download/v0.1.0-beta.2/ScadMill_0.1.0-beta.2_x64-setup.exe) from the official release.
-2. Verify SHA-256 `49C107B1648D918B7DAF16B47B4F3BAD0500EDB160D8E734E6C400E7E2578A91` and a valid Windows signature from Scott Converse.
+1. Download [`ScadMill_0.1.0-beta.3_x64-setup.exe`](https://github.com/scottconverse/scadmill/releases/download/v0.1.0-beta.3/ScadMill_0.1.0-beta.3_x64-setup.exe) from the official release.
+2. Verify SHA-256 `7F79FF060F76A3272E42821C7781A87E776EE7742BC9A503BF2F8A95D59EA87E` and a valid Windows signature from Scott Converse.
 3. Download and verify the required official [OpenSCAD `2026.06.12` Windows snapshot](docs/WINDOWS-BETA.md#install-the-required-openscad-engine).
 4. Start ScadMill, choose **Configure engine**, and select the verified `openscad.exe`.
 5. Enter `cube([20, 20, 20]);`, press <kbd>F5</kbd>, and orbit the rendered cube.
 
 ```powershell
 # Verify the downloaded ScadMill installer before running it.
-Get-FileHash -Algorithm SHA256 -LiteralPath .\ScadMill_0.1.0-beta.2_x64-setup.exe
-Get-AuthenticodeSignature -LiteralPath .\ScadMill_0.1.0-beta.2_x64-setup.exe |
+Get-FileHash -Algorithm SHA256 -LiteralPath .\ScadMill_0.1.0-beta.3_x64-setup.exe
+Get-AuthenticodeSignature -LiteralPath .\ScadMill_0.1.0-beta.3_x64-setup.exe |
   Format-List Status, StatusMessage, SignerCertificate
 ```
 
@@ -123,7 +123,7 @@ Report suspected vulnerabilities through [GitHub private vulnerability reporting
 
 ## Current product status
 
-| Surface or capability | Status in `0.1.0-beta.2` | Notes |
+| Surface or capability | Status in `0.1.0-beta.3` | Notes |
 |---|---:|---|
 | Windows 10/11 x64 desktop | **Public beta** | The exact signed setup passed fresh hosted-Windows install, association, launch, window-restoration, and uninstall evidence; source-bound runtime recovery is qualified separately. |
 | Editing, projects, Customizer, native render, viewers, export | **Available** | Requires the separately installed exact OpenSCAD snapshot for rendering and export. |
@@ -149,7 +149,7 @@ The public installer is not inferred from a successful source build. Its exact b
 - Owner-designated Radeon 780M two-million-triangle viewer qualification
 - Dependency-license, third-party-notice, source-policy, and append-only provenance checks
 
-See the [release notes](docs/RELEASE-NOTES-0.1.0-beta.2.md), [verification guide](docs/WINDOWS-BETA.md), and [provenance ledger](PROVENANCE.md) for the exact boundaries of those claims.
+See the [release notes](docs/RELEASE-NOTES-0.1.0-beta.3.md), [verification guide](docs/WINDOWS-BETA.md), and [provenance ledger](PROVENANCE.md) for the exact boundaries of those claims.
 
 ## Documentation
 
