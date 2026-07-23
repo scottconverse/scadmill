@@ -19,6 +19,11 @@
       "url": "https://github.com/scottconverse/scadmill/actions/runs/29971204992",
       "purpose": "Bound the correction to the successful final-main CI run and its signed Windows setup, packaged-application identity, lifecycle, and batch artifacts.",
       "accessedOn": "2026-07-22"
+    },
+    {
+      "url": "https://github.com/scottconverse/scadmill/pull/6#discussion_r3635016814",
+      "purpose": "Consumed the protected review finding that the metadata label had accidentally replaced the real local source-build path.",
+      "accessedOn": "2026-07-22"
     }
   ],
   "providedInputs": [
@@ -46,6 +51,20 @@
         "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts tests/scripts/m5-m6-packaged-walkthrough-wiring.test.ts --reporter=default",
         "observedAt": "2026-07-22T19:33:01-06:00",
         "outcome": "GREEN: 2 files and 60 tests passed after requiring exact signed-payload extraction and packaged-hash binding."
+      }
+    },
+    {
+      "criterion": "The retained clean source build resolves from its real Tauri target independently from the signed-payload metadata label.",
+      "test": "Require separate source-build and staged signed-payload paths in the wrapper contract.",
+      "red": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts -t \"fails closed before staging unless a clean HEAD is built at the canonical target\" --reporter=default",
+        "observedAt": "2026-07-22T19:47:45-06:00",
+        "outcome": "RED: the focused test failed because no independent sourceBuiltApplication path existed; the wrapper incorrectly resolved the local build from the signed-payload metadata label."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts -t \"fails closed before staging unless a clean HEAD is built at the canonical target\" --reporter=default",
+        "observedAt": "2026-07-22T19:48:03-06:00",
+        "outcome": "GREEN: the focused regression passed after separating the real Tauri source-build target from the exact signed-payload staging identity."
       }
     }
   ],

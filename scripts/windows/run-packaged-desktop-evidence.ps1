@@ -328,10 +328,11 @@ $n2SoakConfiguration = switch ($N2SoakMode) {
   }
 }
 $canonicalApplication = "signed-installer-payload/scadmill.exe"
+$sourceBuiltApplication = "src/desktop-shell/src-tauri/target/release/scadmill.exe"
 $desktopManifest = "src/desktop-shell/src-tauri/Cargo.toml"
 $desktopTarget = "src/desktop-shell/src-tauri/target"
 $desktopShellDirectory = Join-Path $repo "src\desktop-shell"
-$applicationPath = Join-Path $repo ($canonicalApplication.Replace('/', '\'))
+$applicationPath = Join-Path $repo ($sourceBuiltApplication.Replace('/', '\'))
 $enginePath = Resolve-Directory $EngineDirectory "OpenSCAD directory"
 $tauriDriverPath = Resolve-File $TauriDriver "tauri-driver"
 $visualCppRuntimePath = Resolve-File $VisualCppRuntime "Visual C++ runtime"

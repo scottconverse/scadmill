@@ -778,6 +778,12 @@ describe("packaged desktop evidence helpers", () => {
     expect(wrapper).toContain(
       '$canonicalApplication = "signed-installer-payload/scadmill.exe"',
     );
+    expect(wrapper).toContain(
+      '$sourceBuiltApplication = "src/desktop-shell/src-tauri/target/release/scadmill.exe"',
+    );
+    expect(wrapper).toContain(
+      "$applicationPath = Join-Path $repo ($sourceBuiltApplication.Replace('/', '\\'))",
+    );
     expect(wrapper).toContain("Invoke-LoggedCommand -Executable $sevenZipPath -Arguments @(");
     expect(wrapper).toContain('"e", "-y", "-o$packagedApplicationDirectory", $installerPath, "scadmill.exe"');
     expect(wrapper).toContain(
