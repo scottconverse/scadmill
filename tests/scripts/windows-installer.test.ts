@@ -269,11 +269,11 @@ describe("installer lifecycle contract", () => {
         "-File",
         join(process.cwd(), "tests", "scripts", "windows-lifecycle-close.behavior.ps1"),
       ],
-      { timeout: 15_000, windowsHide: true },
+      { timeout: 30_000, windowsHide: true },
     );
     expect(stderr).toBe("");
     expect(stdout).toContain("Windows lifecycle close behavior: PASS");
-  }, 20_000);
+  }, 40_000);
 
   it("requires a visible exact macOS/Linux runtime and retains failure evidence", async () => {
     const workflowSource = await readFile(

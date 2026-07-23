@@ -15,12 +15,18 @@
     { "path": "scripts/windows/test-update-repair-lifecycle.ps1", "status": "modified" },
     { "path": "tests/scripts/m5-m6-packaged-walkthrough-wiring.test.ts", "status": "added" },
     { "path": "tests/scripts/m5-m6-packaged-walkthrough.test.ts", "status": "added" },
+    { "path": "tests/scripts/windows-installer.test.ts", "status": "modified" },
     { "path": "tests/scripts/windows-update-repair.test.ts", "status": "modified" }
   ],
   "externalInputs": [
     {
       "url": "https://github.com/scottconverse/scadmill/actions/runs/29969071803",
       "purpose": "Observed the exact-head Windows lifecycle startup race that motivated the bounded repair-proof correction.",
+      "accessedOn": "2026-07-22"
+    },
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29970419179",
+      "purpose": "Observed the aggregate Linux web-check timeout that established the hosted runner's 15-second PowerShell child-process startup budget was insufficient while the behavior script itself remained green.",
       "accessedOn": "2026-07-22"
     }
   ],
@@ -41,6 +47,13 @@
       "decision": "After the WebView shell is ready, poll for the exact recovered scratch source for at most 15 seconds before evaluating the retained application state.",
       "rationale": "The failed exact-head job retained the correct autosave bytes but read CodeMirror before asynchronous restoration completed. Waiting on the asserted state removes the harness race without weakening the state check.",
       "specBasis": ["Windows update/repair lifecycle", "M6 exit gate"]
+    },
+    {
+      "id": "D-0545",
+      "topic": "Hosted PowerShell behavior-test startup budget",
+      "decision": "Raise only the windows-lifecycle-close child-process timeout from 15 to 30 seconds and its enclosing test timeout from 20 to 40 seconds.",
+      "rationale": "Exact-head CI run 29970419179 timed out at the prior 15-second process limit under aggregate hosted-runner load, while the unchanged behavior script passed locally in 506 ms and the focused test completed in 390 ms. The correction preserves every assertion and failure path while allowing bounded process startup contention; it is not a soak or a retry loop.",
+      "specBasis": ["Windows installer lifecycle", "M6 exit gate", "owner no-soak direction"]
     }
   ],
   "testEvidence": [
@@ -70,6 +83,20 @@
         "command": "pnpm.cmd exec vitest run tests/scripts/m5-m6-packaged-walkthrough.test.ts tests/scripts/m5-m6-packaged-walkthrough-wiring.test.ts tests/scripts/windows-update-repair.test.ts --reporter=default",
         "observedAt": "2026-07-22T18:45:59-06:00",
         "outcome": "GREEN: 3 files and 5 tests passed after fail-closed Sandbox and host verification wiring."
+      }
+    },
+    {
+      "criterion": "The Windows lifecycle behavior test remains fail-closed under bounded hosted-runner process startup contention.",
+      "test": "Run only the affected installer lifecycle contract after increasing its process-startup budget without changing assertions or adding retries.",
+      "red": {
+        "command": "GitHub Actions web checks, run 29970419179",
+        "observedAt": "2026-07-22T18:55:00-06:00",
+        "outcome": "RED: 1 of 1,741 web tests timed out exactly at the 15-second child-process limit; the failure was the PowerShell behavior-test launcher, not an assertion or product behavior failure."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/windows-installer.test.ts --reporter=default",
+        "observedAt": "2026-07-22T19:01:51-06:00",
+        "outcome": "GREEN: 1 file and 4 tests passed; the unchanged behavior script passed in 344 ms and the full focused run completed in 954 ms."
       }
     }
   ],
