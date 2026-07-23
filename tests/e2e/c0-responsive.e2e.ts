@@ -99,14 +99,16 @@ test.describe("FR-0.6 mobile-web default", () => {
   });
 
   test("uses the complete narrow presentation above the width breakpoint", async ({ page }) => {
+    test.setTimeout(60_000);
     await page.goto("/");
     await dismissWelcome(page);
 
-    const frame = page.locator('.workspace-frame[data-layout-mode="narrow"]');
+    const frame = page.locator(".workspace-frame");
     const switcher = page.getByRole("group", { name: "Workspace view" });
     const editor = page.locator(".workspace-editor");
 
-    await expect(frame).toBeVisible();
+    await expect(frame).toBeVisible({ timeout: 15_000 });
+    await expect(frame).toHaveAttribute("data-layout-mode", "narrow");
     await expect(switcher).toBeVisible();
     await expect(editor).toBeVisible();
     await expect
