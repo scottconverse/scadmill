@@ -784,8 +784,12 @@ describe("packaged desktop evidence helpers", () => {
     expect(wrapper).toContain(
       "$applicationPath = Join-Path $repo ($sourceBuiltApplication.Replace('/', '\\'))",
     );
-    expect(wrapper).toContain('$sevenZipVersion = Get-FileProductVersion $sevenZipPath "7-Zip"');
+    expect(wrapper).toContain("$sevenZipVersion = Get-SevenZipVersion $sevenZipPath");
+    expect(wrapper).toContain("$_ -cmatch '^7-Zip [0-9]'");
     expect(wrapper).not.toContain('$sevenZipVersion = Get-ToolVersion $sevenZipPath "7-Zip"');
+    expect(wrapper).not.toContain(
+      '$sevenZipVersion = Get-FileProductVersion $sevenZipPath "7-Zip"',
+    );
     expect(wrapper).toContain("Invoke-LoggedCommand -Executable $sevenZipPath -Arguments @(");
     expect(wrapper).toContain('"e", "-y", "-o$packagedApplicationDirectory", $installerPath, "scadmill.exe"');
     expect(wrapper).toContain(

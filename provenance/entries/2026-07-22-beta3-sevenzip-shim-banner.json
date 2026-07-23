@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-22-beta3-sevenzip-shim-banner",
+  "createdAt": "2026-07-22T21:31:40-06:00",
+  "summary": "Resolve the exact 7-Zip version through its unique startup banner when PATH selects a versionless executable shim.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["M6 exit gate", "Windows signed-installer release evidence", "owner no-soak direction"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-22-beta3-sevenzip-shim-banner.json", "status": "added" },
+    { "path": "scripts/windows/run-packaged-desktop-evidence.ps1", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0552",
+      "topic": "Versionless 7-Zip shims",
+      "decision": "Invoke the exact PATH-resolved 7-Zip executable without an operation and accept only one case-sensitive startup banner beginning with '7-Zip ' followed by a digit.",
+      "rationale": "The host resolves C:/Users/Scott/scoop/shims/7z.exe, whose Windows ProductVersion is blank, while the delegated tool emits exactly one '7-Zip 26.02 (x64)' banner. Requiring one structured banner records the actual delegated tool version without accepting usage text as a successful extraction or weakening the subsequent exact payload-hash check.",
+      "specBasis": ["exact cleanroom tool provenance", "fail-closed signed-payload extraction"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The cleanroom wrapper resolves one exact 7-Zip version when PATH selects a versionless shim.",
+      "test": "Require the dedicated banner parser, reject both generic --version and file-metadata paths, parse the PowerShell source, and probe the exact PATH-resolved shim.",
+      "red": {
+        "command": "powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/windows/run-packaged-desktop-evidence.ps1 [exact final-main evidence arguments] -N2SoakMode disabled",
+        "observedAt": "2026-07-22T21:29:51-06:00",
+        "outcome": "RED: preflight stopped before build and Sandbox because the PATH-resolved Scoop shim has no ProductVersion metadata."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts -t \"fails closed before staging unless a clean HEAD is built at the canonical target\" --reporter=default; PowerShell parser check; exact shim banner probe",
+        "observedAt": "2026-07-22T21:31:35-06:00",
+        "outcome": "GREEN: the focused contract passed, PowerShell parsed without errors, and the exact resolved shim produced one accepted banner: 7-Zip 26.02 (x64)."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
