@@ -199,6 +199,18 @@ describe("installer lifecycle contract", () => {
     const secondLaunch = lifecycle.indexOf("$second = Start-Process");
     const secondReady = lifecycle.indexOf("Wait-WebViewReady $debugPort", secondLaunch);
     const secondRestore = lifecycle.indexOf("$restored = Wait-WindowRect", secondReady);
+    const associationReady = lifecycle.indexOf(
+      'Write-Host "Associated fixture active in existing WebView',
+      secondRestore,
+    );
+    const refreshedSecondHandle = lifecycle.indexOf(
+      "$secondHandle = Wait-MainWindow $second",
+      associationReady,
+    );
+    const offscreenMove = lifecycle.indexOf(
+      "[ScadMillWindowProbe]::MoveWindow($secondHandle, 40000, 40000",
+      associationReady,
+    );
     const offscreenSettle = lifecycle.indexOf("$offscreenExpected = Wait-WindowRect", secondRestore);
     const secondClose = lifecycle.indexOf("Close-Normally $second", offscreenSettle);
     const thirdLaunch = lifecycle.indexOf("$third = Start-Process");
@@ -211,6 +223,9 @@ describe("installer lifecycle contract", () => {
     expect(secondLaunch).toBeGreaterThan(-1);
     expect(secondReady).toBeGreaterThan(secondLaunch);
     expect(secondRestore).toBeGreaterThan(secondReady);
+    expect(associationReady).toBeGreaterThan(secondRestore);
+    expect(refreshedSecondHandle).toBeGreaterThan(associationReady);
+    expect(offscreenMove).toBeGreaterThan(refreshedSecondHandle);
     expect(offscreenSettle).toBeGreaterThan(secondRestore);
     expect(secondClose).toBeGreaterThan(offscreenSettle);
     expect(thirdLaunch).toBeGreaterThan(-1);
