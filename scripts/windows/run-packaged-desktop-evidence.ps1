@@ -130,6 +130,14 @@ function Get-ToolVersion([string] $Executable, [string] $Label) {
   return $version
 }
 
+function Get-FileProductVersion([string] $Executable, [string] $Label) {
+  $version = (Get-Item -LiteralPath $Executable -ErrorAction Stop).VersionInfo.ProductVersion
+  if ([string]::IsNullOrWhiteSpace($version)) {
+    throw "Could not resolve $Label file product version."
+  }
+  return "$Label $version"
+}
+
 function Format-IsoInstant([DateTime] $Value) {
   return $Value.ToUniversalTime().ToString(
     "yyyy-MM-dd'T'HH:mm:ss.fff'Z'",
@@ -446,7 +454,7 @@ $nodeVersion = Get-ToolVersion $nodePath "Node.js"
 $pnpmVersion = Get-ToolVersion $pnpmPath "pnpm"
 $cargoVersion = Get-ToolVersion $cargoPath "Cargo"
 $rustcVersion = Get-ToolVersion $rustcPath "rustc"
-$sevenZipVersion = Get-ToolVersion $sevenZipPath "7-Zip"
+$sevenZipVersion = Get-FileProductVersion $sevenZipPath "7-Zip"
 $buildStartedAt = Format-IsoInstant (Get-Date)
 Invoke-LoggedCommand -Executable $pnpmPath -Arguments @("install", "--frozen-lockfile") -WorkingDirectory $repo -LogPath $dependencyInstallLog
 Invoke-LoggedCommand -Executable $cargoPath -Arguments @("clean", "--manifest-path", $desktopManifest, "--target-dir", $desktopTarget) -WorkingDirectory $repo -LogPath $desktopCleanLog

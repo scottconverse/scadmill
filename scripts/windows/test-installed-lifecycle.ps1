@@ -450,6 +450,7 @@ if ($running.Count -ne 1 -or $running[0].Id -ne $second.Id) {
 }
 $modelHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $model).Hash
 Write-Host "Associated fixture active in existing WebView; SHA256: $modelHash"
+$secondHandle = Wait-MainWindow $second
 
 $virtualLeft = [ScadMillWindowProbe]::GetSystemMetrics(76)
 $virtualTop = [ScadMillWindowProbe]::GetSystemMetrics(77)

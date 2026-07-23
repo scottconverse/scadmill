@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-22-beta3-sevenzip-version-preflight",
+  "createdAt": "2026-07-22T20:45:20-06:00",
+  "summary": "Resolve the installed 7-Zip version from signed Windows file metadata so the exact-installer cleanroom preflight can proceed without weakening tool provenance.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["M6 exit gate", "Windows signed-installer release evidence", "owner no-soak direction"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-22-beta3-sevenzip-version-preflight.json", "status": "added" },
+    { "path": "src/native-engine/tests/project_runtime.rs", "status": "modified" },
+    { "path": "scripts/windows/test-installed-lifecycle.ps1", "status": "modified" },
+    { "path": "scripts/windows/run-packaged-desktop-evidence.ps1", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" },
+    { "path": "tests/scripts/windows-installer.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0549",
+      "topic": "7-Zip version provenance on Windows",
+      "decision": "Read 7-Zip's ProductVersion from the resolved executable's Windows VersionInfo instead of invoking the unsupported --version argument.",
+      "rationale": "The no-soak cleanroom wrapper failed closed before any build or Sandbox launch because 7-Zip 26.01 exits nonzero for --version. The installed executable exposes ProductVersion 26.01 through Windows file metadata, which preserves exact tool-version provenance without parsing usage text or accepting a failed command.",
+      "specBasis": ["exact cleanroom tool provenance", "fail-closed release evidence"]
+    },
+    {
+      "id": "D-0550",
+      "topic": "Installed-lifecycle window identity after association activation",
+      "decision": "Refresh the installed ScadMill process's MainWindowHandle after the associated-file activation and before moving the window for off-monitor recovery proof.",
+      "rationale": "Exact-head CI retained one ScadMill process and the exact associated source, but the previously captured HWND reported the minimized-window sentinel rectangle at 32767,32767 while the process's current main window remained at the restored visible rectangle. Refreshing through Wait-MainWindow binds the move and subsequent persistence oracle to the current GUI window without relaxing any geometry assertion.",
+      "specBasis": ["installed single-instance routing", "window-state persistence", "fail-closed installer lifecycle"]
+    },
+    {
+      "id": "D-0551",
+      "topic": "Unix malformed-engine fixture publication",
+      "decision": "Write and permission the temporary Unix shell fixture under a staging name, then atomically rename it to the executable path consumed by render_project.",
+      "rationale": "Exact-head Linux CI reported ExecutableFileBusy while starting the just-written unique fixture, before the malformed-artifact behavior could run. Publishing the closed, permissioned inode through an atomic rename removes the writer/executor name race without retrying product behavior or weakening the captured-log assertion.",
+      "specBasis": ["native engine error evidence", "deterministic test fixtures", "owner no-loop direction"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The cleanroom wrapper resolves a nonempty exact 7-Zip version without invoking an unsupported CLI argument.",
+      "test": "Require the wrapper to use Get-FileProductVersion for 7-Zip and reject regression to Get-ToolVersion, then parse the PowerShell source and inspect the installed executable metadata.",
+      "red": {
+        "command": "powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/windows/run-packaged-desktop-evidence.ps1 [exact final-main evidence arguments] -N2SoakMode disabled",
+        "observedAt": "2026-07-22T20:43:29-06:00",
+        "outcome": "RED: the wrapper stopped before build and Sandbox launch with 'Could not resolve 7-Zip version' because 7z.exe --version exits nonzero."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts -t \"fails closed before staging unless a clean HEAD is built at the canonical target\" --reporter=default; PowerShell parser check; read 7z.exe VersionInfo.ProductVersion",
+        "observedAt": "2026-07-22T20:45:16-06:00",
+        "outcome": "GREEN: the focused wrapper contract passed, PowerShell parsed without errors, and the resolved 7-Zip file product version was 26.01."
+      }
+    },
+    {
+      "criterion": "The off-monitor recovery probe acts on the current installed-app main window after associated-file activation changes window focus or identity.",
+      "test": "Require a fresh Wait-MainWindow result after the exact associated source is active and before MoveWindow performs the off-monitor persistence probe.",
+      "red": {
+        "command": "GitHub Actions Windows setup, run 29975260509, job 89105565725",
+        "observedAt": "2026-07-22T20:55:45-06:00",
+        "outcome": "RED: 8 of 9 CI jobs passed, but installed lifecycle read 32767,32767 from the stale post-association HWND and then observed the current visible window at 137,149 for 74 probes; the process and exact associated editor source remained healthy."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/windows-installer.test.ts -t \"binds the Windows installed lifecycle to exact bytes and active WebView state\" --reporter=default; PowerShell parser check",
+        "observedAt": "2026-07-22T20:58:06-06:00",
+        "outcome": "GREEN: the focused lifecycle ordering contract passed and the updated PowerShell script parsed without errors."
+      }
+    },
+    {
+      "criterion": "The Unix malformed-engine fixture is published only after its contents and execute permission are complete.",
+      "test": "Atomically rename the staged Unix fixture into its final executable path while retaining the exact malformed-artifact and engine-log assertion.",
+      "red": {
+        "command": "GitHub Actions Native checks, run 29975775485, job 89107082384",
+        "observedAt": "2026-07-22T21:01:41-06:00",
+        "outcome": "RED: the unique just-written Unix fixture failed to start with ExecutableFileBusy (Text file busy); the surrounding native tests passed and the product assertion never ran."
+      },
+      "green": {
+        "command": "cargo.exe fmt --manifest-path src/native-engine/Cargo.toml -- --check; cargo.exe test --manifest-path src/native-engine/Cargo.toml --test project_runtime preserves_engine_log_when_rendered_artifact_is_malformed -- --exact",
+        "observedAt": "2026-07-22T21:09:35-06:00",
+        "outcome": "GREEN on the host platform: formatting passed and the exact focused malformed-artifact/log-preservation test passed; the Unix-specific atomic publication remains fail-closed in the replacement Linux CI run."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
