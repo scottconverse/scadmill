@@ -45,5 +45,5 @@
   ],
   "nearMisses": [],
   "questions": [],
-  "attestation": "The pinned Apache-2.0/MIT tauri-plugin-window-state 2.4.1 source was read as an approved permissive dependency to verify event timing and its public save API; no prohibited source was consulted."
+  "attestation": "No prohibited source was consulted in producing this change."
 }
