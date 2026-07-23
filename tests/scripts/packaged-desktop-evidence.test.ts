@@ -14,10 +14,10 @@ import {
   createCdpSocketLease,
   FIND_PACKAGED_TEXTAREA_CONTROL_SCRIPT,
   FOCUS_PACKAGED_TEXTAREA_CONTROL_SCRIPT,
-  PACKAGED_WORKBENCH_EDITOR_SELECTOR,
   insertTextThroughCdp,
   mcpEndpointManifestPath,
   mirrorWebViewDevToolsPort,
+  PACKAGED_WORKBENCH_EDITOR_SELECTOR,
   parseBinaryStl,
   parseSourceMetadata,
   parseWindowsNetstatTcpListeners,
@@ -663,7 +663,7 @@ describe("packaged desktop evidence helpers", () => {
       sourceCommit: "e6".repeat(20),
       sourceTree: "ab".repeat(20),
       branch: "agent/m2-r02-r03",
-      canonicalApplication: "src/desktop-shell/src-tauri/target/release/scadmill.exe",
+      canonicalApplication: "signed-installer-payload/scadmill.exe",
       applicationSha256: appSha256,
       worktree: { cleanBeforeBuild: true, cleanAfterBuild: true },
       lockfiles: {
@@ -682,11 +682,13 @@ describe("packaged desktop evidence helpers", () => {
           "cargo.exe clean --manifest-path src/desktop-shell/src-tauri/Cargo.toml --target-dir src/desktop-shell/src-tauri/target",
           "pnpm.cmd exec tauri build --no-bundle --ci -- --locked",
         ],
+        sourceBuiltApplicationSha256: "55".repeat(32),
         toolVersions: {
           node: "v24.17.0",
           pnpm: "11.7.0",
           cargo: "cargo 1.96.0 (example 2026-01-01)",
           rustc: "rustc 1.96.0 (example 2026-01-01)",
+          sevenZip: "7-Zip 26.02",
         },
       },
     };
@@ -713,7 +715,7 @@ describe("packaged desktop evidence helpers", () => {
       sourceCommit: "e6".repeat(20),
       sourceTree: "ab".repeat(20),
       branch: "agent/m2-r02-r03",
-      canonicalApplication: "src/desktop-shell/src-tauri/target/release/scadmill.exe",
+      canonicalApplication: "signed-installer-payload/scadmill.exe",
       applicationSha256: appSha256,
       worktree: { cleanBeforeBuild: true, cleanAfterBuild: true },
       lockfiles: {
@@ -732,11 +734,13 @@ describe("packaged desktop evidence helpers", () => {
           "cargo.exe clean --manifest-path src/desktop-shell/src-tauri/Cargo.toml --target-dir src/desktop-shell/src-tauri/target",
           "pnpm.cmd exec tauri build --no-bundle --ci -- --locked",
         ],
+        sourceBuiltApplicationSha256: "55".repeat(32),
         toolVersions: {
           node: "v24.17.0",
           pnpm: "11.7.0",
           cargo: "cargo 1.96.0 (example 2026-01-01)",
           rustc: "rustc 1.96.0 (example 2026-01-01)",
+          sevenZip: "7-Zip 26.02",
         },
       },
     })}`;
@@ -760,7 +764,7 @@ describe("packaged desktop evidence helpers", () => {
     );
     const cleanAfter = wrapper.indexOf("Assert-CleanWorktree \"after build\"");
     const stageApplication = wrapper.indexOf(
-      'Copy-Item -LiteralPath $applicationPath -Destination (Join-Path $stage "app\\scadmill.exe")',
+      '$applicationSha256 = Assert-Hash $applicationPath ([string]$bundleIdentity.packagedSha256) "signed installer payload"',
     );
     const retainedConfig = wrapper.indexOf(
       'Copy-Item -LiteralPath $configPath -Destination (Join-Path $outputPath "sandbox-config.wsb")',
@@ -772,8 +776,10 @@ describe("packaged desktop evidence helpers", () => {
     expect(wrapper).not.toContain("[string] $Application");
     expect(wrapper).toContain('git -C $repo status --porcelain=v1 --untracked-files=all');
     expect(wrapper).toContain(
-      '$canonicalApplication = "src/desktop-shell/src-tauri/target/release/scadmill.exe"',
+      '$canonicalApplication = "signed-installer-payload/scadmill.exe"',
     );
+    expect(wrapper).toContain("Invoke-LoggedCommand -Executable $sevenZipPath -Arguments @(");
+    expect(wrapper).toContain('"e", "-y", "-o$packagedApplicationDirectory", $installerPath, "scadmill.exe"');
     expect(wrapper).toContain(
       '-Arguments @("clean", "--manifest-path", $desktopManifest, "--target-dir", $desktopTarget) -WorkingDirectory $repo -LogPath $desktopCleanLog',
     );

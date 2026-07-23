@@ -382,7 +382,7 @@ async function main() {
   assert.equal(ciMetadata.artifacts?.updateRepairEvidenceSha256, updateRepairEvidenceSha256, "Update/repair evidence differs from exact CI metadata.");
   assert.equal(ciMetadata.artifacts?.bundleIdentitySha256, bundleIdentitySha256, "Bundle identity differs from exact CI metadata.");
   assert.equal(bundleIdentity.normalizedMatch, true, "Canonical and signed-payload applications are not normalized-identical.");
-  assert.equal(bundleIdentity.builtSha256, sourceMetadata.applicationSha256, "Cleanroom application differs from exact CI canonical application.");
+  assert.equal(bundleIdentity.packagedSha256, sourceMetadata.applicationSha256, "Cleanroom application differs from the exact signed installer payload.");
   assert.equal(updateRepair.candidateApplicationSha256, bundleIdentity.packagedSha256, "Lifecycle application differs from the signed installer payload.");
   assert.equal(updateRepair.candidateInstallerSha256, ciMetadata.artifacts?.installerSha256, "Lifecycle installer differs from exact CI metadata.");
 
