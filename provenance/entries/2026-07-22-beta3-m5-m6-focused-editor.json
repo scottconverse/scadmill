@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-22-beta3-m5-m6-focused-editor",
+  "createdAt": "2026-07-22T23:55:00-06:00",
+  "summary": "Make the isolated packaged M5/M6 walkthrough address the focused workbench CodeMirror editor instead of an arbitrary mounted editor pane.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["Section 2.4 provenance ledger", "Section 2.7 milestone protocol", "M5", "M6"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-22-beta3-m5-m6-focused-editor.json", "status": "added" },
+    { "path": "scripts/run-m5-m6-packaged-walkthrough.mjs", "status": "modified" },
+    { "path": "tests/scripts/m5-m6-packaged-walkthrough-wiring.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [
+    { "label": "Owner-provided ScadMill functional specification v0.6", "destination": "spec/scadmill-spec-v0.6.md", "sha256": "A2D12C68E23590DF061BF3E222F481C3FFC40ECA6541D6F3DF49FDA87C1DE15A" }
+  ],
+  "decisions": [
+    {
+      "id": "D-0558",
+      "topic": "Packaged walkthrough editor identity",
+      "decision": "Use the shared focused-workbench CodeMirror selector for every source read, replacement, element lookup, and completion-caret operation in the M5/M6 walkthrough.",
+      "rationale": "History can keep read-only CodeMirror panes mounted even when they are not the active editor. Selecting the first generic CodeMirror node made the release proof nondeterministic and tested the wrong surface.",
+      "specBasis": ["M5 packaged capability proof", "M6 packaged capability proof", "AC-2.a"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The M5/M6 release walkthrough must edit the active project source even when other CodeMirror panes are mounted.",
+      "test": "Run the exact signed installer payload in the network-disabled Windows Sandbox, then protect the corrected selector with focused wiring and verifier tests.",
+      "red": {
+        "command": "powershell.exe -File scripts/windows/run-packaged-desktop-evidence.ps1 -N2SoakMode disabled",
+        "observedAt": "2026-07-22T23:47:02-06:00",
+        "outcome": "RED: the base cleanroom completed 28 checks, but the separate M5/M6 runner failed its first source replacement because document.querySelector('.cm-content') selected a mounted pane without the editable workbench CodeMirror view."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/m5-m6-packaged-walkthrough-wiring.test.ts tests/scripts/m5-m6-packaged-walkthrough.test.ts",
+        "observedAt": "2026-07-22T23:50:07-06:00",
+        "outcome": "GREEN: 2 files and 4 tests passed; the wiring regression rejects generic .cm-content selectors and requires the focused workbench selector."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
