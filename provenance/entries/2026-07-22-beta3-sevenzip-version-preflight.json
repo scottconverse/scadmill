@@ -7,6 +7,7 @@
   "specSections": ["M6 exit gate", "Windows signed-installer release evidence", "owner no-soak direction"],
   "filesTouched": [
     { "path": "provenance/entries/2026-07-22-beta3-sevenzip-version-preflight.json", "status": "added" },
+    { "path": "src/native-engine/tests/project_runtime.rs", "status": "modified" },
     { "path": "scripts/windows/test-installed-lifecycle.ps1", "status": "modified" },
     { "path": "scripts/windows/run-packaged-desktop-evidence.ps1", "status": "modified" },
     { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" },
@@ -28,6 +29,13 @@
       "decision": "Refresh the installed ScadMill process's MainWindowHandle after the associated-file activation and before moving the window for off-monitor recovery proof.",
       "rationale": "Exact-head CI retained one ScadMill process and the exact associated source, but the previously captured HWND reported the minimized-window sentinel rectangle at 32767,32767 while the process's current main window remained at the restored visible rectangle. Refreshing through Wait-MainWindow binds the move and subsequent persistence oracle to the current GUI window without relaxing any geometry assertion.",
       "specBasis": ["installed single-instance routing", "window-state persistence", "fail-closed installer lifecycle"]
+    },
+    {
+      "id": "D-0551",
+      "topic": "Unix malformed-engine fixture publication",
+      "decision": "Write and permission the temporary Unix shell fixture under a staging name, then atomically rename it to the executable path consumed by render_project.",
+      "rationale": "Exact-head Linux CI reported ExecutableFileBusy while starting the just-written unique fixture, before the malformed-artifact behavior could run. Publishing the closed, permissioned inode through an atomic rename removes the writer/executor name race without retrying product behavior or weakening the captured-log assertion.",
+      "specBasis": ["native engine error evidence", "deterministic test fixtures", "owner no-loop direction"]
     }
   ],
   "testEvidence": [
@@ -57,6 +65,20 @@
         "command": "pnpm.cmd exec vitest run tests/scripts/windows-installer.test.ts -t \"binds the Windows installed lifecycle to exact bytes and active WebView state\" --reporter=default; PowerShell parser check",
         "observedAt": "2026-07-22T20:58:06-06:00",
         "outcome": "GREEN: the focused lifecycle ordering contract passed and the updated PowerShell script parsed without errors."
+      }
+    },
+    {
+      "criterion": "The Unix malformed-engine fixture is published only after its contents and execute permission are complete.",
+      "test": "Atomically rename the staged Unix fixture into its final executable path while retaining the exact malformed-artifact and engine-log assertion.",
+      "red": {
+        "command": "GitHub Actions Native checks, run 29975775485, job 89107082384",
+        "observedAt": "2026-07-22T21:01:41-06:00",
+        "outcome": "RED: the unique just-written Unix fixture failed to start with ExecutableFileBusy (Text file busy); the surrounding native tests passed and the product assertion never ran."
+      },
+      "green": {
+        "command": "cargo.exe fmt --manifest-path src/native-engine/Cargo.toml -- --check; cargo.exe test --manifest-path src/native-engine/Cargo.toml --test project_runtime preserves_engine_log_when_rendered_artifact_is_malformed -- --exact",
+        "observedAt": "2026-07-22T21:09:35-06:00",
+        "outcome": "GREEN on the host platform: formatting passed and the exact focused malformed-artifact/log-preservation test passed; the Unix-specific atomic publication remains fail-closed in the replacement Linux CI run."
       }
     }
   ],

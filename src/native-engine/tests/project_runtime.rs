@@ -117,13 +117,15 @@ fn malformed_output_engine(root: &Path) -> std::path::PathBuf {
     {
         use std::os::unix::fs::PermissionsExt as _;
         let path = root.join("malformed-engine.sh");
+        let staged_path = root.join("malformed-engine.sh.new");
         fs::write(
-            &path,
+            &staged_path,
             "#!/bin/sh\nwhile [ \"$#\" -gt 0 ]; do\n  if [ \"$1\" = \"-o\" ]; then output=$2; fi\n  shift\ndone\nprintf 'not-an-stl' > \"$output\"\nprintf 'SENTINEL COMPLETE ENGINE LOG\\n' >&2\n",
         )
         .expect("write fake engine");
-        fs::set_permissions(&path, fs::Permissions::from_mode(0o755))
+        fs::set_permissions(&staged_path, fs::Permissions::from_mode(0o755))
             .expect("make fake engine executable");
+        fs::rename(&staged_path, &path).expect("atomically publish fake engine");
         path
     }
 }
