@@ -5,6 +5,9 @@ param(
   [Parameter(Mandatory = $true)] [string] $VisualCppRuntimeCompanion,
   [Parameter(Mandatory = $true)] [string] $EdgeDriver,
   [Parameter(Mandatory = $true)] [string] $FixedWebViewDirectory,
+  [Parameter(Mandatory = $true)] [string] $CiEvidenceRoot,
+  [Parameter(Mandatory = $true)] [long] $CiRunId,
+  [Parameter(Mandatory = $true)] [string] $CiHeadSha,
   [Parameter(Mandatory = $true)] [string] $OutputDirectory,
   [string] $Node = "node.exe",
   [int] $TimeoutSeconds = 600,
@@ -70,6 +73,25 @@ function Resolve-Directory([string] $Path, [string] $Label) {
   $resolved = (Resolve-Path -LiteralPath $Path -ErrorAction Stop).Path
   if (-not (Test-Path -LiteralPath $resolved -PathType Container)) { throw "$Label is not a directory: $resolved" }
   return $resolved
+}
+
+function Resolve-UniqueEvidenceFile([string] $Root, [string] $Name, [string] $PathFragment) {
+  [object[]] $matches = @(Get-ChildItem -LiteralPath $Root -Recurse -File -Filter $Name | Where-Object {
+    $_.FullName.Replace('/', '\').IndexOf(
+      $PathFragment.Replace('/', '\'),
+      [StringComparison]::OrdinalIgnoreCase
+    ) -ge 0
+  })
+  if ($matches.Count -ne 1) {
+    throw "Expected exactly one $Name below $Root containing $PathFragment; found $($matches.Count)."
+  }
+  return $matches[0].FullName
+}
+
+function Assert-Hash([string] $Path, [string] $Expected, [string] $Label) {
+  $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $Path).Hash
+  if ($actual -cne $Expected.ToUpperInvariant()) { throw "$Label hash differs: $actual" }
+  return $actual
 }
 
 function Escape-Xml([string] $Value) {
@@ -316,6 +338,12 @@ $visualCppRuntimePath = Resolve-File $VisualCppRuntime "Visual C++ runtime"
 $visualCppRuntimeCompanionPath = Resolve-File $VisualCppRuntimeCompanion "Visual C++ runtime companion"
 $edgeDriverPath = Resolve-File $EdgeDriver "Microsoft EdgeDriver"
 $webViewPath = Resolve-Directory $FixedWebViewDirectory "fixed WebView2 runtime"
+$ciEvidencePath = Resolve-Directory $CiEvidenceRoot "exact CI evidence root"
+$batchEvidencePath = Resolve-UniqueEvidenceFile $ciEvidencePath "batch-export-evidence.json" "batch-export-evidence-Windows"
+$updateRepairEvidencePath = Resolve-UniqueEvidenceFile $ciEvidencePath "update-repair-evidence.json" "windows-setup"
+$bundleIdentityPath = Resolve-UniqueEvidenceFile $ciEvidencePath "built-packaged-identity.json" "windows-setup"
+$installerPath = Resolve-UniqueEvidenceFile $ciEvidencePath "ScadMill_0.1.0-beta.3_x64-setup.exe" "windows-setup"
+$installerSidecarPath = Resolve-UniqueEvidenceFile $ciEvidencePath "ScadMill_0.1.0-beta.3_x64-setup.exe.sha256" "windows-setup"
 $nodeCommand = Get-Command $Node -CommandType Application -ErrorAction Stop
 $nodePath = Resolve-File $nodeCommand.Source "Node.js"
 $pnpmCommand = Get-Command "pnpm.cmd" -CommandType Application -All -ErrorAction Stop |
@@ -340,6 +368,63 @@ if ($sourceCommit -notmatch '^[A-Fa-f0-9]{40}$' -or $sourceTree -notmatch '^[A-F
 }
 if ($sourceTree -ne $headTree) { throw "Clean source tree does not match HEAD." }
 $branch = Get-GitValue @("branch", "--show-current") "source branch"
+if ($CiHeadSha -notmatch '^[A-Fa-f0-9]{40}$' -or $CiHeadSha.ToLowerInvariant() -cne $sourceCommit.ToLowerInvariant()) {
+  throw "Exact CI head $CiHeadSha differs from source commit $sourceCommit."
+}
+$ciRun = (gh run view $CiRunId --repo scottconverse/scadmill --json status,conclusion,headSha,jobs) | ConvertFrom-Json
+if ($LASTEXITCODE -ne 0 -or $ciRun.status -ne "completed" -or $ciRun.conclusion -ne "success") {
+  throw "Exact CI run $CiRunId is not completed-success."
+}
+if ([string]$ciRun.headSha -cne $sourceCommit) { throw "Exact CI run head differs from source commit." }
+$requiredCiJobs = @(
+  "Web checks",
+  "Browser acceptance (windows-latest)",
+  "Native and WASM byte parity",
+  "Native checks",
+  "Windows setup"
+)
+$ciJobs = [ordered]@{}
+foreach ($job in $requiredCiJobs) {
+  [object[]] $matches = @($ciRun.jobs | Where-Object { $_.name -eq $job })
+  if ($matches.Count -ne 1 -or $matches[0].conclusion -ne "success") {
+    throw "Required exact CI job did not pass exactly once: $job"
+  }
+  $ciJobs[$job] = "success"
+}
+
+$batchEvidence = Get-Content -Raw -LiteralPath $batchEvidencePath | ConvertFrom-Json
+if (
+  $batchEvidence.schemaVersion -ne 1 -or $batchEvidence.status -ne "passed" -or
+  $batchEvidence.platform -ne "win32" -or $batchEvidence.engine -ne "OpenSCAD 2026.06.12" -or
+  @($batchEvidence.success.downloads).Count -ne 3 -or @($batchEvidence.itemTwoFailure.downloads).Count -ne 2 -or
+  $batchEvidence.itemTwoFailure.failedSet -ne "Middle" -or
+  $batchEvidence.itemTwoFailure.failedDownloadAbsent -ne $true -or
+  $batchEvidence.itemTwoFailure.itemOnePreserved -ne $true -or
+  @($batchEvidence.pageErrors).Count -ne 0 -or @($batchEvidence.consoleErrors).Count -ne 0
+) { throw "Exact Windows batch evidence is incomplete or failed." }
+foreach ($group in @("success", "itemTwoFailure")) {
+  $folder = if ($group -eq "success") { "success" } else { "failure" }
+  foreach ($download in $batchEvidence.$group.downloads) {
+    $artifact = Resolve-File (Join-Path (Split-Path -Parent $batchEvidencePath) "$folder\$($download.fileName)") "batch artifact"
+    if ((Get-Item -LiteralPath $artifact).Length -ne [long]$download.bytes) { throw "Batch artifact byte count differs: $artifact" }
+    Assert-Hash $artifact ([string]$download.sha256) "batch artifact" | Out-Null
+  }
+}
+$updateRepairEvidence = Get-Content -Raw -LiteralPath $updateRepairEvidencePath | ConvertFrom-Json
+$bundleIdentity = Get-Content -Raw -LiteralPath $bundleIdentityPath | ConvertFrom-Json
+if (
+  $updateRepairEvidence.status -ne "passed" -or $updateRepairEvidence.update -ne "passed" -or
+  $updateRepairEvidence.sameVersionRepair -ne "passed" -or $updateRepairEvidence.uninstallStatePreservation -ne "passed" -or
+  $updateRepairEvidence.reinstall -ne "passed" -or $bundleIdentity.normalizedMatch -ne $true -or
+  [string]$updateRepairEvidence.candidateApplicationSha256 -cne [string]$bundleIdentity.packagedSha256
+) { throw "Exact Windows lifecycle or bundle identity evidence is incomplete." }
+$installerSha256 = Assert-Hash $installerPath ([string]$updateRepairEvidence.candidateInstallerSha256) "signed installer"
+$sidecarToken = ((Get-Content -Raw -LiteralPath $installerSidecarPath).Trim() -split '\s+')[0].ToUpperInvariant()
+if ($sidecarToken -cne $installerSha256) { throw "Installer sidecar differs from the exact installer." }
+$signature = Get-AuthenticodeSignature -LiteralPath $installerPath
+if ($signature.Status -ne "Valid" -or [string]$signature.SignerCertificate.Subject -notmatch '^CN=Scott Converse,') {
+  throw "Exact CI installer signature is not valid for Scott Converse."
+}
 
 if (Test-Path -LiteralPath $outputPath) {
   if (-not (Test-Path -LiteralPath $outputPath -PathType Container)) {
@@ -375,6 +460,26 @@ if ($builtCommit -ne $sourceCommit -or $builtTree -ne $sourceTree -or $builtBran
 }
 $applicationPath = Resolve-File $applicationPath "just-built canonical ScadMill application"
 $applicationSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $applicationPath).Hash
+if ($applicationSha256 -cne [string]$bundleIdentity.builtSha256) {
+  throw "Cleanroom canonical application differs from exact CI's canonical application."
+}
+$ciMetadata = [ordered]@{
+  schemaVersion = 1
+  runId = $CiRunId
+  headSha = $sourceCommit
+  status = "completed"
+  conclusion = "success"
+  jobs = $ciJobs
+  artifacts = [ordered]@{
+    batchEvidenceSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $batchEvidencePath).Hash
+    updateRepairEvidenceSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $updateRepairEvidencePath).Hash
+    bundleIdentitySha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $bundleIdentityPath).Hash
+    installerSha256 = $installerSha256
+    installerBytes = (Get-Item -LiteralPath $installerPath).Length
+    installerSidecarSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $installerSidecarPath).Hash
+    signer = [string]$signature.SignerCertificate.Subject
+  }
+}
 
 $runId = [Guid]::NewGuid().ToString("N")
 $stageRoot = Join-Path ([IO.Path]::GetTempPath()) "scadmill-packaged-evidence"
@@ -386,7 +491,7 @@ $sandboxLaunched = $false
 $guestValidated = $false
 
 try {
-  foreach ($directory in @("app", "tools", "scripts", "scripts\lib", "scripts\windows")) {
+  foreach ($directory in @("app", "tools", "scripts", "scripts\ci", "scripts\lib", "scripts\windows")) {
     New-Item -ItemType Directory -Force -Path (Join-Path $stage $directory) | Out-Null
   }
   Copy-Item -LiteralPath $applicationPath -Destination (Join-Path $stage "app\scadmill.exe")
@@ -396,7 +501,9 @@ try {
   Copy-Item -LiteralPath $visualCppRuntimePath -Destination (Join-Path $stage "tools\vcruntime140.dll")
   Copy-Item -LiteralPath $visualCppRuntimeCompanionPath -Destination (Join-Path $stage "tools\vcruntime140_1.dll")
   Copy-Item -LiteralPath (Join-Path $repo "scripts\run-packaged-desktop-evidence.mjs") -Destination (Join-Path $stage "scripts")
+  Copy-Item -LiteralPath (Join-Path $repo "scripts\run-m5-m6-packaged-walkthrough.mjs") -Destination (Join-Path $stage "scripts")
   Copy-Item -LiteralPath (Join-Path $repo "scripts\lib\packaged-desktop-evidence.mjs") -Destination (Join-Path $stage "scripts\lib")
+  Copy-Item -LiteralPath (Join-Path $repo "scripts\lib\m5-m6-packaged-walkthrough.mjs") -Destination (Join-Path $stage "scripts\lib")
   Copy-Item -LiteralPath (Join-Path $repo "scripts\lib\m4-packaged-walkthrough.mjs") -Destination (Join-Path $stage "scripts\lib")
   Copy-Item -LiteralPath (Join-Path $repo "scripts\lib\m4-packaged-verifier.mjs") -Destination (Join-Path $stage "scripts\lib")
   Copy-Item -LiteralPath (Join-Path $repo "scripts\lib\n2-soak-evidence.mjs") -Destination (Join-Path $stage "scripts\lib")
@@ -405,6 +512,11 @@ try {
   Copy-Item -LiteralPath (Join-Path $repo "scripts\windows\credential-probe.ps1") -Destination (Join-Path $stage "scripts")
   Copy-Item -LiteralPath (Join-Path $repo "scripts\windows\send-unicode-input.ps1") -Destination (Join-Path $stage "scripts")
   Copy-Item -LiteralPath (Join-Path $repo "scripts\windows\run-packaged-desktop-sandbox.ps1") -Destination (Join-Path $stage "scripts")
+  Copy-Item -LiteralPath $batchEvidencePath -Destination (Join-Path $stage "scripts\ci\batch-export-evidence.json")
+  Copy-Item -LiteralPath $updateRepairEvidencePath -Destination (Join-Path $stage "scripts\ci\update-repair-evidence.json")
+  Copy-Item -LiteralPath $bundleIdentityPath -Destination (Join-Path $stage "scripts\ci\built-packaged-identity.json")
+  $ciMetadataPath = Join-Path $stage "scripts\ci\ci-metadata.json"
+  [IO.File]::WriteAllText($ciMetadataPath, ($ciMetadata | ConvertTo-Json -Depth 8), [Text.UTF8Encoding]::new($false))
   $sourceMetadata = [ordered]@{
     schemaVersion = 1
     sourceCommit = $sourceCommit
@@ -488,6 +600,12 @@ try {
       credentialProbe = [ordered]@{ path = "scripts/credential-probe.ps1"; sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $stage "scripts\credential-probe.ps1")).Hash }
       keyboardInput = [ordered]@{ path = "scripts/send-unicode-input.ps1"; sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $stage "scripts\send-unicode-input.ps1")).Hash }
       helper = [ordered]@{ path = "scripts/lib/packaged-desktop-evidence.mjs"; sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $stage "scripts\lib\packaged-desktop-evidence.mjs")).Hash }
+      m5M6PackagedWalkthrough = [ordered]@{ path = "scripts/lib/m5-m6-packaged-walkthrough.mjs"; sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $stage "scripts\lib\m5-m6-packaged-walkthrough.mjs")).Hash }
+      m5M6Runner = [ordered]@{ path = "scripts/run-m5-m6-packaged-walkthrough.mjs"; sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $stage "scripts\run-m5-m6-packaged-walkthrough.mjs")).Hash }
+      ciMetadata = [ordered]@{ path = "scripts/ci/ci-metadata.json"; sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $ciMetadataPath).Hash }
+      ciBatchEvidence = [ordered]@{ path = "scripts/ci/batch-export-evidence.json"; sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $stage "scripts\ci\batch-export-evidence.json")).Hash }
+      ciUpdateRepairEvidence = [ordered]@{ path = "scripts/ci/update-repair-evidence.json"; sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $stage "scripts\ci\update-repair-evidence.json")).Hash }
+      ciBundleIdentity = [ordered]@{ path = "scripts/ci/built-packaged-identity.json"; sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $stage "scripts\ci\built-packaged-identity.json")).Hash }
       m4PackagedWalkthrough = [ordered]@{ path = "scripts/lib/m4-packaged-walkthrough.mjs"; sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $stage "scripts\lib\m4-packaged-walkthrough.mjs")).Hash }
       m4PackagedVerifier = [ordered]@{ path = "scripts/lib/m4-packaged-verifier.mjs"; sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $stage "scripts\lib\m4-packaged-verifier.mjs")).Hash }
       n2SoakConfiguration = [ordered]@{ path = "scripts/n2-soak-config.json"; sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $n2SoakConfigurationPath).Hash }
@@ -518,10 +636,18 @@ try {
   Copy-Item -LiteralPath $harnessManifestPath -Destination (Join-Path $outputPath "harness-manifest.json")
   $retainedN2VerifierDirectory = Join-Path $outputPath "retained-harness\scripts\lib"
   New-Item -ItemType Directory -Force -Path $retainedN2VerifierDirectory | Out-Null
+  $retainedHarnessScripts = Join-Path $outputPath "retained-harness\scripts"
+  Copy-Item -LiteralPath (Join-Path $stage "scripts\run-m5-m6-packaged-walkthrough.mjs") -Destination $retainedHarnessScripts
+  Copy-Item -LiteralPath (Join-Path $stage "scripts\lib\packaged-desktop-evidence.mjs") -Destination $retainedN2VerifierDirectory
+  Copy-Item -LiteralPath (Join-Path $stage "scripts\lib\m5-m6-packaged-walkthrough.mjs") -Destination $retainedN2VerifierDirectory
   Copy-Item -LiteralPath (Join-Path $stage "scripts\lib\n2-soak-evidence.mjs") -Destination $retainedN2VerifierDirectory
   Copy-Item -LiteralPath (Join-Path $stage "scripts\lib\n2-soak-verifier.mjs") -Destination $retainedN2VerifierDirectory
   Copy-Item -LiteralPath (Join-Path $stage "scripts\lib\m4-packaged-walkthrough.mjs") -Destination $retainedN2VerifierDirectory
   Copy-Item -LiteralPath (Join-Path $stage "scripts\lib\m4-packaged-verifier.mjs") -Destination $retainedN2VerifierDirectory
+  Copy-Item -LiteralPath $ciMetadataPath -Destination (Join-Path $outputPath "ci-metadata.json")
+  Copy-Item -LiteralPath $batchEvidencePath -Destination (Join-Path $outputPath "ci-batch-export-evidence.json")
+  Copy-Item -LiteralPath $updateRepairEvidencePath -Destination (Join-Path $outputPath "ci-update-repair-evidence.json")
+  Copy-Item -LiteralPath $bundleIdentityPath -Destination (Join-Path $outputPath "ci-built-packaged-identity.json")
   Copy-Item -LiteralPath $configPath -Destination (Join-Path $outputPath "sandbox-config.wsb")
   Assert-CleanWorktree "before Sandbox launch"
   $launchCommit = Get-GitValue @("rev-parse", "HEAD") "launch source commit"
@@ -539,7 +665,14 @@ try {
   $exitCode = Wait-SandboxExitCode -Path $exitFile -Deadline $deadline
   $evidencePath = Join-Path $outputPath "evidence.json"
   $guestPassPath = Join-Path $outputPath "GUEST_PASS"
-  if ($exitCode -ne 0 -or -not (Test-Path -LiteralPath $guestPassPath) -or -not (Test-Path -LiteralPath $evidencePath)) {
+  $m5M6GuestPassPath = Join-Path $outputPath "M5_M6_GUEST_PASS"
+  $m5M6WalkthroughPath = Join-Path $outputPath "m5-m6-packaged-walkthrough.json"
+  if (
+    $exitCode -ne 0 -or -not (Test-Path -LiteralPath $guestPassPath) -or
+    -not (Test-Path -LiteralPath $m5M6GuestPassPath) -or
+    -not (Test-Path -LiteralPath $m5M6WalkthroughPath) -or
+    -not (Test-Path -LiteralPath $evidencePath)
+  ) {
     throw "Packaged desktop evidence failed; inspect $outputPath."
   }
   $evidence = Get-Content -Raw -LiteralPath $evidencePath | ConvertFrom-Json
@@ -615,14 +748,24 @@ if ($guestValidated) {
   $retainedM4Verifier = Join-Path $outputPath "retained-harness\scripts\lib\m4-packaged-verifier.mjs"
   $retainedN2Evidence = Join-Path $outputPath "retained-harness\scripts\lib\n2-soak-evidence.mjs"
   $retainedN2Verifier = Join-Path $outputPath "retained-harness\scripts\lib\n2-soak-verifier.mjs"
+  $retainedM5M6Runner = Join-Path $outputPath "retained-harness\scripts\run-m5-m6-packaged-walkthrough.mjs"
+  $retainedM5M6Walkthrough = Join-Path $outputPath "retained-harness\scripts\lib\m5-m6-packaged-walkthrough.mjs"
+  $retainedPackagedHelper = Join-Path $outputPath "retained-harness\scripts\lib\packaged-desktop-evidence.mjs"
   if (
     (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $outputPath "harness-manifest.json")).Hash -ne $harnessManifestSha256 -or
     (Get-FileHash -Algorithm SHA256 -LiteralPath $retainedM4Walkthrough).Hash -ne $harnessManifest.files.m4PackagedWalkthrough.sha256 -or
     (Get-FileHash -Algorithm SHA256 -LiteralPath $retainedM4Verifier).Hash -ne $harnessManifest.files.m4PackagedVerifier.sha256 -or
     (Get-FileHash -Algorithm SHA256 -LiteralPath $retainedN2Evidence).Hash -ne $harnessManifest.files.n2SoakEvidence.sha256 -or
-    (Get-FileHash -Algorithm SHA256 -LiteralPath $retainedN2Verifier).Hash -ne $harnessManifest.files.n2SoakVerifier.sha256
+    (Get-FileHash -Algorithm SHA256 -LiteralPath $retainedN2Verifier).Hash -ne $harnessManifest.files.n2SoakVerifier.sha256 -or
+    (Get-FileHash -Algorithm SHA256 -LiteralPath $retainedM5M6Runner).Hash -ne $harnessManifest.files.m5M6Runner.sha256 -or
+    (Get-FileHash -Algorithm SHA256 -LiteralPath $retainedM5M6Walkthrough).Hash -ne $harnessManifest.files.m5M6PackagedWalkthrough.sha256 -or
+    (Get-FileHash -Algorithm SHA256 -LiteralPath $retainedPackagedHelper).Hash -ne $harnessManifest.files.helper.sha256 -or
+    (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $outputPath "ci-metadata.json")).Hash -ne $harnessManifest.files.ciMetadata.sha256 -or
+    (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $outputPath "ci-batch-export-evidence.json")).Hash -ne $harnessManifest.files.ciBatchEvidence.sha256 -or
+    (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $outputPath "ci-update-repair-evidence.json")).Hash -ne $harnessManifest.files.ciUpdateRepairEvidence.sha256 -or
+    (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $outputPath "ci-built-packaged-identity.json")).Hash -ne $harnessManifest.files.ciBundleIdentity.sha256
   ) {
-    throw "Retained M4/N-2 host verifier differs from the manifest-bound harness."
+    throw "Retained M4/M5/M6/N-2 host verifier differs from the manifest-bound harness."
   }
   [string[]] $hostM4Arguments = @(
     "--walkthrough", (Join-Path $outputPath "m4-packaged-walkthrough.json"),
@@ -655,9 +798,25 @@ if ($guestValidated) {
     ($hostN2Verification | ConvertTo-Json -Depth 4),
     [Text.UTF8Encoding]::new($false)
   )
+  [string[]] $hostM5M6Arguments = @(
+    "--verify", (Join-Path $outputPath "m5-m6-packaged-walkthrough.json"),
+    "--screenshots", $outputPath,
+    "--source-metadata", (Join-Path $outputPath "source-metadata.json")
+  )
+  [string[]] $hostM5M6Output = @(& $nodePath $retainedM5M6Runner @hostM5M6Arguments 2>&1)
+  if ($LASTEXITCODE -ne 0) { throw "Host M5/M6 verification failed: $($hostM5M6Output -join "`n")" }
+  $hostM5M6Verification = ($hostM5M6Output -join "`n") | ConvertFrom-Json
+  if ($hostM5M6Verification.status -ne "passed" -or $hostM5M6Verification.capabilityCount -ne 34) {
+    throw "Host M5/M6 verification did not pass all 34 capabilities."
+  }
+  [IO.File]::WriteAllText(
+    (Join-Path $outputPath "host-m5-m6-verification.json"),
+    ($hostM5M6Verification | ConvertTo-Json -Depth 4),
+    [Text.UTF8Encoding]::new($false)
+  )
   [IO.File]::WriteAllText(
     (Join-Path $outputPath "PASS"),
-    "packaged desktop evidence and host cleanup passed`n",
+    "packaged desktop M0-M6 evidence and host cleanup passed`n",
     [Text.UTF8Encoding]::new($false)
   )
   Write-Output $evidencePath
