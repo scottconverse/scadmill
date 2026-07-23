@@ -159,23 +159,28 @@ describe("AiConversationPanel", () => {
     const snapshots: string[] = [];
     const persistence: ConversationPersistence = { load: () => null, save: (value) => snapshots.push(value), clear: vi.fn() };
     async function* echoCurrentSecret() { yield currentSecret; }
+    const requestStream = vi.fn(() => echoCurrentSecret());
     render(<AiConversationPanel
       configured currentSource="cube(1);" documentId="d1"
       configurations={[{ id: "default", label: "test" }]}
       loadConfigurationSecret={async () => currentSecret}
       loadPersistenceSecrets={async () => [currentSecret]}
       persistence={persistence}
-      requestStream={() => echoCurrentSecret()}
+      requestStream={requestStream}
     />);
     await waitFor(() => expect(screen.getByRole("button", { name: "Send" })).toBeDisabled());
     currentSecret = "replacement-provider-key";
     fireEvent.change(screen.getByLabelText("Message"), { target: { value: "repeat replacement-provider-key" } });
-    await waitFor(() => expect(screen.getByRole("button", { name: "Send" })).not.toBeDisabled());
-    fireEvent.click(screen.getByRole("button", { name: "Send" }));
-    await screen.findByText("replacement-provider-key", undefined, { timeout: 10_000 });
+    const send = screen.getByRole("button", { name: "Send" });
+    await waitFor(() => expect(send).not.toBeDisabled());
+    const form = send.closest("form");
+    if (!form) throw new Error("AI Send control is not owned by its form.");
+    fireEvent.submit(form);
+    expect(requestStream).toHaveBeenCalledOnce();
+    await screen.findByText("replacement-provider-key");
     await waitFor(() => expect(snapshots.join("\n")).toContain("[redacted]"));
     expect(snapshots.join("\n")).not.toContain("replacement-provider-key");
-  }, 15_000);
+  });
 
   it("loads persistence secrets only at durable boundaries while a reply streams", async () => {
     const loadPersistenceSecrets = vi.fn().mockResolvedValue(["provider-key"]);

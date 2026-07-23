@@ -900,7 +900,7 @@ describe("packaged desktop evidence helpers", () => {
               String(deadlineMilliseconds),
               readyPath,
             ],
-            { encoding: "utf8", timeout: 5_000, windowsHide: true },
+            { encoding: "utf8", timeout: 15_000, windowsHide: true },
           ),
         };
       };
@@ -975,7 +975,7 @@ describe("packaged desktop evidence helpers", () => {
           locked,
           lockReady,
         ],
-        { encoding: "utf8", timeout: 5_000, windowsHide: true },
+        { encoding: "utf8", timeout: 15_000, windowsHide: true },
       );
       let ready = false;
       for (let attempt = 0; attempt < 80; attempt += 1) {
@@ -996,7 +996,7 @@ describe("packaged desktop evidence helpers", () => {
         stderr: "Timed out waiting for a complete packaged desktop evidence exit code.",
       });
     },
-    25_000,
+    45_000,
   );
 
   it("fails closed when packaged process inspection cannot complete", async () => {

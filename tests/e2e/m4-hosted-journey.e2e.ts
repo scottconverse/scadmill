@@ -281,9 +281,8 @@ test("hosted M4 journey uses real web capabilities while keeping MCP desktop-onl
     expect(await decodedImage(persistedWelcomeThumbnail)).toEqual(initialThumbnail);
     await reloadedWelcome.getByRole("button", { name: "Reopen M4 hosted evidence" }).click();
     const replacement = page.getByRole("dialog", { name: "Confirm project replacement" });
-    if (await replacement.isVisible()) {
-      await replacement.getByRole("button", { name: "Confirm project replacement" }).click();
-    }
+    await expect(replacement).toBeVisible();
+    await replacement.getByRole("button", { name: "Confirm project replacement" }).click();
     const reloadedFiles = await openFilesPanel(page);
     await expect.poll(() => editorSource(page)).toBe(CHANGED_SOURCE);
     const reloadedMain = reloadedFiles.getByRole("button", { name: "main.scad", exact: true });
