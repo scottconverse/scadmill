@@ -12,7 +12,8 @@
     { "path": "scripts/run-m5-m6-packaged-walkthrough.mjs", "status": "modified" },
     { "path": "scripts/windows/run-packaged-desktop-evidence.ps1", "status": "modified" },
     { "path": "tests/scripts/m5-m6-packaged-walkthrough-wiring.test.ts", "status": "modified" },
-    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" }
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" },
+    { "path": "tests/ui/ai/AiConversationPanel.test.tsx", "status": "modified" }
   ],
   "externalInputs": [
     {
@@ -23,6 +24,11 @@
     {
       "url": "https://github.com/scottconverse/scadmill/pull/6#discussion_r3635016814",
       "purpose": "Consumed the protected review finding that the metadata label had accidentally replaced the real local source-build path.",
+      "accessedOn": "2026-07-22"
+    },
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/29972760113",
+      "purpose": "Observed the aggregate Linux web-check timeout for the rotated-provider-key UI test while the same focused test remained green.",
       "accessedOn": "2026-07-22"
     }
   ],
@@ -36,6 +42,13 @@
       "decision": "Retain one locked clean source build as provenance, but extract the application from the exact signed installer, require its SHA-256 to equal the exact-CI packaged payload hash, and use those shipped bytes for the isolated Sandbox walkthrough.",
       "rationale": "The previous cross-machine byte-equality check failed before Sandbox even though source, lockfiles, and Rust 1.96.0 matched. Direct PE inspection established the exact CI payload used MSVC linker 14.51 while the host clean build used 14.44, changing section layout, executable size, timestamp, and hash. A signed-payload hash check is stable across hosts and tests the artifact users receive without weakening source or CI binding.",
       "specBasis": ["Windows signed-installer release evidence", "M6 exit gate", "no false compliance claims"]
+    },
+    {
+      "id": "D-0547",
+      "topic": "Aggregate UI-test scheduling budget",
+      "decision": "Raise only the rotated-provider-key test's rendered-text wait to 10 seconds and its enclosing test timeout to 15 seconds, without changing assertions or adding a retry.",
+      "rationale": "Exact-head CI run 29972760113 timed out at the prior DOM-wait bound under aggregate load after 1,740 tests passed; the unchanged focused test passed locally in 67 ms. The bounded budget preserves the persistence and redaction assertions while tolerating hosted-runner scheduling contention.",
+      "specBasis": ["AI conversation secret redaction", "release verification reliability", "owner no-loop direction"]
     }
   ],
   "testEvidence": [
@@ -65,6 +78,20 @@
         "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts -t \"fails closed before staging unless a clean HEAD is built at the canonical target\" --reporter=default",
         "observedAt": "2026-07-22T19:48:03-06:00",
         "outcome": "GREEN: the focused regression passed after separating the real Tauri source-build target from the exact signed-payload staging identity."
+      }
+    },
+    {
+      "criterion": "The rotated-provider-key persistence test remains assertion-complete under bounded aggregate-runner contention.",
+      "test": "Run the exact focused UI test after increasing only its DOM and enclosing timeout budgets.",
+      "red": {
+        "command": "GitHub Actions web checks, run 29972760113",
+        "observedAt": "2026-07-22T19:50:18-06:00",
+        "outcome": "RED: 1 of 1,741 executed web tests timed out waiting for the replacement-provider-key reply; all other tests passed."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/ui/ai/AiConversationPanel.test.tsx -t \"reloads a rotated provider key before every persistence transaction\" --reporter=default",
+        "observedAt": "2026-07-22T19:51:06-06:00",
+        "outcome": "GREEN: the unchanged focused behavior passed in 67 ms before applying the bounded aggregate-runner wait budget."
       }
     }
   ],

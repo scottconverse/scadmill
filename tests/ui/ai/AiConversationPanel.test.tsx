@@ -172,10 +172,10 @@ describe("AiConversationPanel", () => {
     fireEvent.change(screen.getByLabelText("Message"), { target: { value: "repeat replacement-provider-key" } });
     await waitFor(() => expect(screen.getByRole("button", { name: "Send" })).not.toBeDisabled());
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
-    await screen.findByText("replacement-provider-key");
+    await screen.findByText("replacement-provider-key", undefined, { timeout: 10_000 });
     await waitFor(() => expect(snapshots.join("\n")).toContain("[redacted]"));
     expect(snapshots.join("\n")).not.toContain("replacement-provider-key");
-  });
+  }, 15_000);
 
   it("loads persistence secrets only at durable boundaries while a reply streams", async () => {
     const loadPersistenceSecrets = vi.fn().mockResolvedValue(["provider-key"]);
