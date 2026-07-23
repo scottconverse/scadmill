@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-22-beta3-sevenzip-version-preflight",
+  "createdAt": "2026-07-22T20:45:20-06:00",
+  "summary": "Resolve the installed 7-Zip version from signed Windows file metadata so the exact-installer cleanroom preflight can proceed without weakening tool provenance.",
+  "author": { "kind": "agent", "name": "Codex", "model": "GPT-5", "role": "implementer" },
+  "specSections": ["M6 exit gate", "Windows signed-installer release evidence", "owner no-soak direction"],
+  "filesTouched": [
+    { "path": "provenance/entries/2026-07-22-beta3-sevenzip-version-preflight.json", "status": "added" },
+    { "path": "scripts/windows/run-packaged-desktop-evidence.ps1", "status": "modified" },
+    { "path": "tests/scripts/packaged-desktop-evidence.test.ts", "status": "modified" }
+  ],
+  "externalInputs": [],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0549",
+      "topic": "7-Zip version provenance on Windows",
+      "decision": "Read 7-Zip's ProductVersion from the resolved executable's Windows VersionInfo instead of invoking the unsupported --version argument.",
+      "rationale": "The no-soak cleanroom wrapper failed closed before any build or Sandbox launch because 7-Zip 26.01 exits nonzero for --version. The installed executable exposes ProductVersion 26.01 through Windows file metadata, which preserves exact tool-version provenance without parsing usage text or accepting a failed command.",
+      "specBasis": ["exact cleanroom tool provenance", "fail-closed release evidence"]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "The cleanroom wrapper resolves a nonempty exact 7-Zip version without invoking an unsupported CLI argument.",
+      "test": "Require the wrapper to use Get-FileProductVersion for 7-Zip and reject regression to Get-ToolVersion, then parse the PowerShell source and inspect the installed executable metadata.",
+      "red": {
+        "command": "powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/windows/run-packaged-desktop-evidence.ps1 [exact final-main evidence arguments] -N2SoakMode disabled",
+        "observedAt": "2026-07-22T20:43:29-06:00",
+        "outcome": "RED: the wrapper stopped before build and Sandbox launch with 'Could not resolve 7-Zip version' because 7z.exe --version exits nonzero."
+      },
+      "green": {
+        "command": "pnpm.cmd exec vitest run tests/scripts/packaged-desktop-evidence.test.ts -t \"fails closed before staging unless a clean HEAD is built at the canonical target\" --reporter=default; PowerShell parser check; read 7z.exe VersionInfo.ProductVersion",
+        "observedAt": "2026-07-22T20:45:16-06:00",
+        "outcome": "GREEN: the focused wrapper contract passed, PowerShell parsed without errors, and the resolved 7-Zip file product version was 26.01."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
