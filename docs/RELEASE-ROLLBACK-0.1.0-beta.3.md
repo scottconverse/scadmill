@@ -1,6 +1,6 @@
 # ScadMill 0.1.0-beta.3 rollback plan
 
-**Status:** Candidate plan. It becomes the release-specific rollback record only if beta.3 is published.
+**Status:** Published-release rollback plan. The previous public release is [`0.1.0-beta.2`](https://github.com/scottconverse/scadmill/releases/tag/v0.1.0-beta.2).
 
 Scott Converse is the release owner. Withdraw beta.3 when a confirmed defect risks project data, executes unintended code, exposes secrets, misrepresents manufacturing output, breaks install/update/uninstall, or invalidates published signature, hash, source, license, or gate evidence.
 

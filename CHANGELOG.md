@@ -4,9 +4,23 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ## [Unreleased]
 
+### Changed
+
+- Centralized public release identity in `website/public/release.json` for release consistency, security policy, and rendered-site test oracles.
+- Advanced the repository documentation and informational product site to the already-published `0.1.0-beta.3` Windows prerelease without changing the tagged desktop artifact.
+- Corrected the informational website production preview to serve the built client assets through the same Worker configuration used by the deployment target.
+
+### Security
+
+- Updated the informational website to React and React Server Components 19.2.8, `@cloudflare/vite-plugin` 1.47.0, Wrangler 4.114.0, Next.js and `eslint-config-next` 16.2.12, and PostCSS 8.5.18. The unused Next.js runtime dependency left the deployed set, the production-declaration audit is clean, and none of the 12 remaining lint/Next-parser-only audit package paths appears in the built output.
+
+## [0.1.0-beta.3] - 2026-07-23
+
 ### Release status
 
-- `0.1.0-beta.3` is the next Windows candidate and is not public yet. Application manifests identify the candidate independently from `PUBLIC_VERSION`, so the live site and supported-download documentation remain on `0.1.0-beta.2` until the exact signed beta.3 installer passes the release gate and is published.
+- `0.1.0-beta.3` is the current public 64-bit Windows desktop beta. The supported download is the signed setup attached to the [`v0.1.0-beta.3` GitHub prerelease](https://github.com/scottconverse/scadmill/releases/tag/v0.1.0-beta.3); CI artifacts are verification inputs, not supported downloads.
+- Published `ScadMill_0.1.0-beta.3_x64-setup.exe`: 211,578,856 bytes, SHA-256 `7F79FF060F76A3272E42821C7781A87E776EE7742BC9A503BF2F8A95D59EA87E`, valid Authenticode signature from Scott Converse, and immutable source/tag commit `179ef30eaeb6061acdf814477d8302a81b864788`.
+- All nine required hosted checks and the isolated similarity gate passed on the tagged source. The final exact-main clean-environment rerun was not completed; the owner accepted publication without it, so beta.3 is not described as fully release-proven.
 
 ### Fixed
 
@@ -23,7 +37,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Release status
 
-- `0.1.0-beta.2` is the current public 64-bit Windows desktop beta. The supported download is the signed setup attached to the [`v0.1.0-beta.2` GitHub prerelease](https://github.com/scottconverse/scadmill/releases/tag/v0.1.0-beta.2); CI artifacts are verification inputs, not supported downloads.
+- `0.1.0-beta.2` was the preceding public 64-bit Windows desktop beta. Its supported download remains the signed setup attached to the [`v0.1.0-beta.2` GitHub prerelease](https://github.com/scottconverse/scadmill/releases/tag/v0.1.0-beta.2); CI artifacts are verification inputs, not supported downloads.
 - `0.1.0-beta.1` is the first public 64-bit Windows desktop beta. The supported download is the signed setup attached to the `v0.1.0-beta.1` GitHub release; CI artifacts are verification inputs, not supported downloads. No public web application is included.
 - The exact beta.2 signed setup passed a fresh hosted-Windows install, association, launch, window-restoration, and uninstall lifecycle. The exact source-bound runtime separately passed the literal one-hour N-2 soak, clean Windows Sandbox newcomer walkthrough, Radeon 780M qualification, exact-head hosted CI, and isolated similarity gate. The owner resolved Q-0038 by selecting Apache-2.0 for ScadMill's original application code and Q-0039 by selecting GitHub private vulnerability reporting without a bounty or response-time SLA.
 - The M3 parity/compliance execution passed on historical candidate `1b6343a`. That evidence validates the M3 implementation but does not release the OpenSCAD WebAssembly pair and does not qualify the current Windows beta head.

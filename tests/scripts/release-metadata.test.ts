@@ -115,6 +115,14 @@ describe("public beta release metadata", () => {
     }
   });
 
+  it("keeps source-build guidance aligned with the pinned Rust toolchain", () => {
+    const toolchainVersion = /^channel = "([^"]+)"$/mu
+      .exec(text("rust-toolchain.toml"))?.[1];
+
+    expect(toolchainVersion).toBeDefined();
+    expect(text("README.md")).toContain(`Rust \`${toolchainVersion}\``);
+  });
+
   it("keeps shipped maturity, evidence boundaries, and M6 geometry honest", () => {
     const currentCapabilitySurfaces = [
       "README.md",
