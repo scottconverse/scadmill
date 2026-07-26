@@ -138,6 +138,7 @@ describe("public beta release metadata", () => {
     expect(currentRelease).toContain("GitHub Latest release");
     expect(currentRelease).not.toContain("GitHub prerelease");
     expect(releaseNotes).toContain("GitHub Latest release");
+    expect(releaseNotes).not.toContain("GitHub prerelease");
     expect(releaseNotes).not.toContain("Published Windows prerelease");
   });
 
