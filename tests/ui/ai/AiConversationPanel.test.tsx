@@ -176,7 +176,7 @@ describe("AiConversationPanel", () => {
     const form = send.closest("form");
     if (!form) throw new Error("AI Send control is not owned by its form.");
     fireEvent.submit(form);
-    expect(requestStream).toHaveBeenCalledOnce();
+    await waitFor(() => expect(requestStream).toHaveBeenCalledOnce());
     await screen.findByText("replacement-provider-key");
     await waitFor(() => expect(snapshots.join("\n")).toContain("[redacted]"));
     expect(snapshots.join("\n")).not.toContain("replacement-provider-key");

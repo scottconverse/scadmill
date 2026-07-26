@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "2026-07-26-beta3-latest-closeout",
   "createdAt": "2026-07-26T06:13:16.1144361Z",
-  "summary": "Promote the existing immutable ScadMill 0.1.0-beta.3 Windows release to GitHub Latest, align current public release wording with that designation, defer macOS and Linux releases by owner direction, and close the current ScadMill project.",
+  "summary": "Promote the existing immutable ScadMill 0.1.0-beta.3 Windows release to GitHub Latest, align current public release wording with that designation, repair the hosted async-submit test race exposed by closeout CI, defer macOS and Linux releases by owner direction, and close the current ScadMill project.",
   "author": {
     "kind": "agent",
     "name": "Codex",
@@ -31,6 +31,10 @@
     {
       "path": "tests/scripts/release-metadata.test.ts",
       "status": "modified"
+    },
+    {
+      "path": "tests/ui/ai/AiConversationPanel.test.tsx",
+      "status": "modified"
     }
   ],
   "externalInputs": [
@@ -43,6 +47,11 @@
       "url": "https://github.com/scottconverse/scadmill/releases/latest",
       "accessedOn": "2026-07-26",
       "purpose": "Verify that GitHub's canonical latest-release route resolves to v0.1.0-beta.3 after promotion."
+    },
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/30190779835/job/89763550050",
+      "accessedOn": "2026-07-26",
+      "purpose": "Diagnose the hosted Web checks failure that exposed an immediate assertion against an asynchronous React form submission."
     }
   ],
   "providedInputs": [],
@@ -86,6 +95,20 @@
         "command": "gh release view v0.1.0-beta.3; gh api repos/scottconverse/scadmill/releases/latest; git ls-remote origin refs/tags/v0.1.0-beta.3; curl -I -L https://github.com/scottconverse/scadmill/releases/latest",
         "observedAt": "2026-07-26T06:13:16.1144361Z",
         "outcome": "GREEN: all 14 deterministic checks passed. The release is non-draft and non-prerelease; Latest resolves to v0.1.0-beta.3; the tag and target remain 179ef30; installer asset ID RA_kwDOTT_QMM4dDAOs remains 211,578,856 bytes with SHA-256 7f79ff060f76a3272e42821c7781a87e776ee7742bc9a503bf2f8a95d59ea87e; sidecar asset ID RA_kwDOTT_QMM4dDAOu remains 102 bytes; and the rendered body says beta release without the stale this prerelease phrase."
+      }
+    },
+    {
+      "criterion": "The rotated-provider-key test must observe the asynchronous React form submission without depending on same-turn scheduling.",
+      "test": "Use the test's existing waitFor boundary for the request-stream invocation instead of asserting immediately after fireEvent.submit.",
+      "red": {
+        "command": "GitHub Actions Web checks: pnpm test",
+        "observedAt": "2026-07-26T06:18:05Z",
+        "outcome": "HOSTED RED: AiConversationPanel.test.tsx expected requestStream to have been called once immediately after async form submission but observed zero calls; the same full suite passed locally, identifying a scheduler-sensitive assertion."
+      },
+      "green": {
+        "command": "pnpm exec vitest run tests/ui/ai/AiConversationPanel.test.tsx",
+        "observedAt": "2026-07-26T06:21:18.2770816Z",
+        "outcome": "GREEN: the focused file passed all 18 tests after the request-stream assertion used the existing asynchronous wait boundary."
       }
     }
   ],
