@@ -123,6 +123,25 @@ describe("public beta release metadata", () => {
     expect(text("README.md")).toContain(`Rust \`${toolchainVersion}\``);
   });
 
+  it("keeps current release copy aligned with the GitHub Latest designation", () => {
+    const changelog = text("CHANGELOG.md");
+    const currentHeading = `## [${PUBLIC_VERSION}]`;
+    const currentStart = changelog.indexOf(currentHeading);
+    const nextHeading = changelog.indexOf("\n## [", currentStart + currentHeading.length);
+    const currentRelease = changelog.slice(
+      currentStart,
+      nextHeading === -1 ? undefined : nextHeading,
+    );
+    const releaseNotes = text(`docs/RELEASE-NOTES-${PUBLIC_VERSION}.md`);
+
+    expect(currentStart).toBeGreaterThanOrEqual(0);
+    expect(currentRelease).toContain("GitHub Latest release");
+    expect(currentRelease).not.toContain("GitHub prerelease");
+    expect(releaseNotes).toContain("GitHub Latest release");
+    expect(releaseNotes).not.toContain("GitHub prerelease");
+    expect(releaseNotes).not.toContain("Published Windows prerelease");
+  });
+
   it("keeps shipped maturity, evidence boundaries, and M6 geometry honest", () => {
     const currentCapabilitySurfaces = [
       "README.md",

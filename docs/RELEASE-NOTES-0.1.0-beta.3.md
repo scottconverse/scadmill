@@ -1,6 +1,6 @@
 # ScadMill 0.1.0-beta.3
 
-**Status:** Published Windows prerelease. Download only from the [official GitHub release](https://github.com/scottconverse/scadmill/releases/tag/v0.1.0-beta.3). The product site and current manual are at [scadmill-beta.sconverse.chatgpt.site](https://scadmill-beta.sconverse.chatgpt.site).
+**Status:** Published Windows beta and GitHub Latest release. Download only from the [official GitHub release](https://github.com/scottconverse/scadmill/releases/tag/v0.1.0-beta.3). The product site and current manual are at [scadmill-beta.sconverse.chatgpt.site](https://scadmill-beta.sconverse.chatgpt.site).
 
 ScadMill 0.1.0-beta.3 is a maintenance release of the complete M0-M6 Windows desktop beta. It does not add a new product milestone.
 
