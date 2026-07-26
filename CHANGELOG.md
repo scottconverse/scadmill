@@ -18,7 +18,7 @@ All notable changes to ScadMill are documented here. The format follows Keep a C
 
 ### Release status
 
-- `0.1.0-beta.3` is the current public 64-bit Windows desktop beta. The supported download is the signed setup attached to the [`v0.1.0-beta.3` GitHub prerelease](https://github.com/scottconverse/scadmill/releases/tag/v0.1.0-beta.3); CI artifacts are verification inputs, not supported downloads.
+- `0.1.0-beta.3` is the current public 64-bit Windows desktop beta and GitHub Latest release. The supported download is the signed setup attached to the [`v0.1.0-beta.3` GitHub release](https://github.com/scottconverse/scadmill/releases/tag/v0.1.0-beta.3); CI artifacts are verification inputs, not supported downloads.
 - Published `ScadMill_0.1.0-beta.3_x64-setup.exe`: 211,578,856 bytes, SHA-256 `7F79FF060F76A3272E42821C7781A87E776EE7742BC9A503BF2F8A95D59EA87E`, valid Authenticode signature from Scott Converse, and immutable source/tag commit `179ef30eaeb6061acdf814477d8302a81b864788`.
 - All nine required hosted checks and the isolated similarity gate passed on the tagged source. The final exact-main clean-environment rerun was not completed; the owner accepted publication without it, so beta.3 is not described as fully release-proven.
 

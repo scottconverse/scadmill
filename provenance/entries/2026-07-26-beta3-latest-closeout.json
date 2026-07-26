@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-26-beta3-latest-closeout",
+  "createdAt": "2026-07-26T06:13:16.1144361Z",
+  "summary": "Promote the existing immutable ScadMill 0.1.0-beta.3 Windows release to GitHub Latest, align current public release wording with that designation, defer macOS and Linux releases by owner direction, and close the current ScadMill project.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5.6 Sol",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "V-5 release gate",
+    "V-6 honesty rule",
+    "N-7 UI honesty"
+  ],
+  "filesTouched": [
+    {
+      "path": "CHANGELOG.md",
+      "status": "modified"
+    },
+    {
+      "path": "docs/RELEASE-NOTES-0.1.0-beta.3.md",
+      "status": "modified"
+    },
+    {
+      "path": "provenance/entries/2026-07-26-beta3-latest-closeout.json",
+      "status": "added"
+    },
+    {
+      "path": "tests/scripts/release-metadata.test.ts",
+      "status": "modified"
+    }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/scottconverse/scadmill/releases/tag/v0.1.0-beta.3",
+      "accessedOn": "2026-07-26",
+      "purpose": "Promote and verify the existing release metadata, rendered Latest designation, immutable tag target, release body, and published assets."
+    },
+    {
+      "url": "https://github.com/scottconverse/scadmill/releases/latest",
+      "accessedOn": "2026-07-26",
+      "purpose": "Verify that GitHub's canonical latest-release route resolves to v0.1.0-beta.3 after promotion."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0562",
+      "topic": "Current project completion and platform scope",
+      "decision": "Promote the existing v0.1.0-beta.3 Windows beta to GitHub Latest without moving its tag or changing either published asset, mark the current ScadMill project complete, and defer macOS and Linux releases until a future owner decision.",
+      "rationale": "The owner explicitly approved Phase 6, directed that the project be marked done, and chose not to publish macOS or Linux releases for now. Keeping the product described as a Windows beta preserves maturity honesty while GitHub Latest identifies the canonical current release.",
+      "specBasis": [
+        "V-5 release gate",
+        "V-6 honesty rule",
+        "N-7 UI honesty"
+      ]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Current first-party release copy must identify beta.3 as the GitHub Latest release without calling its GitHub release a prerelease.",
+      "test": "Add a focused release-metadata assertion before updating CHANGELOG.md and the beta.3 release notes.",
+      "red": {
+        "command": "pnpm exec vitest run tests/scripts/release-metadata.test.ts",
+        "observedAt": "2026-07-26T06:11:55Z",
+        "outcome": "RED: 1 of 11 tests failed because the current beta.3 changelog section still named a GitHub prerelease and the beta.3 release notes still said Published Windows prerelease."
+      },
+      "green": {
+        "command": "pnpm exec vitest run tests/scripts/release-metadata.test.ts",
+        "observedAt": "2026-07-26T06:12:36Z",
+        "outcome": "GREEN: the release-metadata file passed all 11 tests after current beta.3 copy identified the GitHub Latest release while retaining Windows beta maturity."
+      }
+    },
+    {
+      "criterion": "GitHub Latest must resolve to the exact existing beta.3 release while its tag, target commit, asset IDs, byte sizes, and installer digest remain unchanged.",
+      "test": "Compare release and latest API metadata, remote tag identity, the canonical latest redirect, asset identities, release-body wording, and checksum sidecar before and after the metadata-only promotion.",
+      "red": {
+        "command": "gh release view v0.1.0-beta.3 --json isPrerelease,targetCommitish,assets; gh api repos/scottconverse/scadmill/releases/latest",
+        "observedAt": "2026-07-26T06:08:00Z",
+        "outcome": "PRECONDITION RED: beta.3 was prerelease=true and GitHub's latest-release API returned HTTP 404; the tag still targeted 179ef30 and both expected assets were present."
+      },
+      "green": {
+        "command": "gh release view v0.1.0-beta.3; gh api repos/scottconverse/scadmill/releases/latest; git ls-remote origin refs/tags/v0.1.0-beta.3; curl -I -L https://github.com/scottconverse/scadmill/releases/latest",
+        "observedAt": "2026-07-26T06:13:16.1144361Z",
+        "outcome": "GREEN: all 14 deterministic checks passed. The release is non-draft and non-prerelease; Latest resolves to v0.1.0-beta.3; the tag and target remain 179ef30; installer asset ID RA_kwDOTT_QMM4dDAOs remains 211,578,856 bytes with SHA-256 7f79ff060f76a3272e42821c7781a87e776ee7742bc9a503bf2f8a95d59ea87e; sidecar asset ID RA_kwDOTT_QMM4dDAOu remains 102 bytes; and the rendered body says beta release without the stale this prerelease phrase."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "https://github.com/scottconverse/scadmill/releases/tag/v0.1.0-beta.3",
+      "sought": "Treat a successful release-edit API response as sufficient proof that the public page was coherent.",
+      "confirmation": "The first unbusted rendered fetch still showed the old Pre-release badge, and the release body still called itself this prerelease. A cache-busted fetch proved the Latest badge; the body was corrected to beta release and the live rendered page was checked again."
+    }
+  ],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}
