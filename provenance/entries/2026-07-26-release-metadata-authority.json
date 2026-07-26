@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-26-release-metadata-authority",
+  "createdAt": "2026-07-26T00:55:53.4202425Z",
+  "summary": "Make website/public/release.json the single public-release identity authority consumed by repository security, release-consistency, and rendered-site tests.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5.6 Sol",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "V-1 test-first development",
+    "V-5 release gate",
+    "V-6 honesty rule",
+    "N-7 UI honesty"
+  ],
+  "filesTouched": [
+    {
+      "path": "provenance/entries/2026-07-26-release-metadata-authority.json",
+      "status": "added"
+    },
+    {
+      "path": "tests/scripts/release-metadata-authority.test.ts",
+      "status": "added"
+    },
+    {
+      "path": "tests/scripts/release-metadata.test.ts",
+      "status": "modified"
+    },
+    {
+      "path": "tests/scripts/security-policy.test.ts",
+      "status": "modified"
+    },
+    {
+      "path": "website/tests/rendered-html.test.mjs",
+      "status": "modified"
+    }
+  ],
+  "externalInputs": [],
+  "providedInputs": [
+    {
+      "label": "Owner-provided ScadMill functional specification v0.6 with amendments through A-11",
+      "destination": "spec/scadmill-spec-v0.6.md",
+      "sha256": "32E06298C4538860A4E703650853C869162EB3262A57A933662296DEB07C5528"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D-0559",
+      "topic": "Public release identity authority",
+      "decision": "Derive the expected public version, installer filename, byte size, SHA-256, release URL, and download URL from website/public/release.json in release-policy tests, while retaining CANDIDATE_VERSION as the separate application-candidate authority.",
+      "rationale": "Duplicating exact release identity values in test constants made every publication a coordinated test rewrite and allowed the test oracle itself to drift. One metadata authority preserves cross-surface enforcement without pinning the current release into test code.",
+      "specBasis": [
+        "V-5 release gate",
+        "V-6 honesty rule",
+        "N-7 UI honesty"
+      ]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Release-policy tests must consume release.json and contain no literal beta version, release hash, or installer-size constant.",
+      "test": "Add a source-policy test covering the release metadata, security policy, and rendered HTML test files, then derive every release identity assertion from release.json.",
+      "red": {
+        "command": "pnpm exec vitest run tests/scripts/release-metadata-authority.test.ts",
+        "observedAt": "2026-07-26T00:49:59Z",
+        "outcome": "RED: 1 test file failed and 1 test failed because tests/scripts/release-metadata.test.ts contained literal candidate/public beta versions, installer size, and SHA-256 instead of deriving public identity from release.json."
+      },
+      "green": {
+        "command": "pnpm exec vitest run tests/scripts/release-metadata-authority.test.ts",
+        "observedAt": "2026-07-26T00:53:16Z",
+        "outcome": "GREEN: 1 test file passed and 1 test passed after the three release-policy tests consumed release.json and the remaining derived SHA-256 alias was removed."
+      }
+    },
+    {
+      "criterion": "The single metadata authority must remain fail-closed when its installer identity is internally inconsistent with its version and public surfaces.",
+      "test": "Temporarily prefix the authoritative installer filename with BROKEN-, run the release metadata suite, restore the exact file, and rerun the focused policy suite.",
+      "red": {
+        "command": "pnpm exec vitest run tests/scripts/release-metadata.test.ts",
+        "observedAt": "2026-07-26T00:56:44Z",
+        "outcome": "FALSIFICATION RED: 1 test file failed; 2 tests failed and 7 passed. The suite rejected both the malformed version-derived installer name and the resulting mismatch with README.md."
+      },
+      "green": {
+        "command": "pnpm exec vitest run tests/scripts/release-metadata-authority.test.ts tests/scripts/release-metadata.test.ts tests/scripts/security-policy.test.ts",
+        "observedAt": "2026-07-26T00:56:59Z",
+        "outcome": "RESTORED GREEN: 3 test files passed and 11 tests passed; git diff --exit-code confirmed website/public/release.json matched the original bytes."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "urn:scadmill:release-version-policy-scope",
+      "sought": "Reject every semantic-version-looking literal in release-policy tests.",
+      "confirmation": "The broad pattern incorrectly rejected the required OpenSCAD 2026.06.12 engine identity. The authority check now derives the current public and candidate versions plus release SHA-256 and rejects those exact duplicated identities, preserving unrelated versioned product requirements."
+    }
+  ],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

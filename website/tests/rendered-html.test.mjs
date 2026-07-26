@@ -1,5 +1,13 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
+
+const publicVersion = JSON.parse(
+  readFileSync(new URL("../public/release.json", import.meta.url), "utf8"),
+).version;
+const versionPattern = new RegExp(
+  publicVersion.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+);
 
 async function render(path = "/") {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
@@ -13,7 +21,7 @@ test("renders the honest, versioned product landing page", async () => {
   assert.equal(response.status, 200);
   const html = await response.text();
   assert.match(html, /OpenSCAD,[\s\S]*without losing the code/);
-  assert.match(html, /0\.1\.0-beta\.2/);
+  assert.match(html, versionPattern);
   assert.match(html, /Download Windows beta/);
   assert.match(html, /Lifecycle-tested/);
   assert.match(html, /Printability,[\s\S]*headless CLI,[\s\S]*manufacturing estimates/);
@@ -28,7 +36,7 @@ for (const [path, expected] of [["/manual", "Official user manual"], ["/architec
     assert.equal(response.status, 200);
     const html = await response.text();
     assert.match(html, new RegExp(expected));
-    assert.match(html, /0\.1\.0-beta\.2/);
+    assert.match(html, versionPattern);
     assert.doesNotMatch(html, /development (?:branch|builds?)/i);
     assert.match(html, /color-preserving 3MF/);
     if (path === "/architecture") {
