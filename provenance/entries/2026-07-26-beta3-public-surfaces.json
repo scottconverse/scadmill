@@ -1,0 +1,277 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-07-26-beta3-public-surfaces",
+  "createdAt": "2026-07-26T01:37:36Z",
+  "summary": "Advance every current repository and informational-site surface to the already-published ScadMill 0.1.0-beta.3 Windows asset, preserve the exact incomplete-clean-environment evidence boundary, align source-build guidance with the pinned Rust toolchain, remove known-vulnerable package paths from the built website output, and make the production preview serve the same Worker asset configuration as deployment.",
+  "author": {
+    "kind": "agent",
+    "name": "Codex",
+    "model": "GPT-5.6 Sol",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "Section 2.7 milestone protocol",
+    "V-5 release gate",
+    "V-6 honesty rule",
+    "N-7 UI honesty"
+  ],
+  "filesTouched": [
+    {
+      "path": "ARCHITECTURE.md",
+      "status": "modified"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "status": "modified"
+    },
+    {
+      "path": "PRIVACY.md",
+      "status": "modified"
+    },
+    {
+      "path": "PUBLIC_VERSION",
+      "status": "modified"
+    },
+    {
+      "path": "README.md",
+      "status": "modified"
+    },
+    {
+      "path": "SECURITY.md",
+      "status": "modified"
+    },
+    {
+      "path": "docs/FAQ.md",
+      "status": "modified"
+    },
+    {
+      "path": "docs/RELEASE-NOTES-0.1.0-beta.3.md",
+      "status": "modified"
+    },
+    {
+      "path": "docs/RELEASE-ROLLBACK-0.1.0-beta.3.md",
+      "status": "modified"
+    },
+    {
+      "path": "docs/RELEASE-ROLLBACK.md",
+      "status": "modified"
+    },
+    {
+      "path": "docs/USER-GUIDE.md",
+      "status": "modified"
+    },
+    {
+      "path": "docs/WINDOWS-BETA.md",
+      "status": "modified"
+    },
+    {
+      "path": "provenance/entries/2026-07-26-beta3-public-surfaces.json",
+      "status": "added"
+    },
+    {
+      "path": "tests/scripts/release-metadata.test.ts",
+      "status": "modified"
+    },
+    {
+      "path": "website/README.md",
+      "status": "modified"
+    },
+    {
+      "path": "website/app/architecture/page.tsx",
+      "status": "modified"
+    },
+    {
+      "path": "website/app/page.tsx",
+      "status": "modified"
+    },
+    {
+      "path": "website/app/shared.tsx",
+      "status": "modified"
+    },
+    {
+      "path": "website/package-lock.json",
+      "status": "modified"
+    },
+    {
+      "path": "website/package.json",
+      "status": "modified"
+    },
+    {
+      "path": "website/public/release.json",
+      "status": "modified"
+    },
+    {
+      "path": "website/tests/rendered-html.test.mjs",
+      "status": "modified"
+    }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/scottconverse/scadmill/releases/tag/v0.1.0-beta.3",
+      "accessedOn": "2026-07-25",
+      "purpose": "Verify the public prerelease state, tag target, exact installer and checksum assets, byte length, digest, and supported download URLs before changing public metadata."
+    },
+    {
+      "url": "https://github.com/advisories/GHSA-6gpp-xcg3-4w24",
+      "accessedOn": "2026-07-25",
+      "purpose": "Classify one of the high-severity Next.js runtime advisories reported by the production dependency audit before removing Next from the deployed dependency set."
+    },
+    {
+      "url": "https://github.com/advisories/GHSA-r28c-9q8g-f849",
+      "accessedOn": "2026-07-25",
+      "purpose": "Confirm the affected PostCSS range before advancing the enforced PostCSS version to 8.5.18."
+    },
+    {
+      "url": "https://github.com/advisories/GHSA-f88m-g3jw-g9cj",
+      "accessedOn": "2026-07-25",
+      "purpose": "Classify the Sharp advisory inherited only through the unused Next runtime dependency and verify its removal from the deployed dependency set."
+    },
+    {
+      "url": "https://github.com/advisories/GHSA-wx67-qw84-cm4g",
+      "accessedOn": "2026-07-25",
+      "purpose": "Confirm the affected React Server Components range and the fixed 19.2.8 release before updating the website runtime stack."
+    },
+    {
+      "url": "https://registry.npmjs.org/@cloudflare/vite-plugin/1.47.0",
+      "accessedOn": "2026-07-25",
+      "purpose": "Confirm the non-breaking Cloudflare Vite plugin fix and its Wrangler 4.114.0 peer requirement before updating the exact lock."
+    }
+  ],
+  "providedInputs": [
+    {
+      "label": "Owner-provided ScadMill functional specification v0.6 with amendments through A-11",
+      "destination": "spec/scadmill-spec-v0.6.md",
+      "sha256": "32E06298C4538860A4E703650853C869162EB3262A57A933662296DEB07C5528"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D-0560",
+      "topic": "Published beta.3 identity and evidence boundary",
+      "decision": "Advance current public surfaces to the exact signed beta.3 asset and source/tag commit 179ef30 while stating that the final exact-main clean-environment rerun was not completed and that the owner accepted publication without it.",
+      "rationale": "Beta.3 is already public, signed, and source-bound, so beta.2 download guidance is stale. The missing final clean-environment rerun is an accepted evidence boundary, not a product defect, and must remain visible so publication is not misrepresented as fully release-proven.",
+      "specBasis": [
+        "V-5 release gate",
+        "V-6 honesty rule",
+        "N-7 UI honesty"
+      ]
+    },
+    {
+      "id": "D-0561",
+      "topic": "Informational-site runtime dependency boundary",
+      "decision": "Import the public Vinext link shim directly; keep Next.js only as a development dependency required by eslint-config-next; update React, React DOM, and React Server Components to 19.2.8, @cloudflare/vite-plugin to 1.47.0, Wrangler to 4.114.0, and PostCSS to 8.5.18; and scan built output against every package path still named by the complete audit.",
+      "rationale": "The Vinext production bundle supplies navigation and contains none of the package module paths still named by npm audit. Moving the unused Next runtime out of production declarations and taking the available non-breaking Cloudflare and React Server Components fixes reduced the full-tree high-severity count from 16 to 12. The remaining findings are confined to the lint/Next-parser installation tree, npm offers no non-breaking audit fix, the production-declaration audit is zero, and the built output contains zero matching module paths.",
+      "specBasis": [
+        "V-5 release gate",
+        "V-6 honesty rule",
+        "N-7 UI honesty"
+      ]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "Every current first-party public surface must identify the exact published beta.3 version, installer, byte length, SHA-256, release page, and download URL.",
+      "test": "Change website/public/release.json first, run the existing release contract against stale beta.2 surfaces, then update the bounded public-surface inventory and rerun the focused policy denominator.",
+      "red": {
+        "command": "pnpm exec vitest run tests/scripts/release-metadata.test.ts",
+        "observedAt": "2026-07-26T01:24:13Z",
+        "outcome": "RED: 1 test file ran 9 tests; 3 failed because PUBLIC_VERSION and repository/site surfaces remained beta.2 and the beta.3 release notes still described a pending candidate without the resolved specification-correction section."
+      },
+      "green": {
+        "command": "pnpm exec vitest run tests/scripts/release-metadata-authority.test.ts tests/scripts/release-metadata.test.ts tests/scripts/security-policy.test.ts",
+        "observedAt": "2026-07-26T01:33:10Z",
+        "outcome": "GREEN: 3 test files and all 11 tests passed after every inventoried current surface used the exact beta.3 contract and retained the separate candidate-version authority."
+      }
+    },
+    {
+      "criterion": "Rendered site copy must show beta.3 without claiming the incomplete final exact-main clean-environment rerun passed.",
+      "test": "Require source-bound copy, reject release-tested or fully release-proven language, and require the architecture route to disclose that the final rerun was not completed before changing the rendered pages.",
+      "red": {
+        "command": "npm test",
+        "observedAt": "2026-07-26T01:31:00Z",
+        "outcome": "RED: the production build completed, then 2 of 3 rendered-route tests failed because the landing page still said Lifecycle-tested and release-tested and the architecture route transferred earlier lifecycle/Sandbox evidence to beta.3."
+      },
+      "green": {
+        "command": "npm run lint && npm test",
+        "observedAt": "2026-07-26T01:35:00Z",
+        "outcome": "GREEN: lint exited 0, the Vinext production build completed, and landing, manual, and architecture rendered 3/3 with the beta.3 identity and explicit incomplete-rerun boundary."
+      }
+    },
+    {
+      "criterion": "The deployed informational-site output must exclude known-vulnerable package paths while retaining a reproducible, explicitly bounded development-tool audit.",
+      "test": "Run production and complete npm audits before and after the dependency-boundary change, take every available non-breaking Cloudflare and React Server Components fix, clean-install the exact lock, build the production site, and scan emitted output for every package path still named by the complete audit.",
+      "red": {
+        "command": "npm audit --omit=dev --json",
+        "observedAt": "2026-07-26T01:05:00Z",
+        "outcome": "RED baseline: 3 high / 0 critical production findings covered direct Next.js plus transitive PostCSS and Sharp. A first patch-level update still left 2 high findings, proving the Next runtime itself had to leave the deployed dependency set."
+      },
+      "green": {
+        "command": "npm ci && npm run lint && npm test && npm audit --omit=dev --json && npm audit --json; scan dist for every package named by the remaining complete audit",
+        "observedAt": "2026-07-26T01:35:00Z",
+        "outcome": "GREEN: exact clean install, lint, and 3/3 rendered routes passed; the production-declaration audit reported 0 total vulnerabilities; the complete audit dropped from 16 to 12 high-severity lint/Next-parser-only findings with no available non-breaking fix; emitted output contained zero module paths for all 12 named packages."
+      }
+    },
+    {
+      "criterion": "The labeled landing-page source-to-geometry illustration must expose a valid image role to assistive technology.",
+      "test": "Add a rendered-HTML assertion requiring role=img on the labeled hero illustration before correcting the existing generic div.",
+      "red": {
+        "command": "node --test tests/rendered-html.test.mjs",
+        "observedAt": "2026-07-26T01:38:00Z",
+        "outcome": "RED: 1 of 3 rendered-route tests failed because hero-visual had an aria-label without role=img."
+      },
+      "green": {
+        "command": "npm run lint && npm test",
+        "observedAt": "2026-07-26T01:39:00Z",
+        "outcome": "GREEN: ESLint accepted the ARIA pairing and all 3 rendered routes passed with role=img present in the landing-page HTML."
+      }
+    },
+    {
+      "criterion": "Public source-build guidance must name the exact Rust version pinned by rust-toolchain.toml.",
+      "test": "Derive the pinned channel from rust-toolchain.toml and require the README build requirements to contain that exact version before correcting the stale guidance.",
+      "red": {
+        "command": "pnpm exec vitest run tests/scripts/release-metadata.test.ts",
+        "observedAt": "2026-07-26T01:55:05Z",
+        "outcome": "RED: 1 of 10 release-metadata tests failed because rust-toolchain.toml pins Rust 1.96.0 while the README still instructed contributors to use Rust 1.94.0."
+      },
+      "green": {
+        "command": "pnpm exec vitest run tests/scripts/release-metadata.test.ts",
+        "observedAt": "2026-07-26T01:56:00Z",
+        "outcome": "GREEN: all 10 release-metadata tests passed after the README source-build requirement matched the pinned Rust 1.96.0 toolchain."
+      }
+    },
+    {
+      "criterion": "The documented production preview command must serve built client assets through the Worker configuration used by deployment.",
+      "test": "Require the website start script to invoke Wrangler with dist/server/wrangler.json and reject vinext start before correcting the preview command, then request every emitted asset from the local Worker preview.",
+      "red": {
+        "command": "node --test tests/rendered-html.test.mjs; vinext start; request emitted /assets URLs",
+        "observedAt": "2026-07-26T02:14:15Z",
+        "outcome": "RED: the existing start script used vinext start; the root returned 200 but all seven emitted CSS/JavaScript asset URLs returned 404, leaving the page unstyled and causing a dynamic-import browser error."
+      },
+      "green": {
+        "command": "node --test tests/rendered-html.test.mjs; wrangler dev --config dist/server/wrangler.json --local; request emitted /assets URLs",
+        "observedAt": "2026-07-26T02:17:28Z",
+        "outcome": "GREEN: all 4 rendered/config tests passed; the Worker preview returned 200 for the root and all seven emitted CSS/JavaScript assets with correct content types; the rendered browser layout was styled."
+      }
+    }
+  ],
+  "nearMisses": [
+    {
+      "url": "urn:scadmill:next-patch-audit-near-miss",
+      "sought": "Clear the website production audit by updating Next.js and eslint-config-next from 16.2.6 to 16.2.12.",
+      "confirmation": "The rerun still reported 2 high findings because Next retained vulnerable Sharp and newly reported Next ranges. Bundle inspection showed Vinext, not Next, implements the deployed link path. Next moved to development-only lint support and the production audit then reached zero."
+    },
+    {
+      "url": "urn:scadmill:omit-dev-boundary-near-miss",
+      "sought": "Treat npm audit --omit=dev as the complete deployed-runtime security boundary.",
+      "confirmation": "Audit Lite rejected that shortcut because Vinext builds server code from development-declared packages. Available Cloudflare and React Server Components fixes were applied, the full audit fell from 16 to 12 high findings, npm reported no remaining non-breaking fix, and the built output was scanned against every remaining affected package path with zero matches."
+    },
+    {
+      "url": "urn:scadmill:vinext-node-preview-near-miss",
+      "sought": "Treat successful server-rendered route tests and a 200 response from vinext start as sufficient production-preview evidence.",
+      "confirmation": "Visitor visual inspection showed an unstyled page and a failed dynamic import. Every built client asset returned 404 under the Node preview. The start command now uses the Worker configuration that matches deployment, and all emitted assets return 200."
+    }
+  ],
+  "questions": [],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

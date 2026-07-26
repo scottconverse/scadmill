@@ -1,6 +1,6 @@
 # ScadMill user manual
 
-**Applies to:** ScadMill `0.1.0-beta.2`, the public 64-bit Windows desktop beta.
+**Applies to:** ScadMill `0.1.0-beta.3`, the public 64-bit Windows desktop beta.
 
 **Published manual:** <https://scadmill-beta.sconverse.chatgpt.site/manual>
 
@@ -14,8 +14,8 @@ OpenSCAD models are readable text instructions. ScadMill gives you one place to 
 
 ### Install safely
 
-1. Download `ScadMill_0.1.0-beta.2_x64-setup.exe` only from the [official release](https://github.com/scottconverse/scadmill/releases/tag/v0.1.0-beta.2).
-2. Verify the installer SHA-256 is `49C107B1648D918B7DAF16B47B4F3BAD0500EDB160D8E734E6C400E7E2578A91` and that Windows reports a valid signature from Scott Converse.
+1. Download `ScadMill_0.1.0-beta.3_x64-setup.exe` only from the [official release](https://github.com/scottconverse/scadmill/releases/tag/v0.1.0-beta.3).
+2. Verify the installer SHA-256 is `7F79FF060F76A3272E42821C7781A87E776EE7742BC9A503BF2F8A95D59EA87E` and that Windows reports a valid signature from Scott Converse.
 3. Run the current-user installer. It includes uninstall support and the offline WebView2 runtime used by the interface.
 4. Separately download and verify the exact official OpenSCAD `2026.06.12` Windows snapshot using [these engine instructions](WINDOWS-BETA.md#install-the-required-openscad-engine).
 5. Start ScadMill, choose **Configure engine**, select the verified `openscad.exe`, and confirm the status reports OpenSCAD 2026.06.12.
@@ -166,7 +166,7 @@ Native engine work is out of process. Mesh parsing, manufacturing-estimate prepr
 
 ### Release and extension architecture
 
-The release pipeline checks provenance and licenses, builds from a clean pinned tree, signs the Windows installer, and binds retained evidence to exact hashes. The exact signed setup passed the fresh hosted-Windows install, association, launch, window-restoration, and uninstall lifecycle. The exact source-bound runtime separately passed hosted CI, isolated similarity review, a literal one-hour soak, Radeon 780M performance evidence, and the Windows Sandbox newcomer walkthrough.
+The release pipeline checks provenance and licenses, builds from a clean pinned tree, signs the Windows installer, and binds retained evidence to exact hashes. The beta.3 tag, installer build source, and exact source-bound commit `179ef30` are identical. All nine required checks, including hosted-Windows, and the isolated similarity gate passed on that source. Retained product-level evidence includes a literal one-hour soak and Radeon 780M performance evidence, but the final exact-main clean-environment rerun was not completed; the owner accepted publication without it.
 
 Open **Libraries** on the activity rail. Choose BOSL2, MCAD, or dotSCAD, download the pinned package, read the license shown from that package, and confirm installation. ScadMill copies only bounded runtime files plus the license into the current project and records ownership in `scadmill.libraries.json`; it never updates a pin silently. A custom pinned HTTPS ZIP can be reviewed through the same flow. Once a project source imports a vendored file with `include` or `use`, its module/function signatures participate in completion and native/WASM renders receive the same file map. Removing a library removes only manifest-owned files and leaves ordinary project source intact.
 

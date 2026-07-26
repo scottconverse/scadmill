@@ -1,10 +1,10 @@
 # ScadMill Windows beta guide
 
-ScadMill `0.1.0-beta.2` is a public beta for 64-bit Windows desktop. Use only the setup executable and checksum attached to the [official GitHub release](https://github.com/scottconverse/scadmill/releases/tag/v0.1.0-beta.2). GitHub Actions artifacts are verification inputs and are not supported downloads.
+ScadMill `0.1.0-beta.3` is a public beta for 64-bit Windows desktop. Use only the setup executable and checksum attached to the [official GitHub release](https://github.com/scottconverse/scadmill/releases/tag/v0.1.0-beta.3). GitHub Actions artifacts are verification inputs and are not supported downloads.
 
-- Filename: `ScadMill_0.1.0-beta.2_x64-setup.exe`
-- Byte length: `211574008`
-- SHA-256: `49C107B1648D918B7DAF16B47B4F3BAD0500EDB160D8E734E6C400E7E2578A91`
+- Filename: `ScadMill_0.1.0-beta.3_x64-setup.exe`
+- Byte length: `211578856`
+- SHA-256: `7F79FF060F76A3272E42821C7781A87E776EE7742BC9A503BF2F8A95D59EA87E`
 - Windows signer: `CN=Scott Converse, O=Scott Converse, L=Longmont, S=co, C=US`
 
 ## What the setup will install
@@ -89,8 +89,8 @@ To uninstall ScadMill through **Windows Settings → Apps → Installed apps**, 
 
 Uninstall is not an all-data-erasure promise. Before uninstalling, clear every configured AI key from **Settings → AI** and clear each project's durable render cache from **Settings → Rendering** if you do not want those records retained. Settings, recovery information, cache records, or operating-system credential records may otherwise remain in the Windows user profile. ScadMill does not yet provide one command that erases every desktop store.
 
-Back up project folders before installation, upgrade, uninstall, or recovery work. The previous public release is `0.1.0-beta.1`; beta.2 withdrawal, downgrade boundaries, and forward replacement are documented in [`RELEASE-ROLLBACK.md`](RELEASE-ROLLBACK.md).
+Back up project folders before installation, upgrade, uninstall, or recovery work. The previous public release is `0.1.0-beta.2`; beta.3 withdrawal, downgrade boundaries, and forward replacement are documented in [`RELEASE-ROLLBACK.md`](RELEASE-ROLLBACK.md).
 
 ## Release qualification
 
-The exact signed setup passed a fresh hosted-Windows install, `.scad` association, active launch, window-restoration, and uninstall lifecycle. The exact source-bound runtime separately passed the literal one-hour N-2 soak, clean Windows Sandbox newcomer walkthrough, Radeon 780M qualification, exact-head hosted CI, and isolated similarity gate. The public asset is supported only when its byte length, SHA-256, and Windows signature match this guide.
+The beta.3 tag, signed installer source, and commit `179ef30` are identical. All nine required hosted checks and the isolated similarity gate passed on that source, and the public asset has the exact byte length, SHA-256, and Windows signature shown above. Retained product-level evidence includes reliability and Radeon 780M qualification, but the final exact-main clean-environment rerun was not completed; the owner accepted publication without it. Do not describe beta.3 as fully release-proven.

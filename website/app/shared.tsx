@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "vinext/shims/link";
 import { RELEASE } from "../lib/release";
 
 export function Header() {
@@ -6,7 +6,7 @@ export function Header() {
 }
 
 export function ReleaseBar() {
-  return <div className="release-bar"><div className="shell"><span>WINDOWS BETA</span><p>{RELEASE.version} is public, signed, and release-tested.</p><a href={RELEASE.releasePage}>View release →</a></div></div>;
+  return <div className="release-bar"><div className="shell"><span>WINDOWS BETA</span><p>{RELEASE.version} is public and signed; see the exact evidence boundary.</p><a href={RELEASE.releasePage}>View release →</a></div></div>;
 }
 
 export function Footer() {

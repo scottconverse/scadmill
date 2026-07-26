@@ -1,6 +1,6 @@
 # ScadMill architecture
 
-**Release context:** ScadMill `0.1.0-beta.2` public Windows beta. The source tree also contains implemented web composition work that is not a public hosted product.
+**Release context:** ScadMill `0.1.0-beta.3` public Windows beta. The source tree also contains implemented web composition work that is not a public hosted product.
 
 **Published architecture guide:** <https://scadmill-beta.sconverse.chatgpt.site/architecture>
 
@@ -62,7 +62,7 @@ Tauri owns OS dialogs, native menus, `.scad` association and single-instance rou
 
 ## Provenance and supply-chain gates
 
-Non-trivial changes have append-only records under `provenance/entries`. npm and Rust dependency licenses are checked. Engine, toolchain, and relevant packages are pinned. The owner similarity harness runs only in isolated hosted CI. The `0.1.0-beta.2` release also passed hosted CI, a literal one-hour soak, owner-designated Radeon 780M performance evidence, a source-bound Windows Sandbox newcomer walkthrough, and an exact signed-installer hosted Windows lifecycle.
+Non-trivial changes have append-only records under `provenance/entries`. npm and Rust dependency licenses are checked. Engine, toolchain, and relevant packages are pinned. The owner similarity gate runs only in isolated hosted CI. The `0.1.0-beta.3` tag, signed installer source, and commit `179ef30` are identical; all nine required hosted checks and the isolated similarity gate passed on that source. Retained product-level evidence includes a literal one-hour soak and owner-designated Radeon 780M performance evidence. The final exact-main clean-environment rerun was not completed, and the owner accepted publication without it.
 
 ## Extension seams through M6
 
