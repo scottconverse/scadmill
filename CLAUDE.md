@@ -1,0 +1,19 @@
+# CLAUDE.md
+
+ScadMill is a source-first OpenSCAD CAD workbench: a React/TypeScript/Three.js frontend and a Rust/Tauri desktop shell that renders through an unmodified, hash-pinned OpenSCAD subprocess. Ordinary `.scad` files stay the durable artifact; there is no private document format, no telemetry and no ScadMill cloud service. The public product is the signed Windows desktop beta; the web composition (OpenSCAD WASM worker) is implemented but not publicly distributed, so keep that distinction intact in docs and claims.
+
+Commands, test entrypoints, release gates and the release-qualification walkthrough: `.claude/reference/commands-and-release.md`. Read it before running tests, building or touching release files.
+
+## Gotchas
+- Dependency direction is the central invariant. `src/application/platform` declares typed capability ports; only `src/platform-web` and `src/platform-desktop` may touch browser globals, Tauri APIs or desktop-shell details. Shared UI and application code must never import them. Unavailable capabilities are omitted, never simulated.
+- `ENGINE_VERSION` is a provenance record (URLs, SHA-256 of archives and executables, WASM run IDs, the Amendment A-7 rationale), not a version string. Treat it as evidence; do not casually edit it.
+- Preview uses preview-only policy; only a full render may be exported. A strict `scadmill.project.json` pin enters every native render and export request, and a version mismatch is rejected.
+- Large printability and estimate inputs fail closed instead of falling back to the main thread.
+- The color path is centralized at each EngineService adapter: Manifold, lazy-union, model-color and Color-material options are always used; Base Material is never selected.
+- Privacy: optional AI requests go through a bounded native broker straight to the exact configured endpoint, refuse redirects and carry only explicitly selected context. Secrets live in Windows Credential Manager. The MCP bridge is loopback-only, off by default, permissioned and review-gated.
+- `pnpm lint` includes the source-policy gate (`scripts/lib/source-policy.mjs`), the rule most likely to block a fine change: UI files are capped at 400 physical lines (with an exemption list), shared UI must not import platform modules, no UTF-8 mojibake, no hardcoded color literals (use `src/theme`).
+- `src/ui/editor/generated/openscad-parser.ts` is generated. Edit `src/ui/editor/openscad.grammar`, run `pnpm generate:openscad-parser`, commit the result; `pnpm check:generated` fails CI on drift.
+- `CANDIDATE_VERSION`, `PUBLIC_VERSION` and the `package.json` version are separate and must stay coherent. Non-trivial changes need an append-only record under `provenance/entries` (schema in `provenance/schema.json`).
+- The owner similarity gate (`owner-gate/`, `ci-similarity-gate.yml`) runs only in isolated hosted CI, not locally.
+- Batch export serializes full-quality operations and each destination write completes before the next starts, so a later failure or cancellation cannot roll back an already-saved artifact. Do not "improve" this into a transactional rollback.
+- Owner override on retry discipline: the root `../AGENTS.md` sets a two-failure reporting threshold; ScadMill allows up to five failures before work must stop and report. Each retry still needs a diagnosed cause and one targeted correction; blind retries stay prohibited. This applies to this project only.
