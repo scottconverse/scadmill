@@ -235,7 +235,7 @@ describe("regular CI workflow contract", () => {
 
   it("skips heavy jobs only on docs-only changes and keeps matrix check names", () => {
     const changes = rawJobBlock("changes");
-    expect(changes).toContain("code: ${{ steps.diff.outputs.code }}");
+    expect(changes).toContain(`code: \${{ steps.diff.outputs.code }}`);
     expect(changes).toContain("code=true");
 
     const jobsStart = rawWorkflow.indexOf("\njobs:\n");

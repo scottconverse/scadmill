@@ -34,6 +34,10 @@
     {
       "path": "tests/scripts/ci-workflow.test.ts",
       "status": "modified"
+    },
+    {
+      "path": "tests/scripts/windows-installer.test.ts",
+      "status": "modified"
     }
   ],
   "externalInputs": [
@@ -83,16 +87,16 @@
     },
     {
       "criterion": "The docs-only gate keeps every existing workflow contract and is itself tested.",
-      "test": "pnpm exec vitest run tests/scripts/ci-workflow.test.ts",
+      "test": "pnpm exec vitest run tests/scripts",
       "red": {
         "command": "pnpm exec vitest run tests/scripts/ci-workflow.test.ts (branch ci/docs-skip at 880f08b)",
         "observedAt": "2026-11-02T18:05:00-07:00",
         "outcome": "RED: 4 failed (browser acceptance on Linux and Windows, batch-export evidence, WASM staging, desktop installers), because the gate added if: lines to steps the contracts check. A second red: removing the gate from the Windows browser-install step fails the new gate test."
       },
       "green": {
-        "command": "pnpm exec vitest run tests/scripts/ci-workflow.test.ts",
-        "observedAt": "2026-11-02T18:19:33-07:00",
-        "outcome": "GREEN: 12 passed."
+        "command": "pnpm exec vitest run tests/scripts",
+        "observedAt": "2026-11-02T18:24:00-07:00",
+        "outcome": "GREEN: 35 files, 293 tests passed."
       }
     }
   ],

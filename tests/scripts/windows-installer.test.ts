@@ -383,7 +383,10 @@ fi`;
     expect(linux.run).toContain("visible_window_pid=$runtime_pid");
     expect(linux.run).not.toContain('readlink -f "/proc/$pid/exe"');
     expect(linux.run).toContain('test "$installed_hash" = "$expected_hash"');
-    expect(upload.if).toBe("always() && env.SCADMILL_DESKTOP_INSTALLER != ''");
+    // The docs-only CI gate is checked in ci-workflow.test.ts.
+    expect(upload.if?.replace(" && needs.changes.outputs.code == 'true'", "")).toBe(
+      "always() && env.SCADMILL_DESKTOP_INSTALLER != ''",
+    );
     expect(upload.with?.path).toContain("scadmill-*-window-evidence.txt");
     expect(upload.with?.path).toContain("scadmill-*-window-diagnostics.txt");
     expect(job.steps.indexOf(mac)).toBeLessThan(job.steps.indexOf(upload));
