@@ -40,6 +40,12 @@ wasm.reproducibility_confirmation.commit: dfcbf26242f4a9a6745fcc27572b0aaca9393d
 wasm.reproducibility_confirmation.artifact.id: 8388787405
 wasm.reproducibility_confirmation.artifact.archive_bytes: 3330014
 wasm.reproducibility_confirmation.result: manifest, openscad.js, and openscad.wasm are byte-for-byte identical to source build run 29529789154
+wasm.ci_retained_copy.run: https://github.com/scottconverse/scadmill/actions/runs/41557440307
+wasm.ci_retained_copy.commit: 2f3fdf9cb40dd174846fee16920fc5b3cf02cab5
+wasm.ci_retained_copy.artifact.id: 13194809520
+wasm.ci_retained_copy.artifact.archive_bytes: 3330014
+wasm.ci_retained_copy.artifact.expires_at: 2027-02-01T01:05:54Z
+wasm.ci_retained_copy.result: manifest, openscad.js, and openscad.wasm are byte-for-byte identical to source build run 29529789154; rebuilt with the unchanged workflow because the artifact of run 29529789154 expired and CI staging could no longer download it
 wasm.version_correction: the first retained source build inherited the runner date because official CMake defaults OPENSCAD_VERSION to today; the corrected workflow explicitly pins 2026.06.12, passes it through Docker, and verifies the unique embedded version before upload
 wasm.manifest_observation: the official snapshot index currently exposes exact-date WebAssembly web and node archives despite the v0.6 statement that prebuilt publication stalled; Q-0023 asks whether either may replace the mandated source build
 wasm.manifest.web.url: https://files.openscad.org/snapshots/OpenSCAD-2026.06.12-WebAssembly-web.zip

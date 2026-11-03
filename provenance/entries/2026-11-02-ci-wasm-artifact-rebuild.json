@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-11-02-ci-wasm-artifact-rebuild",
+  "createdAt": "2026-11-02T18:20:00-07:00",
+  "summary": "Point CI WASM staging at a fresh rebuild of the pinned OpenSCAD WASM, because GitHub deleted the artifact of source build run 29529789154 after its retention period and every CI run that stages the engine failed. Also keep the docs-only CI gate from breaking the workflow contract tests.",
+  "author": {
+    "kind": "agent",
+    "name": "Claude Code",
+    "model": "Claude Opus 5.5",
+    "role": "implementer"
+  },
+  "specSections": [
+    "Section 2.4 provenance ledger",
+    "A-5 official-source engine build permission",
+    "N-7 evidence honesty"
+  ],
+  "filesTouched": [
+    {
+      "path": ".github/workflows/ci.yml",
+      "status": "modified"
+    },
+    {
+      "path": ".github/workflows/package-openscad-web-engine.yml",
+      "status": "modified"
+    },
+    {
+      "path": "ENGINE_VERSION",
+      "status": "modified"
+    },
+    {
+      "path": "provenance/entries/2026-11-02-ci-wasm-artifact-rebuild.json",
+      "status": "added"
+    },
+    {
+      "path": "tests/scripts/ci-workflow.test.ts",
+      "status": "modified"
+    }
+  ],
+  "externalInputs": [
+    {
+      "url": "https://github.com/scottconverse/scadmill/actions/runs/41557440307",
+      "accessedOn": "2026-11-02",
+      "purpose": "Workflow-dispatch run of the unchanged build-openscad-wasm.yml on main 2f3fdf9; its artifact replaces the expired artifact of run 29529789154 for ephemeral CI staging."
+    }
+  ],
+  "providedInputs": [],
+  "decisions": [
+    {
+      "id": "D-0563",
+      "topic": "Replace the expired retained WASM artifact for CI staging",
+      "decision": "Rebuild the pinned engine with the unchanged build workflow and point the web, e2e, parity and compliance-packaging download steps at run 41557440307. Keep the staging script hashes unchanged, so CI still refuses any bytes that differ from the recorded source build. Keep the bytes out of Git and out of public releases.",
+      "rationale": "GitHub keeps workflow artifacts for at most 90 days on this repository, so run 29529789154 no longer has its artifact. The build is reproducible: the new manifest, openscad.js and openscad.wasm match the recorded sha256 values byte for byte. Q-0033 still blocks public distribution, so a release asset is not an option. The new artifact expires on 2027-02-01T01:05:54Z and must be rebuilt the same way before then.",
+      "specBasis": [
+        "A-5",
+        "N-7",
+        "Q-0033"
+      ]
+    },
+    {
+      "id": "D-0564",
+      "topic": "Docs-only CI gate and the workflow contract tests",
+      "decision": "Write each gated step condition as the original condition followed by '&& needs.changes.outputs.code == true'. The contract tests strip the docs-only gate before their existing checks, and one new test checks the gate itself: every job needs the changes job, normal jobs skip at job level, and every step of the e2e and desktop-installers matrix jobs carries the gate.",
+      "rationale": "The owner ordered that docs-only changes start no heavy CI. A matrix job skipped at job level reports an unexpanded name, so the required Browser acceptance and Desktop installer checks would never report; these two jobs gate each step instead. The old contract checks (no extra conditions on the acceptance and staging steps, the Linux and Windows conditions, the always() upload) still apply unchanged to everything except the docs-only gate.",
+      "specBasis": [
+        "N-7"
+      ]
+    }
+  ],
+  "testEvidence": [
+    {
+      "criterion": "CI can download and verify the exact source-built WASM bytes again.",
+      "test": "Rebuild with the unchanged workflow, compare the downloaded files with the recorded sha256 values, then run the workflow contract tests.",
+      "red": {
+        "command": "GitHub Actions CI on PR 31 (branch ci/docs-skip)",
+        "observedAt": "2026-11-02T13:00:00-07:00",
+        "outcome": "RED: the Stage source-built WASM step could not find artifact openscad-wasm-0a66508c67374febcfc814a73b5b948dd84a1ca3 in run 29529789154, which now lists 0 artifacts."
+      },
+      "green": {
+        "command": "gh run download 41557440307 -n openscad-wasm-0a66508c67374febcfc814a73b5b948dd84a1ca3; sha256sum",
+        "observedAt": "2026-11-02T18:25:00-07:00",
+        "outcome": "GREEN: openscad.js 100027 bytes e458673d..., openscad.wasm 10760714 bytes f908aafa..., manifest 599 bytes ab195992..., all equal to the values in ENGINE_VERSION and scripts/stage-openscad-wasm-artifact.mjs. Hosted CI on PR 31 must confirm the download path."
+      }
+    },
+    {
+      "criterion": "The docs-only gate keeps every existing workflow contract and is itself tested.",
+      "test": "pnpm exec vitest run tests/scripts/ci-workflow.test.ts",
+      "red": {
+        "command": "pnpm exec vitest run tests/scripts/ci-workflow.test.ts (branch ci/docs-skip at 880f08b)",
+        "observedAt": "2026-11-02T18:05:00-07:00",
+        "outcome": "RED: 4 failed (browser acceptance on Linux and Windows, batch-export evidence, WASM staging, desktop installers), because the gate added if: lines to steps the contracts check. A second red: removing the gate from the Windows browser-install step fails the new gate test."
+      },
+      "green": {
+        "command": "pnpm exec vitest run tests/scripts/ci-workflow.test.ts",
+        "observedAt": "2026-11-02T18:19:33-07:00",
+        "outcome": "GREEN: 12 passed."
+      }
+    }
+  ],
+  "nearMisses": [],
+  "questions": [
+    "Q-0033"
+  ],
+  "attestation": "No prohibited source was consulted in producing this change."
+}

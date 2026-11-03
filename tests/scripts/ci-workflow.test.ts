@@ -2,10 +2,33 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
-const workflow = readFileSync(new URL("../../.github/workflows/ci.yml", import.meta.url), "utf8").replaceAll(
+const rawWorkflow = readFileSync(new URL("../../.github/workflows/ci.yml", import.meta.url), "utf8").replaceAll(
   "\r\n",
   "\n",
 );
+
+// The docs-only gate: heavy jobs skip when a change touches docs only.
+const DOCS_GATE = "needs.changes.outputs.code == 'true'";
+
+// The contract tests below check the workflow without the docs-only gate.
+// The gate has its own test at the end of this file.
+function withoutDocsGate(text: string): string {
+  return text
+    .replace(/^ +if: needs\.changes\.outputs\.code == 'true'\n/gmu, "")
+    .replaceAll(` && ${DOCS_GATE}`, "")
+    .replace(/^ {4}needs: changes\n/gmu, "");
+}
+
+const workflow = withoutDocsGate(rawWorkflow);
+
+function rawJobBlock(jobId: string): string {
+  const marker = `  ${jobId}:\n`;
+  const start = rawWorkflow.indexOf(marker, rawWorkflow.indexOf("\njobs:\n"));
+  if (start === -1) return "";
+  const remainder = rawWorkflow.slice(start + marker.length);
+  const nextJob = remainder.search(/^ {2}[a-zA-Z0-9_-]+:\n/mu);
+  return nextJob === -1 ? remainder : remainder.slice(0, nextJob);
+}
 
 function jobBlock(jobId: string): string {
   const marker = `  ${jobId}:\n`;
@@ -134,7 +157,7 @@ describe("regular CI workflow contract", () => {
       expect(workflowJob).toContain(expectedAction);
       expect(workflowJob).toContain(expectedArtifact);
       expect(workflowJob).toContain(`path: \${{ runner.temp }}/openscad-wasm-source`);
-      expect(workflowJob).toContain("run-id: 29529789154");
+      expect(workflowJob).toContain("run-id: 41557440307");
       expect(workflowJob).toContain("node scripts/stage-openscad-wasm-artifact.mjs");
     }
     expect(workflow).toContain("permissions:\n  actions: read\n  contents: read");
@@ -208,5 +231,32 @@ describe("regular CI workflow contract", () => {
       [...[build, hash, upload]].sort((left, right) => left - right),
     );
     expect(build).toBeGreaterThanOrEqual(0);
+  });
+
+  it("skips heavy jobs only on docs-only changes and keeps matrix check names", () => {
+    const changes = rawJobBlock("changes");
+    expect(changes).toContain("code: ${{ steps.diff.outputs.code }}");
+    expect(changes).toContain("code=true");
+
+    const jobsStart = rawWorkflow.indexOf("\njobs:\n");
+    const jobIds = [...rawWorkflow.slice(jobsStart).matchAll(/^ {2}([a-zA-Z0-9_-]+):\n/gmu)]
+      .map((match) => match[1])
+      .filter((id) => id !== "changes");
+    expect(jobIds).toContain("e2e");
+
+    const jobLevelGate = /^ {4}if: needs\.changes\.outputs\.code == 'true'$/mu;
+    for (const id of jobIds) {
+      const job = rawJobBlock(id);
+      expect(job, `${id} must wait for the changes job`).toMatch(/^ {4}needs: changes$/mu);
+      if (id === "e2e" || id === "desktop-installers") {
+        // A skipped matrix job reports an unexpanded name, so these required checks gate each step instead.
+        expect(job).not.toMatch(jobLevelGate);
+        for (const step of job.split(/^ {6}- /mu).slice(1)) {
+          expect(step, `every ${id} step must carry the docs-only gate`).toContain(DOCS_GATE);
+        }
+      } else {
+        expect(job, `${id} must skip on docs-only changes`).toMatch(jobLevelGate);
+      }
+    }
   });
 });
