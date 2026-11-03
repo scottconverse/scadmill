@@ -64,7 +64,7 @@
       "id": "D-0564",
       "topic": "Docs-only CI gate and the workflow contract tests",
       "decision": "Write each gated step condition as the original condition followed by '&& needs.changes.outputs.code == true'. The contract tests strip the docs-only gate before their existing checks, and one new test checks the gate itself: every job needs the changes job, normal jobs skip at job level, and every step of the e2e and desktop-installers matrix jobs carries the gate.",
-      "rationale": "The owner ordered that docs-only changes start no heavy CI. A matrix job skipped at job level reports an unexpanded name, so the required Browser acceptance and Desktop installer checks would never report; these two jobs gate each step instead. The old contract checks (no extra conditions on the acceptance and staging steps, the Linux and Windows conditions, the always() upload) still apply unchanged to everything except the docs-only gate.",
+      "rationale": "The owner ordered that docs-only changes start no heavy CI. A matrix job skipped at job level reports an unexpanded name, so the required Browser acceptance and Desktop installer checks would never report; these two jobs gate each step instead. The old contract checks (no extra conditions on the acceptance and staging steps, the Linux and Windows conditions, the always() upload) still apply unchanged to everything except the docs-only gate. The changes job writes its output before it logs the file list, and the log line ends in '|| true': with pipefail, head can close the pipe early and printf then exits 141, which would skip every check on a large code change.",
       "specBasis": [
         "N-7"
       ]

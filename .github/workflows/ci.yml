@@ -47,8 +47,9 @@ jobs:
             kept=$(printf '%s\n' "$files" | grep -E "$docs_re" | grep -E "$keep_re" || true)
             if [ -z "$other" ] && [ -z "$kept" ]; then code=false; fi
           fi
-          echo "Changed files:"; printf '%s\n' "$files" | head -50
           echo "code=$code" | tee -a "$GITHUB_OUTPUT"
+          # Log after the output is set. head can close the pipe early; that must not fail the job.
+          echo "Changed files:"; printf '%s\n' "$files" | head -50 || true
 
   website:
     needs: changes
