@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ScadMill: OpenSCAD, without losing the code</title>
+<meta name="description" content="ScadMill is a source-first OpenSCAD workbench for Windows. Edit multi-file projects, render through the unmodified OpenSCAD engine, inspect and export real geometry. Public beta, Apache-2.0.">
+<link rel="canonical" href="https://scottconverse.github.io/scadmill/">
+<link rel="icon" type="image/svg+xml" href="assets/icon.svg">
+<meta property="og:type" content="website">
+<meta property="og:title" content="ScadMill: OpenSCAD, without losing the code">
+<meta property="og:description" content="A source-first OpenSCAD workbench for Windows. Ordinary .scad source stays the durable artifact. Public beta.">
+<meta property="og:url" content="https://scottconverse.github.io/scadmill/">
+<meta property="og:image" content="https://raw.githubusercontent.com/scottconverse/scadmill/main/website/public/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="color-scheme" content="light">
+<style>
+:root{--ink:#07111f;--ink2:#0d1d2e;--paper:#f4ebdd;--paper2:#fffaf1;--orange:#f36b32;--orange-text:#a33b13;--blue:#52718d;--line:#cfc2b1;--text:#172230;--muted:#4a586a;--shell:1160px}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:72px}
+body{margin:0;background:var(--paper);color:var(--text);font:16px/1.6 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+img,svg{max-width:100%}
+h1,h2,h3,p{margin-top:0}
+code,kbd,pre{font-family:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace}
+:focus-visible{outline:3px solid var(--orange);outline-offset:3px}
+.shell{width:min(var(--shell),calc(100% - 40px));margin-inline:auto}
+.skip{position:absolute;left:-999px;top:8px;background:#fff;color:var(--ink);padding:8px 12px;z-index:20}
+.skip:focus{left:8px}
+
+/* header */
+header.top{position:sticky;top:0;z-index:10;background:var(--ink);color:#fff;border-bottom:1px solid #26394c}
+.nav{min-height:64px;display:flex;align-items:center;gap:28px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;font-weight:800;font-size:19px;letter-spacing:-.02em}
+.brand img{width:30px;height:30px;display:block}
+.nav nav{margin-left:auto;display:flex;gap:24px;font-size:14px;color:#cbd5df}
+.nav nav a{text-decoration:none;padding:6px 0}
+.nav nav a:hover{color:#fff}
+.nav-cta{background:#fff;color:var(--ink);padding:9px 14px;font-weight:750;font-size:13px;text-decoration:none;white-space:nowrap}
+.nav-cta:hover{background:var(--orange)}
+.menu{display:none;margin-left:auto}
+.menu summary{list-style:none;cursor:pointer;padding:8px 12px;border:1px solid #3a5169;font-size:13px;font-weight:700}
+.menu summary::-webkit-details-marker{display:none}
+.menu div{position:absolute;left:0;right:0;top:100%;background:var(--ink2);border-bottom:1px solid #26394c;padding:10px 20px 18px;display:flex;flex-direction:column}
+.menu div a{padding:11px 0;text-decoration:none;color:#dce5ee;border-bottom:1px solid #1f3348}
+
+/* release bar */
+.bar{background:var(--orange);color:var(--ink);font-size:13px;font-weight:650}
+.bar .shell{min-height:38px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-block:6px}
+.bar b{background:var(--ink);color:#fff;padding:2px 7px;font:700 10px/1.6 ui-monospace,monospace;letter-spacing:.08em}
+.bar a{margin-left:auto;font-weight:800}
+
+/* hero */
+.hero{display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center;padding-block:84px 92px}
+.eyebrow{color:var(--orange-text);text-transform:uppercase;font:750 12px/1.3 ui-monospace,monospace;letter-spacing:.14em;margin-bottom:18px}
+h1{font-size:clamp(42px,6vw,80px);letter-spacing:-.06em;line-height:.98;margin-bottom:26px;color:var(--ink)}
+h1 em{color:var(--orange);font-style:normal}
+.lede{max-width:640px;color:#33445a;font-size:19px;line-height:1.55}
+.actions{display:flex;flex-wrap:wrap;gap:12px;margin:30px 0 14px}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:50px;padding:0 22px;text-decoration:none;font-weight:800;font-size:14px}
+.btn.primary{background:var(--ink);color:#fff;box-shadow:5px 5px 0 var(--orange)}
+.btn.primary:hover{transform:translate(2px,2px);box-shadow:3px 3px 0 var(--orange)}
+.btn.ghost{border:1px solid var(--ink);color:var(--ink)}
+.btn.ghost:hover{background:var(--ink);color:#fff}
+.fine{font-size:13px;color:var(--muted);margin:0}
+.fine a{text-underline-offset:3px}
+
+.stage{position:relative;background:var(--ink);background-image:linear-gradient(#17304a 1px,transparent 1px),linear-gradient(90deg,#17304a 1px,transparent 1px);background-size:26px 26px;border:1px solid #26425d;box-shadow:14px 14px 0 #d8ccbc;padding:44px 22px 22px;min-height:440px}
+.stage-label{position:absolute;top:15px;left:18px;color:#8aa5bb;font:700 10px ui-monospace,monospace;letter-spacing:.12em}
+.stage-note{position:absolute;bottom:9px;right:14px;color:#8aa5bb;font:600 10px ui-monospace,monospace}
+.code{background:#0c1a29;border:1px solid #33506a;box-shadow:7px 7px 0 #02070d;padding:16px 18px;width:88%;overflow-x:auto}
+.code pre{margin:0;font-size:13px;line-height:1.9;color:#f4ebdd}
+.code .n{color:#6f8ca5;user-select:none;display:inline-block;width:2.2em}
+.code .k{color:#ff9b6e}
+.render{background:#112438;border:1px solid #33506a;margin:-20px 0 0 auto;width:66%;position:relative;padding:14px 14px 30px}
+.render svg{display:block;width:100%;height:auto}
+.render small{position:absolute;bottom:8px;left:12px;color:#8aa5bb;font:700 10px ui-monospace,monospace;letter-spacing:.06em}
+
+/* proof strip */
+.strip{background:#ded2c3;border-block:1px solid #c7b8a5}
+.strip ul{list-style:none;margin:0 auto;padding:0;display:grid;grid-template-columns:repeat(4,1fr)}
+.strip li{padding:22px 22px;border-right:1px solid #c7b8a5}
+.strip li:first-child{border-left:1px solid #c7b8a5}
+.strip strong,.strip span{display:block}
+.strip strong{color:var(--ink);font-size:16px}
+.strip span{font-size:13px;color:#4b5a6c}
+
+/* sections */
+section{padding-block:104px}
+.head{max-width:760px;margin-bottom:46px}
+.head h2{font-size:clamp(32px,4.6vw,54px);line-height:1.05;letter-spacing:-.045em;color:var(--ink);margin-bottom:18px}
+.head p:last-child{font-size:18px;color:var(--muted);margin-bottom:0}
+.dark{background:var(--ink);color:#dce5ee}
+.dark .head h2{color:#fff}
+.dark .head p:last-child{color:#a9bbcb}
+.dark .eyebrow{color:#ff9b6e}
+
+/* pipeline */
+.pipe{display:grid;grid-template-columns:repeat(5,1fr);gap:0;margin:0;padding:0;list-style:none;counter-reset:s}
+.pipe li{position:relative;background:var(--paper2);border:1px solid var(--line);margin-left:-1px;padding:22px 18px 22px;min-height:178px}
+.pipe li:before{counter-increment:s;content:"0" counter(s);font:800 12px ui-monospace,monospace;color:var(--orange-text)}
+.pipe strong{display:block;color:var(--ink);font-size:17px;margin:20px 0 6px;line-height:1.25}
+.pipe p{font-size:14px;color:var(--muted);margin:0}
+.pipe li.engine{background:var(--ink);border-color:var(--ink)}
+.pipe li.engine strong{color:#fff}.pipe li.engine p{color:#a9bbcb}.pipe li.engine:before{color:#ff9b6e}
+.pipe-note{margin-top:24px;max-width:760px;color:var(--muted)}
+
+/* capability grid */
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#c8bbab;border:1px solid #c8bbab}
+.card{background:var(--paper2);padding:32px 30px}
+.card .tag{font:800 12px ui-monospace,monospace;color:var(--orange-text);letter-spacing:.06em}
+.card h3{font-size:22px;color:var(--ink);margin:30px 0 10px;letter-spacing:-.02em}
+.card p{color:var(--muted);font-size:15px}
+.card ul{margin:12px 0 0;padding-left:18px;font-size:14px;color:#3f4d5e}
+.card li{margin:5px 0}
+
+/* quick start */
+.qs{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:start}
+.steps{margin:0;padding:0;list-style:none;counter-reset:q}
+.steps li{counter-increment:q;position:relative;padding:0 0 22px 52px;color:#c4d2df}
+.steps li:before{content:counter(q);position:absolute;left:0;top:0;width:34px;height:34px;display:grid;place-items:center;background:var(--orange);color:var(--ink);font:800 14px ui-monospace,monospace}
+.steps strong{color:#fff}
+.steps a{color:#ff9b6e}
+.steps code,.note code{background:#16314b;padding:1px 6px;font-size:13px;overflow-wrap:anywhere}
+kbd{border:1px solid #6a8097;background:#16314b;color:#fff;padding:0 6px;font-size:13px;box-shadow:0 2px 0 #3a5169}
+.term{background:#050c15;border:1px solid #26394c;box-shadow:8px 8px 0 #000;padding:20px;overflow-x:auto}
+.term .cap{color:#8aa5bb;font:700 11px ui-monospace,monospace;letter-spacing:.1em;margin-bottom:12px;display:block}
+.term pre{margin:0;color:#f4ebdd;font-size:13px;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere}
+.term .c{color:#7d9ab3}
+.note{margin-top:22px;font-size:14px;color:#a9bbcb}
+
+/* trust */
+.trust{display:grid;grid-template-columns:repeat(2,1fr);gap:24px}
+.trust div{border:1px solid var(--line);background:var(--paper2);padding:28px 30px}
+.trust h3{color:var(--ink);font-size:20px;margin-bottom:8px;letter-spacing:-.02em}
+.trust p{margin:0;color:var(--muted);font-size:15px}
+
+/* architecture */
+.arch{display:grid;grid-template-columns:1.1fr .9fr;gap:48px;align-items:start}
+.layers{display:flex;flex-direction:column;gap:10px}
+.layer{background:#102439;border:1px solid #34516c;padding:16px 20px;box-shadow:4px 4px 0 #020912}
+.layer small{display:block;color:#8aa5bb;font:700 10px ui-monospace,monospace;letter-spacing:.12em}
+.layer strong{color:#fff;font-size:15px}
+.layer span{display:block;color:#a9bbcb;font-size:13px}
+.layer.hot{border-color:var(--orange)}
+.layer.opt{border-style:dashed}
+.arch ul{padding-left:18px;margin:0;color:#c4d2df;font-size:15px}
+.arch li{margin:12px 0}
+.arch li strong{color:#fff}
+
+/* status */
+.table-wrap{overflow-x:auto;border:1px solid var(--line);background:var(--paper2)}
+table{border-collapse:collapse;width:100%;font-size:14.5px;min-width:620px}
+th,td{text-align:left;padding:14px 18px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:750 11px ui-monospace,monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--orange-text);background:#efe4d3}
+tr:last-child td{border-bottom:0}
+td:first-child{color:var(--ink);font-weight:650;width:38%}
+.pill{display:inline-block;font:750 11px ui-monospace,monospace;letter-spacing:.04em;padding:2px 8px;border:1px solid var(--ink);color:var(--ink);white-space:nowrap}
+.pill.ok{background:var(--ink);color:#fff}
+.pill.beta{background:#f1d9c8;border-color:var(--orange-text);color:#6e2c13}
+.pill.no{background:#e7ddcf;border-color:#8a7d6c;color:#4b4033}
+.callout{border-left:4px solid var(--orange);background:#f1d9c8;padding:18px 22px;margin-top:28px;max-width:860px}
+.callout p{margin:0;font-size:15px}
+.callout p+p{margin-top:8px}
+
+/* docs */
+.docs{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.docs a{display:block;border:1px solid var(--line);background:var(--paper2);padding:22px 24px;text-decoration:none}
+.docs a:hover{border-color:var(--ink);box-shadow:5px 5px 0 var(--orange)}
+.docs strong{display:block;color:var(--ink);font-size:17px;margin-bottom:6px}
+.docs span{font-size:14px;color:var(--muted)}
+
+/* cta */
+.cta{border:1px solid var(--ink);box-shadow:10px 10px 0 var(--orange);background:var(--paper2);padding:44px 42px;display:grid;grid-template-columns:1fr auto;gap:36px;align-items:center}
+.cta h2{font-size:clamp(30px,4vw,48px);line-height:1.05;letter-spacing:-.045em;color:var(--ink);margin-bottom:10px}
+.cta p{margin:0;color:var(--muted)}
+.cta .col{display:flex;flex-direction:column;gap:14px;align-items:flex-start}
+.cta .col a.link{font-weight:800;text-underline-offset:4px}
+.cta-wrap{padding-block:20px 110px}
+
+footer{background:#050c15;color:#95a7b8;padding:64px 0 48px;font-size:14px}
+.fgrid{display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:40px}
+.fgrid div{display:flex;flex-direction:column;gap:9px}
+.fgrid strong{color:#fff}
+.fgrid a{text-decoration:none}
+.fgrid a:hover{color:#fff;text-decoration:underline}
+.fgrid .brand{color:#fff;margin-bottom:6px}
+.legal{margin-top:40px;padding-top:22px;border-top:1px solid #1f3348;font-size:12.5px;color:#7d90a2}
+
+@media (max-width:960px){
+  .nav nav{display:none}.nav-cta{display:none}.menu{display:block}
+  .hero{grid-template-columns:1fr;gap:40px;padding-block:56px 64px}
+  .pipe{grid-template-columns:1fr 1fr}
+  .pipe li{margin-left:0;margin-top:-1px}
+  .grid{grid-template-columns:1fr 1fr}
+  .qs,.arch{grid-template-columns:1fr;gap:36px}
+  .docs{grid-template-columns:1fr 1fr}
+  .strip ul{grid-template-columns:1fr 1fr}
+  .strip li:nth-child(odd){border-left:1px solid #c7b8a5}
+  .strip li{border-bottom:1px solid #c7b8a5}
+  .fgrid{grid-template-columns:1fr 1fr}
+  .cta{grid-template-columns:1fr}
+}
+@media (max-width:600px){
+  .shell{width:min(100% - 32px,var(--shell))}
+  section{padding-block:68px}
+  .bar a{margin-left:0}
+  .stage{padding:42px 14px 16px;min-height:0;box-shadow:8px 8px 0 #d8ccbc}
+  .code{width:100%}.render{width:84%}
+  .pipe,.grid,.trust,.docs,.strip ul,.fgrid{grid-template-columns:1fr}
+  .strip li{border-left:1px solid #c7b8a5;border-right:1px solid #c7b8a5}
+  .cta{padding:30px 22px;box-shadow:6px 6px 0 var(--orange)}
+  .cta-wrap{padding-bottom:80px}
+  .btn{width:100%}
+}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.btn.primary:hover{transform:none}}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+  <div class="shell nav">
+    <a class="brand" href="#top" aria-label="ScadMill home"><img src="assets/icon.svg" alt="" width="30" height="30"><span>ScadMill</span></a>
+    <nav aria-label="Primary">
+      <a href="#how">How it works</a>
+      <a href="#capabilities">Capabilities</a>
+      <a href="#start">Quick start</a>
+      <a href="#status">Status</a>
+      <a href="#docs">Docs</a>
+      <a href="https://github.com/scottconverse/scadmill">GitHub</a>
+    </nav>
+    <a class="nav-cta" href="#download">Download beta</a>
+    <details class="menu">
+      <summary>Menu</summary>
+      <div>
+        <a href="#how">How it works</a>
+        <a href="#capabilities">Capabilities</a>
+        <a href="#start">Quick start</a>
+        <a href="#status">Status</a>
+        <a href="#docs">Docs</a>
+        <a href="https://github.com/scottconverse/scadmill">GitHub</a>
+        <a href="#download">Download beta</a>
+      </div>
+    </details>
+  </div>
+</header>
+
+<div class="bar"><div class="shell">
+  <b>WINDOWS BETA</b>
+  <span>0.1.0-beta.3 is public and signed. Beta software: keep backups of your projects.</span>
+  <a href="https://github.com/scottconverse/scadmill/releases/tag/v0.1.0-beta.3">View release</a>
+</div></div>
+
+<main id="main">
+<div id="top"></div>
+
+<div class="shell hero">
+  <div>
+    <p class="eyebrow">Source-first CAD for people who make things</p>
+    <h1>OpenSCAD,<br><em>without losing the code.</em></h1>
+    <p class="lede">ScadMill is a Windows desktop workbench for OpenSCAD. Edit multi-file projects, turn Customizer declarations into controls, render through the real OpenSCAD engine, inspect the result and export full-quality geometry. Your model stays ordinary <code>.scad</code> source in a folder you choose.</p>
+    <div class="actions">
+      <a class="btn primary" href="https://github.com/scottconverse/scadmill/releases/download/v0.1.0-beta.3/ScadMill_0.1.0-beta.3_x64-setup.exe">Download Windows beta</a>
+      <a class="btn ghost" href="#start">Render your first model</a>
+    </div>
+    <p class="fine">Signed 64-bit Windows installer, 202 MiB, version 0.1.0-beta.3. Rendering needs a separate official OpenSCAD 2026.06.12 snapshot. <a href="https://github.com/scottconverse/scadmill/blob/main/docs/WINDOWS-BETA.md">Setup guide</a></p>
+  </div>
+
+  <div class="stage" role="img" aria-label="Illustration: a few lines of OpenSCAD source above a wireframe of the solid they describe. Not a screenshot of the application.">
+    <span class="stage-label">SOURCE TO GEOMETRY</span>
+    <div class="code" aria-hidden="true"><pre><span class="n">1</span><span class="k">difference</span>() {
+<span class="n">2</span>  cube([40, 30, 12]);
+<span class="n">3</span>  <span class="k">translate</span>([20, 15, -1])
+<span class="n">4</span>    cylinder(h=14, r=5);
+<span class="n">5</span>}</pre></div>
+    <div class="render" aria-hidden="true">
+      <svg viewBox="0 0 220 150" fill="none" stroke-linejoin="round">
+        <g stroke="#f36b32" stroke-width="1.6">
+          <path d="M20 62 90 38 200 62 130 88Z"/>
+          <path d="M20 62v34l110 26V88M200 62v34l-70 26"/>
+          <path d="M20 62 130 88M90 38l110 24" stroke-opacity=".35"/>
+        </g>
+        <g stroke="#ff9b6e" stroke-width="1.3">
+          <ellipse cx="110" cy="68" rx="22" ry="8"/>
+          <path d="M88 68v10a22 8 0 0 0 44 0V68" stroke-opacity=".7"/>
+        </g>
+      </svg>
+      <small>ILLUSTRATION, NOT A SCREENSHOT</small>
+    </div>
+  </div>
+</div>
+
+<div class="strip"><ul class="shell" style="padding:0">
+  <li><strong>Signed installer</strong><span>Windows Authenticode, signer Scott Converse</span></li>
+  <li><strong>Local by design</strong><span>No ScadMill telemetry or cloud service</span></li>
+  <li><strong>Real engine</strong><span>Unmodified OpenSCAD, out of process</span></li>
+  <li><strong>Open source</strong><span>Apache-2.0 licensed</span></li>
+</ul></div>
+
+<section id="how"><div class="shell">
+  <div class="head">
+    <p class="eyebrow">How it works</p>
+    <h2>The code is the project. Everything else is a view of it.</h2>
+    <p>ScadMill owns editing, project state, parameters, viewers and review flows. OpenSCAD stays the geometry authority and runs as a separate process, so the model you save is the model OpenSCAD evaluates.</p>
+  </div>
+  <ol class="pipe">
+    <li><strong>Ordinary .scad source</strong><p>Folder-backed, multi-file, with <code>include</code> and <code>use</code> resolved relative to the project.</p></li>
+    <li><strong>ScadMill workbench</strong><p>Editor, Customizer controls, projects, history and review surfaces.</p></li>
+    <li><strong>Immutable render request</strong><p>A snapshot of source and parameters is sent for rendering, so later edits cannot change a render in flight.</p></li>
+    <li class="engine"><strong>Pinned OpenSCAD process</strong><p>An executable that does not match the recorded engine version is rejected for rendering.</p></li>
+    <li><strong>Validated geometry</strong><p>Color-preserving 3MF or sanitized SVG feeds the 2D and 3D viewers. Only full renders can be exported.</p></li>
+  </ol>
+  <p class="pipe-note">Failed, cancelled, stale or unavailable results are shown as such, and the last good geometry stays on screen.</p>
+</div></section>
+
+<section id="capabilities" style="padding-top:0"><div class="shell">
+  <div class="head">
+    <p class="eyebrow">Capabilities</p>
+    <h2>A working environment, not a private format.</h2>
+    <p>Everything below is part of the 0.1.0-beta.3 Windows desktop release. Rendering and export need the separately installed OpenSCAD snapshot.</p>
+  </div>
+  <div class="grid">
+    <article class="card"><span class="tag">01 / WRITE</span><h3>Edit like a codebase</h3><p>A purpose-built OpenSCAD grammar and a project-aware editor.</p><ul><li>Syntax highlighting, completions, diagnostics, parse-gated formatting</li><li>Ignore-aware project search and replace</li><li>Outline, cross-file definition and reference navigation</li><li>Light, dark or high-contrast themes, configurable shortcuts</li></ul></article>
+    <article class="card"><span class="tag">02 / ORGANIZE</span><h3>Projects stay in folders</h3><p>Desktop projects remain in folders you choose, not in a ScadMill store.</p><ul><li>Tabs, binary assets, ZIP portability</li><li>Recovery of unsaved buffers after interruption</li><li>Inline or side-by-side resolution of changes on disk</li><li>History, libraries and a split editor</li></ul></article>
+    <article class="card"><span class="tag">03 / RENDER</span><h3>Preview fast, render for real</h3><p>Press <kbd style="background:#e7ddcf;color:var(--ink);border-color:#8a7d6c;box-shadow:0 2px 0 #8a7d6c">F5</kbd> for preview geometry or <kbd style="background:#e7ddcf;color:var(--ink);border-color:#8a7d6c;box-shadow:0 2px 0 #8a7d6c">F6</kbd> for an unrestricted full render.</p><ul><li>Animation of models that use <code>$t</code> through a bounded, cancellable loop</li><li>Opt-in per-project render cache, off by default</li><li>Geometry identity and volume, bounds and triangle-count changes between renders</li></ul></article>
+    <article class="card"><span class="tag">04 / INSPECT</span><h3>See what you built</h3><p>A 3D viewer and a 2D SVG viewer.</p><ul><li>Orbit, pan, zoom, fit, projections and axis views</li><li>Measure geometry, pin annotations, capture PNG screenshots</li><li>Section view and camera bookmarks</li><li>Printability checks and color or multi-part preview</li></ul></article>
+    <article class="card"><span class="tag">05 / PARAMETERIZE</span><h3>Customizer, unchanged</h3><p>Stock OpenSCAD Customizer declarations become typed controls without silently rewriting your source.</p><ul><li>Save, import and export named parameter sets in the stock JSON format</li><li>Batch export and a headless CLI that exports a named parameter set to 3MF</li></ul></article>
+    <article class="card"><span class="tag">06 / EXPORT</span><h3>Full-quality output</h3><p>Export full results to 3MF (color-preserving), binary or ASCII STL, OFF, AMF, SVG, DXF and PNG, where the model supports the format.</p><ul><li>Slicer handoff</li><li>Design-time manufacturing estimates using embedded Kiri:Moto 4.7.1 with generic profiles, labeled estimate-only</li></ul></article>
+  </div>
+</div></section>
+
+<section id="start" class="dark"><div class="shell">
+  <div class="head">
+    <p class="eyebrow">Quick start</p>
+    <h2>From installer to a rendered cube.</h2>
+    <p>The steps below follow the project README and the Windows beta guide. The engine download is a deliberate separate step: ScadMill does not bundle or modify OpenSCAD.</p>
+  </div>
+  <div class="qs">
+    <ol class="steps">
+      <li><strong>Download the installer</strong> <code>ScadMill_0.1.0-beta.3_x64-setup.exe</code> from the <a href="https://github.com/scottconverse/scadmill/releases/tag/v0.1.0-beta.3">official release</a>.</li>
+      <li><strong>Verify it.</strong> The published SHA-256 is on the release notes, and Windows should report a valid signature from Scott Converse. The command is on the right.</li>
+      <li><strong>Get the engine.</strong> Download and verify the official OpenSCAD <code>2026.06.12</code> Windows snapshot using the <a href="https://github.com/scottconverse/scadmill/blob/main/docs/WINDOWS-BETA.md#install-the-required-openscad-engine">engine instructions</a>.</li>
+      <li><strong>Point ScadMill at it.</strong> Start the app, choose <strong>Configure engine</strong>, and select the verified <code>openscad.exe</code>.</li>
+      <li><strong>Render.</strong> Enter <code>cube([20, 20, 20]);</code>, press <kbd>F5</kbd>, and orbit the result.</li>
+    </ol>
+    <div>
+      <div class="term"><span class="cap">POWERSHELL</span><pre><span class="c"># Verify the downloaded installer before running it.</span>
+Get-FileHash -Algorithm SHA256 -LiteralPath .\ScadMill_0.1.0-beta.3_x64-setup.exe
+Get-AuthenticodeSignature -LiteralPath .\ScadMill_0.1.0-beta.3_x64-setup.exe |
+  Format-List Status, StatusMessage, SignerCertificate
+
+<span class="c"># Expected SHA-256</span>
+7F79FF060F76A3272E42821C7781A87E776EE7742BC9A503BF2F8A95D59EA87E</pre></div>
+      <p class="note">The installer is current-user, includes uninstall support and an offline WebView2 runtime, and registers <code>.scad</code> files. Editing and project work are available before the engine is configured; rendering and export are not.</p>
+    </div>
+  </div>
+</div></section>
+
+<section id="trust"><div class="shell">
+  <div class="head">
+    <p class="eyebrow">Privacy and control</p>
+    <h2>Optional automation, with consent at each step.</h2>
+    <p>ScadMill includes no telemetry and operates no cloud service or AI proxy. Network traffic happens only when you configure a provider.</p>
+  </div>
+  <div class="trust">
+    <div><h3>Provider-direct AI, if you want it</h3><p>Configure an OpenAI-compatible, Anthropic or local provider. You choose exactly which source, diagnostics, parameters or viewer image enters a request, and proposed edits stay reviewable per hunk.</p></div>
+    <div><h3>Secrets in Windows Credential Manager</h3><p>AI credentials are scoped separately, stored in the operating system credential store and excluded from settings exports. The desktop broker refuses redirects.</p></div>
+    <div><h3>A local MCP bridge, off by default</h3><p>Connect a local MCP client through the desktop app. The bridge is loopback-only and permissioned; mutation tools are denied unless you grant a session permission, and accepted requests still enter the History review surface before changing a project.</p></div>
+    <div><h3>Pinned execution</h3><p>Rendering rejects an OpenSCAD executable that does not report the recorded engine version, so results come from the engine the release was verified against.</p></div>
+  </div>
+</div></section>
+
+<section id="architecture" class="dark"><div class="shell">
+  <div class="head">
+    <p class="eyebrow">Architecture</p>
+    <h2>Capabilities, not operating-system calls.</h2>
+    <p>The shared application depends on typed capability ports. The desktop adapter supplies files, dialogs, keychain, menus and the native engine. Unavailable behavior is omitted rather than simulated.</p>
+  </div>
+  <div class="arch">
+    <div class="layers" role="img" aria-label="Layered architecture: React workbench and CodeMirror editor, application services and typed capability ports, then the Tauri desktop adapter, which uses operating-system services and an unmodified OpenSCAD subprocess. Optional AI requests go directly to the configured provider.">
+      <div class="layer"><small>INTERFACE</small><strong>React workbench + CodeMirror</strong></div>
+      <div class="layer"><small>APPLICATION</small><strong>Services + typed capability ports</strong><span>Indexing, mesh parsing and ZIP run in workers</span></div>
+      <div class="layer"><small>DESKTOP ADAPTER</small><strong>Tauri</strong><span>Files, dialogs, keychain, menus, window state</span></div>
+      <div class="layer hot"><small>OUT OF PROCESS</small><strong>Unmodified OpenSCAD subprocess</strong></div>
+      <div class="layer opt"><small>OPTIONAL, EXPLICIT CONTEXT ONLY</small><strong>Your configured AI provider</strong></div>
+    </div>
+    <ul>
+      <li><strong>Local state.</strong> Source, projects, settings and recovery data stay on the machine unless you invoke a configured provider.</li>
+      <li><strong>Browser path exists, is not shipped.</strong> A browser-source adapter and a verified OpenSCAD WASM worker are implemented for development and verification, but no public browser app or WASM package is offered.</li>
+      <li><strong>Documented failure model.</strong> The architecture guide covers render lifecycle, data ownership, worker boundaries, packaging and supply-chain controls.</li>
+      <li><a href="https://github.com/scottconverse/scadmill/blob/main/ARCHITECTURE.md" style="color:#ff9b6e;font-weight:800">Read the architecture guide</a></li>
+    </ul>
+  </div>
+</div></section>
+
+<section id="status"><div class="shell">
+  <div class="head">
+    <p class="eyebrow">An honest beta</p>
+    <h2>Useful now. Still clearly a beta.</h2>
+    <p>Status as recorded in the repository for 0.1.0-beta.3.</p>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th scope="col">Surface</th><th scope="col">Status</th><th scope="col">Notes</th></tr></thead>
+      <tbody>
+        <tr><td>Windows 10/11 x64 desktop</td><td><span class="pill ok">PUBLIC BETA</span></td><td>Signed setup, bound to tag and source commit <code>179ef30</code>.</td></tr>
+        <tr><td>Editing, projects, Customizer, native render, viewers, export</td><td><span class="pill ok">AVAILABLE</span></td><td>Rendering and export require the separately installed OpenSCAD 2026.06.12 snapshot.</td></tr>
+        <tr><td>M5 and M6 desktop scope: history, batch export, libraries, navigation, split editor, section view, printability, slicer handoff, engine manager, headless CLI, color and parts, manufacturing estimates</td><td><span class="pill ok">AVAILABLE</span></td><td>Manufacturing estimates are advisory and do not replace a real slicer profile.</td></tr>
+        <tr><td>Optional AI and local MCP</td><td><span class="pill beta">BETA</span></td><td>Explicit provider configuration and MCP permissions; there is no ScadMill AI proxy.</td></tr>
+        <tr><td>Browser-source composition and OpenSCAD WASM path</td><td><span class="pill beta">NOT DISTRIBUTED</span></td><td>Implemented in the repository; no public browser application or WASM engine package is offered.</td></tr>
+        <tr><td>macOS and Linux installers</td><td><span class="pill no">NOT RELEASED</span></td><td>Windows desktop is the approved first public target.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout">
+    <p><strong>What the release evidence does and does not cover.</strong> The tag, signed installer source and commit <code>179ef30</code> are identical; all nine required hosted checks and the isolated similarity gate passed on that source. The final exact-main clean-environment rerun was not completed, and the owner accepted publication without it. Do not treat beta.3 as fully release-proven.</p>
+    <p>The Radeon 780M was the performance-evidence host. It is not a minimum GPU requirement. Uninstalling does not erase every desktop store; the Windows beta guide lists what to clear first.</p>
+  </div>
+</div></section>
+
+<section id="docs" style="padding-top:0"><div class="shell">
+  <div class="head">
+    <p class="eyebrow">Documentation</p>
+    <h2>Read before you rely on it.</h2>
+  </div>
+  <div class="docs">
+    <a href="https://github.com/scottconverse/scadmill/blob/main/docs/USER-GUIDE.md"><strong>User manual</strong><span>Plain-language onboarding, technical reference, troubleshooting and uninstall behavior.</span></a>
+    <a href="https://github.com/scottconverse/scadmill/blob/main/docs/WINDOWS-BETA.md"><strong>Windows beta guide</strong><span>Installer and engine hashes, setup, verification, update and removal.</span></a>
+    <a href="https://github.com/scottconverse/scadmill/blob/main/ARCHITECTURE.md"><strong>Architecture</strong><span>Runtime boundaries, storage, workers, native and WASM paths, packaging.</span></a>
+    <a href="https://github.com/scottconverse/scadmill/blob/main/docs/FAQ.md"><strong>FAQ</strong><span>Preview versus full, engine pinning, recovery, AI, MCP and browser status.</span></a>
+    <a href="https://github.com/scottconverse/scadmill/blob/main/PRIVACY.md"><strong>Privacy</strong><span>Local data, recovery, caches, secrets, AI traffic and MCP behavior.</span></a>
+    <a href="https://github.com/scottconverse/scadmill/blob/main/SECURITY.md"><strong>Security</strong><span>Supported release and confidential vulnerability reporting.</span></a>
+  </div>
+</div></section>
+
+<div class="shell cta-wrap" id="download">
+  <div class="cta">
+    <div>
+      <p class="eyebrow">Public beta, 0.1.0-beta.3</p>
+      <h2>Build the model. Keep the source.</h2>
+      <p>Start with the signed Windows installer, then follow the engine setup above. Contributions are welcome; read the contributing guide first, because the project's clean-room provenance rules are part of its engineering contract.</p>
+    </div>
+    <div class="col">
+      <a class="btn primary" href="https://github.com/scottconverse/scadmill/releases/download/v0.1.0-beta.3/ScadMill_0.1.0-beta.3_x64-setup.exe">Download the installer</a>
+      <a class="link" href="https://github.com/scottconverse/scadmill/releases/tag/v0.1.0-beta.3">Release notes and checksum</a>
+      <a class="link" href="https://github.com/scottconverse/scadmill/blob/main/CONTRIBUTING.md">Contributing guide</a>
+    </div>
+  </div>
+</div>
+</main>
+
+<footer>
+  <div class="shell">
+    <div class="fgrid">
+      <div><span class="brand"><img src="assets/icon.svg" alt="" width="30" height="30"><span>ScadMill</span></span><span>Source-first OpenSCAD workbench. Windows public beta.</span></div>
+      <div><strong>Product</strong><a href="https://github.com/scottconverse/scadmill/blob/main/docs/USER-GUIDE.md">User manual</a><a href="https://github.com/scottconverse/scadmill/blob/main/docs/FAQ.md">FAQ</a><a href="https://github.com/scottconverse/scadmill/releases">Releases</a><a href="https://github.com/scottconverse/scadmill/blob/main/CHANGELOG.md">Changelog</a></div>
+      <div><strong>Project</strong><a href="https://github.com/scottconverse/scadmill">Source on GitHub</a><a href="https://github.com/scottconverse/scadmill/issues">Issues</a><a href="https://github.com/scottconverse/scadmill/blob/main/CONTRIBUTING.md">Contributing</a><a href="https://github.com/scottconverse/scadmill/blob/main/PROVENANCE.md">Provenance</a></div>
+      <div><strong>Trust</strong><a href="https://github.com/scottconverse/scadmill/blob/main/PRIVACY.md">Privacy</a><a href="https://github.com/scottconverse/scadmill/blob/main/SECURITY.md">Security policy</a><a href="https://github.com/scottconverse/scadmill/security/advisories/new">Report a vulnerability</a><a href="https://github.com/scottconverse/scadmill/blob/main/LICENSE">Apache-2.0 license</a></div>
+    </div>
+    <p class="legal">ScadMill application code is Apache-2.0. OpenSCAD and other dependencies keep their own licenses; see <a href="https://github.com/scottconverse/scadmill/blob/main/THIRD-PARTY-NOTICES.txt">third-party notices</a>. ScadMill does not bundle or modify OpenSCAD.</p>
+  </div>
+</footer>
+</body>
+</html>
