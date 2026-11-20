@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="ScadMill">
+  <rect width="512" height="512" rx="112" fill="#101827"/>
+  <path d="M256 82 408 170v176L256 430 104 346V170Z" fill="#18263b" stroke="#f4b942" stroke-width="24" stroke-linejoin="round"/>
+  <path d="m104 170 152 88 152-88M256 258v172" fill="none" stroke="#f4b942" stroke-width="20" stroke-linejoin="round"/>
+  <path d="M318 176c-19-18-43-27-72-27-45 0-76 22-76 57 0 74 172 30 172 116 0 39-35 68-89 68-37 0-70-12-94-36" fill="none" stroke="#f7fafc" stroke-width="28" stroke-linecap="round"/>
+</svg>
